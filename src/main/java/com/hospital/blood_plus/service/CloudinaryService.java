@@ -1,0 +1,77 @@
+package com.hospital.blood_plus.service;
+
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.Map;
+
+@Service
+public class CloudinaryService {
+
+    private final Cloudinary cloudinary;
+
+    public CloudinaryService(
+        @Value("${cloudinary.cloud-name}") String cloudName,
+        @Value("${cloudinary.api-key}")    String apiKey,
+        @Value("${cloudinary.api-secret}") String apiSecret
+    ) {
+        this.cloudinary = new Cloudinary(ObjectUtils.asMap(
+            "cloud_name", cloudName,
+            "api_key",    apiKey,
+            "api_secret", apiSecret
+        ));
+    }
+
+    /**
+     * Uploads a doctor's note file to Cloudinary.
+     * Returns a String[2]: [0] = secure_url, [1] = public_id (key)
+     */
+    public String[] uploadDoctorsNote(MultipartFile file) throws IOException {
+        System.out.println("=== CLOUDINARY UPLOAD START ===");
+        System.out.println("File name: " + file.getOriginalFilename());
+        System.out.println("File size: " + file.getSize());
+        System.out.println("File type: " + file.getContentType());
+
+        try {
+            Map uploadResult = cloudinary.uploader().upload(
+                file.getBytes(),
+                ObjectUtils.asMap(
+                    "folder",          "blood_plus/doctors_notes",
+                    "resource_type",   "auto",
+                    "use_filename",    true,
+                    "unique_filename", true
+                )
+            );
+
+            System.out.println("=== CLOUDINARY UPLOAD SUCCESS ===");
+            System.out.println("URL: " + uploadResult.get("secure_url"));
+            System.out.println("Key: " + uploadResult.get("public_id"));
+
+            return new String[]{
+                (String) uploadResult.get("secure_url"),
+                (String) uploadResult.get("public_id")
+            };
+
+        } catch (Exception e) {
+            System.out.println("=== CLOUDINARY UPLOAD FAILED ===");
+            System.out.println(e.getClass().getName() + ": " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    /**
+     * Deletes a file from Cloudinary by its public_id (key).
+     * Call this when a request is cancelled or rejected if you want cleanup.
+     */
+    public void deleteDoctorsNote(String publicId) throws IOException {
+        cloudinary.uploader().destroy(
+            publicId,
+            ObjectUtils.asMap("resource_type", "auto")
+        );
+    }
+}

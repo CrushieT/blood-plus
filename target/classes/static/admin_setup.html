@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloodPlus — System Setup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <script src="js/AuthGuard.js"></script>
+    <link href="css/admin_setup.css" rel="stylesheet" />
+
+  </head>
+  <body>
+
+    <div class="bg">
+      <div class="bg-grid"></div>
+      <div class="bg-glow-1"></div>
+      <div class="bg-glow-2"></div>
+    </div>
+
+    <div class="page">
+
+      <!-- ── Left Panel ──────────────────────────────── -->
+      <aside class="left-panel">
+        <div>
+          <div class="logo"><span>Blood</span>Plus</div>
+          <div class="logo-sub">Blood Donation System</div>
+        </div>
+
+        <div class="left-middle">
+          <div class="left-headline">First-Time<br><em>System Setup</em></div>
+          <p class="left-desc">
+            Create the root administrator account for BloodPlus. This account will have full system access. No admin account currently exists.
+          </p>
+
+          <div class="step-list">
+            <div class="step-item active" id="sideStep1">
+              <div class="step-num">1</div>
+              <div class="step-text">Create Admin Account</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" id="sideStep2">
+              <div class="step-num">2</div>
+              <div class="step-text">Verify Email Address</div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item" id="sideStep3">
+              <div class="step-num">3</div>
+              <div class="step-text">Setup Complete</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="left-footer">First boot detected — no admin exists</div>
+        <div class="left-deco-drop"></div>
+      </aside>
+
+      <!-- ── Right Panel ─────────────────────────────── -->
+      <main class="right-panel">
+        <div class="form-container">
+
+          <!-- ════════ STEP 1: Create Account ════════ -->
+          <div class="step-panel active" id="step1">
+            <div class="step-tag">⚙ Step 1 of 2</div>
+            <h1 class="form-title">Create Admin Account</h1>
+            <p class="form-sub">
+              Role is automatically set to
+              <strong style="color:var(--crimson-light);font-family:'DM Mono',monospace">ADMIN</strong>.
+              Fill in your credentials below.
+            </p>
+
+            <div class="info-box">
+              <span class="info-icon">🔒</span>
+              <span>This setup page is only accessible on first boot. Once the admin account is created, this route will be permanently disabled.</span>
+            </div>
+
+            <div id="step1-alert" class="alert alert-error">
+              <span>⚠</span><span id="step1-alert-msg"></span>
+            </div>
+
+            <!-- Username -->
+            <div class="field-group">
+              <label>Username</label>
+              <div class="field-wrap">
+                <span class="field-icon">👤</span>
+                <input type="text" id="username" placeholder="e.g. admin"
+                  autocomplete="off" spellcheck="false"
+                  oninput="validateUsername()" onblur="validateUsername(true)">
+              </div>
+              <div class="field-error" id="username-err">⚠ Min. 4 characters — letters, numbers, and underscores only.</div>
+            </div>
+
+            <!-- Email -->
+            <div class="field-group">
+              <label>Email Address</label>
+              <div class="field-wrap">
+                <span class="field-icon">✉</span>
+                <input type="email" id="email" placeholder="admin@yourdomain.com"
+                  autocomplete="off"
+                  oninput="validateEmail()" onblur="validateEmail(true)">
+              </div>
+              <div class="field-error" id="email-err">⚠ Please enter a valid email address.</div>
+            </div>
+
+            <!-- Password -->
+            <div class="field-group">
+              <label>Password</label>
+              <div class="field-wrap">
+                <span class="field-icon">🔑</span>
+                <input type="password" id="password" placeholder="Create a strong password"
+                  oninput="checkPassword()" onblur="checkPassword()">
+                <button class="toggle-pw" type="button" onclick="togglePw('password',this)">👁</button>
+              </div>
+              <div class="pw-strength" id="pwStrength">
+                <div class="pw-bars">
+                  <div class="pw-bar" id="bar1"></div>
+                  <div class="pw-bar" id="bar2"></div>
+                  <div class="pw-bar" id="bar3"></div>
+                  <div class="pw-bar" id="bar4"></div>
+                </div>
+                <div class="pw-label" id="pwLabel">Enter a password</div>
+                <div class="pw-rules">
+                  <div class="pw-rule" id="rule-len">  <div class="pw-rule-dot"></div>At least 8 characters</div>
+                  <div class="pw-rule" id="rule-upper"><div class="pw-rule-dot"></div>One uppercase letter</div>
+                  <div class="pw-rule" id="rule-num">  <div class="pw-rule-dot"></div>One number</div>
+                  <div class="pw-rule" id="rule-sym">  <div class="pw-rule-dot"></div>One special character</div>
+                </div>
+              </div>
+              <div class="field-error" id="password-err">⚠ Password does not meet all requirements.</div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="field-group">
+              <label>Confirm Password</label>
+              <div class="field-wrap">
+                <span class="field-icon">🔑</span>
+                <input type="password" id="confirmPassword" placeholder="Repeat your password"
+                  oninput="validateConfirm()" onblur="validateConfirm(true)">
+                <button class="toggle-pw" type="button" onclick="togglePw('confirmPassword',this)">👁</button>
+              </div>
+              <div class="field-error" id="confirm-err">⚠ Passwords do not match.</div>
+            </div>
+
+            <button class="btn-submit" id="step1Btn" onclick="submitStep1()">
+              <span class="btn-text">Create Account &amp; Send Verification →</span>
+            </button>
+          </div>
+
+          <!-- ════════ STEP 2: Email Verification ════════ -->
+          <div class="step-panel" id="step2">
+            <div class="step-tag">✉ Step 2 of 2</div>
+            <h1 class="form-title">Verify Your Email</h1>
+            <p class="form-sub">A 4-digit code was sent to:</p>
+
+            <div class="email-badge">✉ <span id="displayEmail">—</span></div>
+
+            <div id="step2-alert" class="alert alert-error">
+              <span>⚠</span><span id="step2-alert-msg"></span>
+            </div>
+            <div id="step2-success" class="alert alert-success">
+              <span>✓</span><span>Code verified! Completing setup...</span>
+            </div>
+
+            <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;text-align:center">
+              Enter the 4-digit verification code
+            </p>
+
+            <div class="otp-row">
+              <input class="otp-box" id="otp1" type="text" maxlength="1" inputmode="numeric"
+                oninput="otpInput(this,1)" onkeydown="otpKeydown(event,this,1)">
+              <input class="otp-box" id="otp2" type="text" maxlength="1" inputmode="numeric"
+                oninput="otpInput(this,2)" onkeydown="otpKeydown(event,this,2)">
+              <input class="otp-box" id="otp3" type="text" maxlength="1" inputmode="numeric"
+                oninput="otpInput(this,3)" onkeydown="otpKeydown(event,this,3)">
+              <input class="otp-box" id="otp4" type="text" maxlength="1" inputmode="numeric"
+                oninput="otpInput(this,4)" onkeydown="otpKeydown(event,this,4)">
+            </div>
+
+            <button class="btn-submit" id="verifyBtn" onclick="submitVerification()" disabled>
+              <span class="btn-text">Verify &amp; Complete Setup ✓</span>
+            </button>
+
+            <div class="resend-row">
+              Didn't receive it?
+              <button class="resend-btn" id="resendBtn" onclick="resendCode()" disabled>
+                Resend code <span id="resendTimer">(60s)</span>
+              </button>
+            </div>
+
+            <button class="btn-ghost" onclick="goBackToStep1()">← Change account details</button>
+          </div>
+
+          <!-- ════════ STEP 3: Success ════════ -->
+          <div class="step-panel" id="step3">
+            <div class="success-icon">✓</div>
+            <div class="success-title">Setup Complete!</div>
+            <p class="success-desc">
+              Your admin account has been created and verified.<br>BloodPlus is ready to use.
+            </p>
+
+            <div class="summary-card">
+              <div class="summary-label">Account Summary</div>
+              <div class="summary-row">
+                <span class="summary-key">Username</span>
+                <span class="summary-val" id="summary-username">—</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-key">Email</span>
+                <span class="summary-val" id="summary-email">—</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-key">Role</span>
+                <span class="summary-val" style="color:var(--crimson-light)">ADMIN</span>
+              </div>
+              <div class="summary-row">
+                <span class="summary-key">Email Verified</span>
+                <span class="summary-val" style="color:var(--green)">✓ true</span>
+              </div>
+            </div>
+
+            <button class="btn-submit" onclick="window.location.href='/admin/dashboard'">
+              <span class="btn-text">Go to Admin Dashboard →</span>
+            </button>
+          </div>
+
+        </div>
+      </main>
+    </div>
+
+
+    <script src="js/admin_setup.js"></script>
+  </body>
+</html>

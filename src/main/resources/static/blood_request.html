@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNPH Blood Bank — Request Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link href="css/blood_request.css" rel="stylesheet" />
+</head>
+<body>
+
+<!-- Emergency strip -->
+<div class="emergency-strip">
+  🚨 For life-threatening emergencies, go directly to the Blood Bank window or call the ward nurse immediately.
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="drop drop-1"></div>
+  <div class="drop drop-2"></div>
+  <div class="drop drop-3"></div>
+  <div class="drop drop-4"></div>
+
+  <nav>
+    <div class="logo">
+      <div class="logo-drop"><span>🩸</span></div>
+      <div>
+        <div class="logo-text">CNPH Blood Bank</div>
+        <div class="logo-sub">Camarines Norte Provincial Hospital</div>
+      </div>
+    </div>
+    <div class="nav-badge">Blood Request Portal</div>
+  </nav>
+
+  <div class="hero-content">
+    <div class="hero-eyebrow">
+      <div class="pulse-dot"></div>
+      Blood Dispensing System
+    </div>
+    <h1 class="hero-title">
+      Every Second<br>
+      <em>Counts.</em>
+    </h1>
+    <p class="hero-sub">
+      Request blood for your patient quickly and securely. Submit your details, upload the required documents, and track your request in real time.
+    </p>
+    <div class="hero-actions">
+      <button class="btn-request" onclick="scrollToForm('request')">
+        🩸 Request Blood Now
+      </button>
+      <button class="btn-track" onclick="scrollToForm('track')">
+        🔍 Track My Request
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-num">8</div>
+      <div class="stat-label">Blood Types</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">24/7</div>
+      <div class="stat-label">Available</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">30<span style="font-size:16px">min</span></div>
+      <div class="stat-label">Avg. Release Time</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">5</div>
+      <div class="stat-label">Components</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN FORM SECTION -->
+<div class="main-section" id="form-section">
+
+  <div class="tab-container">
+    <!-- Tab Header -->
+    <div class="tab-header">
+      <button class="tab-btn active" id="tab-request-btn" onclick="switchTab('request')">
+        <div class="tab-icon">🩸</div>
+        Request Blood
+      </button>
+      <button class="tab-btn" id="tab-track-btn" onclick="switchTab('track')">
+        <div class="tab-icon">🔍</div>
+        Track My Request
+      </button>
+    </div>
+
+    <!-- REQUEST PANEL -->
+    <div class="tab-panel active" id="tab-request">
+
+      <!-- Success screen -->
+      <div class="success-screen" id="success-screen">
+        <div class="success-icon-wrap">✓</div>
+        <div class="success-title">Request Submitted!</div>
+        <div class="success-sub">
+          Your blood request is now under review by our Blood Bank staff.
+          Please save your reference number — you'll need it to track your request.
+        </div>
+        <div class="ref-display">
+          <div>
+            <div class="ref-label">Reference No.</div>
+            <div class="ref-number" id="success-ref">BR-2026-00000</div>
+          </div>
+          <button class="btn-copy" onclick="copyRef()">Copy</button>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
+          We'll send a confirmation and updates to <strong id="success-email"></strong>
+        </div>
+        <button class="btn-new-request" onclick="resetForm()">＋ Submit Another Request</button>
+      </div>
+
+      <!-- Form -->
+      <div class="form-body" id="request-form-body">
+
+        <div class="form-intro">
+          <span class="form-intro-icon">ℹ</span>
+          <span>
+            A <strong>Doctor's Note or Blood Request Form</strong> from the requesting physician is required.
+            A Commitment Referral from your municipality must be submitted before the patient is discharged.
+          </span>
+        </div>
+
+        <!-- Error -->
+        <div class="form-error" id="form-error">
+          <span>⚠</span><span id="form-error-msg"></span>
+        </div>
+
+        <!-- PATIENT INFO -->
+        <div class="form-section-title">Patient Information</div>
+        <div class="form-grid cols-2">
+          <div class="form-field" style="grid-column: span 2">
+            <label class="form-label">Full Name (Surname, Given, Middle) <span>*</span></label>
+            <input class="form-input" id="f-patientName" placeholder="e.g. Dela Cruz, Juan Santos" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Age <span>*</span></label>
+            <input class="form-input" id="f-age" type="number" placeholder="e.g. 35" min="0" max="120" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Sex <span>*</span></label>
+            <select class="form-select" id="f-sex">
+              <option value="">Select...</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Ward / Room No.</label>
+            <input class="form-input" id="f-ward" placeholder="e.g. Ward 3 / Room 201" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Requesting Physician <span>*</span></label>
+            <input class="form-input" id="f-physician" placeholder="e.g. Dr. Reyes" />
+          </div>
+        </div>
+
+        <!-- Age Group -->
+        <div class="form-section-title">Patient Type</div>
+        <div class="radio-group">
+          <div class="radio-option">
+            <input type="radio" name="ageGroup" id="ag-adult" value="ADULT" checked>
+            <label class="radio-label" for="ag-adult">🧑 Adult</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" name="ageGroup" id="ag-pedia" value="PEDIA">
+            <label class="radio-label" for="ag-pedia">👶 Pedia</label>
+          </div>
+        </div>
+
+        <!-- Request Category -->
+        <div class="form-section-title">Request Category</div>
+        <div class="radio-group">
+          <div class="radio-option">
+            <input type="radio" name="category" id="cat-inpatient" value="INPATIENT" checked>
+            <label class="radio-label" for="cat-inpatient">🏥 Inpatient (CNPH)</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" name="category" id="cat-outpatient" value="OUTPATIENT">
+            <label class="radio-label" for="cat-outpatient">🚶 Outpatient</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" name="category" id="cat-hospital" value="HOSPITAL">
+            <label class="radio-label" for="cat-hospital">🏨 Other Hospital</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" name="category" id="cat-emergency" value="EMERGENCY">
+            <label class="radio-label" for="cat-emergency">🚨 Emergency</label>
+          </div>
+        </div>
+
+        <!-- BLOOD REQUEST DETAILS -->
+        <div class="form-section-title">Blood Request Details</div>
+        <div class="form-grid cols-3">
+          <div class="form-field">
+            <label class="form-label">Blood Type Needed <span>*</span></label>
+            <select class="form-select" id="f-bloodType">
+              <option value="">Select...</option>
+              <option value="O_NEG">O−</option>
+              <option value="O_POS">O+</option>
+              <option value="A_POS">A+</option>
+              <option value="A_NEG">A−</option>
+              <option value="B_POS">B+</option>
+              <option value="B_NEG">B−</option>
+              <option value="AB_POS">AB+</option>
+              <option value="AB_NEG">AB−</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Component <span>*</span></label>
+            <select class="form-select" id="f-component">
+              <option value="">Select...</option>
+              <option value="WHOLE_BLOOD">Whole Blood</option>
+              <option value="PRBC">Packed RBC</option>
+              <option value="PLATELET">Platelet Concentrate</option>
+              <option value="FFP">Fresh Frozen Plasma (FFP)</option>
+              <option value="LEUKOREDUCED">Leukoreduced</option>
+              <option value="ALIQUOT">Aliquot</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">No. of Units <span>*</span></label>
+            <select class="form-select" id="f-units">
+              <option value="">Select...</option>
+              <option value="1">1 unit</option>
+              <option value="2">2 units</option>
+              <option value="3">3 units</option>
+              <option value="4">4 units</option>
+              <option value="5">5+ units</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Urgency -->
+        <div class="form-field" style="margin-top:4px">
+          <label class="form-label">Urgency Level <span>*</span></label>
+          <div class="urgency-group">
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-low" value="LOW">
+              <label class="urgency-label" for="urg-low">🟢<br>Low<br><span style="font-weight:400;font-size:10px">Scheduled</span></label>
+            </div>
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-med" value="MEDIUM" checked>
+              <label class="urgency-label" for="urg-med">🔵<br>Medium<br><span style="font-weight:400;font-size:10px">Within a week</span></label>
+            </div>
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-high" value="HIGH">
+              <label class="urgency-label" for="urg-high">🟡<br>High<br><span style="font-weight:400;font-size:10px">2–3 days</span></label>
+            </div>
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-crit" value="CRITICAL">
+              <label class="urgency-label" for="urg-crit">🔴<br>Critical<br><span style="font-weight:400;font-size:10px">Immediately</span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-field" style="margin-top:14px">
+          <label class="form-label">Required By Date</label>
+          <input class="form-input" type="date" id="f-requiredBy" />
+        </div>
+
+        <!-- DOCUMENTS -->
+        <div class="form-section-title">Documents</div>
+        <!-- DOWNLOAD FORMS CARD -->
+        <div style="background:var(--charcoal);border-radius:14px;padding:20px 22px;margin-bottom:16px">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
+            <div style="font-size:22px;flex-shrink:0">📋</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:white;margin-bottom:4px">Don't have a Doctor's Note yet?</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.6">
+                Download the official CNPH Blood Request Form, have it filled out and signed by the requesting physician, then upload it here.
+                If you are from another hospital, use your hospital's own format instead.
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button class="dl-card-btn" onclick="downloadForm('adult')"
+              style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.06);
+                     border:1.5px solid rgba(255,255,255,0.12);border-radius:11px;padding:13px 16px;
+                     cursor:pointer;text-align:left;width:100%;font-family:'DM Sans',sans-serif"
+              onmouseover="this.style.background='rgba(196,30,58,0.25)';this.style.borderColor='rgba(196,30,58,0.5)'"
+              onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.borderColor='rgba(255,255,255,0.12)'">
+              <div style="width:36px;height:36px;background:rgba(196,30,58,0.3);border-radius:8px;
+                          display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📄</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:white">Adult Form</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px">Blood Request Form (Adult) · PDF ↓</div>
+              </div>
+            </button>
+            <button class="dl-card-btn" onclick="downloadForm('pedia')"
+              style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.06);
+                     border:1.5px solid rgba(255,255,255,0.12);border-radius:11px;padding:13px 16px;
+                     cursor:pointer;text-align:left;width:100%;font-family:'DM Sans',sans-serif"
+              onmouseover="this.style.background='rgba(196,30,58,0.25)';this.style.borderColor='rgba(196,30,58,0.5)'"
+              onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.borderColor='rgba(255,255,255,0.12)'">
+              <div style="width:36px;height:36px;background:rgba(196,30,58,0.3);border-radius:8px;
+                          display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📄</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:white">Pediatric Form</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px">Blood Request Form (Pedia) · PDF ↓</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
+          ondragover="event.preventDefault();this.classList.add('has-file')"
+          ondragleave="this.classList.remove('has-file')"
+          ondrop="handleDrop(event)">
+          <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this.files[0])">
+          <div id="upload-placeholder">
+            <div style="font-size:32px;opacity:0.3;margin-bottom:8px">📄</div>
+            <div style="font-size:14px;font-weight:600;color:var(--charcoal);margin-bottom:4px">Click to upload Doctor's Note</div>
+            <div style="font-size:12px;color:var(--muted)">PDF, JPG or PNG · Max 5MB</div>
+          </div>
+          <div id="upload-preview" style="display:none;text-align:left">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:40px;height:40px;background:#E8F7EE;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#2E7D4F">✓</div>
+              <div style="flex:1;min-width:0">
+                <div id="file-name" style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--charcoal)"></div>
+                <div id="file-size" style="font-size:11px;color:var(--muted);margin-top:1px"></div>
+              </div>
+              <button type="button" onclick="event.stopPropagation();clearFile()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional notes -->
+        <div class="form-field" style="margin-top:14px">
+          <label class="form-label">Additional Notes</label>
+          <textarea class="form-textarea" id="f-notes" placeholder="e.g. Hospital name if from another facility, specific condition, or other relevant details..."></textarea>
+        </div>
+
+        <!-- CONTACT INFORMATION -->
+        <div class="form-section-title">Contact Information</div>
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label class="form-label">Your Full Name <span>*</span></label>
+            <input class="form-input" id="f-requesterName" placeholder="Relative / Watcher" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Relationship to Patient <span>*</span></label>
+            <select class="form-select" id="f-relationship">
+              <option value="">Select...</option>
+              <option value="Spouse">Spouse</option>
+              <option value="Parent">Parent</option>
+              <option value="Child">Child</option>
+              <option value="Sibling">Sibling</option>
+              <option value="Relative">Other Relative</option>
+              <option value="Watcher">Watcher / Guardian</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Contact Number <span>*</span></label>
+            <input class="form-input" id="f-contact" placeholder="e.g. 09xxxxxxxxx" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Email Address <span>*</span></label>
+            <input class="form-input" id="f-email" type="email" placeholder="For notifications & reference number" />
+          </div>
+        </div>
+
+        <button class="btn-submit" id="submit-btn" onclick="submitRequest()">
+          🩸 Submit Blood Request
+        </button>
+
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6">
+          By submitting, you confirm that all information provided is accurate.<br>
+          Your reference number will be sent to the email address provided.
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TRACK PANEL -->
+    <div class="tab-panel" id="tab-track">
+      <div class="tracker-body">
+
+        <div style="margin-bottom:24px">
+          <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:6px">Track Your Request</div>
+          <div style="font-size:13px;color:var(--muted)">Enter the reference number sent to your email after submission.</div>
+        </div>
+
+        <div class="tracker-search">
+          <div class="tracker-input-wrap">
+            <span class="input-prefix">BR-</span>
+            <input class="tracker-input" id="track-input" placeholder="2026-00123" maxlength="20"
+              onkeydown="if(event.key==='Enter') trackRequest()" />
+          </div>
+          <button class="btn-search" onclick="trackRequest()">🔍 Track</button>
+        </div>
+
+        <!-- Result area -->
+        <div id="track-result" class="track-result"></div>
+
+        <!-- Default state -->
+        <div id="track-default" class="track-empty">
+          <div class="track-empty-icon">🔍</div>
+          <div class="track-empty-title">Enter your reference number</div>
+          <div style="font-size:13px;color:var(--muted);max-width:300px;margin:6px auto 0;line-height:1.6">
+            Your reference number was sent to your email when you submitted the request. It looks like <strong>BR-2026-00123</strong>.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div class="how-section">
+  <div class="how-inner">
+    <div class="section-eyebrow">Process</div>
+    <div class="section-title">How It Works</div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">Submit Request</div>
+        <div class="step-desc">Fill out the form with patient details, blood type needed, and upload the doctor's note.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">Admin Review</div>
+        <div class="step-desc">Our Blood Bank staff reviews your request, verifies stock availability, and processes compatibility testing.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">Get Notified</div>
+        <div class="step-desc">You'll receive an email notification when your request is approved, ready, or if there are any updates.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-title">Pick Up Blood</div>
+        <div class="step-desc">Proceed to the Blood Bank window with a transport box. Blood must be used within 30 minutes of release.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-text">© 2026 CNPH Blood Bank · Camarines Norte Provincial Hospital</div>
+  <div class="footer-text">Open 24/7 · Blood Bank Window · Ground Floor</div>
+</footer>
+
+
+  <script src="js/blood_request.js"></script>
+</body>
+</html>
