@@ -2,7 +2,7 @@
     try {
         const path        = window.location.pathname;
         const isSetupPage = path.includes("admin_setup");
-        const isPublicPage = path === "/admin_login.html" ||
+        const isPublicPage = path === "/admin-login.html" ||
                              path === "/";
 
         // ── System status check first ────────────────────────────────────────
@@ -11,13 +11,13 @@
 
         // Not initialized → redirect to setup (unless already on setup page)
         if (!statusData.initialized && !isSetupPage) {
-            window.location.href = "/admin_setup.html";
+            window.location.href = "/admin-setup.html";
             return;
         }
 
         // Already initialized but visiting setup page → redirect to login
         if (statusData.initialized && isSetupPage) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
@@ -52,24 +52,24 @@
 
         // ── Protected pages ──────────────────────────────────────────────────
         if (response.status === 401 || response.status === 403 || response.status === 500) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
         const data = await response.json();
 
         if (!data.role) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
               if (path.startsWith("/hospital/") && data.role !== "HOSPITAL") {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
         if (path.startsWith("/admin/") && data.role !== "ADMIN") {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
@@ -81,9 +81,9 @@
 
     } catch (error) {
         const path = window.location.pathname;
-        const isPublicPage = path === "/blood_request.html" || path === "/";
+        const isPublicPage = path === "/blood-request.html" || path === "/";
         if (!isPublicPage) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
         } else {
             document.body.style.visibility = "visible";
         }

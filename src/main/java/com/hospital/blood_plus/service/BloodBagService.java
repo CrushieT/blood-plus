@@ -3,6 +3,7 @@ package com.hospital.blood_plus.service;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.response.AdminDashboardResponse;
+import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.dto.response.BloodBagResponse;
 import com.hospital.blood_plus.model.*;
 import com.hospital.blood_plus.model.BloodBag.BagSource;
@@ -200,6 +201,56 @@ public class BloodBagService {
         res.setCriticalBloodTypes(criticalCount);
         res.setBloodBankSummary(countByType);
         return res;
+    }
+
+    public List<BloodBagAvailableDTO> getAvailableBags(
+            BloodBag.BloodType requestedType,
+            BloodBag.ComponentType requestedComponent) {
+ 
+        /* 1. Fetch all AVAILABLE bags of the requested blood type */
+        List<BloodBag> pool = bloodBagRepository.findByBloodTypeAndStatus(
+                requestedType, BloodBag.BagStatus.AVAILABLE);
+ 
+        /* Also include bags that are expiring within 48 h and still AVAILABLE
+           (CROSSMATCHED bags are excluded — they're already reserved) */
+        LocalDateTime now = LocalDateTime.now();
+ 
+        /* 2. Split into compatible (type + component) vs near-compatible */
+        List<BloodBag> compatible = new ArrayList<>();
+        List<BloodBag> others     = new ArrayList<>();
+ 
+        for (BloodBag bag : pool) {
+            // skip already-expired bags
+            if (bag.getExpiresAt() != null && bag.getExpiresAt().isBefore(now)) continue;
+ 
+            boolean componentMatch = requestedComponent == null
+                    || bag.getComponentType() == requestedComponent;
+ 
+            if (componentMatch) compatible.add(bag);
+            else                others.add(bag);
+        }
+ 
+        /* 3. Sort compatible soonest-to-expire first (FIFO) */
+        compatible.sort(Comparator.comparing(
+                bag -> bag.getExpiresAt() != null ? bag.getExpiresAt() : LocalDateTime.MAX));
+ 
+        /* 4. Sort others by expiry too */
+        others.sort(Comparator.comparing(
+                bag -> bag.getExpiresAt() != null ? bag.getExpiresAt() : LocalDateTime.MAX));
+ 
+        /* 5. Map to DTOs */
+        List<BloodBagAvailableDTO> result = new ArrayList<>();
+        boolean firstCompatible = true;
+ 
+        for (BloodBag bag : compatible) {
+            result.add(BloodBagAvailableDTO.from(bag, true, firstCompatible));
+            firstCompatible = false;
+        }
+        for (BloodBag bag : others) {
+            result.add(BloodBagAvailableDTO.from(bag, false, false));
+        }
+ 
+        return result;
     }
 
     // ── Helpers ───────────────────────────────────────────────────

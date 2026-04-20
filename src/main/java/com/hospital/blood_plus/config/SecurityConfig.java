@@ -57,9 +57,9 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/",
                     "/favicon.ico", 
-                    "/blood_request.html",
-                    "/admin_login.html",
-                    "/admin_setup.html",
+                    "/blood-request.html",
+                    "/admin-login.html",
+                    "/admin-setup.html",
                     "/css/**",
                     "/js/**",
                     "/forms/**",
@@ -91,7 +91,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint((request, response, authException) -> {
                     String acceptHeader = request.getHeader("Accept");
                     if (acceptHeader != null && acceptHeader.contains("text/html")) {
-                        response.sendRedirect("/blood_request.html");
+                        response.sendRedirect("/blood-request.html");
                     } else {
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                         response.setContentType("application/json");
@@ -101,7 +101,7 @@ public class SecurityConfig {
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
                     String acceptHeader = request.getHeader("Accept");
                     if (acceptHeader != null && acceptHeader.contains("text/html")) {
-                        response.sendRedirect("/blood_request.html");
+                        response.sendRedirect("/blood-request.html");
                     } else {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json");

@@ -863,42 +863,100 @@ async function submitAddBloodStock() {
 // BLOOD REQUESTS
 // ═══════════════════════════════════════════════════════
 
-(function(){
-  const REQ_STATUSES = ['PENDING','APPROVED','ALLOCATED','READY_FOR_RELEASE','RELEASED'];
+(function () {
+  /* ─────────────────────────────────────────────────────────
+     CONSTANTS
+  ───────────────────────────────────────────────────────── */
+  const REQ_STATUSES = ['PENDING', 'APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
   const REQ_STATUS_LABEL = {
-    PENDING:'Pending', APPROVED:'Approved', ALLOCATED:'Allocated',
-    READY_FOR_RELEASE:'Ready for release', RELEASED:'Released', REJECTED:'Rejected'
+    PENDING: 'Pending', APPROVED: 'Approved', ALLOCATED: 'Allocated',
+    READY_FOR_RELEASE: 'Ready for release', RELEASED: 'Released', REJECTED: 'Rejected',
   };
   const REQ_STATUS_TAG = {
-    PENDING:'tag-pending', APPROVED:'tag-approved', ALLOCATED:'tag-allocated',
-    READY_FOR_RELEASE:'tag-ready', RELEASED:'tag-released', REJECTED:'tag-rejected'
+    PENDING: 'tag-pending', APPROVED: 'tag-approved', ALLOCATED: 'tag-allocated',
+    READY_FOR_RELEASE: 'tag-ready', RELEASED: 'tag-released', REJECTED: 'tag-rejected',
   };
-  const REQ_URGENCY_ORDER = {CRITICAL:0,HIGH:1,MEDIUM:2,LOW:3};
-  const REQ_URGENCY_COLOR = {CRITICAL:'var(--crimson)',HIGH:'var(--amber)',MEDIUM:'var(--blue)',LOW:'var(--green)'};
-  const REQ_URGENCY_TAG   = {CRITICAL:'tag-critical',HIGH:'tag-urgent',MEDIUM:'tag-low',LOW:'tag-good'};
+  const REQ_URGENCY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  const REQ_URGENCY_COLOR = {
+    CRITICAL: 'var(--crimson)', HIGH: 'var(--amber)',
+    MEDIUM: 'var(--blue)', LOW: 'var(--green)',
+  };
+  const REQ_URGENCY_TAG = {
+    CRITICAL: 'tag-critical', HIGH: 'tag-urgent',
+    MEDIUM: 'tag-low', LOW: 'tag-good',
+  };
 
+  /*
+   * needsBag: true  → clicking this action opens the bag picker
+   *           false → clicking opens the simple confirm modal
+   */
   const REQ_NEXT = {
-    PENDING:          {label:'Approve',         cls:'req-btn-approve',  next:'APPROVED',         endpoint:'approve'},
-    APPROVED:         {label:'Mark Allocated',  cls:'req-btn-allocate', next:'ALLOCATED',        endpoint:'allocate'},
-    ALLOCATED:        {label:'Mark Ready',      cls:'req-btn-ready',    next:'READY_FOR_RELEASE',endpoint:'ready'},
-    READY_FOR_RELEASE:{label:'Confirm Release', cls:'req-btn-release',  next:'RELEASED',         endpoint:'release'},
+    PENDING:           { label: 'Approve',         cls: 'req-btn-approve',  next: 'APPROVED',          endpoint: 'approve',  needsBag: false },
+    APPROVED:          { label: 'Mark Allocated',  cls: 'req-btn-allocate', next: 'ALLOCATED',         endpoint: 'allocate', needsBag: true  },
+    ALLOCATED:         { label: 'Mark Ready',      cls: 'req-btn-ready',    next: 'READY_FOR_RELEASE', endpoint: 'ready',    needsBag: false },
+    READY_FOR_RELEASE: { label: 'Confirm Release', cls: 'req-btn-release',  next: 'RELEASED',          endpoint: 'release',  needsBag: false },
+  };
+
+  const CONFIRM_COPY = {
+    approve:  {
+      title:      'Approve this request?',
+      body:       'This will move the request to <strong>Approved</strong>. You can select a blood bag when marking it as Allocated.',
+      confirmCls: 'req-btn-approve',
+    },
+    ready: {
+      title:      'Mark as Ready for Release?',
+      body:       'Confirm the bag is prepared and ready for pickup/delivery. Status will move to <strong>Ready for Release</strong>.',
+      confirmCls: 'req-btn-ready',
+    },
+    release: {
+      title:      'Confirm Blood Release?',
+      body:       'This is the final step. The blood bag will be marked as <strong>Released</strong> and inventory will be updated. This cannot be undone.',
+      confirmCls: 'req-btn-release',
+    },
+  };
+
+  const COMPONENT_LABEL = {
+    WHOLE_BLOOD: 'Whole Blood', PRBC: 'Packed RBC', PLATELET: 'Platelet',
+    FFP: 'FFP', LEUKOREDUCED: 'Leukoreduced', ALIQUOT: 'Aliquot',
+    PLATELET_CONCENTRATE: 'Platelet', FRESH_FROZEN_PLASMA: 'FFP',
+    CRYOPRECIPITATE: 'Cryoprecipitate', CRYOSUPERNATANT: 'Cryosupernatant',
+    LEUKOREDUCED_PRBC: 'Leukoreduced PRBC', ALIQUOTED_PRBC: 'Aliquoted PRBC',
   };
 
   const API_BASE = '/api';
 
-  const COMPONENT_LABEL = {
-    WHOLE_BLOOD:'Whole Blood', PRBC:'Packed RBC', PLATELET:'Platelet',
-    FFP:'FFP', LEUKOREDUCED:'Leukoreduced', ALIQUOT:'Aliquot'
-  };
+  /* ─────────────────────────────────────────────────────────
+     STATE
+  ───────────────────────────────────────────────────────── */
+  let reqData          = [];
+  let reqExpanded      = {};
+  let reqCurrentFilter = 'ALL';
+  let reqPendingRejectId = null;
 
+  /* simple confirm modal */
+  let confirmPending = null;
+
+  /* bag picker */
+  let bagPickerReqId    = null;
+  let bagPickerSelected = null; // comma-separated bag id strings
+  let bagPickerData     = [];
+  let bagPickerIsChange = false; // true when re-selecting after allocation
+
+  /* per-request: bags already fetched for preview in card */
+  // reqBagCache[reqId] = { loading, bags, error }
+  const reqBagCache = {};
+
+  /* ─────────────────────────────────────────────────────────
+     DATA MAPPING
+  ───────────────────────────────────────────────────────── */
   function mapRequest(r) {
     const docUrl = r.doctorsNoteUrl ?? '';
     const docLabel = docUrl
-      ? 'DoctorsNote_' + (r.referenceNumber ?? r.id) + '_' + (
-          r.requestedAt
-            ? new Date(r.requestedAt).toISOString().slice(0,10).replace(/-/g,'')
-            : 'doc'
-        ) + (docUrl.toLowerCase().includes('.pdf') ? '.pdf' : '.jpg')
+      ? 'DoctorsNote_' + (r.referenceNumber ?? r.id) + '_' +
+        (r.requestedAt
+          ? new Date(r.requestedAt).toISOString().slice(0, 10).replace(/-/g, '')
+          : 'doc') +
+        (docUrl.toLowerCase().includes('.pdf') ? '.pdf' : '.jpg')
       : 'No document uploaded';
 
     const name = r.hospitalProfile?.hospitalName
@@ -906,173 +964,633 @@ async function submitAddBloodStock() {
               ?? r.requesterName
               ?? '—';
 
+    // Preserve any already-allocated bag info from the server
+    const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
+
     return {
-      id:              r.id,
+      id:             r.id,
       name,
-      type:            r.requesterType ?? 'ANONYMOUS',
-      patient:         r.patientName   ?? '—',
-      bloodType:       r.bloodType     ?? '—',
-      component:       COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '—',
-      units:           r.numberOfUnits ?? r.volumeMl ?? 1,
-      urgency:         r.urgencyLevel  ?? 'LOW',
-      date:            r.requestedAt
-                         ? new Date(r.requestedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-                         : '—',
-      status:          r.status        ?? 'PENDING',
+      type:           r.requesterType    ?? 'ANONYMOUS',
+      patient:        r.patientName      ?? '—',
+      bloodType:      r.bloodType        ?? '—',
+      component:      COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '—',
+      bloodComponent: r.bloodComponent   ?? null,
+      units:          r.numberOfUnits    ?? r.volumeMl ?? 1,
+      urgency:        r.urgencyLevel     ?? 'LOW',
+      date:           r.requestedAt
+        ? new Date(r.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '—',
+      status:         r.status           ?? 'PENDING',
       docUrl,
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
-      selectedBag:     r.fulfilledByBag?.id ?? null,
-      bags:            [],
+      allocatedBags,  // [{id, serialNumber, bloodType, componentType, volumeMl, expiresAt}]
     };
   }
 
-  let reqData            = [];
-  let reqExpanded        = {};
-  let reqCurrentFilter   = 'ALL';
-  let reqPendingRejectId = null;
-
-  function reqShowLoading(){
-    const list = document.getElementById('req-list');
-    if(list) list.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⏳</div>Loading requests…</div>`;
+  /* ─────────────────────────────────────────────────────────
+     FETCH — requests
+  ───────────────────────────────────────────────────────── */
+  function reqShowLoading() {
+    const el = document.getElementById('req-list');
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⏳</div>Loading requests…</div>`;
   }
-  function reqShowError(msg){
-    const list = document.getElementById('req-list');
-    if(list) list.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⚠️</div>${msg}</div>`;
+  function reqShowError(msg) {
+    const el = document.getElementById('req-list');
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⚠️</div>${msg}</div>`;
   }
 
-  async function reqFetchAll(){
+  async function reqFetchAll() {
     reqShowLoading();
     try {
-      const res  = await fetch(`${API_BASE}/admin/blood-requests`, { headers:{'Accept':'application/json'} });
-      if(!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
+      const res  = await fetch(`${API_BASE}/admin/blood-requests`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
       const json = await res.json();
-      const raw  = Array.isArray(json) ? json : (json.data ?? json.content ?? []);
-      reqData    = raw.map(mapRequest);
+      reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
       reqRender();
-    } catch(err){
+    } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests — ${err.message}`);
     }
   }
 
-  async function reqFetchByStatus(status){
+  async function reqFetchByStatus(status) {
     reqShowLoading();
     try {
       const url  = status === 'ALL'
         ? `${API_BASE}/admin/blood-requests`
         : `${API_BASE}/admin/blood-requests?status=${status}`;
-      const res  = await fetch(url, { headers:{'Accept':'application/json'} });
-      if(!res.ok) throw new Error(`Server error: ${res.status}`);
+      const res  = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const json = await res.json();
-      const raw  = Array.isArray(json) ? json : (json.data ?? json.content ?? []);
-      reqData    = raw.map(mapRequest);
+      reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
       reqRender();
-    } catch(err){
+    } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests — ${err.message}`);
     }
   }
 
-  function reqGetFiltered(){
-    const q       = (document.getElementById('req-search')?.value||'').toLowerCase().trim();
+  /* ─────────────────────────────────────────────────────────
+     FETCH — available bags for a request (card preview)
+     Called when a card is expanded and status is PENDING or APPROVED
+  ───────────────────────────────────────────────────────── */
+  async function reqFetchCompatibleBags(req) {
+    const cacheKey = req.id;
+    if (reqBagCache[cacheKey]?.loading || reqBagCache[cacheKey]?.bags) return;
+
+    reqBagCache[cacheKey] = { loading: true, bags: null, error: null };
+    reqRenderBagPreview(req); // show spinner
+
+    try {
+      const params = new URLSearchParams({
+        bloodType: req.bloodType.replace(/[^A-Za-z0-9_]/g, '_'),
+        component: req.bloodComponent ?? '',
+        units:     req.units,
+      });
+      const res  = await fetch(`${API_BASE}/admin/available?${params}`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const json = await res.json();
+      reqBagCache[cacheKey] = {
+        loading: false,
+        bags: Array.isArray(json) ? json : (json.data ?? json.content ?? []),
+        error: null,
+      };
+    } catch (err) {
+      console.error('[BagPreview] fetch failed', err);
+      reqBagCache[cacheKey] = { loading: false, bags: [], error: err.message };
+    }
+
+    // Re-render just the bag preview section of this card
+    const previewEl = document.getElementById(`req-bag-preview-${req.id}`);
+    if (previewEl) {
+      previewEl.outerHTML = reqBuildBagPreviewHTML(req);
+    }
+  }
+
+  /* Build the bag preview HTML (compatible bags shown in the card) */
+  function reqBuildBagPreviewHTML(req) {
+    const cache = reqBagCache[req.id];
+    const id    = `req-bag-preview-${req.id}`;
+
+    // Only show preview for PENDING and APPROVED (before allocation)
+    if (!['PENDING', 'APPROVED'].includes(req.status)) return `<div id="${id}"></div>`;
+
+    if (!cache || cache.loading) {
+      return `<div id="${id}" class="req-bag-preview-wrap">
+        <div class="req-section-label">Compatible blood bags</div>
+        <div class="req-bag-preview-loading">⏳ Checking available bags…</div>
+      </div>`;
+    }
+    if (cache.error) {
+      return `<div id="${id}" class="req-bag-preview-wrap">
+        <div class="req-section-label">Compatible blood bags</div>
+        <div class="req-bag-preview-loading" style="color:var(--crimson)">⚠️ ${cache.error}</div>
+      </div>`;
+    }
+    if (!cache.bags?.length) {
+      return `<div id="${id}" class="req-bag-preview-wrap">
+        <div class="req-section-label">Compatible blood bags</div>
+        <div class="req-bag-preview-loading">📭 No compatible bags in stock for ${req.bloodType}.</div>
+      </div>`;
+    }
+
+    const compatible = cache.bags.filter(b => b.compatible !== false);
+    const others     = cache.bags.filter(b => b.compatible === false);
+    const now        = Date.now();
+
+    function bagRow(b) {
+      const expDate  = b.expiresAt ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+      const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - now) / 86400000) : null;
+      const warn     = daysLeft !== null && daysLeft <= 7;
+      return `<div class="req-bag-preview-row">
+        <div class="req-bag-dot" style="${b.compatible === false ? 'background:var(--crimson);border-color:var(--crimson)' : ''}"></div>
+        <div style="flex:1;min-width:0">
+          <span class="req-bag-id">${b.serialNumber ?? b.id}</span>
+          <span class="req-bag-info" style="margin-left:8px">
+            ${b.bloodType ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
+            · Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
+            ${warn ? `<span style="color:var(--amber);font-size:10px"> ⚠ ${daysLeft}d</span>` : ''}
+          </span>
+        </div>
+        ${b.recommended ? `<span class="req-rec-badge" style="font-size:10px;padding:1px 7px">Recommended</span>` : ''}
+      </div>`;
+    }
+
+    return `<div id="${id}" class="req-bag-preview-wrap">
+      <div class="req-section-label" style="display:flex;align-items:center;gap:8px">
+        Compatible blood bags
+        <span class="req-bag-preview-count">${compatible.length} compatible · ${cache.bags.length} total available</span>
+      </div>
+      <div class="req-bag-preview-list">
+        ${compatible.map(bagRow).join('')}
+        ${others.length ? `
+          <div style="font-size:11px;color:var(--muted);padding:4px 0 2px;margin-top:2px;border-top:1px solid var(--border)">
+            Other available types (not an exact match)
+          </div>
+          ${others.slice(0, 3).map(bagRow).join('')}
+          ${others.length > 3 ? `<div style="font-size:11px;color:var(--muted);padding:3px 0">+${others.length - 3} more not shown</div>` : ''}
+        ` : ''}
+      </div>
+    </div>`;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     BAG PICKER MODAL — allocate step
+  ───────────────────────────────────────────────────────── */
+  async function openBagPicker(reqId, isChange = false) {
+    bagPickerReqId    = reqId;
+    bagPickerSelected = null;
+    bagPickerData     = [];
+    bagPickerIsChange = isChange;
+
+    const req = reqData.find(x => x.id === reqId);
+    if (!req) return;
+
+    const modal   = document.getElementById('req-bag-picker-modal');
+    const inner   = document.getElementById('req-bag-picker-inner');
+    const title   = document.getElementById('req-bag-picker-title');
+    const confirm = document.getElementById('req-bag-picker-confirm');
+
+    title.textContent   = `Select ${req.units} bag${req.units > 1 ? 's' : ''} · ${req.bloodType} ${req.component}`;
+    confirm.disabled    = true;
+    confirm.textContent = isChange ? 'Change Selection' : 'Confirm & Mark Allocated';
+    inner.innerHTML     = `<div class="req-bag-picker-loading">⏳ Loading available bags…</div>`;
+    modal.classList.add('open');
+
+    // Pre-select already-allocated bags when changing
+    if (isChange && req.allocatedBags?.length) {
+      bagPickerSelected = req.allocatedBags.map(b => String(b.id)).join(',');
+    }
+
+    // Use cache if already loaded
+    const cached = reqBagCache[req.id];
+    if (cached?.bags) {
+      bagPickerData = cached.bags;
+      renderBagPicker(req);
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({
+        bloodType: req.bloodType.replace(/[^A-Za-z0-9_]/g, '_'),
+        component: req.bloodComponent ?? '',
+        units:     req.units,
+      });
+      const res  = await fetch(`${API_BASE}/admin/available?${params}`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const json = await res.json();
+      bagPickerData = Array.isArray(json) ? json : (json.data ?? json.content ?? []);
+      // Also cache it
+      reqBagCache[req.id] = { loading: false, bags: bagPickerData, error: null };
+    } catch (err) {
+      console.error('[BagPicker] fetch failed', err);
+      inner.innerHTML = `<div class="req-bag-picker-loading">⚠️ Failed to load bags — ${err.message}</div>`;
+      return;
+    }
+
+    renderBagPicker(req);
+  }
+
+  function renderBagPicker(req) {
+    const inner   = document.getElementById('req-bag-picker-inner');
+    const confirm = document.getElementById('req-bag-picker-confirm');
+
+    if (!bagPickerData.length) {
+      inner.innerHTML  = `<div class="req-bag-picker-loading">📭 No compatible bags available for ${req.bloodType}.</div>`;
+      confirm.disabled = true;
+      return;
+    }
+
+    const needed   = req.units;
+    const selected = bagPickerSelected ? bagPickerSelected.split(',').filter(Boolean) : [];
+    confirm.disabled = selected.length !== needed;
+
+    inner.innerHTML = `
+      <div class="req-bag-picker-hint">
+        Select exactly <strong>${needed}</strong> bag${needed > 1 ? 's' : ''}.
+        ${needed > 1 ? `<span class="req-bag-picker-count">${selected.length}/${needed} selected</span>` : ''}
+      </div>
+      <div class="req-bag-picker-list">
+        ${bagPickerData.map(b => {
+          const isSelected   = selected.includes(String(b.id));
+          const isCompatible = b.compatible !== false;
+          const expDate  = b.expiresAt
+            ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : '—';
+          const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - Date.now()) / 86400000) : null;
+          const warn     = daysLeft !== null && daysLeft <= 7;
+          return `
+            <div class="req-bag-row${isSelected ? ' selected' : ''}${!isCompatible ? ' incompatible' : ''}"
+                 onclick="reqBagPickerToggle('${b.id}')">
+              <div class="req-bag-check">${isSelected ? '✓' : ''}</div>
+              <div class="req-bag-dot" style="${!isCompatible ? 'background:var(--crimson);border-color:var(--crimson)' : ''}"></div>
+              <div style="flex:1;min-width:0">
+                <div class="req-bag-id">${b.serialNumber ?? b.id}</div>
+                <div class="req-bag-info">
+                  ${b.bloodType ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
+                  · Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
+                  ${warn ? `<span style="color:var(--amber);font-size:11px"> ⚠ ${daysLeft}d left</span>` : ''}
+                  ${!isCompatible ? `<span style="color:var(--crimson)"> · not compatible</span>` : ''}
+                </div>
+                <div class="req-bag-info" style="margin-top:2px;color:var(--muted)">
+                  Source: ${b.source ?? '—'} · SN: ${b.serialNumber ?? '—'}
+                </div>
+              </div>
+              ${b.recommended ? `<span class="req-rec-badge">Recommended</span>` : ''}
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  window.reqBagPickerToggle = function (bagId) {
+    const req    = reqData.find(x => x.id === bagPickerReqId);
+    if (!req) return;
+    const needed = req.units;
+    let   sel    = bagPickerSelected ? bagPickerSelected.split(',').filter(Boolean) : [];
+    const idx    = sel.indexOf(String(bagId));
+
+    if (idx >= 0) {
+      sel.splice(idx, 1);
+    } else {
+      if (sel.length >= needed) {
+        if (needed === 1) sel = [];
+        else sel.shift();
+      }
+      sel.push(String(bagId));
+    }
+    bagPickerSelected = sel.join(',');
+    renderBagPicker(req);
+  };
+
+  window.reqCloseBagPicker = function () {
+    document.getElementById('req-bag-picker-modal').classList.remove('open');
+    bagPickerReqId    = null;
+    bagPickerSelected = null;
+    bagPickerData     = [];
+    bagPickerIsChange = false;
+  };
+
+  window.reqConfirmBagSelection = async function () {
+    if (!bagPickerReqId || !bagPickerSelected) return;
+    const req    = reqData.find(x => x.id === bagPickerReqId);
+    if (!req) return;
+    const bagIds = bagPickerSelected.split(',').filter(Boolean);
+    const btn    = document.getElementById('req-bag-picker-confirm');
+    btn.disabled    = true;
+    btn.textContent = bagPickerIsChange ? 'Changing…' : 'Allocating…';
+
+    const isChange   = bagPickerIsChange;
+    const prevStatus = req.status;
+    const prevBags   = req.allocatedBags;
+
+    // Optimistic update
+    req.status       = 'ALLOCATED';
+    req.allocatedBags = bagPickerData.filter(b => bagIds.includes(String(b.id)));
+    reqExpanded[req.id] = true;
+
+    // Invalidate cache so it'll re-fetch fresh bags next time card is expanded
+    delete reqBagCache[req.id];
+
+    reqCloseBagPicker();
+    reqRender();
+
+    try {
+      const endpoint = isChange ? 'reallocate' : 'allocate';
+      const res = await fetch(`${API_BASE}/admin/blood-requests/${req.id}/${endpoint}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bagIds: bagIds.map(Number) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Server error ${res.status}`);
+      }
+      const data        = await res.json();
+      req.status        = data.status ?? 'ALLOCATED';
+      req.allocatedBags = data.reservedBags ?? req.allocatedBags;
+      reqRender();
+    } catch (err) {
+      console.error('[reqAllocate] failed', err);
+      req.status        = prevStatus;
+      req.allocatedBags = prevBags;
+      reqRender();
+      alert(`${isChange ? 'Re-allocation' : 'Allocation'} failed: ${err.message}`);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     SIMPLE CONFIRM MODAL (approve / ready / release)
+  ───────────────────────────────────────────────────────── */
+  window.reqOpenConfirm = function (id, endpoint) {
+    const req  = reqData.find(x => x.id === id);
+    if (!req) return;
+    const next = REQ_NEXT[req.status];
+    if (!next) return;
+
+    /* allocate goes straight to bag picker — no confirm step */
+    if (endpoint === 'allocate') {
+      openBagPicker(id, false);
+      return;
+    }
+
+    confirmPending = { id, endpoint, next };
+    const copy  = CONFIRM_COPY[endpoint];
+    const modal = document.getElementById('req-confirm-modal');
+
+    document.getElementById('req-confirm-title').textContent = copy.title;
+    document.getElementById('req-confirm-body').innerHTML    = copy.body;
+    document.getElementById('req-confirm-meta').innerHTML    =
+      `<strong>${req.name}</strong> — Patient: ${req.patient} &nbsp;·&nbsp; ${req.bloodType} ${req.component} &nbsp;·&nbsp; ${req.units} unit${req.units > 1 ? 's' : ''}`;
+
+    const btn = document.getElementById('req-confirm-proceed');
+    btn.className   = `req-btn ${copy.confirmCls}`;
+    btn.textContent = next.label;
+    modal.classList.add('open');
+  };
+
+  window.reqCloseConfirm = function () {
+    document.getElementById('req-confirm-modal').classList.remove('open');
+    confirmPending = null;
+  };
+
+  window.reqProceedConfirm = async function () {
+    if (!confirmPending) return;
+    const { id, endpoint, next } = confirmPending;
+    reqCloseConfirm();
+
+    const r = reqData.find(x => x.id === id);
+    if (!r) return;
+    const prevStatus = r.status;
+    r.status = next.next;
+    reqExpanded[id] = true;
+    reqRender();
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/blood-requests/${id}/${endpoint}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Server error ${res.status}`);
+      }
+      const data = await res.json();
+      r.status   = data.status ?? next.next;
+      reqRender();
+    } catch (err) {
+      console.error('[reqAdvance] failed', err);
+      r.status = prevStatus;
+      reqRender();
+      alert(`Action failed: ${err.message}`);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     REJECT MODAL
+  ───────────────────────────────────────────────────────── */
+  window.reqOpenReject = function (id) {
+    reqPendingRejectId = id;
+    const r = reqData.find(x => x.id === id);
+    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} — ${r.patient}` : '';
+    document.getElementById('req-reject-reason').value = '';
+    document.getElementById('req-reject-reason').style.borderColor = 'var(--border)';
+    document.getElementById('req-reject-modal').classList.add('open');
+  };
+
+  window.reqCloseReject = function () {
+    document.getElementById('req-reject-modal').classList.remove('open');
+  };
+
+  window.reqConfirmReject = async function () {
+    const reason = document.getElementById('req-reject-reason').value.trim();
+    if (!reason) {
+      document.getElementById('req-reject-reason').style.borderColor = 'var(--crimson)';
+      return;
+    }
+    const r = reqData.find(x => x.id === reqPendingRejectId);
+    if (!r) return;
+    const prevStatus = r.status;
+    r.status          = 'REJECTED';
+    r.rejectionReason = reason;
+    reqCloseReject();
+    reqExpanded[reqPendingRejectId] = true;
+    reqRender();
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/blood-requests/${reqPendingRejectId}/reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejectionReason: reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Server error ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[reqConfirmReject] failed', err);
+      r.status          = prevStatus;
+      r.rejectionReason = null;
+      reqRender();
+      alert(`Rejection failed: ${err.message}`);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     DOCUMENT PREVIEW MODAL
+  ───────────────────────────────────────────────────────── */
+  window.reqViewDoc = function (url, label) {
+    if (!url) { alert('No document uploaded for this request.'); return; }
+    document.getElementById('req-doc-label').textContent = label;
+    const isPdf        = url.toLowerCase().includes('.pdf');
+    const googleViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+    document.getElementById('req-doc-frame').innerHTML = isPdf
+      ? `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`
+      : `<img src="${url}" style="width:100%;border-radius:10px;display:block"
+           onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable — <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ↗</a></div>'" />`;
+    document.getElementById('req-doc-modal').classList.add('open');
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     FILTER / SORT / SEARCH
+  ───────────────────────────────────────────────────────── */
+  function reqGetFiltered() {
+    const q       = (document.getElementById('req-search')?.value || '').toLowerCase().trim();
     const urgency = document.getElementById('req-filter-urgency')?.value || 'ALL';
     const sort    = document.getElementById('req-sort')?.value || 'date_desc';
     let list = reqData.slice();
-    if(reqCurrentFilter !== 'ALL') list = list.filter(r => r.status === reqCurrentFilter);
-    if(urgency !== 'ALL')          list = list.filter(r => r.urgency === urgency);
-    if(q) list = list.filter(r =>
+    if (reqCurrentFilter !== 'ALL') list = list.filter(r => r.status === reqCurrentFilter);
+    if (urgency !== 'ALL')          list = list.filter(r => r.urgency === urgency);
+    if (q) list = list.filter(r =>
       r.name.toLowerCase().includes(q)      ||
       r.patient.toLowerCase().includes(q)   ||
       r.bloodType.toLowerCase().includes(q) ||
       r.component.toLowerCase().includes(q)
     );
-    if(sort === 'date_desc')       list.sort((a,b) => b.id - a.id);
-    else if(sort === 'date_asc')   list.sort((a,b) => a.id - b.id);
-    else if(sort === 'urgency')    list.sort((a,b) => REQ_URGENCY_ORDER[a.urgency] - REQ_URGENCY_ORDER[b.urgency]);
-    else if(sort === 'units_desc') list.sort((a,b) => b.units - a.units);
+    if (sort === 'date_desc')       list.sort((a, b) => b.id - a.id);
+    else if (sort === 'date_asc')   list.sort((a, b) => a.id - b.id);
+    else if (sort === 'urgency')    list.sort((a, b) => REQ_URGENCY_ORDER[a.urgency] - REQ_URGENCY_ORDER[b.urgency]);
+    else if (sort === 'units_desc') list.sort((a, b) => b.units - a.units);
     return list;
   }
 
-  function reqRenderFlow(status){
-    if(status === 'REJECTED') return `<div style="margin-bottom:16px"><span class="tag tag-rejected">Rejected</span></div>`;
+  window.reqFilterBy = function (status, btn) {
+    reqCurrentFilter = status;
+    document.querySelectorAll('#req-filters .req-filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    reqFetchByStatus(status);
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     RENDER — status flow bar
+  ───────────────────────────────────────────────────────── */
+  function reqRenderFlow(status) {
+    if (status === 'REJECTED') return `<div style="margin-bottom:16px"><span class="tag tag-rejected">Rejected</span></div>`;
     const idx = REQ_STATUSES.indexOf(status);
     let h = `<div class="req-status-flow">`;
-    REQ_STATUSES.forEach((s,i) => {
+    REQ_STATUSES.forEach((s, i) => {
       const cls = i < idx ? 'done' : i === idx ? 'active' : 'todo';
-      h += `<div class="req-sf-step"><span class="req-sf-node ${cls}">${REQ_STATUS_LABEL[s]}</span>${i < REQ_STATUSES.length-1 ? '<span class="req-sf-arrow">›</span>' : ''}</div>`;
+      h += `<div class="req-sf-step">
+              <span class="req-sf-node ${cls}">${REQ_STATUS_LABEL[s]}</span>
+              ${i < REQ_STATUSES.length - 1 ? '<span class="req-sf-arrow">›</span>' : ''}
+            </div>`;
     });
     return h + `</div>`;
   }
 
-  function reqRenderBags(req){
-    if(req.status === 'RELEASED' || req.status === 'REJECTED'){
-      if(!req.selectedBag) return '';
-      const b = req.bags.find(x => x.id === req.selectedBag);
-      return b ? `<div class="req-section-label">Blood bag used</div>
-        <div class="req-bag-list"><div class="req-bag-row selected">
-          <span class="req-bag-dot" style="background:var(--blue);border-color:var(--blue)"></span>
-          <div><div class="req-bag-id">${b.id}</div><div class="req-bag-info">${b.bloodType} · ${b.volume} · Exp ${b.expiry}</div></div>
-        </div></div>` : '';
-    }
-    const rec = req.bags.find(b => b.compatible);
-    if(!req.selectedBag && rec) req.selectedBag = rec.id;
-    const sel = req.selectedBag;
-    let h = `<div class="req-section-label">Blood bag selection — tap to choose</div><div class="req-bag-list">`;
-    req.bags.forEach(b => {
-      const isRec = rec && b.id === rec.id;
-      const isSel = b.id === sel;
-      h += `<div class="req-bag-row${isRec?' recommended':''}${isSel?' selected':''}" onclick="reqSelectBag(${req.id},'${b.id}')">
-        <span class="req-bag-dot"></span>
-        <div style="flex:1">
-          <div class="req-bag-id">${b.id}</div>
-          <div class="req-bag-info">${b.bloodType} · ${b.volume} · Exp ${b.expiry}${!b.compatible?' · <span style="color:var(--crimson)">not compatible</span>':''}</div>
-        </div>
-        ${isRec ? `<span class="req-rec-badge">Recommended</span>` : ''}
-      </div>`;
-    });
-    return h + `</div>`;
+  /* ─────────────────────────────────────────────────────────
+     RENDER — allocated bags section (shown after allocation)
+  ───────────────────────────────────────────────────────── */
+  function reqRenderAllocatedBags(req) {
+    // Only show for ALLOCATED, READY_FOR_RELEASE, RELEASED
+    if (!['ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'].includes(req.status)) return '';
+    if (!req.allocatedBags?.length) return '';
+
+    const canChange = ['ALLOCATED', 'READY_FOR_RELEASE'].includes(req.status);
+
+    return `<div class="req-allocated-wrap">
+      <div class="req-section-label" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+        <span>Allocated blood bag${req.allocatedBags.length > 1 ? 's' : ''}</span>
+        ${canChange
+          ? `<button class="req-change-bag-btn" onclick="reqOpenChangeBags(${req.id})">
+               ✎ Change selection
+             </button>`
+          : ''}
+      </div>
+      <div class="req-bag-preview-list">
+        ${req.allocatedBags.map(b => {
+          const expDate  = b.expiresAt
+            ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : b.expiresAt ?? '—';
+          return `<div class="req-bag-preview-row" style="border-left:3px solid var(--green);padding-left:10px">
+            <div class="req-bag-dot" style="background:var(--green);border-color:var(--green)"></div>
+            <div style="flex:1;min-width:0">
+              <span class="req-bag-id">${b.serialNumber ?? b.id}</span>
+              <span class="req-bag-info" style="margin-left:8px">
+                ${b.bloodType ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL · Exp ${expDate}
+              </span>
+            </div>
+            <span class="req-rec-badge" style="background:var(--green)">Allocated</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
   }
 
-  function reqRenderActions(req){
-    if(req.status === 'RELEASED' || req.status === 'REJECTED') return '';
+  /* ─────────────────────────────────────────────────────────
+     RENDER — action bar
+  ───────────────────────────────────────────────────────── */
+  function reqRenderActions(req) {
+    if (req.status === 'RELEASED' || req.status === 'REJECTED') return '';
     const next = REQ_NEXT[req.status];
-    if(!next) return '';
+    if (!next) return '';
     let h = `<div class="req-action-bar">
-      <button class="req-btn ${next.cls}" onclick="reqAdvance(${req.id})">${next.label}</button>`;
-    if(req.status === 'PENDING' || req.status === 'APPROVED'){
+      <button class="req-btn ${next.cls}" onclick="reqOpenConfirm(${req.id},'${next.endpoint}')">${next.label}</button>`;
+    if (req.status === 'PENDING' || req.status === 'APPROVED') {
       h += `<button class="req-btn req-btn-reject" onclick="reqOpenReject(${req.id})">Reject</button>`;
     }
     return h + `</div>`;
   }
 
-  function reqRenderCard(req){
-    const isExp    = reqExpanded[req.id];
+  /* ─────────────────────────────────────────────────────────
+     RENDER — full card
+  ───────────────────────────────────────────────────────── */
+  function reqRenderCard(req) {
+    const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
-    return `<div class="req-card${isExp?' expanded':''}" id="req-card-${req.id}">
-      <div class="req-head" onclick="reqToggle(${req.id})" style="display:flex;gap:0;padding:0;align-items:stretch">
-        <div class="req-urgency-bar" style="background:${urgColor};margin-right:0;flex-shrink:0;border-radius:12px 0 0 ${isExp?'0':'12px'}"></div>
+
+    // Trigger background bag-fetch when card is expanded and status is pre-allocation
+    if (isExp && ['PENDING', 'APPROVED'].includes(req.status)) {
+      // Defer so the DOM renders first, then fetch updates the section
+      setTimeout(() => reqFetchCompatibleBags(req), 0);
+    }
+
+    return `<div class="req-card${isExp ? ' expanded' : ''}" id="req-card-${req.id}">
+      <div class="req-head" onclick="reqToggle(${req.id})"
+           style="display:flex;gap:0;padding:0;align-items:stretch">
+        <div class="req-urgency-bar"
+             style="background:${urgColor};margin-right:0;flex-shrink:0;border-radius:12px 0 0 ${isExp ? '0' : '12px'}"></div>
         <div style="flex:1;display:grid;grid-template-columns:1fr auto auto auto auto;align-items:center;gap:12px;padding:15px 18px">
           <div>
-            <div class="req-name">${req.name}${req.type==='ANONYMOUS'?` <span style="font-size:11px;font-weight:400;color:var(--muted)">(anonymous)</span>`:''}</div>
+            <div class="req-name">${req.name}${req.type === 'ANONYMOUS'
+              ? ` <span style="font-size:11px;font-weight:400;color:var(--muted)">(anonymous)</span>` : ''}</div>
             <div class="req-meta">
-              <span>${req.patient}</span>
-              <span class="req-meta-dot"></span>
-              <span>${req.component}</span>
-              <span class="req-meta-dot"></span>
-              <span style="font-weight:600;color:var(--charcoal)">${req.units} unit${req.units>1?'s':''}</span>
-              <span class="req-meta-dot"></span>
-              <span>${req.date}</span>
+              <span>${req.patient}</span><span class="req-meta-dot"></span>
+              <span>${req.component}</span><span class="req-meta-dot"></span>
+              <span style="font-weight:600;color:var(--charcoal)">${req.units} unit${req.units > 1 ? 's' : ''}</span>
+              <span class="req-meta-dot"></span><span>${req.date}</span>
             </div>
           </div>
           <span class="req-blood-badge">${req.bloodType}</span>
-          <span class="tag ${REQ_URGENCY_TAG[req.urgency]}">${req.urgency[0]+req.urgency.slice(1).toLowerCase()}</span>
+          <span class="tag ${REQ_URGENCY_TAG[req.urgency]}">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span>
           <span class="tag ${REQ_STATUS_TAG[req.status]}">${REQ_STATUS_LABEL[req.status]}</span>
-          <span class="req-chevron${isExp?' open':''}">›</span>
+          <span class="req-chevron${isExp ? ' open' : ''}">›</span>
         </div>
       </div>
-      <div class="req-detail${isExp?' open':''}" id="req-detail-${req.id}">
+
+      <div class="req-detail${isExp ? ' open' : ''}" id="req-detail-${req.id}">
         ${reqRenderFlow(req.status)}
+
         <div class="req-detail-grid">
           <div class="req-detail-box">
             <div class="req-detail-box-title">Patient info</div>
@@ -1084,11 +1602,12 @@ async function submitAddBloodStock() {
           <div class="req-detail-box">
             <div class="req-detail-box-title">Requester info</div>
             <div class="req-detail-row"><span class="lbl">From</span><span class="val">${req.name}</span></div>
-            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${req.type[0]+req.type.slice(1).toLowerCase()}</span></div>
-            <div class="req-detail-row"><span class="lbl">Urgency</span><span class="val">${req.urgency[0]+req.urgency.slice(1).toLowerCase()}</span></div>
+            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${req.type[0] + req.type.slice(1).toLowerCase()}</span></div>
+            <div class="req-detail-row"><span class="lbl">Urgency</span><span class="val">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span></div>
             <div class="req-detail-row"><span class="lbl">Submitted</span><span class="val">${req.date}</span></div>
           </div>
         </div>
+
         <div class="req-section-label">Supporting document</div>
         <div class="req-doc-preview" onclick="reqViewDoc('${req.docUrl}','${req.docLabel}')">
           <div class="req-doc-icon">
@@ -1103,133 +1622,69 @@ async function submitAddBloodStock() {
           </div>
           <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View ↗</span>
         </div>
-        ${req.status !== 'REJECTED' ? reqRenderBags(req) : ''}
+
         ${req.status === 'REJECTED' && req.rejectionReason
           ? `<div class="req-detail-box" style="margin-bottom:12px;border-left:3px solid var(--crimson)">
-              <div class="req-detail-box-title" style="color:var(--crimson)">Rejection Reason</div>
+              <div class="req-detail-box-title" style="color:var(--crimson)">Rejection reason</div>
               <div style="font-size:13px;color:var(--charcoal);line-height:1.6">${req.rejectionReason}</div>
             </div>` : ''}
+
+        ${reqBuildBagPreviewHTML(req)}
+        ${reqRenderAllocatedBags(req)}
         ${reqRenderActions(req)}
       </div>
     </div>`;
   }
 
-  function reqRender(){
+  /* ─────────────────────────────────────────────────────────
+     CHANGE BAGS — opens picker pre-populated with current selection
+  ───────────────────────────────────────────────────────── */
+  window.reqOpenChangeBags = function (id) {
+    openBagPicker(id, true);
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     MAIN RENDER
+  ───────────────────────────────────────────────────────── */
+  function reqRender() {
     const list = document.getElementById('req-list');
     const info = document.getElementById('req-results-info');
-    if(!list) return;
+    if (!list) return;
     const filtered = reqGetFiltered();
     list.innerHTML = filtered.length
       ? filtered.map(reqRenderCard).join('')
       : `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.35">📋</div>No requests match the current filters.</div>`;
-    if(info) info.textContent = `Showing ${filtered.length} of ${reqData.length} request${reqData.length!==1?'s':''}`;
+    if (info) info.textContent = `Showing ${filtered.length} of ${reqData.length} request${reqData.length !== 1 ? 's' : ''}`;
     reqUpdateCounts();
   }
 
-  function reqUpdateCounts(){
+  function reqUpdateCounts() {
     const allEl  = document.getElementById('req-cnt-all');
     const pendEl = document.getElementById('req-cnt-pending');
-    if(allEl)  allEl.textContent  = reqData.length;
-    if(pendEl) pendEl.textContent = reqData.filter(r => r.status === 'PENDING').length;
+    if (allEl)  allEl.textContent  = reqData.length;
+    if (pendEl) pendEl.textContent = reqData.filter(r => r.status === 'PENDING').length;
   }
 
-  window.reqToggle    = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
-  window.reqSelectBag = (reqId, bagId) => { const r = reqData.find(x => x.id === reqId); if(r) r.selectedBag = bagId; reqRender(); };
-  window.reqRender    = reqRender;
+  window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
+  window.reqRender = reqRender;
 
-  window.reqAdvance = async id => {
-    const r = reqData.find(x => x.id === id);
-    if(!r) return;
-    const next = REQ_NEXT[r.status];
-    if(!next) return;
-    const prevStatus = r.status;
-    r.status = next.next;
-    reqExpanded[id] = true;
-    reqRender();
-    try {
-      const res = await fetch(`${API_BASE}/admin/blood-requests/${id}/${next.endpoint}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }
-      });
-      if(!res.ok){
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `Server error ${res.status}`);
-      }
-      const data = await res.json();
-      r.status = data.status ?? next.next;
-      reqRender();
-    } catch(err){
-      console.error('[reqAdvance] failed', err);
-      r.status = prevStatus;
-      reqRender();
-      alert(`Action failed: ${err.message}`);
-    }
-  };
+  /* ─────────────────────────────────────────────────────────
+     MODAL BACKDROP CLOSE
+  ───────────────────────────────────────────────────────── */
+  ['req-reject-modal', 'req-doc-modal', 'req-confirm-modal', 'req-bag-picker-modal'].forEach(modalId => {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    el.addEventListener('click', e => {
+      if (e.target !== e.currentTarget) return;
+      if (modalId === 'req-reject-modal')      reqCloseReject();
+      else if (modalId === 'req-confirm-modal') reqCloseConfirm();
+      else if (modalId === 'req-bag-picker-modal') reqCloseBagPicker();
+      else el.classList.remove('open');
+    });
+  });
 
-  window.reqOpenReject = id => {
-    reqPendingRejectId = id;
-    const r = reqData.find(x => x.id === id);
-    document.getElementById('req-reject-subtitle').textContent = r ? r.name + ' — ' + r.patient : '';
-    document.getElementById('req-reject-reason').value = '';
-    document.getElementById('req-reject-reason').style.borderColor = 'var(--border)';
-    document.getElementById('req-reject-modal').classList.add('open');
-  };
-
-  window.reqCloseReject = () => document.getElementById('req-reject-modal').classList.remove('open');
-
-  window.reqConfirmReject = async () => {
-    const reason = document.getElementById('req-reject-reason').value.trim();
-    if(!reason){
-      document.getElementById('req-reject-reason').style.borderColor = 'var(--crimson)';
-      return;
-    }
-    const r = reqData.find(x => x.id === reqPendingRejectId);
-    if(!r) return;
-    const prevStatus = r.status;
-    r.status = 'REJECTED';
-    r.rejectionReason = reason;
-    reqCloseReject();
-    reqExpanded[reqPendingRejectId] = true;
-    reqRender();
-    try {
-      const res = await fetch(`${API_BASE}/admin/blood-requests/${reqPendingRejectId}/reject`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rejectionReason: reason })
-      });
-      if(!res.ok){
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `Server error ${res.status}`);
-      }
-    } catch(err){
-      console.error('[reqConfirmReject] failed', err);
-      r.status = prevStatus;
-      r.rejectionReason = null;
-      reqRender();
-      alert(`Rejection failed: ${err.message}`);
-    }
-  };
-
-  window.reqViewDoc = (url, label) => {
-    if(!url){ alert('No document uploaded for this request.'); return; }
-    document.getElementById('req-doc-label').textContent = label;
-    const isPdf = url.toLowerCase().includes('.pdf');
-    const googleViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    document.getElementById('req-doc-frame').innerHTML = isPdf
-      ? `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`
-      : `<img src="${url}" style="width:100%;border-radius:10px;display:block"
-           onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable — <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ↗</a></div>'" />`;
-    document.getElementById('req-doc-modal').classList.add('open');
-  };
-
-  window.reqFilterBy = (status, btn) => {
-    reqCurrentFilter = status;
-    document.querySelectorAll('#req-filters .req-filter-chip').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    reqFetchByStatus(status);
-  };
-
-  document.getElementById('req-reject-modal').addEventListener('click', e => { if(e.target===e.currentTarget) reqCloseReject(); });
-  document.getElementById('req-doc-modal').addEventListener('click',    e => { if(e.target===e.currentTarget) document.getElementById('req-doc-modal').classList.remove('open'); });
-
+  /* ─────────────────────────────────────────────────────────
+     BOOT
+  ───────────────────────────────────────────────────────── */
   reqFetchAll();
 })();
