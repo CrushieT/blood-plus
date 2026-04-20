@@ -1,16 +1,13 @@
 package com.hospital.blood_plus.controller;
 
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
-import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -61,121 +58,7 @@ public class BloodRequestController {
         }
     }
 
-    // ── ADMIN: Get all requests ────────────────────────────────
 
-    @GetMapping("/admin/blood-requests")
-    public ResponseEntity<List<BloodBagRequest>> getAllRequests(
-            @RequestParam(required = false) BloodBagRequest.RequestStatus status) {
-        if (status != null) {
-            return ResponseEntity.ok(bloodBagRequestService.getByStatus(status));
-        }
-        return ResponseEntity.ok(bloodBagRequestService.getAllRequests());
-    }
-
-    // ── ADMIN: Approve ─────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/approve")
-    public ResponseEntity<?> approveRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.approveRequest(id, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request approved.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ── ADMIN: Allocate ────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/allocate")
-    public ResponseEntity<?> allocateRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.allocateRequest(id, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request marked as allocated.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ── ADMIN: Mark Ready for Release ──────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/ready")
-    public ResponseEntity<?> markReadyRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.markReadyRequest(id, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request marked as ready for release.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ── ADMIN: Release ─────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/release")
-    public ResponseEntity<?> releaseRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.releaseRequest(id, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request marked as released.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ── ADMIN: Reject ──────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/reject")
-    public ResponseEntity<?> rejectRequest(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            String reason = body.getOrDefault("rejectionReason", "").trim();
-            if (reason.isBlank())
-                return ResponseEntity.badRequest().body(Map.of("error", "Rejection reason is required."));
-
-            BloodBagRequest req = bloodBagRequestService.rejectRequest(id, reason, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request rejected.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ── ADMIN: Cancel ──────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/cancel")
-    public ResponseEntity<?> cancelRequest(@PathVariable Long id) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.cancelRequest(id);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request cancelled.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
     private Map<String, Object> buildTrackResponse(BloodBagRequest req) {
         Map<String, Object> res = new HashMap<>();
 
@@ -194,4 +77,5 @@ public class BloodRequestController {
 
         return res;
     }
+    
 }

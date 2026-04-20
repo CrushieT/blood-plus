@@ -3,6 +3,7 @@ package com.hospital.blood_plus.service;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.response.AdminDashboardResponse;
+import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.dto.response.BloodBagResponse;
 import com.hospital.blood_plus.model.*;
 import com.hospital.blood_plus.model.BloodBag.BagSource;
@@ -202,7 +203,76 @@ public class BloodBagService {
         return res;
     }
 
+    public List<BloodBagAvailableDTO> getAvailableBags(
+            BloodType requestedType,
+            BloodBag.ComponentType requestedComponent) {
+ 
+        // Fetch all compatible donor types for this recipient
+        List<BloodType> compatibleTypes = COMPATIBLE_DONORS.getOrDefault(
+                requestedType, List.of(requestedType));
+ 
+        // Query all AVAILABLE bags across all compatible types
+        List<BloodBag> pool = bloodBagRepository
+                .findByBloodTypeInAndStatus(compatibleTypes, BloodBag.BagStatus.AVAILABLE);
+ 
+        LocalDateTime now = LocalDateTime.now();
+ 
+        List<BloodBag> compatible = new ArrayList<>();
+        List<BloodBag> others     = new ArrayList<>();
+ 
+        for (BloodBag bag : pool) {
+            // Skip expired
+            if (bag.getExpiresAt() != null && bag.getExpiresAt().isBefore(now)) continue;
+ 
+            boolean componentMatch = requestedComponent == null
+                    || bag.getComponentType() == requestedComponent;
+ 
+            // Exact type + component = fully compatible
+            // Wrong component but right type family = shown as "other"
+            if (componentMatch) compatible.add(bag);
+            else                others.add(bag);
+        }
+ 
+        // Sort both groups soonest-to-expire first (FIFO — use oldest stock first)
+        Comparator<BloodBag> byExpiry = Comparator.comparing(
+                b -> b.getExpiresAt() != null ? b.getExpiresAt() : LocalDateTime.MAX);
+        compatible.sort(byExpiry);
+        others.sort(byExpiry);
+ 
+        List<BloodBagAvailableDTO> result = new ArrayList<>();
+        boolean firstCompatible = true;
+ 
+        for (BloodBag bag : compatible) {
+            // Exact blood type match = fully compatible
+            // Compatible-but-not-exact (e.g. O_NEG for A_POS) = compatible=true but recommended only if no exact match
+            boolean isExactType = bag.getBloodType() == requestedType;
+            result.add(BloodBagAvailableDTO.from(bag, true, firstCompatible && isExactType
+                    ? true   // exact type gets recommended first
+                    : firstCompatible)); // fallback: first available gets recommended
+            firstCompatible = false;
+        }
+        for (BloodBag bag : others) {
+            result.add(BloodBagAvailableDTO.from(bag, false, false));
+        }
+ 
+        return result;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────
+
+    private static final Map<BloodType, List<BloodType>> COMPATIBLE_DONORS;
+    static {
+        COMPATIBLE_DONORS = new EnumMap<>(BloodType.class);
+        COMPATIBLE_DONORS.put(BloodType.A_POS,  List.of(BloodType.A_POS, BloodType.A_NEG, BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.A_NEG,  List.of(BloodType.A_NEG, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.B_POS,  List.of(BloodType.B_POS, BloodType.B_NEG, BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.B_NEG,  List.of(BloodType.B_NEG, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.AB_POS, List.of(BloodType.A_POS, BloodType.A_NEG, BloodType.B_POS, BloodType.B_NEG,
+                                                         BloodType.AB_POS, BloodType.AB_NEG, BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.AB_NEG, List.of(BloodType.A_NEG, BloodType.B_NEG, BloodType.AB_NEG, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.O_POS,  List.of(BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.O_NEG,  List.of(BloodType.O_NEG));
+    }
 
     private BloodBagResponse mapToResponse(BloodBag bag) {
         BloodBagResponse res = new BloodBagResponse();
