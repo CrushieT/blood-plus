@@ -2,7 +2,6 @@ package com.hospital.blood_plus.controller;
 
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +12,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +20,6 @@ import com.hospital.blood_plus.dto.request.RegisterRequest;
 import com.hospital.blood_plus.dto.request.VerifyEmailRequest;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.repository.UserRepository;
-import com.hospital.blood_plus.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -56,9 +53,6 @@ public class AuthController {
             Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
             );
-
-            com.hospital.blood_plus.model.AppUser dbUser = userRepository.findByEmail(user.getEmail())
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
             // ✅ Store authentication in session
             SecurityContext context = SecurityContextHolder.createEmptyContext();

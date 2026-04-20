@@ -885,7 +885,7 @@ async function submitAddBloodStock() {
     CRITICAL: 'tag-critical', HIGH: 'tag-urgent',
     MEDIUM: 'tag-low', LOW: 'tag-good',
   };
-
+ 
   /*
    * needsBag: true  → clicking this action opens the bag picker
    *           false → clicking opens the simple confirm modal
@@ -896,7 +896,7 @@ async function submitAddBloodStock() {
     ALLOCATED:         { label: 'Mark Ready',      cls: 'req-btn-ready',    next: 'READY_FOR_RELEASE', endpoint: 'ready',    needsBag: false },
     READY_FOR_RELEASE: { label: 'Confirm Release', cls: 'req-btn-release',  next: 'RELEASED',          endpoint: 'release',  needsBag: false },
   };
-
+ 
   const CONFIRM_COPY = {
     approve:  {
       title:      'Approve this request?',
@@ -914,7 +914,7 @@ async function submitAddBloodStock() {
       confirmCls: 'req-btn-release',
     },
   };
-
+ 
   const COMPONENT_LABEL = {
     WHOLE_BLOOD: 'Whole Blood', PRBC: 'Packed RBC', PLATELET: 'Platelet',
     FFP: 'FFP', LEUKOREDUCED: 'Leukoreduced', ALIQUOT: 'Aliquot',
@@ -922,9 +922,9 @@ async function submitAddBloodStock() {
     CRYOPRECIPITATE: 'Cryoprecipitate', CRYOSUPERNATANT: 'Cryosupernatant',
     LEUKOREDUCED_PRBC: 'Leukoreduced PRBC', ALIQUOTED_PRBC: 'Aliquoted PRBC',
   };
-
+ 
   const API_BASE = '/api';
-
+ 
   /* ─────────────────────────────────────────────────────────
      STATE
   ───────────────────────────────────────────────────────── */
@@ -932,20 +932,20 @@ async function submitAddBloodStock() {
   let reqExpanded      = {};
   let reqCurrentFilter = 'ALL';
   let reqPendingRejectId = null;
-
+ 
   /* simple confirm modal */
   let confirmPending = null;
-
+ 
   /* bag picker */
   let bagPickerReqId    = null;
   let bagPickerSelected = null; // comma-separated bag id strings
   let bagPickerData     = [];
   let bagPickerIsChange = false; // true when re-selecting after allocation
-
+ 
   /* per-request: bags already fetched for preview in card */
   // reqBagCache[reqId] = { loading, bags, error }
   const reqBagCache = {};
-
+ 
   /* ─────────────────────────────────────────────────────────
      DATA MAPPING
   ───────────────────────────────────────────────────────── */
@@ -958,15 +958,15 @@ async function submitAddBloodStock() {
           : 'doc') +
         (docUrl.toLowerCase().includes('.pdf') ? '.pdf' : '.jpg')
       : 'No document uploaded';
-
+ 
     const name = r.hospitalProfile?.hospitalName
               ?? r.donorProfile?.fullName
               ?? r.requesterName
               ?? '—';
-
+ 
     // Preserve any already-allocated bag info from the server
     const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
-
+ 
     return {
       id:             r.id,
       name,
@@ -987,7 +987,7 @@ async function submitAddBloodStock() {
       allocatedBags,  // [{id, serialNumber, bloodType, componentType, volumeMl, expiresAt}]
     };
   }
-
+ 
   /* ─────────────────────────────────────────────────────────
      FETCH — requests
   ───────────────────────────────────────────────────────── */
@@ -999,7 +999,7 @@ async function submitAddBloodStock() {
     const el = document.getElementById('req-list');
     if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⚠️</div>${msg}</div>`;
   }
-
+ 
   async function reqFetchAll() {
     reqShowLoading();
     try {
@@ -1013,7 +1013,7 @@ async function submitAddBloodStock() {
       reqShowError(`Failed to load requests — ${err.message}`);
     }
   }
-
+ 
   async function reqFetchByStatus(status) {
     reqShowLoading();
     try {
@@ -1030,7 +1030,7 @@ async function submitAddBloodStock() {
       reqShowError(`Failed to load requests — ${err.message}`);
     }
   }
-
+ 
   /* ─────────────────────────────────────────────────────────
      FETCH — available bags for a request (card preview)
      Called when a card is expanded and status is PENDING or APPROVED
@@ -1038,10 +1038,10 @@ async function submitAddBloodStock() {
   async function reqFetchCompatibleBags(req) {
     const cacheKey = req.id;
     if (reqBagCache[cacheKey]?.loading || reqBagCache[cacheKey]?.bags) return;
-
+ 
     reqBagCache[cacheKey] = { loading: true, bags: null, error: null };
-    reqRenderBagPreview(req); // show spinner
-
+    // spinner is already rendered by reqBuildBagPreviewHTML when cache.loading is true
+ 
     try {
       const params = new URLSearchParams({
         bloodType: req.bloodType.replace(/[^A-Za-z0-9_]/g, '_'),
@@ -1060,22 +1060,22 @@ async function submitAddBloodStock() {
       console.error('[BagPreview] fetch failed', err);
       reqBagCache[cacheKey] = { loading: false, bags: [], error: err.message };
     }
-
+ 
     // Re-render just the bag preview section of this card
     const previewEl = document.getElementById(`req-bag-preview-${req.id}`);
     if (previewEl) {
       previewEl.outerHTML = reqBuildBagPreviewHTML(req);
     }
   }
-
+ 
   /* Build the bag preview HTML (compatible bags shown in the card) */
   function reqBuildBagPreviewHTML(req) {
     const cache = reqBagCache[req.id];
     const id    = `req-bag-preview-${req.id}`;
-
+ 
     // Only show preview for PENDING and APPROVED (before allocation)
     if (!['PENDING', 'APPROVED'].includes(req.status)) return `<div id="${id}"></div>`;
-
+ 
     if (!cache || cache.loading) {
       return `<div id="${id}" class="req-bag-preview-wrap">
         <div class="req-section-label">Compatible blood bags</div>
@@ -1094,11 +1094,11 @@ async function submitAddBloodStock() {
         <div class="req-bag-preview-loading">📭 No compatible bags in stock for ${req.bloodType}.</div>
       </div>`;
     }
-
+ 
     const compatible = cache.bags.filter(b => b.compatible !== false);
     const others     = cache.bags.filter(b => b.compatible === false);
     const now        = Date.now();
-
+ 
     function bagRow(b) {
       const expDate  = b.expiresAt ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
       const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - now) / 86400000) : null;
@@ -1116,7 +1116,7 @@ async function submitAddBloodStock() {
         ${b.recommended ? `<span class="req-rec-badge" style="font-size:10px;padding:1px 7px">Recommended</span>` : ''}
       </div>`;
     }
-
+ 
     return `<div id="${id}" class="req-bag-preview-wrap">
       <div class="req-section-label" style="display:flex;align-items:center;gap:8px">
         Compatible blood bags
@@ -1134,7 +1134,7 @@ async function submitAddBloodStock() {
       </div>
     </div>`;
   }
-
+ 
   /* ─────────────────────────────────────────────────────────
      BAG PICKER MODAL — allocate step
   ───────────────────────────────────────────────────────── */
@@ -1143,26 +1143,26 @@ async function submitAddBloodStock() {
     bagPickerSelected = null;
     bagPickerData     = [];
     bagPickerIsChange = isChange;
-
+ 
     const req = reqData.find(x => x.id === reqId);
     if (!req) return;
-
+ 
     const modal   = document.getElementById('req-bag-picker-modal');
     const inner   = document.getElementById('req-bag-picker-inner');
     const title   = document.getElementById('req-bag-picker-title');
     const confirm = document.getElementById('req-bag-picker-confirm');
-
+ 
     title.textContent   = `Select ${req.units} bag${req.units > 1 ? 's' : ''} · ${req.bloodType} ${req.component}`;
     confirm.disabled    = true;
     confirm.textContent = isChange ? 'Change Selection' : 'Confirm & Mark Allocated';
     inner.innerHTML     = `<div class="req-bag-picker-loading">⏳ Loading available bags…</div>`;
     modal.classList.add('open');
-
+ 
     // Pre-select already-allocated bags when changing
     if (isChange && req.allocatedBags?.length) {
       bagPickerSelected = req.allocatedBags.map(b => String(b.id)).join(',');
     }
-
+ 
     // Use cache if already loaded
     const cached = reqBagCache[req.id];
     if (cached?.bags) {
@@ -1170,7 +1170,7 @@ async function submitAddBloodStock() {
       renderBagPicker(req);
       return;
     }
-
+ 
     try {
       const params = new URLSearchParams({
         bloodType: req.bloodType.replace(/[^A-Za-z0-9_]/g, '_'),
@@ -1188,24 +1188,24 @@ async function submitAddBloodStock() {
       inner.innerHTML = `<div class="req-bag-picker-loading">⚠️ Failed to load bags — ${err.message}</div>`;
       return;
     }
-
+ 
     renderBagPicker(req);
   }
-
+ 
   function renderBagPicker(req) {
     const inner   = document.getElementById('req-bag-picker-inner');
     const confirm = document.getElementById('req-bag-picker-confirm');
-
+ 
     if (!bagPickerData.length) {
       inner.innerHTML  = `<div class="req-bag-picker-loading">📭 No compatible bags available for ${req.bloodType}.</div>`;
       confirm.disabled = true;
       return;
     }
-
+ 
     const needed   = req.units;
     const selected = bagPickerSelected ? bagPickerSelected.split(',').filter(Boolean) : [];
     confirm.disabled = selected.length !== needed;
-
+ 
     inner.innerHTML = `
       <div class="req-bag-picker-hint">
         Select exactly <strong>${needed}</strong> bag${needed > 1 ? 's' : ''}.
@@ -1242,14 +1242,14 @@ async function submitAddBloodStock() {
         }).join('')}
       </div>`;
   }
-
+ 
   window.reqBagPickerToggle = function (bagId) {
     const req    = reqData.find(x => x.id === bagPickerReqId);
     if (!req) return;
     const needed = req.units;
     let   sel    = bagPickerSelected ? bagPickerSelected.split(',').filter(Boolean) : [];
     const idx    = sel.indexOf(String(bagId));
-
+ 
     if (idx >= 0) {
       sel.splice(idx, 1);
     } else {
@@ -1262,7 +1262,7 @@ async function submitAddBloodStock() {
     bagPickerSelected = sel.join(',');
     renderBagPicker(req);
   };
-
+ 
   window.reqCloseBagPicker = function () {
     document.getElementById('req-bag-picker-modal').classList.remove('open');
     bagPickerReqId    = null;
@@ -1270,7 +1270,7 @@ async function submitAddBloodStock() {
     bagPickerData     = [];
     bagPickerIsChange = false;
   };
-
+ 
   window.reqConfirmBagSelection = async function () {
     if (!bagPickerReqId || !bagPickerSelected) return;
     const req    = reqData.find(x => x.id === bagPickerReqId);
@@ -1279,22 +1279,25 @@ async function submitAddBloodStock() {
     const btn    = document.getElementById('req-bag-picker-confirm');
     btn.disabled    = true;
     btn.textContent = bagPickerIsChange ? 'Changing…' : 'Allocating…';
-
+ 
     const isChange   = bagPickerIsChange;
     const prevStatus = req.status;
     const prevBags   = req.allocatedBags;
-
-    // Optimistic update
-    req.status       = 'ALLOCATED';
-    req.allocatedBags = bagPickerData.filter(b => bagIds.includes(String(b.id)));
+ 
+    // Capture full bag objects BEFORE closing the modal clears bagPickerData
+    const capturedBags = bagPickerData.filter(b => bagIds.includes(String(b.id)));
+ 
+    // Optimistic update — use captured full objects so display is correct immediately
+    req.status        = 'ALLOCATED';
+    req.allocatedBags = capturedBags;
     reqExpanded[req.id] = true;
-
-    // Invalidate cache so it'll re-fetch fresh bags next time card is expanded
+ 
+    // Invalidate cache so fresh bags are fetched next time card is expanded
     delete reqBagCache[req.id];
-
+ 
     reqCloseBagPicker();
     reqRender();
-
+ 
     try {
       const endpoint = isChange ? 'reallocate' : 'allocate';
       const res = await fetch(`${API_BASE}/admin/blood-requests/${req.id}/${endpoint}`, {
@@ -1306,9 +1309,10 @@ async function submitAddBloodStock() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `Server error ${res.status}`);
       }
-      const data        = await res.json();
-      req.status        = data.status ?? 'ALLOCATED';
-      req.allocatedBags = data.reservedBags ?? req.allocatedBags;
+      const data = await res.json();
+      req.status = data.status ?? 'ALLOCATED';
+      // Server only returns IDs in reservedBags — keep using captured full objects
+      // capturedBags already has the correct data so no re-assignment needed
       reqRender();
     } catch (err) {
       console.error('[reqAllocate] failed', err);
@@ -1318,7 +1322,7 @@ async function submitAddBloodStock() {
       alert(`${isChange ? 'Re-allocation' : 'Allocation'} failed: ${err.message}`);
     }
   };
-
+ 
   /* ─────────────────────────────────────────────────────────
      SIMPLE CONFIRM MODAL (approve / ready / release)
   ───────────────────────────────────────────────────────── */
@@ -1327,45 +1331,45 @@ async function submitAddBloodStock() {
     if (!req) return;
     const next = REQ_NEXT[req.status];
     if (!next) return;
-
+ 
     /* allocate goes straight to bag picker — no confirm step */
     if (endpoint === 'allocate') {
       openBagPicker(id, false);
       return;
     }
-
+ 
     confirmPending = { id, endpoint, next };
     const copy  = CONFIRM_COPY[endpoint];
     const modal = document.getElementById('req-confirm-modal');
-
+ 
     document.getElementById('req-confirm-title').textContent = copy.title;
     document.getElementById('req-confirm-body').innerHTML    = copy.body;
     document.getElementById('req-confirm-meta').innerHTML    =
       `<strong>${req.name}</strong> — Patient: ${req.patient} &nbsp;·&nbsp; ${req.bloodType} ${req.component} &nbsp;·&nbsp; ${req.units} unit${req.units > 1 ? 's' : ''}`;
-
+ 
     const btn = document.getElementById('req-confirm-proceed');
     btn.className   = `req-btn ${copy.confirmCls}`;
     btn.textContent = next.label;
     modal.classList.add('open');
   };
-
+ 
   window.reqCloseConfirm = function () {
     document.getElementById('req-confirm-modal').classList.remove('open');
     confirmPending = null;
   };
-
+ 
   window.reqProceedConfirm = async function () {
     if (!confirmPending) return;
     const { id, endpoint, next } = confirmPending;
     reqCloseConfirm();
-
+ 
     const r = reqData.find(x => x.id === id);
     if (!r) return;
     const prevStatus = r.status;
     r.status = next.next;
     reqExpanded[id] = true;
     reqRender();
-
+ 
     try {
       const res = await fetch(`${API_BASE}/admin/blood-requests/${id}/${endpoint}`, {
         method: 'PUT',
@@ -1385,7 +1389,7 @@ async function submitAddBloodStock() {
       alert(`Action failed: ${err.message}`);
     }
   };
-
+ 
   /* ─────────────────────────────────────────────────────────
      REJECT MODAL
   ───────────────────────────────────────────────────────── */
@@ -1397,11 +1401,11 @@ async function submitAddBloodStock() {
     document.getElementById('req-reject-reason').style.borderColor = 'var(--border)';
     document.getElementById('req-reject-modal').classList.add('open');
   };
-
+ 
   window.reqCloseReject = function () {
     document.getElementById('req-reject-modal').classList.remove('open');
   };
-
+ 
   window.reqConfirmReject = async function () {
     const reason = document.getElementById('req-reject-reason').value.trim();
     if (!reason) {
@@ -1416,7 +1420,7 @@ async function submitAddBloodStock() {
     reqCloseReject();
     reqExpanded[reqPendingRejectId] = true;
     reqRender();
-
+ 
     try {
       const res = await fetch(`${API_BASE}/admin/blood-requests/${reqPendingRejectId}/reject`, {
         method: 'PUT',
@@ -1435,7 +1439,7 @@ async function submitAddBloodStock() {
       alert(`Rejection failed: ${err.message}`);
     }
   };
-
+ 
   /* ─────────────────────────────────────────────────────────
      DOCUMENT PREVIEW MODAL
   ───────────────────────────────────────────────────────── */
@@ -1450,7 +1454,7 @@ async function submitAddBloodStock() {
            onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable — <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ↗</a></div>'" />`;
     document.getElementById('req-doc-modal').classList.add('open');
   };
-
+ 
   /* ─────────────────────────────────────────────────────────
      FILTER / SORT / SEARCH
   ───────────────────────────────────────────────────────── */
@@ -1473,14 +1477,14 @@ async function submitAddBloodStock() {
     else if (sort === 'units_desc') list.sort((a, b) => b.units - a.units);
     return list;
   }
-
+ 
   window.reqFilterBy = function (status, btn) {
     reqCurrentFilter = status;
     document.querySelectorAll('#req-filters .req-filter-chip').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     reqFetchByStatus(status);
   };
-
+ 
   /* ─────────────────────────────────────────────────────────
      RENDER — status flow bar
   ───────────────────────────────────────────────────────── */
@@ -1497,7 +1501,7 @@ async function submitAddBloodStock() {
     });
     return h + `</div>`;
   }
-
+ 
   /* ─────────────────────────────────────────────────────────
      RENDER — allocated bags section (shown after allocation)
   ───────────────────────────────────────────────────────── */
@@ -1505,9 +1509,9 @@ async function submitAddBloodStock() {
     // Only show for ALLOCATED, READY_FOR_RELEASE, RELEASED
     if (!['ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'].includes(req.status)) return '';
     if (!req.allocatedBags?.length) return '';
-
+ 
     const canChange = ['ALLOCATED', 'READY_FOR_RELEASE'].includes(req.status);
-
+ 
     return `<div class="req-allocated-wrap">
       <div class="req-section-label" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
         <span>Allocated blood bag${req.allocatedBags.length > 1 ? 's' : ''}</span>
@@ -1536,7 +1540,7 @@ async function submitAddBloodStock() {
       </div>
     </div>`;
   }
-
+ 
   /* ─────────────────────────────────────────────────────────
      RENDER — action bar
   ───────────────────────────────────────────────────────── */
@@ -1551,20 +1555,20 @@ async function submitAddBloodStock() {
     }
     return h + `</div>`;
   }
-
+ 
   /* ─────────────────────────────────────────────────────────
      RENDER — full card
   ───────────────────────────────────────────────────────── */
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
-
+ 
     // Trigger background bag-fetch when card is expanded and status is pre-allocation
     if (isExp && ['PENDING', 'APPROVED'].includes(req.status)) {
       // Defer so the DOM renders first, then fetch updates the section
       setTimeout(() => reqFetchCompatibleBags(req), 0);
     }
-
+ 
     return `<div class="req-card${isExp ? ' expanded' : ''}" id="req-card-${req.id}">
       <div class="req-head" onclick="reqToggle(${req.id})"
            style="display:flex;gap:0;padding:0;align-items:stretch">
@@ -1587,10 +1591,10 @@ async function submitAddBloodStock() {
           <span class="req-chevron${isExp ? ' open' : ''}">›</span>
         </div>
       </div>
-
+ 
       <div class="req-detail${isExp ? ' open' : ''}" id="req-detail-${req.id}">
         ${reqRenderFlow(req.status)}
-
+ 
         <div class="req-detail-grid">
           <div class="req-detail-box">
             <div class="req-detail-box-title">Patient info</div>
@@ -1607,7 +1611,7 @@ async function submitAddBloodStock() {
             <div class="req-detail-row"><span class="lbl">Submitted</span><span class="val">${req.date}</span></div>
           </div>
         </div>
-
+ 
         <div class="req-section-label">Supporting document</div>
         <div class="req-doc-preview" onclick="reqViewDoc('${req.docUrl}','${req.docLabel}')">
           <div class="req-doc-icon">
@@ -1622,27 +1626,27 @@ async function submitAddBloodStock() {
           </div>
           <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View ↗</span>
         </div>
-
+ 
         ${req.status === 'REJECTED' && req.rejectionReason
           ? `<div class="req-detail-box" style="margin-bottom:12px;border-left:3px solid var(--crimson)">
               <div class="req-detail-box-title" style="color:var(--crimson)">Rejection reason</div>
               <div style="font-size:13px;color:var(--charcoal);line-height:1.6">${req.rejectionReason}</div>
             </div>` : ''}
-
+ 
         ${reqBuildBagPreviewHTML(req)}
         ${reqRenderAllocatedBags(req)}
         ${reqRenderActions(req)}
       </div>
     </div>`;
   }
-
+ 
   /* ─────────────────────────────────────────────────────────
      CHANGE BAGS — opens picker pre-populated with current selection
   ───────────────────────────────────────────────────────── */
   window.reqOpenChangeBags = function (id) {
     openBagPicker(id, true);
   };
-
+ 
   /* ─────────────────────────────────────────────────────────
      MAIN RENDER
   ───────────────────────────────────────────────────────── */
@@ -1657,17 +1661,17 @@ async function submitAddBloodStock() {
     if (info) info.textContent = `Showing ${filtered.length} of ${reqData.length} request${reqData.length !== 1 ? 's' : ''}`;
     reqUpdateCounts();
   }
-
+ 
   function reqUpdateCounts() {
     const allEl  = document.getElementById('req-cnt-all');
     const pendEl = document.getElementById('req-cnt-pending');
     if (allEl)  allEl.textContent  = reqData.length;
     if (pendEl) pendEl.textContent = reqData.filter(r => r.status === 'PENDING').length;
   }
-
+ 
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
-
+ 
   /* ─────────────────────────────────────────────────────────
      MODAL BACKDROP CLOSE
   ───────────────────────────────────────────────────────── */
@@ -1682,7 +1686,7 @@ async function submitAddBloodStock() {
       else el.classList.remove('open');
     });
   });
-
+ 
   /* ─────────────────────────────────────────────────────────
      BOOT
   ───────────────────────────────────────────────────────── */

@@ -1,18 +1,13 @@
 package com.hospital.blood_plus.controller;
 
-import com.hospital.blood_plus.dto.request.AllocateRequestDTO;
-import com.hospital.blood_plus.dto.request.ApproveRequestDTO;
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
-import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController

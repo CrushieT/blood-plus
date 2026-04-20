@@ -48,11 +48,6 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
     List<BloodBag> findByComponentTypeAndStatus(
             ComponentType componentType, BagStatus status);
 
-    List<BloodBag> findByBloodTypeAndComponentTypeAndStatus(
-            BloodBag.BloodType bloodType,
-            BloodBag.ComponentType componentType,
-            BloodBag.BagStatus status);
- 
     @Query("""
         SELECT b FROM BloodBag b
         WHERE b.status = 'AVAILABLE'
@@ -63,4 +58,15 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
     List<BloodBag> findExpiringBefore(
             @Param("now")      LocalDateTime now,
             @Param("deadline") LocalDateTime deadline);
+        
+      // Multiple compatible types — used by getAvailableBags()
+    List<BloodBag> findByBloodTypeInAndStatus(
+            List<BloodType> bloodTypes,
+            BloodBag.BagStatus status);
+ 
+    // Optional: by component too
+    List<BloodBag> findByBloodTypeAndComponentTypeAndStatus(
+            BloodBag.BloodType bloodType,
+            BloodBag.ComponentType componentType,
+            BloodBag.BagStatus status);
 }
