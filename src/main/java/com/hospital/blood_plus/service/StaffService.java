@@ -202,11 +202,20 @@ public class StaffService {
      * If the caller didn't supply a staffId, auto-generate one.
      * Format: STF-001, STF-002, etc.
      */
-    private String resolveStaffId(String provided, String existing) {
+    private synchronized String resolveStaffId(String provided, String existing) {
         if (provided != null && !provided.isBlank()) return provided.trim();
         if (existing  != null && !existing.isBlank())  return existing;
-        long count = staffRepo.count() + 1;
-        return String.format("STF-%03d", count);
+
+        int next = staffRepo.findAll().stream()
+            .map(StaffProfile::getStaffId)
+            .filter(staffId -> staffId != null && staffId.startsWith("STF-"))
+            .map(staffId -> staffId.substring(4))
+            .filter(suffix -> suffix.matches("\\d+"))
+            .mapToInt(Integer::parseInt)
+            .max()
+            .orElse(0) + 1;
+
+        return String.format("STF-%03d", next);
     }
 
     private void sendCredentialsEmail(String to, String firstName,
