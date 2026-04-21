@@ -3,6 +3,9 @@ package com.hospital.blood_plus.controller;
 import com.hospital.blood_plus.dto.request.AllocateRequestDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
+import com.hospital.blood_plus.dto.request.StaffDTOs.CreateStaffRequest;
+import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
+import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.repository.UserRepository;
 import com.hospital.blood_plus.model.AppUser;
@@ -10,12 +13,14 @@ import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
+import com.hospital.blood_plus.service.StaffService;
 
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -27,17 +32,21 @@ public class AdminController {
     private final BloodBagService         bloodBagService;
     private final UserRepository          userRepository;
     private final BloodBagRequestService  bloodBagRequestService;
+    private final StaffService staffService;
 
     public AdminController(BloodBagService bloodBagService,
                            UserRepository userRepository,
-                           BloodBagRequestService bloodBagRequestService) {
+                           BloodBagRequestService bloodBagRequestService,
+                            StaffService staffService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
+        this.staffService = staffService;
     }
 
     // ── Dashboard ─────────────────────────────────────────────
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboard() {
         try {
@@ -49,16 +58,19 @@ public class AdminController {
 
     // ── Blood Bank ────────────────────────────────────────────
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/blood-bank/bags")
     public ResponseEntity<?> getAllBags() {
         return ResponseEntity.ok(bloodBagService.getAllBags());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/blood-bank/inventory")
     public ResponseEntity<?> getInventory() {
         return ResponseEntity.ok(bloodBagService.getInventorySummary());
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PostMapping("/blood-bank/intake")
     public ResponseEntity<?> receiveStock(
             @RequestBody BloodBankIntakeRequest request,
@@ -73,6 +85,7 @@ public class AdminController {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PatchMapping("/blood-bank/bags/{id}/discard")
     public ResponseEntity<?> discardBag(
             @PathVariable Long id,
@@ -87,6 +100,7 @@ public class AdminController {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PatchMapping("/blood-bank/bags/{id}/convert-open-system")
     public ResponseEntity<?> convertOpenSystem(@PathVariable Long id) {
         try {
@@ -97,8 +111,8 @@ public class AdminController {
     }
 
     // ── Available bags (for bag picker) ──────────────────────
-    // GET /api/admin/available?bloodType=A_POS&component=PRBC&units=2
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/available")
     public ResponseEntity<?> getAvailableBags(
             @RequestParam String bloodType,
@@ -129,8 +143,8 @@ public class AdminController {
     }
 
     // ── Blood Requests ────────────────────────────────────────
-    // All mapped under /api/admin/blood-requests/**
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/blood-requests")
     public ResponseEntity<List<BloodBagRequest>> getAllRequests(
             @RequestParam(required = false) BloodBagRequest.RequestStatus status) {
@@ -141,6 +155,8 @@ public class AdminController {
     }
 
     // PENDING → APPROVED  (no body needed — bag selection happens at allocate)
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/approve")
     public ResponseEntity<?> approveRequest(
             @PathVariable Long id,
@@ -158,6 +174,8 @@ public class AdminController {
     }
 
     // PENDING → REJECTED
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/reject")
     public ResponseEntity<?> rejectRequest(
             @PathVariable Long id,
@@ -180,6 +198,8 @@ public class AdminController {
     }
 
     // APPROVED → ALLOCATED  (picks blood bags)
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/allocate")
     public ResponseEntity<?> allocateRequest(
             @PathVariable Long id,
@@ -202,6 +222,8 @@ public class AdminController {
     }
 
     // ALLOCATED / READY_FOR_RELEASE → swap bags, keep status
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/reallocate")
     public ResponseEntity<?> reallocateRequest(
             @PathVariable Long id,
@@ -224,6 +246,8 @@ public class AdminController {
     }
 
     // ALLOCATED → READY_FOR_RELEASE
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/ready")
     public ResponseEntity<?> markReadyRequest(
             @PathVariable Long id,
@@ -241,6 +265,7 @@ public class AdminController {
     }
 
     // READY_FOR_RELEASE → RELEASED
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/release")
     public ResponseEntity<?> releaseRequest(
             @PathVariable Long id,
@@ -258,6 +283,7 @@ public class AdminController {
     }
 
     // Any non-RELEASED → CANCELLED
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/cancel")
     public ResponseEntity<?> cancelRequest(@PathVariable Long id) {
         try {
@@ -269,6 +295,104 @@ public class AdminController {
             ));
         } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    ///////// STAFF MANAGEMENT ////////
+
+    // GET /api/admin/staff
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/staff")
+    public ResponseEntity<?> listStaff() {
+        try {
+            return ResponseEntity.ok(staffService.getAllStaff());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to load staff."));
+        }
+    }
+
+    // GET /api/admin/staff/{id}
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/staff/{id}")
+    public ResponseEntity<?> getStaff(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(staffService.getStaff(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // POST /api/admin/staff
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/staff")
+    public ResponseEntity<?> createStaff(@RequestBody CreateStaffRequest req) {
+        try {
+            if (req.getEmail()     == null || req.getEmail().isBlank() ||
+                req.getFirstName() == null || req.getFirstName().isBlank() ||
+                req.getLastName()  == null || req.getLastName().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Email, first name, and last name are required."));
+            }
+            StaffResponse created = staffService.createStaff(req);
+            return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to create staff account."));
+        }
+    }
+
+    // PUT /api/admin/staff/{id}
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/staff/{id}")
+    public ResponseEntity<?> updateStaff(@PathVariable Long id,
+                                        @RequestBody UpdateStaffRequest req) {
+        try {
+            if (req.getFirstName() == null || req.getFirstName().isBlank() ||
+                req.getLastName()  == null || req.getLastName().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "First name and last name are required."));
+            }
+            return ResponseEntity.ok(staffService.updateStaff(id, req));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to update staff profile."));
+        }
+    }
+
+    // DELETE /api/admin/staff/{id}
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/staff/{id}")
+    public ResponseEntity<?> deleteStaff(@PathVariable Long id) {
+        try {
+            staffService.deleteStaff(id);
+            return ResponseEntity.ok(Map.of("message", "Staff account deleted."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to delete staff account."));
+        }
+    }
+
+    // PATCH /api/admin/staff/{id}/toggle-status
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/staff/{id}/toggle-status")
+    public ResponseEntity<?> toggleStatus(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(staffService.toggleStatus(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 }

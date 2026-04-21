@@ -1,7 +1,6 @@
 package com.hospital.blood_plus.service;
 
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
-import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;

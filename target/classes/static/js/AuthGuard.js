@@ -1,7 +1,7 @@
 (async function guard() {
     try {
         const path        = window.location.pathname;
-        const isSetupPage = path.includes("admin_setup");
+        const isSetupPage = path === "/admin-setup.html";
         const isPublicPage = path === "/admin-login.html" ||
                              path === "/";
 

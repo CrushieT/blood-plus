@@ -1,8 +1,37 @@
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
+async function initializeNav() {
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: { Accept: 'application/json' }
+    });
+    
+    if (!res.ok) {
+      console.error('Failed to get user info');
+      return;
+    }
+    
+    const user = await res.json();
+    const staffNavItem = document.querySelector('[onclick="showPanel(\'staff\', this)"]');
+    
+    // Hide staff management if user is not ADMIN
+    if (staffNavItem) {
+      if (user.role === 'ADMIN') {
+        staffNavItem.style.display = 'flex';
+        staffLoadAll();  // ← Only load staff data if admin
+      } else {
+        staffNavItem.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.error('[Nav] Failed to check role:', err);
+  }
+}
 
+// Update your DOMContentLoaded to call this
 document.addEventListener('DOMContentLoaded', () => {
+  initializeNav();  
   loadBloodBank();
   loadDashboard();
 });
@@ -15,7 +44,9 @@ function showPanel(id, navEl) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     navEl.classList.add('active');
   }
+  
 }
+
 
 // ── Modal helpers ──────────────────────────────────────────
 function openModal(id) {
@@ -1382,6 +1413,9 @@ async function submitAddBloodStock() {
       const data = await res.json();
       r.status   = data.status ?? next.next;
       reqRender();
+      if (endpoint === 'release') {        // ← add this block
+        openReleaseReceipt(r, data);
+      }
     } catch (err) {
       console.error('[reqAdvance] failed', err);
       r.status = prevStatus;
@@ -1389,7 +1423,38 @@ async function submitAddBloodStock() {
       alert(`Action failed: ${err.message}`);
     }
   };
- 
+
+  function openReleaseReceipt(req, data) {
+      const payload = {
+        referenceNumber: req.referenceNumber ?? data.referenceNumber,
+        releasedAt:      new Date().toISOString(),
+        patientName:     req.patient,
+        bloodType:       req.bloodType,          // e.g. "A_POS"
+        wardRoom:        req.wardRoom ?? null,
+        physician:       req.physician ?? null,
+        hospitalName:    req.name,
+        urgency:         req.urgency,
+        releasedBy:      data.releasedBy ?? null,
+        bags:            (req.allocatedBags ?? []).map(b => ({
+          serialNumber:  b.serialNumber,
+          bloodType:     b.bloodType,
+          componentType: b.componentType,
+          volumeMl:      b.volumeMl,
+          expiresAt:     b.expiresAt,
+        })),
+    };
+    
+    
+    const encoded = btoa(JSON.stringify(payload));
+    // Path to wherever you host the receipt HTML
+    const url = `receipt/blood-release-receipt.html?data=${encoded}`;
+    window.open(url, '_blank');
+  }
+  window.reqPrintReceipt = function(id) {
+      const req = reqData.find(x => x.id === id);
+      if (!req) return;
+      openReleaseReceipt(req, {});
+    };
   /* ─────────────────────────────────────────────────────────
      REJECT MODAL
   ───────────────────────────────────────────────────────── */
@@ -1545,7 +1610,15 @@ async function submitAddBloodStock() {
      RENDER — action bar
   ───────────────────────────────────────────────────────── */
   function reqRenderActions(req) {
-    if (req.status === 'RELEASED' || req.status === 'REJECTED') return '';
+    if (req.status === 'RELEASED') {
+      return `<div class="req-action-bar">
+        <button class="req-btn req-btn-approve" onclick="reqPrintReceipt(${req.id})">
+          🖨 Print Receipt
+        </button>
+      </div>`;
+    }
+
+    if (req.status === 'REJECTED') return '';
     const next = REQ_NEXT[req.status];
     if (!next) return '';
     let h = `<div class="req-action-bar">
@@ -1692,3 +1765,534 @@ async function submitAddBloodStock() {
   ───────────────────────────────────────────────────────── */
   reqFetchAll();
 })();
+
+/////// STAFF MANAGEMENT ////////
+
+const STAFF_API = '/api/admin/staff';
+
+let staffList = [];   // populated from API
+
+let staffPage          = 1;
+const STAFF_PER_PAGE   = 10;
+let staffCurrentViewId = null;
+
+/* ══════════════════════════════════════════════════════════════
+   API HELPERS
+══════════════════════════════════════════════════════════════ */
+
+async function staffApiFetch(path, options = {}) {
+  const res = await fetch(STAFF_API + path, {
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    ...options,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+  return data;
+}
+
+async function staffLoadAll() {
+  try {
+    staffList = await staffApiFetch('');
+    staffRender();
+  } catch (err) {
+    console.error('[Staff] load failed', err);
+    staffShowToast('Failed to load staff list.', 'danger');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HELPERS  (unchanged from original)
+══════════════════════════════════════════════════════════════ */
+
+function staffFmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function staffInitials(first, last) {
+  return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || '??';
+}
+
+function staffGetDepts() {
+  return [...new Set(staffList.map(s => s.department).filter(Boolean))].sort();
+}
+
+function staffPopulateDepts() {
+  const sel      = document.getElementById('staff-filter-dept');
+  const datalist = document.getElementById('staff-dept-list');
+  if (!sel || !datalist) return;
+  const current = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
+  datalist.innerHTML = '';
+  staffGetDepts().forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d; opt.textContent = d;
+    sel.appendChild(opt.cloneNode(true));
+    datalist.appendChild(opt);
+  });
+  if (current) sel.value = current;
+}
+
+function staffTogglePass(inputId, icon) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  icon.style.opacity = inp.type === 'text' ? '1' : '0.5';
+}
+
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function staffValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SUMMARY STRIP
+══════════════════════════════════════════════════════════════ */
+
+function staffUpdateStrip() {
+  const active   = staffList.filter(s => s.status === 'active').length;
+  const inactive = staffList.filter(s => s.status === 'inactive').length;
+  const depts    = staffGetDepts().length;
+  document.getElementById('staff-active-count').textContent   = active;
+  document.getElementById('staff-inactive-count').textContent = inactive;
+  document.getElementById('staff-total-count').textContent    = staffList.length;
+  document.getElementById('staff-dept-count').textContent     = depts;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RENDER TABLE  (unchanged logic, data now from API)
+══════════════════════════════════════════════════════════════ */
+
+function staffGetFiltered() {
+  const q      = (document.getElementById('staff-search')?.value || '').toLowerCase();
+  const dept   = document.getElementById('staff-filter-dept')?.value   || 'ALL';
+  const status = document.getElementById('staff-filter-status')?.value || 'ALL';
+  const sort   = document.getElementById('staff-sort')?.value          || 'name_asc';
+
+  let list = staffList.filter(s => {
+    const fullName = (s.firstName + ' ' + s.lastName).toLowerCase();
+    const matchQ = !q || fullName.includes(q)
+                    || (s.staffId || '').toLowerCase().includes(q)
+                    || (s.department || '').toLowerCase().includes(q)
+                    || (s.position || '').toLowerCase().includes(q)
+                    || (s.email || '').toLowerCase().includes(q);
+    const matchD = dept   === 'ALL' || s.department === dept;
+    const matchS = status === 'ALL' || s.status === status;
+    return matchQ && matchD && matchS;
+  });
+
+  list.sort((a, b) => {
+    switch (sort) {
+      case 'name_desc': return (b.lastName + b.firstName).localeCompare(a.lastName + a.firstName);
+      case 'hire_desc': return (b.hireDate || '').localeCompare(a.hireDate || '');
+      case 'hire_asc':  return (a.hireDate || '').localeCompare(b.hireDate || '');
+      case 'dept':      return (a.department || '').localeCompare(b.department || '');
+      default:          return (a.lastName + a.firstName).localeCompare(b.lastName + b.firstName);
+    }
+  });
+  return list;
+}
+
+function staffRender() {
+  staffPopulateDepts();
+  staffUpdateStrip();
+
+  const filtered = staffGetFiltered();
+  const total    = filtered.length;
+  const pages    = Math.max(1, Math.ceil(total / STAFF_PER_PAGE));
+  if (staffPage > pages) staffPage = pages;
+
+  const start = (staffPage - 1) * STAFF_PER_PAGE;
+  const slice = filtered.slice(start, start + STAFF_PER_PAGE);
+
+  const tbody   = document.getElementById('staff-tbody');
+  const empty   = document.getElementById('staff-empty');
+  const showing = document.getElementById('staff-showing');
+  const info    = document.getElementById('staff-results-info');
+
+  if (!total) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    showing.textContent = 'No results';
+    if (info) info.textContent = '';
+  } else {
+    empty.style.display = 'none';
+    showing.textContent  = `Showing ${start + 1}–${Math.min(start + STAFF_PER_PAGE, total)} of ${total}`;
+    if (info) info.textContent = `${total} staff found`;
+  }
+
+  tbody.innerHTML = slice.map(s => {
+    const initials  = staffInitials(s.firstName, s.lastName);
+    const isActive  = s.status === 'active';
+    const statusTag = isActive
+      ? `<span class="tag tag-active">Active</span>`
+      : `<span class="tag tag-inactive">Inactive</span>`;
+
+    return `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:34px;height:34px;border-radius:50%;background:var(--soft-red);
+                flex-shrink:0;display:flex;align-items:center;justify-content:center;
+                font-size:12px;font-weight:700;color:var(--crimson)">${initials}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${escHtml(s.firstName)} ${escHtml(s.lastName)}</div>
+              <div style="font-size:11px;color:var(--muted)">${escHtml(s.email)}</div>
+            </div>
+          </div>
+        </td>
+        <td style="font-family:monospace;font-size:12px">${escHtml(s.staffId || '—')}</td>
+        <td style="font-size:12px">${escHtml(s.department || '—')}</td>
+        <td style="font-size:12px">${escHtml(s.position || '—')}</td>
+        <td style="font-size:12px;color:var(--muted)">${escHtml(s.phoneNumber || '—')}</td>
+        <td style="font-size:12px">${staffFmtDate(s.hireDate)}</td>
+        <td>${statusTag}</td>
+        <td>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn-ghost" style="font-size:12px;padding:5px 10px"
+              onclick="staffOpenView(${s.id})">View</button>
+            <button class="btn-ghost" style="font-size:12px;padding:5px 10px"
+              onclick="staffOpenEdit(${s.id})">Edit</button>
+            <button class="btn-danger" style="font-size:12px;padding:5px 10px"
+              onclick="staffOpenDelete(${s.id})">Delete</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('staff-page-label').textContent = `Page ${staffPage} / ${pages}`;
+  document.getElementById('staff-prev').disabled = staffPage <= 1;
+  document.getElementById('staff-next').disabled = staffPage >= pages;
+}
+
+function staffPrevPage() { if (staffPage > 1) { staffPage--; staffRender(); } }
+function staffNextPage() {
+  const pages = Math.max(1, Math.ceil(staffGetFiltered().length / STAFF_PER_PAGE));
+  if (staffPage < pages) { staffPage++; staffRender(); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ADD STAFF  →  POST /api/admin/staff
+══════════════════════════════════════════════════════════════ */
+
+function openAddStaffModal() {
+  ['add-staff-email','add-staff-first','add-staff-last',
+   'add-staff-phone','add-staff-id','add-staff-dept','add-staff-position'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const statusEl = document.getElementById('add-staff-status');
+  if (statusEl) statusEl.value = 'active';
+  const hireDateEl = document.getElementById('add-staff-hiredate');
+  if (hireDateEl) hireDateEl.value = new Date().toISOString().split('T')[0];
+
+  // Show the generated-password hint
+  const hint = document.getElementById('add-staff-pass-hint');
+  if (hint) hint.textContent = '';
+
+  staffHideError('add-staff-error');
+  staffPopulateDepts();
+  openModal('addStaffModal');
+}
+
+// Preview the generated password as the admin types the name
+function staffPreviewPassword() {
+  const first = document.getElementById('add-staff-first')?.value.trim() || '';
+  const last  = document.getElementById('add-staff-last')?.value.trim()  || '';
+  const hint  = document.getElementById('add-staff-pass-hint');
+  if (!hint) return;
+  if (first && last) {
+    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
+    hint.textContent = `Generated password: ${cap(first)}${cap(last)}@1234`;
+  } else {
+    hint.textContent = '';
+  }
+}
+
+async function submitAddStaff() {
+  const email    = document.getElementById('add-staff-email').value.trim();
+  const first    = document.getElementById('add-staff-first').value.trim();
+  const last     = document.getElementById('add-staff-last').value.trim();
+  const phone    = document.getElementById('add-staff-phone').value.trim();
+  const hireDate = document.getElementById('add-staff-hiredate').value || null;
+  const staffId  = document.getElementById('add-staff-id').value.trim();
+  const dept     = document.getElementById('add-staff-dept').value.trim();
+  const position = document.getElementById('add-staff-position').value.trim();
+  const status   = document.getElementById('add-staff-status').value;
+
+  if (!email || !first || !last) {
+    staffShowError('add-staff-error', 'Email, first name, and last name are required.');
+    return;
+  }
+  if (!staffValidEmail(email)) {
+    staffShowError('add-staff-error', 'Please enter a valid email address.');
+    return;
+  }
+
+  const btn = document.getElementById('add-staff-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+
+  try {
+    const created = await staffApiFetch('', {
+      method: 'POST',
+      body: JSON.stringify({ email, firstName: first, lastName: last, phoneNumber: phone,
+                             hireDate: hireDate || null, staffId: staffId || null,
+                             department: dept, position, status }),
+    });
+
+    staffList.unshift(created);   // optimistic: prepend to local list
+    closeModal('addStaffModal');
+    staffRender();
+    staffShowToast(`Staff account created for ${first} ${last}. Credentials emailed.`, 'success');
+  } catch (err) {
+    staffShowError('add-staff-error', err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   VIEW STAFF  (read-only modal — no API call needed)
+══════════════════════════════════════════════════════════════ */
+
+function staffOpenView(id) {
+  const s = staffList.find(x => x.id === id);
+  if (!s) return;
+  staffCurrentViewId = id;
+
+  document.getElementById('view-staff-id-label').textContent       = s.staffId || '';
+  document.getElementById('view-staff-avatar').textContent         = staffInitials(s.firstName, s.lastName);
+  document.getElementById('view-staff-name').textContent           = `${s.firstName} ${s.lastName}`;
+  document.getElementById('view-staff-position-label').textContent =
+    [s.position, s.department].filter(Boolean).join(' · ') || '—';
+  document.getElementById('view-staff-staffid').textContent  = s.staffId     || '—';
+  document.getElementById('view-staff-dept').textContent     = s.department  || '—';
+  document.getElementById('view-staff-phone').textContent    = s.phoneNumber || '—';
+  document.getElementById('view-staff-hiredate').textContent = staffFmtDate(s.hireDate);
+  document.getElementById('view-staff-email').textContent    = s.email;
+  document.getElementById('view-staff-created').textContent  = staffFmtDate(s.createdAt);
+
+  const badge = document.getElementById('view-staff-status-badge');
+  badge.innerHTML = s.status === 'active'
+    ? `<span class="tag tag-active">Active</span>`
+    : `<span class="tag tag-inactive">Inactive</span>`;
+
+  openModal('viewStaffModal');
+}
+
+function staffOpenEditFromView() {
+  closeModal('viewStaffModal');
+  staffOpenEdit(staffCurrentViewId);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EDIT STAFF  →  PUT /api/admin/staff/{id}
+══════════════════════════════════════════════════════════════ */
+
+function staffOpenEdit(id) {
+  const s = staffList.find(x => x.id === id);
+  if (!s) return;
+  staffCurrentViewId = id;
+
+  document.getElementById('edit-staff-subtitle').textContent = s.staffId || s.email;
+  document.getElementById('edit-staff-first').value          = s.firstName;
+  document.getElementById('edit-staff-last').value           = s.lastName;
+  document.getElementById('edit-staff-phone').value          = s.phoneNumber || '';
+  document.getElementById('edit-staff-hiredate').value       = s.hireDate    || '';
+  document.getElementById('edit-staff-id').value             = s.staffId     || '';
+  document.getElementById('edit-staff-dept').value           = s.department  || '';
+  document.getElementById('edit-staff-position').value       = s.position    || '';
+  document.getElementById('edit-staff-status').value         = s.status;
+  document.getElementById('edit-staff-password').value       = '';
+  document.getElementById('edit-staff-target-id').value      = id;
+
+  staffHideError('edit-staff-error');
+  staffPopulateDepts();
+  openModal('editStaffModal');
+}
+
+async function submitEditStaff() {
+  const id       = parseInt(document.getElementById('edit-staff-target-id').value);
+  const first    = document.getElementById('edit-staff-first').value.trim();
+  const last     = document.getElementById('edit-staff-last').value.trim();
+  const phone    = document.getElementById('edit-staff-phone').value.trim();
+  const hireDate = document.getElementById('edit-staff-hiredate').value || null;
+  const staffId  = document.getElementById('edit-staff-id').value.trim();
+  const dept     = document.getElementById('edit-staff-dept').value.trim();
+  const position = document.getElementById('edit-staff-position').value.trim();
+  const status   = document.getElementById('edit-staff-status').value;
+  const password = document.getElementById('edit-staff-password').value;
+
+  if (!first || !last) {
+    staffShowError('edit-staff-error', 'First name and last name are required.');
+    return;
+  }
+  if (password && password.length < 6) {
+    staffShowError('edit-staff-error', 'New password must be at least 6 characters.');
+    return;
+  }
+
+  const btn = document.getElementById('edit-staff-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  try {
+    const updated = await staffApiFetch(`/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ firstName: first, lastName: last, phoneNumber: phone,
+                             hireDate: hireDate || null, staffId: staffId || null,
+                             department: dept, position, status,
+                             newPassword: password || null }),
+    });
+
+    // Replace local copy
+    const idx = staffList.findIndex(s => s.id === id);
+    if (idx !== -1) staffList[idx] = updated;
+
+    closeModal('editStaffModal');
+    staffRender();
+    staffShowToast(`${first} ${last}'s profile updated.`, 'success');
+  } catch (err) {
+    staffShowError('edit-staff-error', err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DELETE STAFF  →  DELETE /api/admin/staff/{id}
+══════════════════════════════════════════════════════════════ */
+
+function staffOpenDelete(id) {
+  const s = staffList.find(x => x.id === id);
+  if (!s) return;
+  staffCurrentViewId = id;
+  document.getElementById('delete-staff-name-label').textContent =
+    `${s.firstName} ${s.lastName} (${s.staffId || s.email})`;
+  openModal('deleteStaffModal');
+}
+
+function staffOpenDeleteConfirm() {
+  closeModal('viewStaffModal');
+  staffOpenDelete(staffCurrentViewId);
+}
+
+async function staffConfirmDelete() {
+  const id  = staffCurrentViewId;
+  const s   = staffList.find(x => x.id === id);
+  const name = s ? `${s.firstName} ${s.lastName}` : 'Staff member';
+
+  const btn = document.getElementById('delete-staff-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+
+  try {
+    await staffApiFetch(`/${id}`, { method: 'DELETE' });
+    staffList = staffList.filter(x => x.id !== id);
+    closeModal('deleteStaffModal');
+    staffRender();
+    staffShowToast(`${name}'s account has been deleted.`, 'danger');
+  } catch (err) {
+    staffShowToast(`Delete failed: ${err.message}`, 'danger');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Yes, Delete'; }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOGGLE STATUS  →  PATCH /api/admin/staff/{id}/toggle-status
+══════════════════════════════════════════════════════════════ */
+
+async function staffToggleStatus(id) {
+  const s = staffList.find(x => x.id === id);
+  if (!s) return;
+
+  try {
+    const updated = await staffApiFetch(`/${id}/toggle-status`, { method: 'PATCH' });
+    const idx = staffList.findIndex(x => x.id === id);
+    if (idx !== -1) staffList[idx] = updated;
+    staffRender();
+    staffShowToast(
+      `${updated.firstName} ${updated.lastName} is now ${updated.status}.`,
+      updated.status === 'active' ? 'success' : 'warn'
+    );
+  } catch (err) {
+    staffShowToast(`Status toggle failed: ${err.message}`, 'danger');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOAST  (unchanged)
+══════════════════════════════════════════════════════════════ */
+
+function staffShowToast(msg, type = 'success') {
+  if (typeof showToast === 'function') { showToast(msg, type); return; }
+
+  const colors = {
+    success: { bg:'var(--green-light)',  border:'rgba(22,163,74,.25)',  color:'var(--green)'   },
+    danger:  { bg:'var(--soft-red)',     border:'rgba(196,30,58,.25)',  color:'var(--crimson)' },
+    warn:    { bg:'var(--amber-light)',  border:'rgba(179,92,0,.25)',   color:'var(--amber)'   },
+    info:    { bg:'#E8F0FF',             border:'rgba(59,130,246,.25)', color:'var(--blue)'    },
+  };
+  const c = colors[type] || colors.info;
+
+  let container = document.getElementById('staff-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'staff-toast-container';
+    container.style.cssText = 'position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.style.cssText = `background:${c.bg};border:1px solid ${c.border};color:${c.color};
+    border-radius:10px;padding:11px 18px;font-size:13px;font-weight:600;
+    font-family:'DM Sans',sans-serif;pointer-events:auto;max-width:320px;line-height:1.4;
+    animation:staffToastIn .22s ease;`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity .3s';
+    setTimeout(() => toast.remove(), 320);
+  }, 3200);
+}
+
+(function injectToastStyle() {
+  if (document.getElementById('staff-toast-style')) return;
+  const s = document.createElement('style');
+  s.id = 'staff-toast-style';
+  s.textContent = `@keyframes staffToastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`;
+  document.head.appendChild(s);
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   ERROR HELPERS  (unchanged)
+══════════════════════════════════════════════════════════════ */
+
+function staffShowError(elId, msg) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent  = msg;
+  el.style.display = 'flex';
+}
+
+function staffHideError(elId) {
+  const el = document.getElementById(elId);
+  if (el) el.style.display = 'none';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   INIT  — fetch from API instead of using mock array
+══════════════════════════════════════════════════════════════ */
+
+function initStaffPanel() {
+  staffPage = 1;
+}
+
+document.addEventListener('DOMContentLoaded', initStaffPanel);
