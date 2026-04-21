@@ -34,6 +34,8 @@ async function login() {
             window.location.href = "hospital.html";
         } else if (text === "LOGIN_SUCCESS_ADMIN") {
             window.location.href = "../admin/admin_dashboard.html";
+        } else if (text === "LOGIN_SUCCESS_STAFF") {
+            window.location.href = "../admin/admin_dashboard.html";
         } else if (text === "LOGIN_FAILED") {
             alert("Invalid email or password!");
         } else {

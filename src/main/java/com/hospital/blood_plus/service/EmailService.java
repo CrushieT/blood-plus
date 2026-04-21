@@ -42,4 +42,39 @@ public class EmailService {
             e.printStackTrace();
         }
     }
+
+    public void sendStaffCredentialsEmail(String to, String firstName,
+                                           String username, String tempPassword) {
+        try {
+            String url = "https://api.brevo.com/v3/smtp/email";
+ 
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("api-key", apiKey);
+ 
+            String body =
+                "Hi " + firstName + ",\n\n" +
+                "Your BloodPlus staff account has been created.\n\n" +
+                "Login details:\n" +
+                "  Email:    " + to + "\n" +
+                "  Username: " + username + "\n" +
+                "  Password: " + tempPassword + "\n\n" +
+                "Please log in and change your password as soon as possible.\n\n" +
+                "— BloodPlus Admin";
+ 
+            Map<String, Object> payload = Map.of(
+                "sender",      Map.of("email", fromEmail, "name", "BloodPlus"),
+                "to",          new Object[]{ Map.of("email", to) },
+                "subject",     "BloodPlus — Your Staff Account Credentials",
+                "textContent", body
+            );
+ 
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+            System.out.println("Brevo credentials email: " + response.getStatusCode());
+        } catch (Exception e) {
+            System.err.println("Failed to send credentials email: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 }

@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blood Release Receipt</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --crimson:   #B91C1C;
+    --crimson-lt:#FEF2F2;
+    --crimson-md:#FECACA;
+    --ink:       #111827;
+    --ink-mid:   #374151;
+    --ink-soft:  #6B7280;
+    --ink-faint: #D1D5DB;
+    --paper:     #FFFDF9;
+    --rule:      #E5E1D8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #E8E4DC;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    gap: 20px;
+  }
+
+  /* ── Print controls (hidden when printing) ── */
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--crimson); color: #fff; }
+  .btn-ghost   { background: #fff; color: var(--ink-mid); border: 1px solid var(--rule); }
+
+  /* ── Receipt card ── */
+  .receipt {
+    width: 100%;
+    max-width: 740px;
+    background: var(--paper);
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.1);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* top red bar */
+  .receipt-topbar {
+    height: 6px;
+    background: var(--crimson);
+  }
+
+  /* perforated edge effect */
+  .receipt::before {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 18px;
+    background: radial-gradient(circle at 50% -1px, #E8E4DC 10px, transparent 10px);
+    background-size: 24px 18px;
+    background-repeat: repeat-x;
+  }
+  .receipt-body {
+    padding: 36px 44px 52px;
+  }
+
+  /* ── Header ── */
+  .receipt-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1.5px solid var(--rule);
+  }
+
+  .hospital-block {}
+  .hospital-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .logo-mark {
+    width: 36px;
+    height: 36px;
+    background: var(--crimson);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo-mark svg { display: block; }
+  .hospital-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .hospital-sub {
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-left: 46px;
+  }
+
+  .receipt-title-block {
+    text-align: right;
+  }
+  .receipt-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--crimson);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .receipt-ref {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+  .receipt-date {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  /* ── Status stamp ── */
+  .stamp-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 24px;
+  }
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 2px solid var(--crimson);
+    border-radius: 4px;
+    padding: 6px 18px;
+    color: var(--crimson);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    transform: rotate(-1.5deg);
+  }
+  .stamp-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--crimson);
+    flex-shrink: 0;
+  }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+
+  /* ── Two-column info grid ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 32px;
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .info-item {}
+  .info-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 3px;
+  }
+  .info-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .info-value.mono {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* ── Blood bag table ── */
+  .bag-section {
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .bag-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .bag-table th {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1.5px solid var(--rule);
+  }
+  .bag-table th:last-child { text-align: right; }
+  .bag-table td {
+    padding: 10px 10px;
+    font-size: 13px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+  .bag-table td:last-child { text-align: right; }
+  .bag-table tr:last-child td { border-bottom: none; }
+
+  .bag-serial {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .blood-type-pill {
+    display: inline-flex;
+    align-items: center;
+    background: var(--crimson-lt);
+    color: var(--crimson);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--crimson-md);
+  }
+
+  /* ── Summary row ── */
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { font-size: 13px; color: var(--ink-soft); }
+  .summary-value { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .summary-value.highlight {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--crimson);
+  }
+
+  /* ── Signatures ── */
+  .sig-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    margin: 28px 0 20px;
+  }
+  .sig-item {}
+  .sig-line {
+    height: 1px;
+    background: var(--ink);
+    margin-bottom: 6px;
+  }
+  .sig-label {
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-align: center;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Footer ── */
+  .receipt-footer {
+    text-align: center;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+  }
+  .footer-text {
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+    line-height: 1.8;
+  }
+  .footer-barcode {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--ink-faint);
+    margin-top: 8px;
+  }
+
+  /* ── Copy badge ── */
+  .copy-badge {
+    position: absolute;
+    top: 24px;
+    right: -10px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 3px 12px;
+    border-radius: 2px;
+  }
+
+  /* ════════════════════════════════
+     PRINT STYLES
+  ════════════════════════════════ */
+  @media print {
+    body {
+      background: #fff;
+      padding: 0;
+    }
+    .controls { display: none !important; }
+    .receipt {
+      box-shadow: none;
+      max-width: 100%;
+      border-radius: 0;
+    }
+    .receipt::before { display: none; }
+    .copy-badge { display: none; }
+
+    .receipt-wrapper {
+        display: block;
+    }
+    .receipt + .receipt {
+        border-left: none;
+        page-break-before: always; /* each copy on its own page */
+    }
+    
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <button class="btn btn-ghost" onclick="window.close()">← Back</button>
+  <button class="btn btn-primary" onclick="window.print()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+      <rect x="6" y="14" width="12" height="8"/>
+    </svg>
+    Print Receipt
+  </button>
+</div>
+
+<div class="receipt-wrapper">
+
+<!-- ══ COPY 1 — HOSPITAL ══ -->
+<div class="receipt" id="receipt-hospital">
+  <div class="receipt-topbar"></div>
+  <div class="receipt-body">
+    <span class="copy-badge">Patient Copy</span>
+
+    <!-- Header -->
+    <div class="receipt-header">
+      <div class="hospital-block">
+        <div class="hospital-logo">
+          <div class="logo-mark">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
+              <path d="M12 2C8 2 5 6 5 10c0 5.25 7 12 7 12s7-6.75 7-12c0-4-3-8-7-8z"/>
+              <path d="M12 8v4M10 10h4" stroke="#fff" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="hospital-name">Blood+ Hospital</div>
+        </div>
+        <div class="hospital-sub">Blood Bank Department</div>
+      </div>
+      <div class="receipt-title-block">
+        <div class="receipt-title">Release Receipt</div>
+        <div class="receipt-ref" id="h-ref">REF: BR-2025-00042</div>
+        <div class="receipt-date" id="h-date">Released: Apr 20, 2026 — 14:32</div>
+      </div>
+    </div>
+
+    <!-- Released stamp -->
+    <div class="stamp-wrap">
+      <div class="stamp">
+        <div class="stamp-dot"></div>
+        Blood Released
+        <div class="stamp-dot"></div>
+      </div>
+    </div>
+
+    <!-- Patient & Requester info -->
+    <div class="section-label">Patient Information</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Patient Name</div>
+        <div class="info-value" id="h-patient">Juan Dela Cruz</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Blood Type Requested</div>
+        <div class="info-value" id="h-btype">A Positive (A+)</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Ward / Room</div>
+        <div class="info-value" id="h-ward">Ward 3 — Room 12B</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Requesting Physician</div>
+        <div class="info-value" id="h-physician">Dr. Maria Santos</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Requesting Hospital</div>
+        <div class="info-value" id="h-hospital">Metro General Hospital</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Urgency Level</div>
+        <div class="info-value" id="h-urgency">High</div>
+      </div>
+    </div>
+
+    <!-- Blood bags released -->
+    <div class="bag-section">
+      <div class="section-label">Blood Bags Released</div>
+      <table class="bag-table">
+        <thead>
+          <tr>
+            <th>Serial No.</th>
+            <th>Blood Type</th>
+            <th>Component</th>
+            <th>Volume</th>
+            <th>Expiry</th>
+          </tr>
+        </thead>
+        <tbody id="h-bags">
+          <tr>
+            <td><span class="bag-serial">SN-2023-00421</span></td>
+            <td><span class="blood-type-pill">A+</span></td>
+            <td>Packed RBC</td>
+            <td>450 mL</td>
+            <td>May 30, 2026</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-row">
+      <span class="summary-label">Total units released</span>
+      <span class="summary-value highlight" id="h-units">1 unit</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Released by (staff)</span>
+      <span class="summary-value" id="h-staff">Nurse Ana Reyes</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Received by</span>
+      <span class="summary-value" id="h-received">— (sign below)</span>
+    </div>
+
+    <!-- Signatures -->
+    <div class="sig-grid">
+      <div class="sig-item">
+        <div class="sig-line"></div>
+        <div class="sig-label">Blood Bank Officer</div>
+      </div>
+      <div class="sig-item">
+        <div class="sig-line"></div>
+        <div class="sig-label">Receiving Nurse / Staff</div>
+      </div>
+      <div class="sig-item">
+        <div class="sig-line"></div>
+        <div class="sig-label">Date &amp; Time Received</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="receipt-footer">
+      <div class="footer-text">
+        This document serves as official proof of blood product release.<br>
+        Keep this receipt with the patient's medical records.<br>
+        Blood+ Hospital Blood Bank · (02) 8XXX-XXXX · bloodbank@bloodplus.ph
+      </div>
+      <div class="footer-barcode" id="h-barcode">|| BR-2025-00042 || 20260420-1432 ||</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ COPY 2 — BLOOD BANK ══ -->
+<div class="receipt" id="receipt-bloodbank">
+  <div class="receipt-topbar"></div>
+  <div class="receipt-body">
+    <span class="copy-badge">Blood Bank Copy</span>
+
+    <div class="receipt-header">
+      <div class="hospital-block">
+        <div class="hospital-logo">
+          <div class="logo-mark">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
+              <path d="M12 2C8 2 5 6 5 10c0 5.25 7 12 7 12s7-6.75 7-12c0-4-3-8-7-8z"/>
+              <path d="M12 8v4M10 10h4" stroke="#fff" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="hospital-name">Blood+ Hospital</div>
+        </div>
+        <div class="hospital-sub">Blood Bank Department</div>
+      </div>
+      <div class="receipt-title-block">
+        <div class="receipt-title">Release Receipt</div>
+        <div class="receipt-ref" id="bb-ref">REF: BR-2025-00042</div>
+        <div class="receipt-date" id="bb-date">Released: Apr 20, 2026 — 14:32</div>
+      </div>
+    </div>
+
+    <div class="stamp-wrap">
+      <div class="stamp">
+        <div class="stamp-dot"></div>
+        Blood Released
+        <div class="stamp-dot"></div>
+      </div>
+    </div>
+
+    <div class="section-label">Patient Information</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Patient Name</div>
+        <div class="info-value" id="bb-patient">Juan Dela Cruz</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Blood Type Requested</div>
+        <div class="info-value" id="bb-btype">A Positive (A+)</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Ward / Room</div>
+        <div class="info-value" id="bb-ward">Ward 3 — Room 12B</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Requesting Physician</div>
+        <div class="info-value" id="bb-physician">Dr. Maria Santos</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Requesting Hospital</div>
+        <div class="info-value" id="bb-hospital">Metro General Hospital</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Urgency Level</div>
+        <div class="info-value" id="bb-urgency">High</div>
+      </div>
+    </div>
+
+    <div class="bag-section">
+      <div class="section-label">Blood Bags Released</div>
+      <table class="bag-table">
+        <thead>
+          <tr>
+            <th>Serial No.</th>
+            <th>Blood Type</th>
+            <th>Component</th>
+            <th>Volume</th>
+            <th>Expiry</th>
+          </tr>
+        </thead>
+        <tbody id="bb-bags">
+          <tr>
+            <td><span class="bag-serial">SN-2023-00421</span></td>
+            <td><span class="blood-type-pill">A+</span></td>
+            <td>Packed RBC</td>
+            <td>450 mL</td>
+            <td>May 30, 2026</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="summary-row">
+      <span class="summary-label">Total units released</span>
+      <span class="summary-value highlight" id="bb-units">1 unit</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Released by (staff)</span>
+      <span class="summary-value" id="bb-staff">Nurse Ana Reyes</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Received by</span>
+      <span class="summary-value" id="bb-received">— (sign below)</span>
+    </div>
+
+    <div class="sig-grid">
+      <div class="sig-item">
+        <div class="sig-line"></div>
+        <div class="sig-label">Blood Bank Officer</div>
+      </div>
+      <div class="sig-item">
+        <div class="sig-line"></div>
+        <div class="sig-label">Receiving Nurse / Staff</div>
+      </div>
+      <div class="sig-item">
+        <div class="sig-line"></div>
+        <div class="sig-label">Date &amp; Time Received</div>
+      </div>
+    </div>
+
+    <div class="receipt-footer">
+      <div class="footer-text">
+        This document serves as official proof of blood product release.<br>
+        Retain this copy for blood bank inventory and audit records.<br>
+        Blood+ Hospital Blood Bank · (02) 8XXX-XXXX · bloodbank@bloodplus.ph
+      </div>
+      <div class="footer-barcode" id="bb-barcode">|| BR-2025-00042 || 20260420-1432 ||</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /.receipt-wrapper -->
+
+<script>
+/**
+ * populateReceipt(data)
+ *
+ * Call this with your actual request data to fill both copies at once.
+ * All fields are optional — missing ones keep the sample values.
+ *
+ * Example:
+ *   populateReceipt({
+ *     referenceNumber: 'BR-2025-00042',
+ *     releasedAt:      '2026-04-20T14:32:00',
+ *     patientName:     'Juan Dela Cruz',
+ *     bloodType:       'A_POS',
+ *     wardRoom:        'Ward 3 — Room 12B',
+ *     physician:       'Dr. Maria Santos',
+ *     hospitalName:    'Metro General Hospital',
+ *     urgency:         'HIGH',
+ *     releasedBy:      'Nurse Ana Reyes',
+ *     bags: [
+ *       { serialNumber: 'SN-2023-00421', bloodType: 'A_POS', componentType: 'PRBC', volumeMl: 450, expiresAt: '2026-05-30' }
+ *     ]
+ *   });
+ */
+
+const BLOOD_TYPE_LABEL = {
+  A_POS: 'A Positive (A+)', A_NEG: 'A Negative (A−)',
+  B_POS: 'B Positive (B+)', B_NEG: 'B Negative (B−)',
+  AB_POS:'AB Positive (AB+)', AB_NEG:'AB Negative (AB−)',
+  O_POS: 'O Positive (O+)', O_NEG: 'O Negative (O−)',
+};
+const BLOOD_TYPE_SHORT = {
+  A_POS:'A+', A_NEG:'A−', B_POS:'B+', B_NEG:'B−',
+  AB_POS:'AB+', AB_NEG:'AB−', O_POS:'O+', O_NEG:'O−',
+};
+const COMPONENT_LABEL = {
+  WHOLE_BLOOD:'Whole Blood', PRBC:'Packed RBC',
+  PLATELET_CONCENTRATE:'Platelet', FRESH_FROZEN_PLASMA:'FFP',
+  CRYOPRECIPITATE:'Cryoprecipitate', CRYOSUPERNATANT:'Cryosupernatant',
+  LEUKOREDUCED_PRBC:'Leukoreduced PRBC', ALIQUOTED_PRBC:'Aliquoted PRBC',
+};
+const URGENCY_LABEL = { CRITICAL:'Critical', HIGH:'High', MEDIUM:'Medium', LOW:'Low' };
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
+       + ' — ' + d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+}
+function fmtBarcode(ref, iso) {
+  const ts = iso ? new Date(iso).toISOString().slice(0,16).replace(/[-T:]/g,'') : '';
+  return `|| ${ref} || ${ts} ||`;
+}
+
+function bagRowHTML(bag) {
+  const btShort = BLOOD_TYPE_SHORT[bag.bloodType] ?? bag.bloodType ?? '—';
+  const comp    = COMPONENT_LABEL[bag.componentType] ?? bag.componentType ?? '—';
+  const expDate = fmtDate(bag.expiresAt);
+  return `<tr>
+    <td><span class="bag-serial">${bag.serialNumber ?? '—'}</span></td>
+    <td><span class="blood-type-pill">${btShort}</span></td>
+    <td>${comp}</td>
+    <td>${bag.volumeMl ? bag.volumeMl + ' mL' : '—'}</td>
+    <td>${expDate}</td>
+  </tr>`;
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el && val !== undefined && val !== null) el.textContent = val;
+}
+function setHTML(id, val) {
+  const el = document.getElementById(id);
+  if (el && val !== undefined && val !== null) el.innerHTML = val;
+}
+
+window.populateReceipt = function(data) {
+  const ref      = data.referenceNumber ?? 'BR-XXXX-XXXXX';
+  const dtLabel  = fmtDateTime(data.releasedAt);
+  const btLabel  = BLOOD_TYPE_LABEL[data.bloodType] ?? data.bloodType ?? '—';
+  const urgLabel = URGENCY_LABEL[data.urgency] ?? data.urgency ?? '—';
+  const units    = (data.bags?.length ?? 1);
+  const unitLabel= units + ' unit' + (units !== 1 ? 's' : '');
+  const barcode  = fmtBarcode(ref, data.releasedAt);
+  const bagsHTML = (data.bags ?? []).map(bagRowHTML).join('');
+
+  ['h','bb'].forEach(p => {
+    set(`${p}-ref`,       'REF: ' + ref);
+    set(`${p}-date`,      'Released: ' + dtLabel);
+    set(`${p}-patient`,   data.patientName   ?? '—');
+    set(`${p}-btype`,     btLabel);
+    set(`${p}-ward`,      data.wardRoom      ?? '—');
+    set(`${p}-physician`, data.physician      ?? data.requestingPhysician ?? '—');
+    set(`${p}-hospital`,  data.hospitalName   ?? '—');
+    set(`${p}-urgency`,   urgLabel);
+    set(`${p}-units`,     unitLabel);
+    set(`${p}-staff`,     data.releasedBy     ?? '—');
+    set(`${p}-received`,  data.receivedBy     ?? '— (sign below)');
+    set(`${p}-barcode`,   barcode);
+    if (bagsHTML) setHTML(`${p}-bags`, bagsHTML);
+  });
+};
+
+// Auto-print if data is passed via URL query param ?data=base64json
+(function () {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const raw    = params.get('data');
+    if (raw) {
+      const data = JSON.parse(atob(raw));
+      populateReceipt(data);
+      setTimeout(() => window.print(), 600);
+    }
+  } catch(e) { /* use sample data */ }
+})();
+</script>
+</body>
+</html>

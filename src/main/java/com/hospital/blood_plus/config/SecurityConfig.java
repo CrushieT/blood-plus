@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,6 +17,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 
+@EnableMethodSecurity  
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
@@ -66,13 +68,14 @@ public class SecurityConfig {
                     "/images/**",
                     "/assets/**"
                 ).permitAll()                
+                .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/req/**").permitAll()
 
                 .requestMatchers("/hospital/**").hasRole("HOSPITAL")
-
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                             
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "STAFF") 
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")       
 
                 .anyRequest().authenticated()
             )
