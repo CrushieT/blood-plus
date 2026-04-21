@@ -90,10 +90,14 @@ public class StaffService {
         profile.setPosition(req.getPosition());
         profile.setPhoneNumber(req.getPhoneNumber());
         profile.setHireDate(req.getHireDate());
-        // status stored via AppUser.emailVerified; inactive = account disabled
-        // We use a simple convention: inactive staff have emailVerified=false
+        // Do not repurpose AppUser.emailVerified as a staff active/inactive flag.
+        // Account status must be represented by a dedicated field (for example, enabled/active).
+        // Until such a field exists, reject inactive creation requests here rather than corrupting
+        // email verification state and potentially breaking verify-email flows.
         if ("inactive".equalsIgnoreCase(req.getStatus())) {
-            user.setEmailVerified(false);
+            throw new IllegalArgumentException(
+                "Inactive staff status requires a dedicated account status field and cannot be stored in emailVerified."
+            );
         }
         staffRepo.save(profile);
 
