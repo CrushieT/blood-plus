@@ -2296,3 +2296,171 @@ function initStaffPanel() {
 }
 
 document.addEventListener('DOMContentLoaded', initStaffPanel);
+
+
+///////// HOSPITAL PANEL/////////////
+// Hospital data store
+let hospData = [
+  {name:"Philippine General Hospital",city:"Manila",province:"Metro Manila",address:"Taft Ave, Ermita",email:"pgh@doh.gov.ph",phone:"+63 2 5548 8888",contactName:"Dr. Santos",contactPhone:"+63 917 111 1111",requests:18,status:"active"},
+  {name:"St. Luke's Medical Center",city:"Quezon City",province:"Metro Manila",address:"E. Rodriguez Sr. Blvd",email:"bloodbank@stlukes.com",phone:"+63 2 8789 7700",contactName:"Ms. Reyes",contactPhone:"+63 917 222 2222",requests:11,status:"active"},
+  {name:"Cardinal Santos Medical Center",city:"San Juan",province:"Metro Manila",address:"Wilson St, Greenhills",email:"csmc@blood.ph",phone:"+63 2 8727 0001",contactName:"Dr. Dela Cruz",contactPhone:"+63 917 333 3333",requests:7,status:"inactive"},
+];
+ 
+let hospPage = 1, hospPerPage = 5;
+ 
+function hospFiltered(){
+  const q = document.getElementById('hosp-search').value.toLowerCase();
+  const s = document.getElementById('hosp-filter-status').value;
+  const sort = document.getElementById('hosp-sort').value;
+  
+  let list = hospData.filter(h => {
+    const matchQ = !q || h.name.toLowerCase().includes(q) || h.city.toLowerCase().includes(q) || h.email.toLowerCase().includes(q);
+    const matchS = s === 'ALL' || h.status === s;
+    return matchQ && matchS;
+  });
+  
+  if(sort === 'name_asc') list.sort((a,b) => a.name.localeCompare(b.name));
+  else if(sort === 'name_desc') list.sort((a,b) => b.name.localeCompare(a.name));
+  else if(sort === 'requests_desc') list.sort((a,b) => b.requests - a.requests);
+  
+  return list;
+}
+ 
+function hospRender(){
+  const list = hospFiltered();
+  const total = list.length;
+  const pages = Math.max(1, Math.ceil(total / hospPerPage));
+  
+  if(hospPage > pages) hospPage = pages;
+  
+  const slice = list.slice((hospPage-1)*hospPerPage, hospPage*hospPerPage);
+  const tbody = document.getElementById('hosp-tbody');
+  
+  tbody.innerHTML = '';
+  document.getElementById('hosp-empty').style.display = slice.length ? 'none' : 'block';
+  
+  slice.forEach((h, i) => {
+    const realIdx = hospData.indexOf(h);
+    const tagCls = h.status === 'active' ? 'tag-active' : 'tag-inactive';
+    const tagTxt = h.status === 'active' ? 'Active' : 'Inactive';
+    
+    tbody.innerHTML += `<tr>
+      <td><strong>${h.name}</strong></td>
+      <td style="font-size:12px;color:var(--muted)">${h.city}<br>${h.province}</td>
+      <td style="font-size:12px;color:var(--muted)">${h.email}</td>
+      <td style="font-size:12px;color:var(--muted)">${h.phone}</td>
+      <td style="font-weight:700">${h.requests}</td>
+      <td><span class="tag ${tagCls}">${tagTxt}</span></td>
+      <td><div style="display:flex;gap:6px">
+        <button class="btn-ghost" style="font-size:12px" onclick="hospOpenEdit(${realIdx})">Edit</button>
+        <button class="btn-danger" onclick="hospConfirmDelete(${realIdx})">Delete</button>
+      </div></td>
+    </tr>`;
+  });
+  
+  const start = (hospPage-1)*hospPerPage+1, end = Math.min(hospPage*hospPerPage, total);
+  document.getElementById('hosp-info').textContent = total + ' hospital' + (total !== 1 ? 's' : '');
+  document.getElementById('hosp-results-info').textContent = total + ' hospital' + (total !== 1 ? 's' : '');
+  document.getElementById('hosp-showing').textContent = total ? `Showing ${start}–${end} of ${total}` : 'No results';
+  document.getElementById('hosp-page-label').textContent = `Page ${hospPage} / ${pages}`;
+  document.getElementById('hosp-prev').disabled = hospPage <= 1;
+  document.getElementById('hosp-next').disabled = hospPage >= pages;
+  
+  hospUpdateStats();
+}
+ 
+function hospUpdateStats(){
+  const active = hospData.filter(h => h.status === 'active').length;
+  const inactive = hospData.filter(h => h.status === 'inactive').length;
+  const reqs = hospData.reduce((s, h) => s + h.requests, 0);
+  document.getElementById('hosp-active-count').textContent = active;
+  document.getElementById('hosp-inactive-count').textContent = inactive;
+  document.getElementById('hosp-total-count').textContent = hospData.length;
+  document.getElementById('hosp-requests-count').textContent = reqs;
+}
+ 
+function hospPrevPage(){if(hospPage > 1){hospPage--;hospRender()}}
+function hospNextPage(){const pages = Math.ceil(hospFiltered().length/hospPerPage);if(hospPage < pages){hospPage++;hospRender()}}
+ 
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+ 
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => {
+    if(e.target === o) o.classList.remove('open');
+  });
+});
+ 
+function hospCreate(){
+  const name = document.getElementById('hosp-add-name').value.trim();
+  if(!name){alert('Hospital name is required.');return;}
+  
+  hospData.push({
+    name,
+    city: document.getElementById('hosp-add-city').value.trim(),
+    province: document.getElementById('hosp-add-province').value.trim(),
+    address: document.getElementById('hosp-add-address').value.trim(),
+    email: document.getElementById('hosp-add-email').value.trim(),
+    phone: document.getElementById('hosp-add-phone').value.trim(),
+    contactName: document.getElementById('hosp-add-contact-name').value.trim(),
+    contactPhone: document.getElementById('hosp-add-contact-phone').value.trim(),
+    requests: 0,
+    status: document.getElementById('hosp-add-status').value
+  });
+  
+  ['hosp-add-name','hosp-add-city','hosp-add-province','hosp-add-address','hosp-add-email','hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone','hosp-add-pass'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  
+  closeModal('addHospitalModal');
+  hospPage = 1;
+  hospRender();
+}
+ 
+function hospOpenEdit(idx){
+  const h = hospData[idx];
+  document.getElementById('hosp-edit-idx').value = idx;
+  document.getElementById('hosp-edit-name').value = h.name;
+  document.getElementById('hosp-edit-city').value = h.city;
+  document.getElementById('hosp-edit-province').value = h.province;
+  document.getElementById('hosp-edit-address').value = h.address;
+  document.getElementById('hosp-edit-email').value = h.email;
+  document.getElementById('hosp-edit-phone').value = h.phone;
+  document.getElementById('hosp-edit-contact-name').value = h.contactName;
+  document.getElementById('hosp-edit-contact-phone').value = h.contactPhone;
+  document.getElementById('hosp-edit-pass').value = '';
+  document.getElementById('hosp-edit-status').value = h.status;
+  openModal('editHospitalModal');
+}
+ 
+function hospSaveEdit(){
+  const idx = parseInt(document.getElementById('hosp-edit-idx').value);
+  hospData[idx] = {
+    ...hospData[idx],
+    name: document.getElementById('hosp-edit-name').value.trim(),
+    city: document.getElementById('hosp-edit-city').value.trim(),
+    province: document.getElementById('hosp-edit-province').value.trim(),
+    address: document.getElementById('hosp-edit-address').value.trim(),
+    email: document.getElementById('hosp-edit-email').value.trim(),
+    phone: document.getElementById('hosp-edit-phone').value.trim(),
+    contactName: document.getElementById('hosp-edit-contact-name').value.trim(),
+    contactPhone: document.getElementById('hosp-edit-contact-phone').value.trim(),
+    status: document.getElementById('hosp-edit-status').value
+  };
+  closeModal('editHospitalModal');
+  hospRender();
+}
+ 
+function hospDelete(){
+  const idx = parseInt(document.getElementById('hosp-edit-idx').value);
+  if(confirm('Delete ' + hospData[idx].name + '? This cannot be undone.'))
+  {hospData.splice(idx, 1);closeModal('editHospitalModal');hospRender();}
+}
+ 
+function hospConfirmDelete(idx){
+  if(confirm('Delete ' + hospData[idx].name + '? This cannot be undone.'))
+  {hospData.splice(idx, 1);hospRender();}
+}
+ 
+// Initialize
+hospRender();

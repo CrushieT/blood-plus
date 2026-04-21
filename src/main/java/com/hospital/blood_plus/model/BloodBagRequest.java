@@ -50,9 +50,9 @@ public class BloodBagRequest {
     private AppUser requestedBy;
     
     @ManyToOne
-    @JoinColumn(name = "hospital_profile_id")
+    @JoinColumn(name = "hospital_profile_id", nullable = true)
     private HospitalProfile hospitalProfile;
-
+ 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RequesterType requesterType;

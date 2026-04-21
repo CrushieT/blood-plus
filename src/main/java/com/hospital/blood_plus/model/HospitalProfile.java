@@ -10,10 +10,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 @Table(name = "hospital_profiles")
 public class HospitalProfile {
 
-    public enum VerificationStatus {
-        PENDING, VERIFIED, REJECTED
-    }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -24,9 +20,6 @@ public class HospitalProfile {
 
     @Column(nullable = false)
     private String hospitalName;
-
-    @Column(unique = true)
-    private String licenseNumber;
 
     @Column(nullable = false)
     private String address;
@@ -45,26 +38,6 @@ public class HospitalProfile {
 
     @Column(length = 20)
     private String contactPersonPhone;
-
-    @Column(length = 500)
-    private String verificationDocumentUrl;
-
-    @Column(length = 500)
-    private String verificationDocumentKey;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
-
-    @ManyToOne
-    @JoinColumn(name = "verified_by")
-    private AppUser verifiedBy;
-
-    @Column
-    private LocalDateTime verifiedAt;
-
-    @Column(length = 500)
-    private String rejectionReason;
 
     @JsonIgnore
     @OneToMany(mappedBy = "hospitalProfile", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -95,9 +68,6 @@ public class HospitalProfile {
     public String getHospitalName() { return hospitalName; }
     public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
 
-    public String getLicenseNumber() { return licenseNumber; }
-    public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
-
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
 
@@ -115,24 +85,6 @@ public class HospitalProfile {
 
     public String getContactPersonPhone() { return contactPersonPhone; }
     public void setContactPersonPhone(String contactPersonPhone) { this.contactPersonPhone = contactPersonPhone; }
-
-    public String getVerificationDocumentUrl() { return verificationDocumentUrl; }
-    public void setVerificationDocumentUrl(String url) { this.verificationDocumentUrl = url; }
-
-    public String getVerificationDocumentKey() { return verificationDocumentKey; }
-    public void setVerificationDocumentKey(String key) { this.verificationDocumentKey = key; }
-
-    public VerificationStatus getVerificationStatus() { return verificationStatus; }
-    public void setVerificationStatus(VerificationStatus verificationStatus) { this.verificationStatus = verificationStatus; }
-
-    public AppUser getVerifiedBy() { return verifiedBy; }
-    public void setVerifiedBy(AppUser verifiedBy) { this.verifiedBy = verifiedBy; }
-
-    public LocalDateTime getVerifiedAt() { return verifiedAt; }
-    public void setVerifiedAt(LocalDateTime verifiedAt) { this.verifiedAt = verifiedAt; }
-
-    public String getRejectionReason() { return rejectionReason; }
-    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 
     public List<BloodBagRequest> getRequests() { return requests; }
 
