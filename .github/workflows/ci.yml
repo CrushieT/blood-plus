@@ -2,7 +2,7 @@ name: Blood Plus CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, admin/staff]
   pull_request:
     branches: [ main, develop ]
 
@@ -25,7 +25,7 @@ jobs:
       run: mvn clean package -DskipTests
 
     - name: Upload JAR artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: blood-plus-app
         path: target/*.jar
