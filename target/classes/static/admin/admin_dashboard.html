@@ -569,60 +569,99 @@
     
 
     <!-- ══════════════════════════════════
-        PANEL: HOSPITALS
+        PANEL: HOSPITALS PANEL
     ══════════════════════════════════ -->
-    <div class="panel" id="panel-hospitals">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Hospitals</div>
-          <div class="page-sub">Create and manage hospital accounts</div>
-        </div>
-        <div class="topbar-right">
-          <button class="btn-primary" onclick="openModal('addHospitalModal')">＋ Create Hospital Account</button>
+  <div class="panel" id="panel-hospitals">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Hospitals</div>
+        <div class="page-sub">Create and manage hospital accounts</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-primary" onclick="openModal('addHospitalModal')">＋ Create Hospital Account</button>
+      </div>
+    </div>
+  
+    <!-- Summary Strip -->
+    <div class="bb-summary-strip">
+      <div class="bb-strip-item" style="background:var(--green-light)">
+        <div class="bb-strip-val" style="color:var(--green)" id="hosp-active-count">0</div>
+        <div class="bb-strip-label">Active Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--soft-red)">
+        <div class="bb-strip-val" style="color:var(--crimson)" id="hosp-inactive-count">0</div>
+        <div class="bb-strip-label">Inactive Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:#E8F0FF">
+        <div class="bb-strip-val" style="color:var(--blue)" id="hosp-total-count">0</div>
+        <div class="bb-strip-label">Total Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--amber-light)">
+        <div class="bb-strip-val" style="color:var(--amber)" id="hosp-requests-count">0</div>
+        <div class="bb-strip-label">Total Requests</div>
+      </div>
+    </div>
+  
+    <!-- Filter Bar -->
+    <div class="req-filter-bar" style="margin-bottom:10px">
+      <div class="req-search-wrap">
+        <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+        <input class="req-search-input" id="hosp-search" type="text"
+          placeholder="Search hospital name, city, email…"
+          oninput="hospRender()">
+      </div>
+      <select class="req-select" id="hosp-filter-status" onchange="hospRender()">
+        <option value="ALL">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <select class="req-select" id="hosp-sort" onchange="hospRender()">
+        <option value="name_asc">Name A–Z</option>
+        <option value="name_desc">Name Z–A</option>
+        <option value="requests_desc">Most Requests</option>
+      </select>
+    </div>
+  
+    <!-- Hospitals Table Card -->
+    <div class="card">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px">
+        <div class="card-title">Registered Hospitals</div>
+        <span style="font-size:12px;color:var(--muted)" id="hosp-results-info"></span>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="data-table">
+          <thead><tr>
+            <th>Hospital</th>
+            <th>Location</th>
+            <th>Contact Email</th>
+            <th>Phone</th>
+            <th>Requests</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="hosp-tbody"></tbody>
+        </table>
+        <div id="hosp-empty" class="bb-empty" style="display:none">
+          <div style="font-size:32px;margin-bottom:10px;opacity:0.4">🏥</div>
+          No hospitals match the current filters.
         </div>
       </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Registered Hospitals</div>
-        </div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table">
-            <thead><tr>
-              <th>Hospital</th><th>Location</th><th>Contact</th><th>Requests</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><strong>Philippine General Hospital</strong></td>
-                <td style="font-size:12px;color:var(--muted)">Taft Ave, Manila</td>
-                <td style="font-size:12px;color:var(--muted)">pgh@doh.gov.ph</td>
-                <td style="font-weight:700">18</td>
-                <td><span class="tag tag-active">Active</span></td>
-                <td><div style="display:flex;gap:6px"><button class="btn-ghost" style="font-size:12px" onclick="openModal('editHospitalModal')">Edit</button><button class="btn-danger">Delete</button></div></td>
-              </tr>
-              <tr>
-                <td><strong>St. Luke's Medical Center</strong></td>
-                <td style="font-size:12px;color:var(--muted)">E. Rodriguez Blvd, QC</td>
-                <td style="font-size:12px;color:var(--muted)">bloodbank@stlukes.com</td>
-                <td style="font-weight:700">11</td>
-                <td><span class="tag tag-active">Active</span></td>
-                <td><div style="display:flex;gap:6px"><button class="btn-ghost" style="font-size:12px" onclick="openModal('editHospitalModal')">Edit</button><button class="btn-danger">Delete</button></div></td>
-              </tr>
-              <tr>
-                <td><strong>Cardinal Santos Medical Center</strong></td>
-                <td style="font-size:12px;color:var(--muted)">Wilson St, San Juan</td>
-                <td style="font-size:12px;color:var(--muted)">csmc@blood.ph</td>
-                <td style="font-weight:700">7</td>
-                <td><span class="tag tag-inactive">Inactive</span></td>
-                <td><div style="display:flex;gap:6px"><button class="btn-ghost" style="font-size:12px" onclick="openModal('editHospitalModal')">Edit</button><button class="btn-danger">Delete</button></div></td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Pagination Footer -->
+      <div id="hosp-footer" style="display:flex;align-items:center;justify-content:space-between;
+          padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+        <span id="hosp-showing"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" id="hosp-prev" onclick="hospPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+          <span id="hosp-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+          <button class="btn-ghost" id="hosp-next" onclick="hospNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
         </div>
       </div>
     </div>
+  </div>
+ 
 
-    <!-- ═══════════ PANEL ═══════════ -->
+
+    <!-- ═══════════STAFF PANEL ═══════════ -->
   <div class="panel" id="panel-staff">
   
     <div class="topbar">
@@ -950,7 +989,9 @@
     </div>
   </div>
 
-  <!-- Create Hospital Modal -->
+
+  <!-- HOSPITALS MODAL -->
+  <!-- ═══════════ CREATE HOSPITAL MODAL ═══════════ -->
   <div class="modal-overlay" id="addHospitalModal">
     <div class="modal">
       <div class="modal-header">
@@ -959,28 +1000,36 @@
       </div>
       <div class="modal-body">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" placeholder="e.g. Philippine General Hospital"></div>
+          <div class="form-group-m"><label>Hospital Name</label><input type="text" id="hosp-add-name" placeholder="e.g. Philippine General Hospital"></div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email (Login)</label><input type="email" placeholder="hospital@email.com"></div>
-          <div class="form-group-m"><label>Contact Number</label><input type="tel" placeholder="+63 2 XXXX XXXX"></div>
+          <div class="form-group-m"><label>City</label><input type="text" id="hosp-add-city" placeholder="e.g. Manila"></div>
+          <div class="form-group-m"><label>Province</label><input type="text" id="hosp-add-province" placeholder="e.g. Metro Manila"></div>
         </div>
         <div class="form-row full">
-          <div class="form-group-m"><label>Address</label><input type="text" placeholder="Full address"></div>
+          <div class="form-group-m"><label>Address</label><input type="text" id="hosp-add-address" placeholder="Full street address"></div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Temporary Password</label><input type="password" placeholder="Set initial password"></div>
-          <div class="form-group-m"><label>Status</label><select><option>Active</option><option>Inactive</option></select></div>
+          <div class="form-group-m"><label>Email (Login)</label><input type="email" id="hosp-add-email" placeholder="hospital@email.com"></div>
+          <div class="form-group-m"><label>Phone Number</label><input type="tel" id="hosp-add-phone" placeholder="+63 2 XXXX XXXX"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m"><label>Contact Person Name</label><input type="text" id="hosp-add-contact-name" placeholder="Dr. Juan dela Cruz"></div>
+          <div class="form-group-m"><label>Contact Person Phone</label><input type="tel" id="hosp-add-contact-phone" placeholder="+63 9XX XXX XXXX"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m"><label>Temporary Password</label><input type="password" id="hosp-add-pass" placeholder="Set initial password"></div>
+          <div class="form-group-m"><label>Status</label><select id="hosp-add-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn-primary" style="flex:1;justify-content:center">Create Account</button>
+          <button class="btn-primary" style="flex:1;justify-content:center" onclick="hospCreate()">Create Account</button>
           <button class="btn-secondary" onclick="closeModal('addHospitalModal')">Cancel</button>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Edit Hospital Modal -->
+  
+  <!-- ═══════════ EDIT HOSPITAL MODAL ═══════════ -->
   <div class="modal-overlay" id="editHospitalModal">
     <div class="modal">
       <div class="modal-header">
@@ -988,20 +1037,32 @@
         <button class="modal-close" onclick="closeModal('editHospitalModal')">✕</button>
       </div>
       <div class="modal-body">
+        <input type="hidden" id="hosp-edit-idx">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" value="Philippine General Hospital"></div>
+          <div class="form-group-m"><label>Hospital Name</label><input type="text" id="hosp-edit-name"></div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email</label><input type="email" value="pgh@doh.gov.ph"></div>
-          <div class="form-group-m"><label>Contact</label><input type="tel" value="+63 2 5548 8888"></div>
+          <div class="form-group-m"><label>City</label><input type="text" id="hosp-edit-city"></div>
+          <div class="form-group-m"><label>Province</label><input type="text" id="hosp-edit-province"></div>
+        </div>
+        <div class="form-row full">
+          <div class="form-group-m"><label>Address</label><input type="text" id="hosp-edit-address"></div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Reset Password</label><input type="password" placeholder="Leave blank to keep current"></div>
-          <div class="form-group-m"><label>Status</label><select><option selected>Active</option><option>Inactive</option></select></div>
+          <div class="form-group-m"><label>Email</label><input type="email" id="hosp-edit-email"></div>
+          <div class="form-group-m"><label>Phone Number</label><input type="tel" id="hosp-edit-phone"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m"><label>Contact Person Name</label><input type="text" id="hosp-edit-contact-name"></div>
+          <div class="form-group-m"><label>Contact Person Phone</label><input type="tel" id="hosp-edit-contact-phone"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m"><label>Reset Password</label><input type="password" id="hosp-edit-pass" placeholder="Leave blank to keep current"></div>
+          <div class="form-group-m"><label>Status</label><select id="hosp-edit-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn-primary" style="flex:1;justify-content:center">Save Changes</button>
-          <button class="btn-danger">Delete Hospital</button>
+          <button class="btn-primary" style="flex:1;justify-content:center" onclick="hospSaveEdit()">Save Changes</button>
+          <button class="btn-danger" onclick="hospDelete()">Delete Hospital</button>
           <button class="btn-secondary" onclick="closeModal('editHospitalModal')">Cancel</button>
         </div>
       </div>

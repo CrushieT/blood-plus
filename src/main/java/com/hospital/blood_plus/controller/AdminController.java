@@ -3,6 +3,9 @@ package com.hospital.blood_plus.controller;
 import com.hospital.blood_plus.dto.request.AllocateRequestDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
+import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
+import com.hospital.blood_plus.dto.request.HospitalDTOs.UpdateHospitalRequest;
+import com.hospital.blood_plus.service.HospitalService;
 import com.hospital.blood_plus.dto.request.StaffDTOs.CreateStaffRequest;
 import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
 import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
@@ -32,16 +35,19 @@ public class AdminController {
     private final BloodBagService         bloodBagService;
     private final UserRepository          userRepository;
     private final BloodBagRequestService  bloodBagRequestService;
-    private final StaffService staffService;
+    private final StaffService            staffService;
+    private final HospitalService         hospitalService;
 
     public AdminController(BloodBagService bloodBagService,
                            UserRepository userRepository,
                            BloodBagRequestService bloodBagRequestService,
+                           HospitalService hospitalService,
                             StaffService staffService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
         this.staffService = staffService;
+        this.hospitalService = hospitalService;
     }
 
     // ── Dashboard ─────────────────────────────────────────────
@@ -395,4 +401,103 @@ public class AdminController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+
+    
+    //////// HOSPITAL MANAGEMENT////////////////
+    // GET /api/admin/hospitals
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/hospitals")
+    public ResponseEntity<?> listHospitals() {
+        try {
+            return ResponseEntity.ok(hospitalService.getAllHospitals());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to load hospitals."));
+        }
+    }
+    
+    // GET /api/admin/hospitals/search?q=query
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/hospitals/search")
+    public ResponseEntity<?> searchHospitals(@RequestParam String q) {
+        try {
+            if (q == null || q.isBlank()) {
+                return ResponseEntity.ok(hospitalService.getAllHospitals());
+            }
+            return ResponseEntity.ok(hospitalService.searchHospitals(q));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Search failed."));
+        }
+    }
+    
+    // GET /api/admin/hospitals/{id}
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/hospitals/{id}")
+    public ResponseEntity<?> getHospital(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(hospitalService.getHospital(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    // POST /api/admin/hospitals
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/hospitals")
+    public ResponseEntity<?> createHospital(@RequestBody CreateHospitalRequest req) {
+        try {
+            if (req.getEmail() == null || req.getEmail().isBlank() ||
+                req.getHospitalName() == null || req.getHospitalName().isBlank() ||
+                req.getCity() == null || req.getCity().isBlank() ||
+                req.getProvince() == null || req.getProvince().isBlank() ||
+                req.getAddress() == null || req.getAddress().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Email, hospital name, city, province, and address are required."));
+            }
+            var created = hospitalService.createHospital(req);
+            return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to create hospital account."));
+        }
+    }
+    
+    // PUT /api/admin/hospitals/{id}
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/hospitals/{id}")
+    public ResponseEntity<?> updateHospital(@PathVariable Long id,
+                                            @RequestBody UpdateHospitalRequest req) {
+        try {
+            return ResponseEntity.ok(hospitalService.updateHospital(id, req));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to update hospital profile."));
+        }
+    }
+    
+    // DELETE /api/admin/hospitals/{id}
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/hospitals/{id}")
+    public ResponseEntity<?> deleteHospital(@PathVariable Long id) {
+        try {
+            hospitalService.deleteHospital(id);
+            return ResponseEntity.ok(Map.of("message", "Hospital account deleted."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to delete hospital account."));
+        }
+    }
+    
 }

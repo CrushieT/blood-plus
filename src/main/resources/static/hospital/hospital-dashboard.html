@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>BloodPlus — Hospital Dashboard</title>
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link href="css/hospital-dashboard.css" rel="stylesheet" />
+    </head>
+    <body>
+
+        <!-- Mobile header -->
+        <div class="mobile-header" id="mobileHeader">
+        <div class="mobile-logo"><span>Blood</span>Plus</div>
+        <div class="hamburger" id="hamburger" onclick="toggleSidebar()">
+            <span></span><span></span><span></span>
+        </div>
+        </div>
+        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+        <!-- ── SIDEBAR ────────────────────────────── -->
+        <aside class="sidebar" id="sidebar">
+        <div class="logo-area">
+            <div class="logo"><span>Blood</span>Plus</div>
+            <div class="logo-sub">Blood Bank System</div>
+            <div class="hospital-badge">🏥 Hospital</div>
+        </div>
+
+        <nav class="nav-section">
+            <div class="nav-label">Overview</div>
+            <div class="nav-item active" onclick="showPanel('dashboard', this)">
+            <span class="nav-icon">🏠</span> Dashboard
+            </div>
+
+            <div class="nav-label">Blood Requests</div>
+            <div class="nav-item" onclick="showPanel('newrequest', this)">
+            <span class="nav-icon">🩸</span> New Request
+            </div>
+            <div class="nav-item" onclick="showPanel('myrequests', this)">
+            <span class="nav-icon">📋</span> My Requests
+            <span class="nav-badge" id="nav-pending-count">2</span>
+            </div>
+
+            <div class="nav-label">Account</div>
+            <div class="nav-item" onclick="showPanel('profile', this)">
+            <span class="nav-icon">🏥</span> Hospital Profile
+            </div>
+        </nav>
+
+        <div class="user-card">
+            <div class="user-avatar">PG</div>
+            <div style="flex:1;min-width:0">
+            <div class="user-name">Philippine General Hospital</div>
+            <div class="user-type">Hospital Account</div>
+            </div>
+        </div>
+
+        <div class="logout-btn" onclick="openModal('logoutModal')">
+            <span>⏻</span> Log Out
+        </div>
+        </aside>
+
+
+        <!-- ── MAIN ───────────────────────────────── -->
+        <main class="main">
+
+        <!-- ════════════════════════════
+            PANEL: DASHBOARD
+        ════════════════════════════ -->
+        <div class="panel active" id="panel-dashboard">
+            <div class="topbar">
+            <div>
+                <div class="page-title">Dashboard</div>
+                <div class="page-sub" id="dash-date"></div>
+            </div>
+            <div class="topbar-right">
+                <button class="btn-primary" onclick="showPanel('newrequest', document.querySelectorAll('.nav-item')[1])">
+                ＋ New Blood Request
+                </button>
+            </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+            <div class="stat-card">
+                <span class="stat-icon">📋</span>
+                <div class="stat-val" style="color:var(--amber)" id="dash-stat-pending">0</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">✅</span>
+                <div class="stat-val" style="color:var(--green)" id="dash-stat-released">0</div>
+                <div class="stat-label">Released</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">🩸</span>
+                <div class="stat-val" style="color:var(--red)" id="dash-stat-total">0</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-icon">💉</span>
+                <div class="stat-val" style="color:var(--navy)" id="dash-stat-units">0</div>
+                <div class="stat-label">Units Received</div>
+            </div>
+            </div>
+
+            <div class="grid-2">
+            <!-- Recent requests -->
+            <div class="card">
+                <div class="card-header">
+                <div class="card-title">Recent Requests</div>
+                <button class="btn-ghost" onclick="showPanel('myrequests', document.querySelectorAll('.nav-item')[2])">
+                    View all →
+                </button>
+                </div>
+                <div class="card-body" style="padding:0;overflow-x:auto">
+                <table class="data-table" style="min-width:440px">
+                    <thead><tr>
+                    <th>Ref #</th><th>Patient</th><th>Component</th><th>Status</th>
+                    </tr></thead>
+                    <tbody id="dash-recent-tbody"></tbody>
+                </table>
+                </div>
+            </div>
+
+            <!-- Quick status info -->
+            <div class="card">
+                <div class="card-header">
+                <div class="card-title">Blood Bank Status</div>
+                <span style="font-size:12px;color:var(--muted)">CNPH Blood Bank</span>
+                </div>
+                <div class="card-body">
+                <div class="notice notice-info" style="margin-bottom:14px">
+                    <span>ℹ</span>
+                    <span>Blood availability is updated by the blood bank team. Contact them directly for urgent needs: <strong>(088) 123-4567</strong></span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                    <div style="text-align:center;background:var(--red-soft);border-radius:8px;padding:10px">
+                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--red)">O−</div>
+                    <div style="font-size:10px;color:var(--red);font-weight:700;margin-top:2px">Critical</div>
+                    </div>
+                    <div style="text-align:center;background:var(--green-soft);border-radius:8px;padding:10px">
+                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--green)">O+</div>
+                    <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px">Available</div>
+                    </div>
+                    <div style="text-align:center;background:var(--green-soft);border-radius:8px;padding:10px">
+                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--green)">A+</div>
+                    <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px">Available</div>
+                    </div>
+                    <div style="text-align:center;background:var(--amber-soft);border-radius:8px;padding:10px">
+                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--amber)">AB−</div>
+                    <div style="font-size:10px;color:var(--amber);font-weight:700;margin-top:2px">Low</div>
+                    </div>
+                </div>
+                </div>
+            </div>
+            </div>
+        </div>
+
+
+        <!-- ════════════════════════════
+            PANEL: BLOOD REQUEST
+        ════════════════════════════ -->
+        <div class="panel" id="panel-newrequest">
+            <div class="topbar">
+                <div>
+                    <div class="page-title">New Blood Request</div>
+                    <div class="page-sub">Fill out the blood request form below</div>
+                </div>
+            </div>
+
+            <div style="max-width:720px; margin:0 auto">
+
+                <div class="notice notice-warning">
+                    <span>📋</span>
+                    <span>Per CNPH blood bank procedure, ensure the <strong>Blood Request Form</strong> is completely filled out and the requesting physician has signed. A <strong>Commitment Referral Letter</strong> may be required before release.</span>
+                </div>
+
+                <!-- Patient Information -->
+                <div class="card" style="margin-bottom:16px">
+                    <div class="card-header"><div class="card-title">Patient Information</div></div>
+                    <div class="card-body">
+
+                        <!-- Request Category -->
+                        <div class="form-section" style="margin-bottom:16px">
+                            <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Request Category <span class="req">*</span></div>
+                            <div class="fg">
+                                <div class="chip-group">
+                                    <label class="chip-opt"><input type="radio" name="req-category" value="INPATIENT" onchange="syncForm()"><span class="chip">🏥 Inpatient</span></label>
+                                    <label class="chip-opt"><input type="radio" name="req-category" value="OUTPATIENT" onchange="syncForm()"><span class="chip">🚶 Outpatient</span></label>
+                                    <label class="chip-opt"><input type="radio" name="req-category" value="INTER_HOSPITAL" onchange="syncForm()"><span class="chip">🏨 Inter-hospital</span></label>
+                                    <label class="chip-opt"><input type="radio" name="req-category" value="EMERGENCY" onchange="syncForm()"><span class="chip">🚨 Emergency</span></label>
+                                </div>
+                                <div class="form-err-banner" id="err-category" style="margin-top:6px;margin-bottom:0">
+                                    <span>⚠</span><span>Please select a category.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Age Group -->
+                        <div class="form-section" style="margin-bottom:16px">
+                            <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Age Group <span class="req">*</span></div>
+                            <div class="fg">
+                                <div class="chip-group">
+                                    <label class="chip-opt"><input type="radio" name="req-agegroup" value="ADULT" onchange="syncForm()"><span class="chip">👤 Adult (≥13 yrs)</span></label>
+                                    <label class="chip-opt"><input type="radio" name="req-agegroup" value="PEDIA" onchange="syncForm()"><span class="chip">👶 Pedia (&lt;13 yrs)</span></label>
+                                </div>
+                                <div class="form-err-banner" id="err-agegroup" style="margin-top:6px;margin-bottom:0">
+                                    <span>⚠</span><span>Please select age group.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Patient Name Fields -->
+                        <div class="form-grid-2">
+                            <div class="fg">
+                                <label>Patient Last Name <span class="req">*</span></label>
+                                <input type="text" id="pat-lastname" placeholder="Dela Cruz" oninput="syncForm()">
+                            </div>
+                            <div class="fg">
+                                <label>Patient First Name <span class="req">*</span></label>
+                                <input type="text" id="pat-firstname" placeholder="Juan" oninput="syncForm()">
+                            </div>
+                        </div>
+
+                        <!-- Age & Sex -->
+                        <div class="form-grid-2">
+                            <div class="fg">
+                                <label>Age <span class="req">*</span></label>
+                                <input type="number" id="pat-age" placeholder="e.g. 42" min="0" max="130" oninput="syncForm()">
+                            </div>
+                            <div class="fg">
+                                <label>Sex <span class="req">*</span></label>
+                                <div class="chip-group" style="margin-top:4px">
+                                    <label class="chip-opt"><input type="radio" name="pat-sex" value="Male" onchange="syncForm()"><span class="chip">Male</span></label>
+                                    <label class="chip-opt"><input type="radio" name="pat-sex" value="Female" onchange="syncForm()"><span class="chip">Female</span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ward & Physician -->
+                        <div class="form-grid-2">
+                            <div class="fg">
+                                <label>Ward / Room No.</label>
+                                <input type="text" id="pat-ward" placeholder="Ward 4 / Room 210" oninput="syncForm()">
+                            </div>
+                            <div class="fg">
+                                <label>Requesting Physician <span class="req">*</span></label>
+                                <input type="text" id="pat-physician" placeholder="Dr. Maria Santos" oninput="syncForm()">
+                            </div>
+                        </div>
+
+                        <!-- Diagnosis -->
+                        <div class="form-grid-2">
+                            <div class="fg form-full">
+                                <label>Diagnosis / Clinical Indication</label>
+                                <textarea id="pat-diagnosis" placeholder="Brief clinical reason for the blood request..." oninput="syncForm()"></textarea>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Blood Request Details -->
+                <div class="card" style="margin-bottom:16px">
+                    <div class="card-header"><div class="card-title">Blood Request Details</div></div>
+                    <div class="card-body">
+
+                        <!-- Blood Type -->
+                        <div class="fg" style="margin-bottom:16px">
+                            <label>Blood Type Needed <span class="req">*</span></label>
+                            <div class="blood-picker">
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="O_NEG" onchange="syncForm()"><div class="bt-chip">O−</div></label>
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="O_POS" onchange="syncForm()"><div class="bt-chip">O+</div></label>
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="A_NEG" onchange="syncForm()"><div class="bt-chip">A−</div></label>
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="A_POS" onchange="syncForm()"><div class="bt-chip">A+</div></label>
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="B_NEG" onchange="syncForm()"><div class="bt-chip">B−</div></label>
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="B_POS" onchange="syncForm()"><div class="bt-chip">B+</div></label>
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="AB_NEG" onchange="syncForm()"><div class="bt-chip">AB−</div></label>
+                                <label class="bt-opt"><input type="radio" name="req-bt" value="AB_POS" onchange="syncForm()"><div class="bt-chip">AB+</div></label>
+                            </div>
+                            <div class="form-err-banner" id="err-bt" style="margin-top:6px;margin-bottom:0">
+                                <span>⚠</span><span>Please select blood type.</span>
+                            </div>
+                        </div>
+
+                        <!-- Blood Component -->
+                        <div class="fg" style="margin-bottom:16px">
+                            <label>Blood Component <span class="req">*</span></label>
+                            <div class="comp-grid">
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="WHOLE_BLOOD" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Whole Blood</div>
+                                        <div class="comp-abbr">WB</div>
+                                    </div>
+                                </label>
+
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="PRBC" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Packed RBC</div>
+                                        <div class="comp-abbr">PRBC</div>
+                                    </div>
+                                </label>
+
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="LEUKOREDUCED_PRBC" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Leukoreduced PRBC</div>
+                                        <div class="comp-abbr">LR-PRBC</div>
+                                    </div>
+                                </label>
+
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="ALIQUOTED_PRBC" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Aliquoted PRBC</div>
+                                        <div class="comp-abbr">ALQ-PRBC</div>
+                                    </div>
+                                </label>
+
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Platelet Concentrate</div>
+                                        <div class="comp-abbr">PC</div>
+                                    </div>
+                                </label>
+
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Fresh Frozen Plasma</div>
+                                        <div class="comp-abbr">FFP</div>
+                                    </div>
+                                </label>
+
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="CRYOPRECIPITATE" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Cryoprecipitate</div>
+                                        <div class="comp-abbr">CRYO</div>
+                                    </div>
+                                </label>
+
+                                <!-- ✓ CORRECT: Exact match to backend enum -->
+                                <label class="comp-opt">
+                                    <input type="radio" name="req-comp" value="CRYOSUPERNATANT" onchange="syncForm()">
+                                    <div class="comp-chip">
+                                        <div class="comp-name">Cryosupernatant</div>
+                                        <div class="comp-abbr">CRYO-SN</div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="form-err-banner" id="err-comp" style="margin-top:6px;margin-bottom:0">
+                                <span>⚠</span><span>Please select a component.</span>
+                            </div>
+                        </div>
+
+                        <!-- Units & Date -->
+                        <div class="form-grid-2">
+                            <div class="fg">
+                                <label>Number of Units <span class="req">*</span></label>
+                                <input type="number" id="req-units" placeholder="e.g. 2" min="1" max="20" oninput="syncForm()">
+                                <div class="hint">1 unit ≈ 450–500 mL</div>
+                            </div>
+                            <div class="fg">
+                                <label>Date Needed</label>
+                                <input type="date" id="req-date-needed" oninput="syncForm()">
+                            </div>
+                        </div>
+
+                        <!-- Urgency Level -->
+                        <div class="fg" style="margin-bottom:0">
+                            <label>Urgency Level <span class="req">*</span></label>
+                            <div class="urgency-grid">
+                                <label class="urg-opt"><input type="radio" name="req-urgency" value="LOW" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟢 Low</div><div class="urg-desc">Scheduled, days to weeks ahead</div></div></label>
+                                <label class="urg-opt"><input type="radio" name="req-urgency" value="MEDIUM" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟡 Medium</div><div class="urg-desc">Needed within the week</div></div></label>
+                                <label class="urg-opt"><input type="radio" name="req-urgency" value="HIGH" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟠 High</div><div class="urg-desc">Needed within 48–72 hours</div></div></label>
+                                <label class="urg-opt"><input type="radio" name="req-urgency" value="CRITICAL" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🔴 Critical / Emergency</div><div class="urg-desc">Needed immediately</div></div></label>
+                            </div>
+                            <div class="form-err-banner" id="err-urgency" style="margin-top:6px;margin-bottom:0">
+                                <span>⚠</span><span>Please select urgency.</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Supporting Documents -->
+                <div class="card" style="margin-bottom:16px">
+                    <div class="card-header">
+                        <div class="card-title">Supporting Documents</div>
+                        <span style="font-size:12px;color:var(--muted)">Doctor's note required</span>
+                    </div>
+                    <div class="card-body">
+
+                        <!-- Doctor's Note Upload -->
+                        <div style="margin-bottom:16px">
+                            <div class="fg" style="margin-bottom:8px">
+                                <label>Doctor's Blood Request Form <span class="req">*</span></label>
+                            </div>
+                            <div class="upload-zone" id="doc-zone"
+                                onclick="document.getElementById('doc-file').click()"
+                                ondragover="event.preventDefault();this.classList.add('drag-over')"
+                                ondragleave="this.classList.remove('drag-over')"
+                                ondrop="handleDrop(event,'doc')">
+                                <input type="file" id="doc-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this,'doc')">
+                                <div id="doc-placeholder">
+                                    <div class="upload-icon">📄</div>
+                                    <div class="upload-label">Click to upload or drag &amp; drop</div>
+                                    <div class="upload-sub">PDF, JPG, PNG · Max 5MB</div>
+                                </div>
+                                <div id="doc-preview" class="upload-preview" style="display:none">
+                                    <div class="upload-file-icon">✓</div>
+                                    <div style="flex:1;min-width:0">
+                                        <div class="upload-file-name" id="doc-name"></div>
+                                        <div class="upload-file-size" id="doc-size"></div>
+                                    </div>
+                                    <button class="upload-remove" type="button" onclick="event.stopPropagation();clearFile('doc')">✕</button>
+                                </div>
+                            </div>
+                            <div id="doc-err" style="display:none;font-size:11px;color:var(--red);margin-top:5px"></div>
+                        </div>
+
+                        <!-- Commitment Referral Upload (Optional) -->
+                        <div>
+                            <div class="fg" style="margin-bottom:8px">
+                                <label>Commitment Referral Letter
+                                    <span style="margin-left:6px;background:var(--blue-soft);color:var(--blue);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase">Optional</span>
+                                </label>
+                                <div class="hint">May be submitted before blood release per CNPH policy</div>
+                            </div>
+                            <div class="upload-zone" id="ref-zone"
+                                onclick="document.getElementById('ref-file').click()"
+                                ondragover="event.preventDefault();this.classList.add('drag-over')"
+                                ondragleave="this.classList.remove('drag-over')"
+                                ondrop="handleDrop(event,'ref')">
+                                <input type="file" id="ref-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this,'ref')">
+                                <div id="ref-placeholder">
+                                    <div class="upload-icon">📋</div>
+                                    <div class="upload-label">Upload Commitment Referral (optional)</div>
+                                    <div class="upload-sub">PDF, JPG, PNG · Max 5MB</div>
+                                </div>
+                                <div id="ref-preview" class="upload-preview" style="display:none">
+                                    <div class="upload-file-icon">✓</div>
+                                    <div style="flex:1;min-width:0">
+                                        <div class="upload-file-name" id="ref-name"></div>
+                                        <div class="upload-file-size" id="ref-size"></div>
+                                    </div>
+                                    <button class="upload-remove" type="button" onclick="event.stopPropagation();clearFile('ref')">✕</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Additional Notes -->
+                <div class="card" style="margin-bottom:20px">
+                    <div class="card-header"><div class="card-title">Additional Notes</div></div>
+                    <div class="card-body">
+                        <div class="fg">
+                            <label>Notes / Special Instructions</label>
+                            <textarea id="req-notes" placeholder="Any additional information for the blood bank team..." oninput="syncForm()"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Error Banner -->
+                <div class="form-err-banner" id="err-submit" style="margin-bottom:14px;display:none">
+                    <span>⚠</span><span id="err-submit-msg">Please fill in all required fields.</span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display:flex;gap:10px;justify-content:center">
+                    <button class="btn-primary" style="flex:1;max-width:240px" onclick="submitRequest()" id="submit-btn">
+                        🩸 Submit Blood Request
+                    </button>
+                    <button class="btn-secondary" onclick="resetNewRequestForm()">Reset</button>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- ════════════════════════════
+            PANEL: MY REQUESTS
+        ════════════════════════════ -->
+        <div class="panel" id="panel-myrequests">
+            <div class="topbar">
+            <div>
+                <div class="page-title">My Requests</div>
+                <div class="page-sub">Blood request history and tracking</div>
+            </div>
+            <div class="topbar-right">
+                <button class="btn-primary" onclick="showPanel('newrequest', document.querySelectorAll('.nav-item')[1])">
+                ＋ New Request
+                </button>
+            </div>
+            </div>
+
+            <!-- Filter tabs -->
+            <div style="display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto">
+            <button class="req-filter active-filter" data-filter="ALL"
+                onclick="filterRequests('ALL',this)"
+                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
+                    font-size:13px;font-weight:700;cursor:pointer;color:var(--red);
+                    border-bottom:2px solid var(--red);margin-bottom:-2px;
+                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
+                All
+            </button>
+            <button class="req-filter" data-filter="ACTIVE"
+                onclick="filterRequests('ACTIVE',this)"
+                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
+                    font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);
+                    border-bottom:2px solid transparent;margin-bottom:-2px;
+                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
+                Active
+            </button>
+            <button class="req-filter" data-filter="RELEASED"
+                onclick="filterRequests('RELEASED',this)"
+                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
+                    font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);
+                    border-bottom:2px solid transparent;margin-bottom:-2px;
+                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
+                Released
+            </button>
+            <button class="req-filter" data-filter="REJECTED"
+                onclick="filterRequests('REJECTED',this)"
+                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
+                    font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);
+                    border-bottom:2px solid transparent;margin-bottom:-2px;
+                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
+                Rejected
+            </button>
+            </div>
+
+            <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                Request History
+                <span id="req-count" style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px"></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;background:var(--bg);
+                            border:1.5px solid var(--border);border-radius:9px;padding:7px 12px">
+                <span style="color:#CBD5E0;font-size:13px">🔍</span>
+                <input type="text" id="req-search" placeholder="Search patient or ref #..."
+                    oninput="filterRequests(currentFilter, document.querySelector('.active-filter'))"
+                    style="border:none;outline:none;background:transparent;font-family:'DM Sans',sans-serif;
+                        font-size:13px;color:var(--navy);width:200px">
+                </div>
+            </div>
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+                <table class="data-table" style="min-width:700px">
+                <thead><tr>
+                    <th>Ref #</th>
+                    <th>Patient</th>
+                    <th>Component</th>
+                    <th>Blood Type</th>
+                    <th>Units</th>
+                    <th>Urgency</th>
+                    <th>Status</th>
+                    <th>Requested</th>
+                    <th></th>
+                </tr></thead>
+                <tbody id="requests-tbody"></tbody>
+                </table>
+            </div>
+            <div id="req-empty" style="display:none;text-align:center;padding:48px 20px">
+                <div style="font-size:36px;opacity:0.3;margin-bottom:10px">📋</div>
+                <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:6px">No requests found</div>
+                <div style="font-size:13px;color:var(--muted)">No blood requests match the current filter.</div>
+            </div>
+            </div>
+        </div>
+
+
+        <!-- ════════════════════════════
+            PANEL: PROFILE
+        ════════════════════════════ -->
+        <div class="panel" id="panel-profile">
+            <div class="topbar">
+            <div>
+                <div class="page-title">Hospital Profile</div>
+                <div class="page-sub">Manage your hospital account information</div>
+            </div>
+            </div>
+
+            <!-- Hero -->
+            <div class="profile-hero">
+            <div class="profile-avatar-lg">PG</div>
+            <div class="profile-hero-info">
+                <div class="profile-hero-name">Philippine General Hospital</div>
+                <div class="profile-hero-sub">pgh@doh.gov.ph  ·  Registered Hospital Account</div>
+                <div class="profile-hero-tags">
+                <span class="profile-hero-tag">🏥 Government Hospital</span>
+                <span class="profile-hero-tag">✓ Verified</span>
+                <span class="profile-hero-tag">📍 Taft Ave, Manila</span>
+                </div>
+            </div>
+            </div>
+
+            <div class="grid-2">
+            <!-- Hospital info form -->
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="card">
+                <div class="card-header"><div class="card-title">Hospital Information</div></div>
+                <div class="card-body">
+                    <div class="form-section-title">Basic Details</div>
+                    <div class="form-grid-2" style="margin-bottom:14px">
+                    <div class="fg">
+                        <label>Hospital Name <span class="req">*</span></label>
+                        <input type="text" value="Philippine General Hospital">
+                    </div>
+                    <div class="fg">
+                        <label>Hospital Type</label>
+                        <select>
+                        <option selected>Government</option>
+                        <option>Private</option>
+                        <option>District</option>
+                        <option>Provincial</option>
+                        <option>Municipal</option>
+                        </select>
+                    </div>
+                    <div class="fg form-full">
+                        <label>Complete Address</label>
+                        <input type="text" value="Taft Avenue, Ermita, Manila, 1000 Metro Manila">
+                    </div>
+                    <div class="fg">
+                        <label>City / Municipality</label>
+                        <input type="text" value="Manila">
+                    </div>
+                    <div class="fg">
+                        <label>Province / Region</label>
+                        <input type="text" value="Metro Manila">
+                    </div>
+                    </div>
+
+                    <div class="form-section-title">Contact Information</div>
+                    <div class="form-grid-2">
+                    <div class="fg">
+                        <label>Email Address <span class="req">*</span></label>
+                        <input type="email" value="pgh@doh.gov.ph">
+                    </div>
+                    <div class="fg">
+                        <label>Phone Number</label>
+                        <input type="tel" value="+63 2 5548 8888">
+                    </div>
+                    <div class="fg">
+                        <label>Blood Bank Contact Person</label>
+                        <input type="text" value="Dr. Reyes, Maria L.">
+                    </div>
+                    <div class="fg">
+                        <label>Blood Bank Hotline</label>
+                        <input type="tel" placeholder="Direct line to your blood bank dept.">
+                    </div>
+                    </div>
+
+                    <div style="margin-top:16px;display:flex;gap:8px">
+                    <button class="btn-primary">Save Changes</button>
+                    <button class="btn-secondary">Cancel</button>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- Password & account -->
+            <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="card">
+                <div class="card-header"><div class="card-title">Change Password</div></div>
+                <div class="card-body">
+                    <div class="form-section-title">Security</div>
+                    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+                    <div class="fg">
+                        <label>Current Password</label>
+                        <input type="password" placeholder="Enter current password">
+                    </div>
+                    <div class="fg">
+                        <label>New Password</label>
+                        <input type="password" placeholder="Enter new password">
+                    </div>
+                    <div class="fg">
+                        <label>Confirm New Password</label>
+                        <input type="password" placeholder="Confirm new password">
+                    </div>
+                    </div>
+                    <button class="btn-primary">Update Password</button>
+                </div>
+                </div>
+
+                <div class="card">
+                <div class="card-header"><div class="card-title">Account Summary</div></div>
+                <div class="card-body">
+                    <div style="display:flex;flex-direction:column;gap:10px">
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+                        <span style="font-size:12px;color:var(--muted)">Account Type</span>
+                        <span style="font-size:12px;font-weight:700;color:var(--navy)">HOSPITAL</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+                        <span style="font-size:12px;color:var(--muted)">Email Verified</span>
+                        <span style="font-size:12px;font-weight:700;color:var(--green)">✓ Verified</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+                        <span style="font-size:12px;color:var(--muted)">Total Requests</span>
+                        <span style="font-size:12px;font-weight:700;color:var(--navy)" id="prof-total">—</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0">
+                        <span style="font-size:12px;color:var(--muted)">Member Since</span>
+                        <span style="font-size:12px;font-weight:700;color:var(--navy)">March 2026</span>
+                    </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        </main>
+
+        <!-- ══════════════════════════════════
+            MODAL: REQUEST DETAIL
+        ══════════════════════════════════ -->
+        <div class="modal-overlay" id="requestDetailModal">
+        <div class="modal" style="max-width:560px">
+            <div class="modal-header">
+            <div>
+                <div class="modal-title">Request Details</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace" id="rd-ref"></div>
+            </div>
+            <button class="modal-close" onclick="closeModal('requestDetailModal')">✕</button>
+            </div>
+            <div class="modal-body">
+
+            <!-- Status strip -->
+            <div id="rd-status-strip" style="border-radius:11px;padding:14px 16px;margin-bottom:16px;
+                display:flex;align-items:center;gap:12px">
+                <div id="rd-status-icon" style="font-size:22px;flex-shrink:0"></div>
+                <div style="flex:1">
+                <div id="rd-status-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;opacity:0.65;margin-bottom:3px"></div>
+                <div id="rd-status-text" style="font-size:16px;font-weight:700"></div>
+                <div id="rd-status-sub" style="font-size:12px;margin-top:2px;opacity:0.7"></div>
+                </div>
+                <div id="rd-blood-ghost" style="font-family:'Playfair Display',serif;font-size:44px;font-weight:900;opacity:0.1;line-height:1"></div>
+            </div>
+
+            <!-- Info grid -->
+            <div class="detail-grid" style="margin-bottom:12px">
+                <div class="detail-box"><div class="detail-label">Blood Type</div><div class="detail-val" id="rd-blood" style="font-family:'Playfair Display',serif;color:var(--red);font-size:18px"></div></div>
+                <div class="detail-box"><div class="detail-label">Component</div><div class="detail-val" id="rd-comp"></div></div>
+                <div class="detail-box"><div class="detail-label">Units</div><div class="detail-val" id="rd-units"></div></div>
+                <div class="detail-box"><div class="detail-label">Urgency</div><div class="detail-val" id="rd-urgency"></div></div>
+                <div class="detail-box"><div class="detail-label">Patient</div><div class="detail-val" id="rd-patient"></div></div>
+                <div class="detail-box"><div class="detail-label">Category</div><div class="detail-val" id="rd-cat"></div></div>
+                <div class="detail-box"><div class="detail-label">Physician</div><div class="detail-val" id="rd-physician"></div></div>
+                <div class="detail-box"><div class="detail-label">Required By</div><div class="detail-val" id="rd-required"></div></div>
+            </div>
+
+            <!-- Rejection reason -->
+            <div id="rd-rejection-box" style="display:none;background:var(--red-soft);border:1px solid #F5B7B1;
+                border-radius:10px;padding:12px 14px;margin-bottom:12px">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:5px">Rejection Reason</div>
+                <div id="rd-rejection-text" style="font-size:13px;color:var(--navy);line-height:1.6"></div>
+            </div>
+
+            <!-- Fulfilled bag -->
+            <div id="rd-fulfilled-box" style="display:none;background:var(--green-soft);border:1px solid #A9DFBF;
+                border-radius:10px;padding:12px 14px;margin-bottom:12px">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:8px">Fulfilled By</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Bag ID</div><div id="rd-bag-id" style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace"></div></div>
+                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Released</div><div id="rd-released-at" style="font-size:13px;font-weight:600"></div></div>
+                </div>
+            </div>
+
+            <!-- Doctor's Note Box -->
+            <div id="rd-doc-box" style="display:none;margin-top:20px;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:10px">
+                <div style="font-weight:600;margin-bottom:10px">Request Form</div>
+                <button id="rd-view-doc-btn" class="btn-primary" style="font-size:12px;padding:8px 14px">
+                    📄 View Document
+                </button>
+            </div>
+
+            <!-- Cancel -->
+            <div id="rd-cancel-row" style="display:none">
+                <button class="btn-secondary" style="width:100%;justify-content:center;color:var(--red);border-color:rgba(192,57,43,0.3)"
+                id="rd-cancel-btn">Cancel Request</button>
+                <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">Only requests pending review can be cancelled.</div>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- ══════════════════════════════════
+            MODAL: DOCUMENT VIEWER (Standalone)
+        ══════════════════════════════════ -->
+        <div class="modal-overlay" id="req-doc-modal">
+            <div class="modal" style="max-width:800px;max-height:90vh;display:flex;flex-direction:column">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--border)">
+                    <div id="req-doc-label" style="font-weight:600">Document</div>
+                    <button onclick="closeModal('req-doc-modal')" 
+                        style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+                </div>
+                <div id="req-doc-frame" style="flex:1;overflow:auto;padding:16px"></div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════
+            MODAL: SUCCESS
+        ══════════════════════════════════ -->
+        <div class="modal-overlay" id="successModal">
+        <div class="modal" style="max-width:420px">
+            <div class="modal-body" style="text-align:center;padding:40px 28px">
+            <div style="width:72px;height:72px;background:var(--green-soft);border:2px solid rgba(39,174,96,0.25);
+                border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;
+                margin:0 auto 16px;animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)">✓</div>
+            <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:6px">Request Submitted!</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:6px">Your blood request has been sent to the CNPH Blood Bank team for review.</div>
+            <div style="background:var(--red-soft);border-radius:8px;padding:10px 14px;margin:14px 0 20px;display:inline-block">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:3px">Reference Number</div>
+                <div id="success-ref" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--navy)"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                <button class="btn-primary" style="width:100%;justify-content:center"
+                onclick="closeModal('successModal');showPanel('myrequests',document.querySelectorAll('.nav-item')[2])">
+                View My Requests
+                </button>
+                <button class="btn-secondary" style="width:100%;justify-content:center"
+                onclick="closeModal('successModal');resetNewRequestForm()">
+                Submit Another
+                </button>
+            </div>
+            </div>
+        </div>
+        </div>
+
+
+        <!-- Cancel confirm -->
+        <div class="modal-overlay" id="cancelConfirmModal">
+        <div class="modal" style="max-width:380px">
+            <div class="modal-body" style="text-align:center;padding:36px 28px">
+            <div style="font-size:36px;margin-bottom:12px">⚠</div>
+            <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px">Cancel Request?</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">This request will be marked as cancelled and removed from active review.</div>
+            <div style="display:flex;gap:10px">
+                <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeModal('cancelConfirmModal')">Go Back</button>
+                <button class="btn-primary" style="flex:1;justify-content:center;background:var(--red-deep)" onclick="confirmCancel()">Yes, Cancel</button>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- Logout confirm -->
+        <div class="modal-overlay" id="logoutModal">
+        <div class="modal" style="max-width:360px">
+            <div class="modal-body" style="text-align:center;padding:36px 28px">
+            <div style="font-size:36px;margin-bottom:12px">⏻</div>
+            <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px">Log Out?</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">You'll be redirected to the login page.</div>
+            <div style="display:flex;gap:10px">
+                <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeModal('logoutModal')">Cancel</button>
+                <button class="btn-primary" style="flex:1;justify-content:center;background:var(--red-deep)" onclick="window.location.href='/login'">Log Out</button>
+            </div>
+            </div>
+        </div>
+        </div>
+
+
+
+    <script src="js/hospital-dashboard.js"></script>
+    </body>
+</html>
