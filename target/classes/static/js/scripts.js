@@ -26,12 +26,8 @@ async function login() {
         const text = await response.text();
         console.log("Server response:", text);
 
-        if (text === "REDIRECT_DONOR_REGISTRATION") {
-            window.location.href = "../donor/donor_registration.html";
-        } else if (text === "REDIRECT_DONOR_DASHBOARD") {
-            window.location.href = "../donor/donor_dashboard.html";
-        } else if (text === "LOGIN_SUCCESS_HOSPITAL") {
-            window.location.href = "hospital.html";
+        if (text === "LOGIN_SUCCESS_HOSPITAL") {
+            window.location.href = "../hospital/hospital-dashboard.html";
         } else if (text === "LOGIN_SUCCESS_ADMIN") {
             window.location.href = "../admin/admin_dashboard.html";
         } else if (text === "LOGIN_SUCCESS_STAFF") {

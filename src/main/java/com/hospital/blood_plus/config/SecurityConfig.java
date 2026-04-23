@@ -73,6 +73,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/req/**").permitAll()
 
                 .requestMatchers("/hospital/**").hasRole("HOSPITAL")
+                .requestMatchers("/api/hospital/**").hasAnyRole("HOSPITAL") 
                              
                 .requestMatchers("/admin/**").hasAnyRole("ADMIN", "STAFF") 
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")       
@@ -115,7 +116,5 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-    
 
 }

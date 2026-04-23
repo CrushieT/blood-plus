@@ -4,6 +4,7 @@ import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
+import com.hospital.blood_plus.model.HospitalProfile;
 import com.hospital.blood_plus.repository.BloodBagRepository;
 import com.hospital.blood_plus.repository.BloodBagRequestRepository;
 import org.springframework.stereotype.Service;
@@ -230,9 +231,98 @@ public class BloodBagRequestService {
         req.setReviewedAt(LocalDateTime.now());
     }
 
-    private BloodBagRequest findById(Long id) {
+    public BloodBagRequest findById(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found: " + id));
+    }
+
+
+
+    public BloodBagRequest submitHospitalRequest(BloodBagRequestDTO dto,
+                                                 MultipartFile doctorsNote,
+                                                 AppUser requestingUser,
+                                                 HospitalProfile hospital) throws IOException {
+        
+        validateHospitalRequest(dto, doctorsNote);
+ 
+        BloodBagRequest request = new BloodBagRequest();
+
+        // Only upload if file is provided
+        if (doctorsNote != null && !doctorsNote.isEmpty()) {
+            String[] cloudResult = cloudinaryService.uploadDoctorsNote(doctorsNote);
+            request.setDoctorsNoteUrl(cloudResult[0]);
+            request.setDoctorsNoteKey(cloudResult[1]);
+        }
+ 
+        request.setPatientName(dto.getPatientName().trim());
+        request.setPatientAge(dto.getPatientAge());
+        request.setPatientSex(dto.getPatientSex());
+        request.setWardRoom(dto.getWardRoom());
+        request.setRequestingPhysician(dto.getRequestingPhysician().trim());
+ 
+        request.setAgeGroup(dto.getAgeGroup() != null
+                ? dto.getAgeGroup()
+                : BloodBagRequest.AgeGroup.ADULT);
+        request.setRequestCategory(dto.getRequestCategory() != null
+                ? dto.getRequestCategory()
+                : BloodBagRequest.RequestCategory.INPATIENT);
+ 
+        request.setBloodType(dto.getBloodType());
+        request.setBloodComponent(dto.getBloodComponent());
+        request.setNumberOfUnits(dto.getNumberOfUnits());
+        request.setUrgencyLevel(dto.getUrgencyLevel());
+        request.setRequiredBy(dto.getRequiredBy());
+        request.setNotes(dto.getNotes());
+        // request.setDiagnosis(dto.getDiagnosis());
+ 
+        // Hospital context
+        request.setHospitalProfile(hospital);
+        request.setRequestedBy(requestingUser);
+ 
+        // // Diagnosis field (for hospital requests, more detailed)
+        // request.setDiagnosis(dto.getDiagnosis());
+ 
+        // For hospital requests, requester info comes from the hospital account itself
+        // Set placeholders or pull from hospital profile if needed
+        request.setRequesterName(hospital.getContactPersonName() != null
+                ? hospital.getContactPersonName()
+                : "Hospital Account");
+        request.setRequesterRelationship("Hospital");
+        request.setRequesterContact(hospital.getPhoneNumber());
+        request.setRequesterEmail(requestingUser.getEmail());
+ 
+        request.setRequesterType(BloodBagRequest.RequesterType.HOSPITAL);
+        request.setStatus(BloodBagRequest.RequestStatus.PENDING);
+        request.setReferenceNumber(generateReferenceNumber());
+ 
+        return repository.save(request);
+    }
+    
+
+    private void validateHospitalRequest(BloodBagRequestDTO dto, MultipartFile file) {
+        if (dto.getPatientName() == null || dto.getPatientName().isBlank())
+            throw new IllegalArgumentException("Patient name is required.");
+        if (dto.getPatientAge() == null)
+            throw new IllegalArgumentException("Patient age is required.");
+        if (dto.getPatientSex() == null || dto.getPatientSex().isBlank())
+            throw new IllegalArgumentException("Patient sex is required.");
+        if (dto.getRequestingPhysician() == null || dto.getRequestingPhysician().isBlank())
+            throw new IllegalArgumentException("Requesting physician is required.");
+        if (dto.getBloodType() == null)
+            throw new IllegalArgumentException("Blood type is required.");
+        if (dto.getBloodComponent() == null)
+            throw new IllegalArgumentException("Blood component is required.");
+        if (dto.getNumberOfUnits() == null)
+            throw new IllegalArgumentException("Number of units is required.");
+        if (dto.getUrgencyLevel() == null)
+            throw new IllegalArgumentException("Urgency level is required.");
+    }
+    // ─────────────────────────────────────────────
+    // GET REQUESTS BY HOSPITAL
+    // ─────────────────────────────────────────────
+ 
+    public List<BloodBagRequest> getByHospital(HospitalProfile hospital) {
+        return repository.findByHospitalProfile(hospital);
     }
 
     // ─────────────────────────────────────────────

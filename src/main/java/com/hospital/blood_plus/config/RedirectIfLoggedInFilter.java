@@ -45,7 +45,7 @@ public class RedirectIfLoggedInFilter extends OncePerRequestFilter {
             if (auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))) {
                 response.sendRedirect("/admin/admin_dashboard.html");
             } else if (auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_HOSPITAL"))) {
-                response.sendRedirect("/hospital_view.html");
+                response.sendRedirect("/hospital/hospital-dashboard.html");
             } else {
                 response.sendRedirect("/blood-request.html");
             }

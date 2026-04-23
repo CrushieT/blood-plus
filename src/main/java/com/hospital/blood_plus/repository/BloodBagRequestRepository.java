@@ -2,6 +2,8 @@ package com.hospital.blood_plus.repository;
 
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBagRequest;
+import com.hospital.blood_plus.model.HospitalProfile;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -31,4 +33,10 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     List<BloodBagRequest> findByStatus(BloodBagRequest.RequestStatus status);
 
     List<BloodBagRequest> findByRequesterEmail(String email);
+    // NEW: Get all requests for a specific hospital
+    List<BloodBagRequest> findByHospitalProfile(HospitalProfile hospital);
+    
+    // Optional: Get by hospital and status (for filtering)
+    List<BloodBagRequest> findByHospitalProfileAndStatusOrderByRequestedAtDesc(
+            HospitalProfile hospital, BloodBagRequest.RequestStatus status);
 }

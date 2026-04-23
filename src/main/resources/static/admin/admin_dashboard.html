@@ -571,93 +571,93 @@
     <!-- ══════════════════════════════════
         PANEL: HOSPITALS PANEL
     ══════════════════════════════════ -->
-<div class="panel" id="panel-hospitals">
-  <div class="topbar">
-    <div>
-      <div class="page-title">Hospitals</div>
-      <div class="page-sub">Create and manage hospital accounts</div>
-    </div>
-    <div class="topbar-right">
-      <button class="btn-primary" onclick="openModal('addHospitalModal')">＋ Create Hospital Account</button>
-    </div>
-  </div>
- 
-  <!-- Summary Strip -->
-  <div class="bb-summary-strip">
-    <div class="bb-strip-item" style="background:var(--green-light)">
-      <div class="bb-strip-val" style="color:var(--green)" id="hosp-active-count">0</div>
-      <div class="bb-strip-label">Active Hospitals</div>
-    </div>
-    <div class="bb-strip-item" style="background:var(--soft-red)">
-      <div class="bb-strip-val" style="color:var(--crimson)" id="hosp-inactive-count">0</div>
-      <div class="bb-strip-label">Inactive Hospitals</div>
-    </div>
-    <div class="bb-strip-item" style="background:#E8F0FF">
-      <div class="bb-strip-val" style="color:var(--blue)" id="hosp-total-count">0</div>
-      <div class="bb-strip-label">Total Hospitals</div>
-    </div>
-    <div class="bb-strip-item" style="background:var(--amber-light)">
-      <div class="bb-strip-val" style="color:var(--amber)" id="hosp-requests-count">0</div>
-      <div class="bb-strip-label">Total Requests</div>
-    </div>
-  </div>
- 
-  <!-- Filter Bar -->
-  <div class="req-filter-bar" style="margin-bottom:10px">
-    <div class="req-search-wrap">
-      <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
-      <input class="req-search-input" id="hosp-search" type="text"
-        placeholder="Search hospital name, city, email…"
-        oninput="hospRender()">
-    </div>
-    <select class="req-select" id="hosp-filter-status" onchange="hospRender()">
-      <option value="ALL">All Status</option>
-      <option value="active">Active</option>
-      <option value="inactive">Inactive</option>
-    </select>
-    <select class="req-select" id="hosp-sort" onchange="hospRender()">
-      <option value="name_asc">Name A–Z</option>
-      <option value="name_desc">Name Z–A</option>
-      <option value="requests_desc">Most Requests</option>
-    </select>
-  </div>
- 
-  <!-- Hospitals Table Card -->
-  <div class="card">
-    <div class="card-header" style="flex-wrap:wrap;gap:8px">
-      <div class="card-title">Registered Hospitals</div>
-      <span style="font-size:12px;color:var(--muted)" id="hosp-results-info"></span>
-    </div>
-    <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table class="data-table">
-        <thead><tr>
-          <th>Hospital</th>
-          <th>Location</th>
-          <th>Contact Email</th>
-          <th>Phone</th>
-          <th>Requests</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr></thead>
-        <tbody id="hosp-tbody"></tbody>
-      </table>
-      <div id="hosp-empty" class="bb-empty" style="display:none">
-        <div style="font-size:32px;margin-bottom:10px;opacity:0.4">🏥</div>
-        No hospitals match the current filters.
+  <div class="panel" id="panel-hospitals">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Hospitals</div>
+        <div class="page-sub">Create and manage hospital accounts</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-primary" onclick="openModal('addHospitalModal')">＋ Create Hospital Account</button>
       </div>
     </div>
-    <!-- Pagination Footer -->
-    <div id="hosp-footer" style="display:flex;align-items:center;justify-content:space-between;
-        padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
-      <span id="hosp-showing"></span>
-      <div style="display:flex;gap:6px">
-        <button class="btn-ghost" id="hosp-prev" onclick="hospPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
-        <span id="hosp-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
-        <button class="btn-ghost" id="hosp-next" onclick="hospNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+  
+    <!-- Summary Strip -->
+    <div class="bb-summary-strip">
+      <div class="bb-strip-item" style="background:var(--green-light)">
+        <div class="bb-strip-val" style="color:var(--green)" id="hosp-active-count">0</div>
+        <div class="bb-strip-label">Active Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--soft-red)">
+        <div class="bb-strip-val" style="color:var(--crimson)" id="hosp-inactive-count">0</div>
+        <div class="bb-strip-label">Inactive Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:#E8F0FF">
+        <div class="bb-strip-val" style="color:var(--blue)" id="hosp-total-count">0</div>
+        <div class="bb-strip-label">Total Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--amber-light)">
+        <div class="bb-strip-val" style="color:var(--amber)" id="hosp-requests-count">0</div>
+        <div class="bb-strip-label">Total Requests</div>
+      </div>
+    </div>
+  
+    <!-- Filter Bar -->
+    <div class="req-filter-bar" style="margin-bottom:10px">
+      <div class="req-search-wrap">
+        <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+        <input class="req-search-input" id="hosp-search" type="text"
+          placeholder="Search hospital name, city, email…"
+          oninput="hospRender()">
+      </div>
+      <select class="req-select" id="hosp-filter-status" onchange="hospRender()">
+        <option value="ALL">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <select class="req-select" id="hosp-sort" onchange="hospRender()">
+        <option value="name_asc">Name A–Z</option>
+        <option value="name_desc">Name Z–A</option>
+        <option value="requests_desc">Most Requests</option>
+      </select>
+    </div>
+  
+    <!-- Hospitals Table Card -->
+    <div class="card">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px">
+        <div class="card-title">Registered Hospitals</div>
+        <span style="font-size:12px;color:var(--muted)" id="hosp-results-info"></span>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="data-table">
+          <thead><tr>
+            <th>Hospital</th>
+            <th>Location</th>
+            <th>Contact Email</th>
+            <th>Phone</th>
+            <th>Requests</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="hosp-tbody"></tbody>
+        </table>
+        <div id="hosp-empty" class="bb-empty" style="display:none">
+          <div style="font-size:32px;margin-bottom:10px;opacity:0.4">🏥</div>
+          No hospitals match the current filters.
+        </div>
+      </div>
+      <!-- Pagination Footer -->
+      <div id="hosp-footer" style="display:flex;align-items:center;justify-content:space-between;
+          padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+        <span id="hosp-showing"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" id="hosp-prev" onclick="hospPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+          <span id="hosp-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+          <button class="btn-ghost" id="hosp-next" onclick="hospNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
  
 
 

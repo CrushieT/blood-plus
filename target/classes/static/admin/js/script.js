@@ -2299,168 +2299,360 @@ document.addEventListener('DOMContentLoaded', initStaffPanel);
 
 
 ///////// HOSPITAL PANEL/////////////
-// Hospital data store
-let hospData = [
-  {name:"Philippine General Hospital",city:"Manila",province:"Metro Manila",address:"Taft Ave, Ermita",email:"pgh@doh.gov.ph",phone:"+63 2 5548 8888",contactName:"Dr. Santos",contactPhone:"+63 917 111 1111",requests:18,status:"active"},
-  {name:"St. Luke's Medical Center",city:"Quezon City",province:"Metro Manila",address:"E. Rodriguez Sr. Blvd",email:"bloodbank@stlukes.com",phone:"+63 2 8789 7700",contactName:"Ms. Reyes",contactPhone:"+63 917 222 2222",requests:11,status:"active"},
-  {name:"Cardinal Santos Medical Center",city:"San Juan",province:"Metro Manila",address:"Wilson St, Greenhills",email:"csmc@blood.ph",phone:"+63 2 8727 0001",contactName:"Dr. Dela Cruz",contactPhone:"+63 917 333 3333",requests:7,status:"inactive"},
-];
- 
-let hospPage = 1, hospPerPage = 5;
- 
-function hospFiltered(){
-  const q = document.getElementById('hosp-search').value.toLowerCase();
-  const s = document.getElementById('hosp-filter-status').value;
-  const sort = document.getElementById('hosp-sort').value;
-  
-  let list = hospData.filter(h => {
-    const matchQ = !q || h.name.toLowerCase().includes(q) || h.city.toLowerCase().includes(q) || h.email.toLowerCase().includes(q);
-    const matchS = s === 'ALL' || h.status === s;
-    return matchQ && matchS;
-  });
-  
-  if(sort === 'name_asc') list.sort((a,b) => a.name.localeCompare(b.name));
-  else if(sort === 'name_desc') list.sort((a,b) => b.name.localeCompare(a.name));
-  else if(sort === 'requests_desc') list.sort((a,b) => b.requests - a.requests);
-  
-  return list;
-}
- 
-function hospRender(){
-  const list = hospFiltered();
-  const total = list.length;
-  const pages = Math.max(1, Math.ceil(total / hospPerPage));
-  
-  if(hospPage > pages) hospPage = pages;
-  
-  const slice = list.slice((hospPage-1)*hospPerPage, hospPage*hospPerPage);
-  const tbody = document.getElementById('hosp-tbody');
-  
-  tbody.innerHTML = '';
-  document.getElementById('hosp-empty').style.display = slice.length ? 'none' : 'block';
-  
-  slice.forEach((h, i) => {
-    const realIdx = hospData.indexOf(h);
-    const tagCls = h.status === 'active' ? 'tag-active' : 'tag-inactive';
-    const tagTxt = h.status === 'active' ? 'Active' : 'Inactive';
-    
-    tbody.innerHTML += `<tr>
-      <td><strong>${h.name}</strong></td>
-      <td style="font-size:12px;color:var(--muted)">${h.city}<br>${h.province}</td>
-      <td style="font-size:12px;color:var(--muted)">${h.email}</td>
-      <td style="font-size:12px;color:var(--muted)">${h.phone}</td>
-      <td style="font-weight:700">${h.requests}</td>
-      <td><span class="tag ${tagCls}">${tagTxt}</span></td>
-      <td><div style="display:flex;gap:6px">
-        <button class="btn-ghost" style="font-size:12px" onclick="hospOpenEdit(${realIdx})">Edit</button>
-        <button class="btn-danger" onclick="hospConfirmDelete(${realIdx})">Delete</button>
-      </div></td>
-    </tr>`;
-  });
-  
-  const start = (hospPage-1)*hospPerPage+1, end = Math.min(hospPage*hospPerPage, total);
-  document.getElementById('hosp-info').textContent = total + ' hospital' + (total !== 1 ? 's' : '');
-  document.getElementById('hosp-results-info').textContent = total + ' hospital' + (total !== 1 ? 's' : '');
-  document.getElementById('hosp-showing').textContent = total ? `Showing ${start}–${end} of ${total}` : 'No results';
-  document.getElementById('hosp-page-label').textContent = `Page ${hospPage} / ${pages}`;
-  document.getElementById('hosp-prev').disabled = hospPage <= 1;
-  document.getElementById('hosp-next').disabled = hospPage >= pages;
-  
-  hospUpdateStats();
-}
- 
-function hospUpdateStats(){
-  const active = hospData.filter(h => h.status === 'active').length;
-  const inactive = hospData.filter(h => h.status === 'inactive').length;
-  const reqs = hospData.reduce((s, h) => s + h.requests, 0);
-  document.getElementById('hosp-active-count').textContent = active;
-  document.getElementById('hosp-inactive-count').textContent = inactive;
-  document.getElementById('hosp-total-count').textContent = hospData.length;
-  document.getElementById('hosp-requests-count').textContent = reqs;
-}
- 
-function hospPrevPage(){if(hospPage > 1){hospPage--;hospRender()}}
-function hospNextPage(){const pages = Math.ceil(hospFiltered().length/hospPerPage);if(hospPage < pages){hospPage++;hospRender()}}
- 
-function openModal(id){document.getElementById(id).classList.add('open')}
-function closeModal(id){document.getElementById(id).classList.remove('open')}
- 
-document.querySelectorAll('.modal-overlay').forEach(o => {
-  o.addEventListener('click', e => {
-    if(e.target === o) o.classList.remove('open');
-  });
+
+const HOSPITAL_API = '/api/admin/hospitals';
+
+let hospData = [];
+let hospPage = 1;
+const hospPerPage = 5;
+
+document.addEventListener('DOMContentLoaded', () => {
+    hospLoadAll();
 });
- 
-function hospCreate(){
-  const name = document.getElementById('hosp-add-name').value.trim();
-  if(!name){alert('Hospital name is required.');return;}
-  
-  hospData.push({
-    name,
-    city: document.getElementById('hosp-add-city').value.trim(),
-    province: document.getElementById('hosp-add-province').value.trim(),
-    address: document.getElementById('hosp-add-address').value.trim(),
-    email: document.getElementById('hosp-add-email').value.trim(),
-    phone: document.getElementById('hosp-add-phone').value.trim(),
-    contactName: document.getElementById('hosp-add-contact-name').value.trim(),
-    contactPhone: document.getElementById('hosp-add-contact-phone').value.trim(),
-    requests: 0,
-    status: document.getElementById('hosp-add-status').value
-  });
-  
-  ['hosp-add-name','hosp-add-city','hosp-add-province','hosp-add-address','hosp-add-email','hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone','hosp-add-pass'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  
-  closeModal('addHospitalModal');
-  hospPage = 1;
-  hospRender();
+
+async function hospLoadAll() {
+    try {
+        const res = await fetch(HOSPITAL_API);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        hospData = await res.json();
+        hospPage = 1;
+        hospRender();
+    } catch (err) {
+        console.error('[Hospital] Load failed:', err);
+        hospData = [];
+        hospRender();
+    }
 }
- 
-function hospOpenEdit(idx){
-  const h = hospData[idx];
-  document.getElementById('hosp-edit-idx').value = idx;
-  document.getElementById('hosp-edit-name').value = h.name;
-  document.getElementById('hosp-edit-city').value = h.city;
-  document.getElementById('hosp-edit-province').value = h.province;
-  document.getElementById('hosp-edit-address').value = h.address;
-  document.getElementById('hosp-edit-email').value = h.email;
-  document.getElementById('hosp-edit-phone').value = h.phone;
-  document.getElementById('hosp-edit-contact-name').value = h.contactName;
-  document.getElementById('hosp-edit-contact-phone').value = h.contactPhone;
-  document.getElementById('hosp-edit-pass').value = '';
-  document.getElementById('hosp-edit-status').value = h.status;
-  openModal('editHospitalModal');
+
+// ──────────────────────────────────────────────────────────────
+// FILTER & SORT
+// ──────────────────────────────────────────────────────────────
+function hospFiltered() {
+    const q = document.getElementById('hosp-search')?.value.toLowerCase() || '';
+    const sort = document.getElementById('hosp-sort')?.value || 'name_asc';
+    
+    let list = hospData.filter(h => {
+        const matchQ = !q || 
+            h.hospitalName.toLowerCase().includes(q) || 
+            h.city.toLowerCase().includes(q) || 
+            h.email.toLowerCase().includes(q);
+        return matchQ;
+    });
+    
+    if (sort === 'name_asc') list.sort((a, b) => a.hospitalName.localeCompare(b.hospitalName));
+    else if (sort === 'name_desc') list.sort((a, b) => b.hospitalName.localeCompare(a.hospitalName));
+    else if (sort === 'requests_desc') list.sort((a, b) => (b.requestCount || 0) - (a.requestCount || 0));
+    
+    return list;
 }
- 
-function hospSaveEdit(){
-  const idx = parseInt(document.getElementById('hosp-edit-idx').value);
-  hospData[idx] = {
-    ...hospData[idx],
-    name: document.getElementById('hosp-edit-name').value.trim(),
-    city: document.getElementById('hosp-edit-city').value.trim(),
-    province: document.getElementById('hosp-edit-province').value.trim(),
-    address: document.getElementById('hosp-edit-address').value.trim(),
-    email: document.getElementById('hosp-edit-email').value.trim(),
-    phone: document.getElementById('hosp-edit-phone').value.trim(),
-    contactName: document.getElementById('hosp-edit-contact-name').value.trim(),
-    contactPhone: document.getElementById('hosp-edit-contact-phone').value.trim(),
-    status: document.getElementById('hosp-edit-status').value
-  };
-  closeModal('editHospitalModal');
-  hospRender();
+
+// ──────────────────────────────────────────────────────────────
+// RENDER TABLE
+// ──────────────────────────────────────────────────────────────
+function hospRender() {
+    const list = hospFiltered();
+    const total = list.length;
+    const pages = Math.max(1, Math.ceil(total / hospPerPage));
+    
+    if (hospPage > pages) hospPage = pages;
+    
+    const slice = list.slice((hospPage - 1) * hospPerPage, hospPage * hospPerPage);
+    const tbody = document.getElementById('hosp-tbody');
+    
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    const emptyEl = document.getElementById('hosp-empty');
+    if (emptyEl) emptyEl.style.display = slice.length ? 'none' : 'block';
+    
+    slice.forEach((h) => {
+        const row = `<tr>
+            <td><strong>${h.hospitalName}</strong></td>
+            <td style="font-size:12px;color:var(--muted)">${h.city}<br>${h.province}</td>
+            <td style="font-size:12px;color:var(--muted)">${h.email}</td>
+            <td style="font-size:12px;color:var(--muted)">${h.phoneNumber || '—'}</td>
+            <td style="font-weight:700">${h.requestCount || 0}</td>
+            <td><span class="tag tag-active">Active</span></td>
+            <td>
+                <div style="display:flex;gap:6px">
+                    <button class="btn-ghost" style="font-size:12px" onclick="hospOpenEdit(${h.id})">Edit</button>
+                    <button class="btn-danger" onclick="hospConfirmDelete(${h.id})">Delete</button>
+                </div>
+            </td>
+        </tr>`;
+        tbody.innerHTML += row;
+    });
+    
+    // Update pagination info
+    const start = (hospPage - 1) * hospPerPage + 1;
+    const end = Math.min(hospPage * hospPerPage, total);
+    
+    const resultsEl = document.getElementById('hosp-results-info');
+    if (resultsEl) resultsEl.textContent = total + ' hospital' + (total !== 1 ? 's' : '');
+    
+    const showingEl = document.getElementById('hosp-showing');
+    if (showingEl) {
+        showingEl.textContent = total ? `Showing ${start}–${end} of ${total}` : 'No results';
+    }
+    
+    const pageEl = document.getElementById('hosp-page-label');
+    if (pageEl) pageEl.textContent = `Page ${hospPage} / ${pages}`;
+    
+    const prevBtn = document.getElementById('hosp-prev');
+    if (prevBtn) prevBtn.disabled = hospPage <= 1;
+    
+    const nextBtn = document.getElementById('hosp-next');
+    if (nextBtn) nextBtn.disabled = hospPage >= pages;
+    
+    hospUpdateStats();
 }
- 
-function hospDelete(){
-  const idx = parseInt(document.getElementById('hosp-edit-idx').value);
-  if(confirm('Delete ' + hospData[idx].name + '? This cannot be undone.'))
-  {hospData.splice(idx, 1);closeModal('editHospitalModal');hospRender();}
+
+// ──────────────────────────────────────────────────────────────
+// UPDATE STATS
+// ──────────────────────────────────────────────────────────────
+function hospUpdateStats() {
+    const total = hospData.length;
+    const totalReqs = hospData.reduce((s, h) => s + (h.requestCount || 0), 0);
+    
+    const activeEl = document.getElementById('hosp-active-count');
+    if (activeEl) activeEl.textContent = total;
+    
+    const inactiveEl = document.getElementById('hosp-inactive-count');
+    if (inactiveEl) inactiveEl.textContent = '0';
+    
+    const totalEl = document.getElementById('hosp-total-count');
+    if (totalEl) totalEl.textContent = total;
+    
+    const reqsEl = document.getElementById('hosp-requests-count');
+    if (reqsEl) reqsEl.textContent = totalReqs;
 }
- 
-function hospConfirmDelete(idx){
-  if(confirm('Delete ' + hospData[idx].name + '? This cannot be undone.'))
-  {hospData.splice(idx, 1);hospRender();}
+
+// ──────────────────────────────────────────────────────────────
+// PAGINATION
+// ──────────────────────────────────────────────────────────────
+function hospPrevPage() {
+    if (hospPage > 1) {
+        hospPage--;
+        hospRender();
+    }
 }
- 
-// Initialize
-hospRender();
+
+function hospNextPage() {
+    const pages = Math.ceil(hospFiltered().length / hospPerPage);
+    if (hospPage < pages) {
+        hospPage++;
+        hospRender();
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// MODAL HELPERS
+// ──────────────────────────────────────────────────────────────
+function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('open');
+}
+
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('open');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => {
+        if (e.target === o) o.classList.remove('open');
+    });
+});
+
+// ──────────────────────────────────────────────────────────────
+// CREATE HOSPITAL — Submit form
+// ──────────────────────────────────────────────────────────────
+async function hospCreate() {
+    const email = document.getElementById('hosp-add-email')?.value.trim();
+    const name = document.getElementById('hosp-add-name')?.value.trim();
+    const address = document.getElementById('hosp-add-address')?.value.trim();
+    const city = document.getElementById('hosp-add-city')?.value.trim();
+    const province = document.getElementById('hosp-add-province')?.value.trim();
+    const phone = document.getElementById('hosp-add-phone')?.value.trim() || null;
+    const contactName = document.getElementById('hosp-add-contact-name')?.value.trim() || null;
+    const contactPhone = document.getElementById('hosp-add-contact-phone')?.value.trim() || null;
+    
+    // Validation
+    if (!email) return alert('Email is required.');
+    if (!name) return alert('Hospital name is required.');
+    if (!address) return alert('Address is required.');
+    if (!city) return alert('City is required.');
+    if (!province) return alert('Province is required.');
+    
+    const btn = document.querySelector('#addHospitalModal .btn-primary');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Creating…';
+    }
+    
+    try {
+        const res = await fetch(HOSPITAL_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email, hospitalName: name, address, city, province,
+                phoneNumber: phone, contactPersonName: contactName,
+                contactPersonPhone: contactPhone
+            })
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Creation failed');
+        }
+        
+        const created = await res.json();
+        hospData.unshift(created);
+        hospPage = 1;
+        hospRender();
+        
+        // Clear form
+        ['hosp-add-email','hosp-add-name','hosp-add-address','hosp-add-city','hosp-add-province',
+         'hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone','hosp-add-status','hosp-add-pass'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        
+        closeModal('addHospitalModal');
+        alert('Hospital account created! Credentials sent to their email.');
+    } catch (err) {
+        alert('Error: ' + err.message);
+        console.error('[Hospital] Create error:', err);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Create Account';
+        }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// EDIT HOSPITAL — Open modal with data
+// ──────────────────────────────────────────────────────────────
+function hospOpenEdit(id) {
+    const h = hospData.find(x => x.id === id);
+    if (!h) {
+        alert('Hospital not found');
+        return;
+    }
+    
+    document.getElementById('hosp-edit-idx').value = id;
+    document.getElementById('hosp-edit-name').value = h.hospitalName || '';
+    document.getElementById('hosp-edit-address').value = h.address || '';
+    document.getElementById('hosp-edit-city').value = h.city || '';
+    document.getElementById('hosp-edit-province').value = h.province || '';
+    document.getElementById('hosp-edit-phone').value = h.phoneNumber || '';
+    document.getElementById('hosp-edit-contact-name').value = h.contactPersonName || '';
+    document.getElementById('hosp-edit-contact-phone').value = h.contactPersonPhone || '';
+    document.getElementById('hosp-edit-email').value = h.email || '';
+    document.getElementById('hosp-edit-pass').value = '';
+    document.getElementById('hosp-edit-status').value = 'active';
+    
+    openModal('editHospitalModal');
+}
+
+// ──────────────────────────────────────────────────────────────
+// EDIT HOSPITAL — Save changes
+// ──────────────────────────────────────────────────────────────
+async function hospSaveEdit() {
+    const id = document.getElementById('hosp-edit-idx').value;
+    const name = document.getElementById('hosp-edit-name')?.value.trim();
+    const address = document.getElementById('hosp-edit-address')?.value.trim();
+    const city = document.getElementById('hosp-edit-city')?.value.trim();
+    const province = document.getElementById('hosp-edit-province')?.value.trim();
+    const phone = document.getElementById('hosp-edit-phone')?.value.trim() || null;
+    const contactName = document.getElementById('hosp-edit-contact-name')?.value.trim() || null;
+    const contactPhone = document.getElementById('hosp-edit-contact-phone')?.value.trim() || null;
+    
+    if (!name) return alert('Hospital name is required.');
+    
+    const btn = document.querySelector('#editHospitalModal .btn-primary');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+    }
+    
+    try {
+        const res = await fetch(`${HOSPITAL_API}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                hospitalName: name, address, city, province,
+                phoneNumber: phone, contactPersonName: contactName,
+                contactPersonPhone: contactPhone
+            })
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Update failed');
+        }
+        
+        const updated = await res.json();
+        const idx = hospData.findIndex(x => x.id === parseInt(id));
+        if (idx >= 0) hospData[idx] = updated;
+        
+        hospRender();
+        closeModal('editHospitalModal');
+        alert('Hospital updated successfully!');
+    } catch (err) {
+        alert('Error: ' + err.message);
+        console.error('[Hospital] Edit error:', err);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Save Changes';
+        }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// DELETE HOSPITAL
+// ──────────────────────────────────────────────────────────────
+async function hospDelete(id) {
+    const h = hospData.find(x => x.id === parseInt(id));
+    if (!h) {
+        alert('Hospital not found');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${HOSPITAL_API}/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Deletion failed');
+        }
+
+        hospData = hospData.filter(x => x.id !== parseInt(id));
+        hospRender();
+        closeModal('editHospitalModal');
+        alert('Hospital deleted successfully!');
+    } catch (err) {
+        alert('Error: ' + err.message);
+        console.error('[Hospital] Delete error:', err);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// CONFIRM DELETE (from table row)
+// ──────────────────────────────────────────────────────────────
+function hospConfirmDelete(id) {
+    const h = hospData.find(x => x.id === id);
+    if (!h) {
+        alert('Hospital not found');
+        return;
+    }
+
+    if (!confirm(`Delete "${h.hospitalName}"? This cannot be undone.`)) {
+        return;
+    }
+
+    hospDelete(id); // ✅ PASS ID HERE
+}
