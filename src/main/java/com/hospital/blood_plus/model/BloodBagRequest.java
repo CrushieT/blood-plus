@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.hospital.blood_plus.model.BloodBag.ComponentType;
 
 @Entity
 @Table(name = "blood_bag_requests")
@@ -33,9 +34,7 @@ public class BloodBagRequest {
         INPATIENT, OUTPATIENT, HOSPITAL, EMERGENCY
     }
 
-    public enum BloodComponent {
-        WHOLE_BLOOD, PRBC, PLATELET, FFP, LEUKOREDUCED, ALIQUOT
-    }
+    
 
     // ─────────────────────────────────────────────
     // Core / Shared Fields
@@ -138,7 +137,7 @@ public class BloodBagRequest {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private BloodComponent bloodComponent;
+    private ComponentType bloodComponent;
 
     @Column
     private Integer numberOfUnits;
@@ -259,8 +258,8 @@ public class BloodBagRequest {
     // Getters & Setters — ANONYMOUS Blood Details
     // ─────────────────────────────────────────────
 
-    public BloodComponent getBloodComponent() { return bloodComponent; }
-    public void setBloodComponent(BloodComponent bloodComponent) { this.bloodComponent = bloodComponent; }
+    public ComponentType getBloodComponent() { return bloodComponent; }
+    public void setBloodComponent(ComponentType bloodComponent) { this.bloodComponent = bloodComponent; }
 
     public Integer getNumberOfUnits() { return numberOfUnits; }
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }

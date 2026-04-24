@@ -495,3 +495,102 @@ body {
   .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
   .stat-val  { font-size: 22px; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MULTI-STEP FORM INDICATOR STYLES
+   ═══════════════════════════════════════════════════════════════ */
+
+.step-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: #F0F0F0;
+  color: #999;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+}
+
+.step-dot.active {
+  background: linear-gradient(135deg, #C41E3A 0%, #E84D5A 100%);
+  color: white;
+  box-shadow: 0 6px 20px rgba(196, 30, 58, 0.25);
+  transform: scale(1.08);
+}
+
+/* Form step display */
+.form-step {
+  display: none;
+  animation: slideInForm 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.form-step.active {
+  display: block;
+}
+
+@keyframes slideInForm {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Step navigation buttons */
+.btn-prev,
+.btn-next {
+  padding: 10px 16px;
+  border: 1.5px solid #E8E8E8;
+  background: white;
+  color: var(--charcoal);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.btn-prev:hover,
+.btn-next:hover {
+  border-color: #C41E3A;
+  color: #C41E3A;
+  background: rgba(196, 30, 58, 0.04);
+}
+
+.btn-next {
+  background: linear-gradient(135deg, #C41E3A 0%, #E84D5A 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.15);
+}
+
+.btn-next:hover {
+  box-shadow: 0 8px 20px rgba(196, 30, 58, 0.25);
+  background: linear-gradient(135deg, #A01830 0%, #D43947 100%);
+  border-color: transparent;
+  color: white;
+}
+
+/* Responsive for mobile */
+@media (max-width: 640px) {
+  .step-dot {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+  
+  .btn-prev,
+  .btn-next {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}

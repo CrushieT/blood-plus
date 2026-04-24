@@ -30,6 +30,213 @@ let REQUESTS = [];
 let currentFilter = 'ALL';
 let cancelTargetId = null;
 let docFile = null;
+let currentStep = 1;
+const TOTAL_STEPS = 4;
+
+// ─── Error Display Helpers ────────────────────────────────────
+function showStepError(message) {
+  const el = document.getElementById('err-submit-msg');
+  if (el) el.textContent = message;
+}
+
+function showStepErrorBanner() {
+  const errSubmit = document.getElementById('err-submit');
+  if (errSubmit) errSubmit.classList.add('show');
+}
+
+function hideStepErrorBanner() {
+  const errSubmit = document.getElementById('err-submit');
+  if (errSubmit) errSubmit.classList.remove('show');
+}
+
+// ─── Step Navigation ──────────────────────────────────────────
+function updateStepUI() {
+  // Update step dots and lines
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    const dot = document.getElementById(`step-dot-${i}`);
+    const line = document.getElementById(`step-line-${i}`);
+    
+    if (dot) {
+      dot.classList.remove('active');
+      if (i === currentStep) {
+        dot.classList.add('active');
+      } else if (i < currentStep) {
+        dot.textContent = '✓';
+        dot.style.background = '#2E7D4F';
+        dot.style.color = 'white';
+      } else {
+        dot.textContent = i;
+        dot.style.background = '#F0F0F0';
+        dot.style.color = '#999';
+      }
+    }
+    
+    if (line && i < TOTAL_STEPS) {
+      line.style.background = i < currentStep ? '#2E7D4F' : '#E8E8E8';
+    }
+  }
+  
+  // Update step counter
+  const counter = document.getElementById('current-step-num');
+  if (counter) counter.textContent = currentStep;
+  
+  // Show/hide step content
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    const step = document.getElementById(`form-step-${i}`);
+    if (step) {
+      step.style.display = i === currentStep ? 'block' : 'none';
+    }
+  }
+  
+  // Update button visibility
+  const prevBtn = document.getElementById('btn-prev');
+  const nextBtn = document.getElementById('btn-next');
+  const submitBtn = document.getElementById('submit-btn');
+  const resetBtn = document.getElementById('btn-reset');
+  
+  if (prevBtn) prevBtn.style.display = currentStep > 1 ? 'block' : 'none';
+  if (nextBtn) nextBtn.style.display = currentStep < TOTAL_STEPS ? 'block' : 'none';
+  if (submitBtn) submitBtn.style.display = currentStep === TOTAL_STEPS ? 'block' : 'none';
+  if (resetBtn) resetBtn.style.display = currentStep === TOTAL_STEPS ? 'none' : 'block';
+  
+  hideStepErrorBanner();
+}
+
+function validateStep1() {
+  let ok = true;
+  const errBanners = ['err-category', 'err-agegroup'];
+  errBanners.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+
+  // Check Request Category
+  if (!document.querySelector('input[name="req-category"]:checked')) {
+    const el = document.getElementById('err-category');
+    if (el) el.classList.add('show');
+    showStepError('Please select a request category.');
+    ok = false;
+  }
+
+  // Check Age Group
+  if (!document.querySelector('input[name="req-agegroup"]:checked')) {
+    const el = document.getElementById('err-agegroup');
+    if (el) el.classList.add('show');
+    showStepError('Please select an age group.');
+    ok = false;
+  }
+
+  // Check required text fields
+  const required = [
+    ['pat-lastname', 'Patient Last Name'],
+    ['pat-firstname', 'Patient First Name'],
+    ['pat-age', 'Patient Age'],
+    ['pat-physician', 'Requesting Physician'],
+  ];
+
+  for (const [id, name] of required) {
+    const val = document.getElementById(id)?.value?.trim();
+    if (!val) {
+      showStepError(`⚠ ${name} is required.`);
+      ok = false;
+      break;
+    }
+  }
+
+  // Check Patient Sex
+  if (!document.querySelector('input[name="pat-sex"]:checked')) {
+    showStepError('⚠ Please select patient sex.');
+    ok = false;
+  }
+
+  if (!ok) {
+    showStepErrorBanner();
+  }
+
+  return ok;
+}
+
+function validateStep2() {
+  let ok = true;
+  const errBanners = ['err-bt', 'err-comp', 'err-urgency'];
+  errBanners.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+
+  // Check Blood Type
+  if (!document.querySelector('input[name="req-bt"]:checked')) {
+    const el = document.getElementById('err-bt');
+    if (el) el.classList.add('show');
+    showStepError('⚠ Please select a blood type.');
+    ok = false;
+  }
+
+  // Check Component
+  if (!document.querySelector('input[name="req-comp"]:checked')) {
+    const el = document.getElementById('err-comp');
+    if (el) el.classList.add('show');
+    showStepError('⚠ Please select a blood component.');
+    ok = false;
+  }
+
+  // Check Units
+  const units = document.getElementById('req-units')?.value?.trim();
+  if (!units || parseInt(units) < 1) {
+    showStepError('⚠ Please enter number of units (minimum 1).');
+    ok = false;
+  }
+
+  // Check Urgency
+  if (!document.querySelector('input[name="req-urgency"]:checked')) {
+    const el = document.getElementById('err-urgency');
+    if (el) el.classList.add('show');
+    showStepError('⚠ Please select an urgency level.');
+    ok = false;
+  }
+
+  if (!ok) {
+    showStepErrorBanner();
+  }
+
+  return ok;
+}
+
+function validateStep3() {
+  const docFile = document.getElementById('doc-file')?.files[0];
+  
+  if (!docFile) {
+    showStepError('⚠ Please upload Doctor\'s Blood Request Form. This is required.');
+    showStepErrorBanner();
+    return false;
+  }
+  
+  return true;
+}
+
+function nextStep() {
+  hideStepErrorBanner();
+  
+  // Validate current step before proceeding
+  if (currentStep === 1 && !validateStep1()) return;
+  if (currentStep === 2 && !validateStep2()) return;
+  if (currentStep === 3 && !validateStep3()) return;
+
+  if (currentStep < TOTAL_STEPS) {
+    currentStep++;
+    updateStepUI();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function prevStep() {
+  if (currentStep > 1) {
+    currentStep--;
+    updateStepUI();
+    hideStepErrorBanner();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
 
 // ─── Panel navigation ─────────────────────────────────────────
 function showPanel(id, navEl) {
@@ -40,6 +247,11 @@ function showPanel(id, navEl) {
 
   if (id === 'myrequests') { filterRequests(currentFilter, document.querySelector('.active-filter')); }
   if (id === 'dashboard')  { renderDashboard(); }
+  if (id === 'newrequest') { 
+    currentStep = 1;
+    updateStepUI();
+    hideStepErrorBanner();
+  }
 }
 
 // ─── Dashboard ────────────────────────────────────────────────
@@ -229,7 +441,6 @@ function confirmCancel() {
 // ─── New request form ──────────────────────────────────────────
 function syncForm() {
   // Optional: Can be used to sync form state, validate on change, etc.
-  // Currently a placeholder for future enhancements
 }
 
 function validateNewRequest() {
@@ -285,7 +496,13 @@ function validateNewRequest() {
     ok = false;
   }
 
-  // Doctor's note is optional for hospital requests
+  const docFile = document.getElementById('doc-file')?.files[0];
+  if (!docFile) {
+    const el = document.getElementById('err-submit-msg');
+    if (el) el.textContent = 'Please upload Doctor\'s Blood Request Form.';
+    ok = false;
+  }
+
   const errSubmit = document.getElementById('err-submit');
   if (errSubmit) errSubmit.classList.toggle('show', !ok);
   
@@ -332,7 +549,7 @@ async function submitRequest() {
     const formData = new FormData();
     formData.append('data', new Blob([JSON.stringify(requestDTO)], { type: 'application/json' }));
 
-    const docFileInput = document.getElementById('doctorsNoteFile');
+    const docFileInput = document.getElementById('doc-file');
     if (docFileInput && docFileInput.files.length > 0) {
       formData.append('doctorsNote', docFileInput.files[0]);
     }
@@ -388,12 +605,16 @@ function resetNewRequestForm() {
     .forEach(el => el.value = '');
   document.querySelectorAll('#panel-newrequest input[type=radio]').forEach(el => el.checked = false);
   clearFile('doc');
-  ['err-category','err-bt','err-comp','err-urgency'].forEach(id => {
+  clearFile('ref');
+  ['err-category','err-bt','err-comp','err-urgency','err-agegroup'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.remove('show');
   });
   const el = document.getElementById('err-submit');
   if (el) el.classList.remove('show');
+  
+  currentStep = 1;
+  updateStepUI();
 }
 
 // ─── File upload ───────────────────────────────────────────────
@@ -528,7 +749,7 @@ async function loadHospitalRequests() {
       headers: {
         'Content-Type': 'application/json'
       },
-      credentials: 'include' // Include cookies for authentication
+      credentials: 'include'
     });
 
     if (!response.ok) {
@@ -543,7 +764,7 @@ async function loadHospitalRequests() {
       id: req.id,
       referenceNumber: req.referenceNumber,
       patientName: req.patientName,
-      patientAge: req.patientAge,
+      patientAge: req.patientAge, 
       patientSex: req.patientSex,
       wardRoom: req.wardRoom || '',
       requestingPhysician: req.requestingPhysician,
@@ -602,6 +823,22 @@ window.reqViewDoc = function (url, label) {
   openModal('req-doc-modal');
 };
 
+
+async function logout() {
+  try {
+    const response = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include"
+    });
+    if (response.ok) {
+      window.location.href = "/landing_page/index.html";
+    }
+  } catch (error) {
+    console.error("Logout error:", error);
+    window.location.href = "/landing_page/index.html";
+  }
+}
+
 // ─── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const dashDate = document.getElementById('dash-date');
@@ -618,6 +855,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (reqDateNeeded) {
     reqDateNeeded.min = new Date().toISOString().slice(0, 10);
   }
+
+  // Initialize step UI
+  updateStepUI();
 
   // Load requests from backend
   loadHospitalRequests();
