@@ -1,4 +1,12 @@
-// ─── Config ──────────────────────────────────────────────────
+//====================================
+// BLOODPLUS HOSPITAL DASHBOARD
+// Organized by Feature/Tab
+//====================================
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ GLOBAL CONFIG & STATE ░░░
+// ═══════════════════════════════════════════════════════════════
+
 const BT_LABELS = { O_NEG:'O−',O_POS:'O+',A_NEG:'A−',A_POS:'A+',B_NEG:'B−',B_POS:'B+',AB_NEG:'AB−',AB_POS:'AB+' };
 const COMP_LABELS = { 
   WHOLE_BLOOD:'Whole Blood',
@@ -25,7 +33,7 @@ const STATUS_CFG = {
 
 const URGENCY_BADGE = { LOW:'badge-low', MEDIUM:'badge-medium', HIGH:'badge-high', CRITICAL:'badge-critical' };
 
-// ─── State ───────────────────────────────────────────────────
+// Global State
 let REQUESTS = [];
 let currentFilter = 'ALL';
 let cancelTargetId = null;
@@ -33,23 +41,149 @@ let docFile = null;
 let currentStep = 1;
 const TOTAL_STEPS = 4;
 
-// ─── Error Display Helpers ────────────────────────────────────
-function showStepError(message) {
-  const el = document.getElementById('err-submit-msg');
-  if (el) el.textContent = message;
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ UTILITY FUNCTIONS ░░░
+// ═══════════════════════════════════════════════════════════════
+
+function formatDate(d) {
+  if (!d) return '—';
+  const dateStr = d.includes('T') ? d : d + 'T00:00:00';
+  return new Date(dateStr)
+    .toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' });
 }
 
-function showStepErrorBanner() {
-  const errSubmit = document.getElementById('err-submit');
-  if (errSubmit) errSubmit.classList.add('show');
+// Modal helpers
+function openModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add('show');
 }
 
-function hideStepErrorBanner() {
-  const errSubmit = document.getElementById('err-submit');
-  if (errSubmit) errSubmit.classList.remove('show');
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('show');
 }
 
-// ─── Step Navigation ──────────────────────────────────────────
+// Mobile sidebar helpers
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  const b = document.getElementById('sidebarBackdrop');
+  const h = document.getElementById('hamburger');
+  if (!s || !b || !h) return;
+
+  const open = s.classList.contains('open');
+  if (open) {
+    closeSidebar();
+    return;
+  }
+  s.classList.add('open');
+  b.classList.add('show');
+  h.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  const s = document.getElementById('sidebar');
+  const b = document.getElementById('sidebarBackdrop');
+  const h = document.getElementById('hamburger');
+  if (s) s.classList.remove('open');
+  if (b) b.classList.remove('show');
+  if (h) h.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Panel navigation
+function showPanel(id, navEl) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (navEl) navEl.classList.add('active');
+
+  if (id === 'myrequests') { filterRequests(currentFilter, document.querySelector('.active-filter')); }
+  if (id === 'dashboard')  { renderDashboard(); }
+  if (id === 'newrequest') { 
+    currentStep = 1;
+    updateStepUI();
+    hideStepErrorBanner();
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ 1️⃣ DASHBOARD TAB ░░░
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Render dashboard with statistics and recent requests
+ */
+function renderDashboard() {
+  const pending  = REQUESTS.filter(r => ['PENDING','APPROVED','ALLOCATED','READY_FOR_RELEASE'].includes(r.status)).length;
+  const released = REQUESTS.filter(r => r.status === 'RELEASED').length;
+  const total    = REQUESTS.length;
+  const units    = REQUESTS.filter(r => r.status === 'RELEASED').reduce((s,r) => s + r.numberOfUnits, 0);
+
+  document.getElementById('dash-stat-pending').textContent  = pending;
+  document.getElementById('dash-stat-released').textContent = released;
+  document.getElementById('dash-stat-total').textContent    = total;
+  document.getElementById('dash-stat-units').textContent    = units;
+  document.getElementById('nav-pending-count').textContent  = pending;
+  document.getElementById('prof-total').textContent = total;
+
+  // Recent requests table
+  const tbody = document.getElementById('dash-recent-tbody');
+  const recent = [...REQUESTS].sort((a,b) => new Date(b.requestedAt) - new Date(a.requestedAt)).slice(0,5);
+  tbody.innerHTML = recent.map(r => {
+    const sc = STATUS_CFG[r.status];
+    return `<tr>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.referenceNumber}</td>
+      <td style="font-weight:600">${r.patientName}</td>
+      <td>${COMP_LABELS[r.bloodComponent]}</td>
+      <td><span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/**
+ * Refresh blood bank status button animation
+ */
+function refreshBloodBankStatus() {
+    const btn = document.getElementById('refresh-blood-status');
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+
+    // Add rotating animation
+    btn.style.animation = 'spin 1s linear infinite';
+
+    // Re-enable button after 1.5 seconds
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.animation = 'none';
+    }, 1500);
+}
+
+// Add spin animation CSS for refresh button
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ 2️⃣ NEW BLOOD REQUEST TAB ░░░
+// ═══════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────
+// Step Navigation & UI Update
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Update step indicator UI (dots, lines, buttons, content visibility)
+ */
 function updateStepUI() {
   // Update step dots and lines
   for (let i = 1; i <= TOTAL_STEPS; i++) {
@@ -102,6 +236,61 @@ function updateStepUI() {
   hideStepErrorBanner();
 }
 
+/**
+ * Move to next step
+ */
+function nextStep() {
+  hideStepErrorBanner();
+  
+  // Validate current step before proceeding
+  if (currentStep === 1 && !validateStep1()) return;
+  if (currentStep === 2 && !validateStep2()) return;
+  if (currentStep === 3 && !validateStep3()) return;
+
+  if (currentStep < TOTAL_STEPS) {
+    currentStep++;
+    updateStepUI();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+/**
+ * Move to previous step
+ */
+function prevStep() {
+  if (currentStep > 1) {
+    currentStep--;
+    updateStepUI();
+    hideStepErrorBanner();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Form Validation
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Error display helpers
+ */
+function showStepError(message) {
+  const el = document.getElementById('err-submit-msg');
+  if (el) el.textContent = message;
+}
+
+function showStepErrorBanner() {
+  const errSubmit = document.getElementById('err-submit');
+  if (errSubmit) errSubmit.classList.add('show');
+}
+
+function hideStepErrorBanner() {
+  const errSubmit = document.getElementById('err-submit');
+  if (errSubmit) errSubmit.classList.remove('show');
+}
+
+/**
+ * Validate Step 1: Patient Information
+ */
 function validateStep1() {
   let ok = true;
   const errBanners = ['err-category', 'err-agegroup'];
@@ -156,6 +345,9 @@ function validateStep1() {
   return ok;
 }
 
+/**
+ * Validate Step 2: Blood Request Details
+ */
 function validateStep2() {
   let ok = true;
   const errBanners = ['err-bt', 'err-comp', 'err-urgency'];
@@ -202,6 +394,9 @@ function validateStep2() {
   return ok;
 }
 
+/**
+ * Validate Step 3: Supporting Documents
+ */
 function validateStep3() {
   const docFile = document.getElementById('doc-file')?.files[0];
   
@@ -214,235 +409,9 @@ function validateStep3() {
   return true;
 }
 
-function nextStep() {
-  hideStepErrorBanner();
-  
-  // Validate current step before proceeding
-  if (currentStep === 1 && !validateStep1()) return;
-  if (currentStep === 2 && !validateStep2()) return;
-  if (currentStep === 3 && !validateStep3()) return;
-
-  if (currentStep < TOTAL_STEPS) {
-    currentStep++;
-    updateStepUI();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-}
-
-function prevStep() {
-  if (currentStep > 1) {
-    currentStep--;
-    updateStepUI();
-    hideStepErrorBanner();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-}
-
-// ─── Panel navigation ─────────────────────────────────────────
-function showPanel(id, navEl) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  if (navEl) navEl.classList.add('active');
-
-  if (id === 'myrequests') { filterRequests(currentFilter, document.querySelector('.active-filter')); }
-  if (id === 'dashboard')  { renderDashboard(); }
-  if (id === 'newrequest') { 
-    currentStep = 1;
-    updateStepUI();
-    hideStepErrorBanner();
-  }
-}
-
-// ─── Dashboard ────────────────────────────────────────────────
-function renderDashboard() {
-  const pending  = REQUESTS.filter(r => ['PENDING','APPROVED','ALLOCATED','READY_FOR_RELEASE'].includes(r.status)).length;
-  const released = REQUESTS.filter(r => r.status === 'RELEASED').length;
-  const total    = REQUESTS.length;
-  const units    = REQUESTS.filter(r => r.status === 'RELEASED').reduce((s,r) => s + r.numberOfUnits, 0);
-
-  document.getElementById('dash-stat-pending').textContent  = pending;
-  document.getElementById('dash-stat-released').textContent = released;
-  document.getElementById('dash-stat-total').textContent    = total;
-  document.getElementById('dash-stat-units').textContent    = units;
-  document.getElementById('nav-pending-count').textContent  = pending;
-  document.getElementById('prof-total').textContent = total;
-
-  // Recent table
-  const tbody = document.getElementById('dash-recent-tbody');
-  const recent = [...REQUESTS].sort((a,b) => new Date(b.requestedAt) - new Date(a.requestedAt)).slice(0,5);
-  tbody.innerHTML = recent.map(r => {
-    const sc = STATUS_CFG[r.status];
-    return `<tr>
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.referenceNumber}</td>
-      <td style="font-weight:600">${r.patientName}</td>
-      <td>${COMP_LABELS[r.bloodComponent]}</td>
-      <td><span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span></td>
-    </tr>`;
-  }).join('');
-}
-
-// ─── Requests table ───────────────────────────────────────────
-function filterRequests(filter, btn) {
-  currentFilter = filter;
-  const q = (document.getElementById('req-search')?.value || '').toLowerCase();
-
-  document.querySelectorAll('.req-filter').forEach(b => {
-    b.style.color        = 'var(--muted)';
-    b.style.borderBottom = '2px solid transparent';
-    b.style.fontWeight   = '600';
-    b.classList.remove('active-filter');
-  });
-  if (btn) {
-    btn.style.color        = 'var(--red)';
-    btn.style.borderBottom = '2px solid var(--red)';
-    btn.style.fontWeight   = '700';
-    btn.classList.add('active-filter');
-  }
-
-  let list = REQUESTS.filter(r => {
-    if (filter === 'ACTIVE')   return ['PENDING','APPROVED','ALLOCATED','READY_FOR_RELEASE'].includes(r.status);
-    if (filter === 'RELEASED') return r.status === 'RELEASED';
-    if (filter === 'REJECTED') return ['REJECTED','CANCELLED'].includes(r.status);
-    return true;
-  });
-
-  if (q) list = list.filter(r =>
-    r.patientName.toLowerCase().includes(q) ||
-    r.referenceNumber.toLowerCase().includes(q)
-  );
-
-  document.getElementById('req-count').textContent = list.length + ' total';
-
-  const tbody = document.getElementById('requests-tbody');
-  const empty = document.getElementById('req-empty');
-
-  if (!list.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    return;
-  }
-
-  empty.style.display = 'none';
-  tbody.innerHTML = list.map(r => {
-    const sc  = STATUS_CFG[r.status];
-    const urg = URGENCY_BADGE[r.urgencyLevel];
-    return `<tr>
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.referenceNumber}</td>
-      <td>
-        <div style="font-weight:600">${r.patientName}</div>
-        <div style="font-size:11px;color:var(--muted)">${CAT_LABELS[r.requestCategory]} · ${r.ageGroup}</div>
-      </td>
-      <td>${COMP_LABELS[r.bloodComponent]}</td>
-      <td><span style="font-family:'Playfair Display',serif;font-size:14px;font-weight:900">${BT_LABELS[r.bloodType]}</span></td>
-      <td style="font-weight:700">${r.numberOfUnits}</td>
-      <td><span class="badge ${urg}">${URGENCY_LABELS[r.urgencyLevel]}</span></td>
-      <td><span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span></td>
-      <td style="font-size:12px;color:var(--muted)">${formatDate(r.requestedAt)}</td>
-      <td>
-        <div style="display:flex;gap:6px">
-          <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="openRequestDetail(${r.id})">View</button>
-          ${r.doctorsNoteUrl ? `<button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="window.reqViewDoc('${r.doctorsNoteUrl}', 'Doctor\\'s Note - ${r.referenceNumber}')">📄 Doc</button>` : ''}
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-// ─── Request detail modal ─────────────────────────────────────
-function openRequestDetail(id) {
-  const r  = REQUESTS.find(x => x.id === id);
-  if (!r) return;
-  const sc  = STATUS_CFG[r.status];
-  const urg = URGENCY_LABELS[r.urgencyLevel];
-
-  document.getElementById('rd-ref').textContent = r.referenceNumber;
-
-  // Status strip
-  const strip = document.getElementById('rd-status-strip');
-  strip.style.background = sc.bg;
-  document.getElementById('rd-status-icon').textContent = sc.icon;
-  document.getElementById('rd-status-label').style.color = sc.color;
-  document.getElementById('rd-status-label').textContent = 'Status';
-  document.getElementById('rd-status-text').style.color  = sc.color;
-  document.getElementById('rd-status-text').textContent  = sc.label;
-  document.getElementById('rd-status-sub').style.color   = sc.color;
-  document.getElementById('rd-status-sub').textContent   = sc.sub;
-  document.getElementById('rd-blood-ghost').textContent  = BT_LABELS[r.bloodType];
-  document.getElementById('rd-blood-ghost').style.color  = sc.color;
-
-  // Fields
-  document.getElementById('rd-blood').textContent    = BT_LABELS[r.bloodType];
-  document.getElementById('rd-comp').textContent     = COMP_LABELS[r.bloodComponent];
-  document.getElementById('rd-units').textContent    = r.numberOfUnits + ' unit(s)';
-  document.getElementById('rd-urgency').innerHTML    = `<span class="badge ${URGENCY_BADGE[r.urgencyLevel]}">${urg}</span>`;
-  document.getElementById('rd-patient').textContent  = r.patientName + ' · ' + r.patientAge + ' yrs / ' + r.patientSex;
-  document.getElementById('rd-cat').textContent      = CAT_LABELS[r.requestCategory] + ' · ' + r.ageGroup;
-  document.getElementById('rd-physician').textContent= r.requestingPhysician;
-  document.getElementById('rd-required').textContent = r.requiredBy ? formatDate(r.requiredBy) : 'As soon as possible';
-
-  // Rejection
-  const rejBox = document.getElementById('rd-rejection-box');
-  if (rejBox) {
-    if (r.rejectionReason) {
-      rejBox.style.display = 'block';
-      document.getElementById('rd-rejection-text').textContent = r.rejectionReason;
-    } else {
-      rejBox.style.display = 'none';
-    }
-  }
-
-  // Fulfilled
-  const fulBox = document.getElementById('rd-fulfilled-box');
-  if (fulBox) {
-    if (r.fulfilledByBag) {
-      fulBox.style.display = 'block';
-      document.getElementById('rd-bag-id').textContent     = r.fulfilledByBag.id;
-      document.getElementById('rd-released-at').textContent = formatDate(r.fulfilledByBag.dispensedAt);
-    } else {
-      fulBox.style.display = 'none';
-    }
-  }
-
-  // Doctor's Note
-  const docBox = document.getElementById('rd-doc-box');
-  const docBtn = document.getElementById('rd-view-doc-btn');
-  if (docBox && docBtn) {
-    if (r.doctorsNoteUrl) {
-      docBox.style.display = 'block';
-      docBtn.onclick = () => {
-        window.reqViewDoc(r.doctorsNoteUrl, 'Request\'s Form - ' + r.referenceNumber);
-      };
-    } else {
-      docBox.style.display = 'none';
-    }
-  }
-
-  // Cancel
-  const cancelRow = document.getElementById('rd-cancel-row');
-  cancelRow.style.display = r.status === 'PENDING' ? 'block' : 'none';
-  document.getElementById('rd-cancel-btn').onclick = () => {
-    cancelTargetId = r.id;
-    closeModal('requestDetailModal');
-    openModal('cancelConfirmModal');
-  };
-
-  openModal('requestDetailModal');
-}
-
-function confirmCancel() {
-  const r = REQUESTS.find(x => x.id === cancelTargetId);
-  if (r) r.status = 'CANCELLED';
-  closeModal('cancelConfirmModal');
-  filterRequests(currentFilter, document.querySelector('.active-filter'));
-  renderDashboard();
-}
-
-// ─── New request form ──────────────────────────────────────────
-function syncForm() {
-  // Optional: Can be used to sync form state, validate on change, etc.
-}
-
+/**
+ * Full form validation (used when submitting)
+ */
 function validateNewRequest() {
   let ok = true;
 
@@ -509,6 +478,93 @@ function validateNewRequest() {
   return ok;
 }
 
+// ──────────────────────────────────────────────────────────────
+// File Upload Handling
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Handle file drop on upload zone
+ */
+function handleDrop(e, key) {
+  e.preventDefault();
+  const zone = document.getElementById(key+'-zone');
+  if (zone) zone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) processUpload(e.dataTransfer.files[0], key);
+}
+
+/**
+ * Handle file selection from input
+ */
+function handleFile(input, key) {
+  if (input.files[0]) processUpload(input.files[0], key);
+}
+
+/**
+ * Process uploaded file (validate size, type, display preview)
+ */
+function processUpload(file, key) {
+  const errEl = document.getElementById(key+'-err');
+  if (errEl) errEl.style.display = 'none';
+
+  if (file.size > 5*1024*1024) {
+    if (errEl) {
+      errEl.textContent = '⚠ File too large (max 5MB)';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (!['application/pdf','image/jpeg','image/png'].includes(file.type)) {
+    if (errEl) {
+      errEl.textContent = '⚠ Only PDF, JPG, PNG accepted';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (key === 'doc') docFile = file;
+
+  const placeholder = document.getElementById(key+'-placeholder');
+  const preview = document.getElementById(key+'-preview');
+  if (placeholder) placeholder.style.display = 'none';
+  if (preview) preview.style.display = 'flex';
+
+  const nameEl = document.getElementById(key+'-name');
+  const sizeEl = document.getElementById(key+'-size');
+  if (nameEl) nameEl.textContent = file.name;
+  if (sizeEl) sizeEl.textContent = file.size < 1024*1024
+    ? (file.size/1024).toFixed(1)+' KB' : (file.size/(1024*1024)).toFixed(1)+' MB';
+}
+
+/**
+ * Clear uploaded file
+ */
+function clearFile(key) {
+  if (key === 'doc') docFile = null;
+  
+  const fileInput = document.getElementById(key+'-file');
+  if (fileInput) fileInput.value = '';
+
+  const placeholder = document.getElementById(key+'-placeholder');
+  const preview = document.getElementById(key+'-preview');
+  if (placeholder) placeholder.style.display = 'block';
+  if (preview) preview.style.display = 'none';
+}
+
+// ──────────────────────────────────────────────────────────────
+// Form Submission & Reset
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Optional: Can be used to sync form state, validate on change, etc.
+ */
+function syncForm() {
+  // Placeholder for future validation on change
+}
+
+/**
+ * Submit new blood request to backend
+ */
 async function submitRequest() {
   if (!validateNewRequest()) {
     console.error('Form validation failed');
@@ -600,6 +656,9 @@ async function submitRequest() {
   }
 }
 
+/**
+ * Reset new request form to initial state
+ */
 function resetNewRequestForm() {
   document.querySelectorAll('#panel-newrequest input[type=text], #panel-newrequest input[type=number], #panel-newrequest input[type=date], #panel-newrequest textarea')
     .forEach(el => el.value = '');
@@ -617,128 +676,231 @@ function resetNewRequestForm() {
   updateStepUI();
 }
 
-// ─── File upload ───────────────────────────────────────────────
-function handleDrop(e, key) {
-  e.preventDefault();
-  const zone = document.getElementById(key+'-zone');
-  if (zone) zone.classList.remove('drag-over');
-  if (e.dataTransfer.files[0]) processUpload(e.dataTransfer.files[0], key);
-}
 
-function handleFile(input, key) {
-  if (input.files[0]) processUpload(input.files[0], key);
-}
+// ═══════════════════════════════════════════════════════════════
+// ░░░ 3️⃣ MY REQUESTS TAB ░░░
+// ═══════════════════════════════════════════════════════════════
 
-function processUpload(file, key) {
-  const errEl = document.getElementById(key+'-err');
-  if (errEl) errEl.style.display = 'none';
+// ──────────────────────────────────────────────────────────────
+// Requests Filtering & Table Display
+// ──────────────────────────────────────────────────────────────
 
-  if (file.size > 5*1024*1024) {
-    if (errEl) {
-      errEl.textContent = '⚠ File too large (max 5MB)';
-      errEl.style.display = 'block';
-    }
-    return;
-  }
+/**
+ * Filter and display blood requests based on filter type and search query
+ */
+function filterRequests(filter, btn) {
+  currentFilter = filter;
+  const q = (document.getElementById('req-search')?.value || '').toLowerCase();
 
-  if (!['application/pdf','image/jpeg','image/png'].includes(file.type)) {
-    if (errEl) {
-      errEl.textContent = '⚠ Only PDF, JPG, PNG accepted';
-      errEl.style.display = 'block';
-    }
-    return;
-  }
-
-  if (key === 'doc') docFile = file;
-
-  const placeholder = document.getElementById(key+'-placeholder');
-  const preview = document.getElementById(key+'-preview');
-  if (placeholder) placeholder.style.display = 'none';
-  if (preview) preview.style.display = 'flex';
-
-  const nameEl = document.getElementById(key+'-name');
-  const sizeEl = document.getElementById(key+'-size');
-  if (nameEl) nameEl.textContent = file.name;
-  if (sizeEl) sizeEl.textContent = file.size < 1024*1024
-    ? (file.size/1024).toFixed(1)+' KB' : (file.size/(1024*1024)).toFixed(1)+' MB';
-}
-
-function clearFile(key) {
-  if (key === 'doc') docFile = null;
-  
-  const fileInput = document.getElementById(key+'-file');
-  if (fileInput) fileInput.value = '';
-
-  const placeholder = document.getElementById(key+'-placeholder');
-  const preview = document.getElementById(key+'-preview');
-  if (placeholder) placeholder.style.display = 'block';
-  if (preview) preview.style.display = 'none';
-}
-
-// ─── Modal ─────────────────────────────────────────────────────
-function openModal(id) {
-  const modal = document.getElementById(id);
-  if (modal) modal.classList.add('show');
-}
-
-function closeModal(id) {
-  const modal = document.getElementById(id);
-  if (modal) modal.classList.remove('show');
-}
-
-document.querySelectorAll('.modal-overlay').forEach(o => {
-  o.addEventListener('click', e => {
-    if (e.target === o) o.classList.remove('show');
+  document.querySelectorAll('.req-filter').forEach(b => {
+    b.style.color        = 'var(--muted)';
+    b.style.borderBottom = '2px solid transparent';
+    b.style.fontWeight   = '600';
+    b.classList.remove('active-filter');
   });
-});
+  if (btn) {
+    btn.style.color        = 'var(--red)';
+    btn.style.borderBottom = '2px solid var(--red)';
+    btn.style.fontWeight   = '700';
+    btn.classList.add('active-filter');
+  }
 
-// ─── Mobile sidebar ────────────────────────────────────────────
-function toggleSidebar() {
-  const s = document.getElementById('sidebar');
-  const b = document.getElementById('sidebarBackdrop');
-  const h = document.getElementById('hamburger');
-  if (!s || !b || !h) return;
+  let list = REQUESTS.filter(r => {
+    if (filter === 'ACTIVE')   return ['PENDING','APPROVED','ALLOCATED','READY_FOR_RELEASE'].includes(r.status);
+    if (filter === 'RELEASED') return r.status === 'RELEASED';
+    if (filter === 'REJECTED') return ['REJECTED','CANCELLED'].includes(r.status);
+    return true;
+  });
 
-  const open = s.classList.contains('open');
-  if (open) {
-    closeSidebar();
+  if (q) list = list.filter(r =>
+    r.patientName.toLowerCase().includes(q) ||
+    r.referenceNumber.toLowerCase().includes(q)
+  );
+
+  document.getElementById('req-count').textContent = list.length + ' total';
+
+  const tbody = document.getElementById('requests-tbody');
+  const empty = document.getElementById('req-empty');
+
+  if (!list.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
     return;
   }
-  s.classList.add('open');
-  b.classList.add('show');
-  h.classList.add('open');
-  document.body.style.overflow = 'hidden';
+
+  empty.style.display = 'none';
+  tbody.innerHTML = list.map(r => {
+    const sc  = STATUS_CFG[r.status];
+    const urg = URGENCY_BADGE[r.urgencyLevel];
+    return `<tr>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.referenceNumber}</td>
+      <td>
+        <div style="font-weight:600">${r.patientName}</div>
+        <div style="font-size:11px;color:var(--muted)">${CAT_LABELS[r.requestCategory]} · ${r.ageGroup}</div>
+      </td>
+      <td>${COMP_LABELS[r.bloodComponent]}</td>
+      <td><span style="font-family:'Playfair Display',serif;font-size:14px;font-weight:900">${BT_LABELS[r.bloodType]}</span></td>
+      <td style="font-weight:700">${r.numberOfUnits}</td>
+      <td><span class="badge ${urg}">${URGENCY_LABELS[r.urgencyLevel]}</span></td>
+      <td><span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${formatDate(r.requestedAt)}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="openRequestDetail(${r.id})">View</button>
+          ${r.doctorsNoteUrl ? `<button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="window.reqViewDoc('${r.doctorsNoteUrl}', 'Doctor\\'s Note - ${r.referenceNumber}')">📄 Doc</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
-function closeSidebar() {
-  const s = document.getElementById('sidebar');
-  const b = document.getElementById('sidebarBackdrop');
-  const h = document.getElementById('hamburger');
-  if (s) s.classList.remove('open');
-  if (b) b.classList.remove('show');
-  if (h) h.classList.remove('open');
-  document.body.style.overflow = '';
+// ──────────────────────────────────────────────────────────────
+// Request Detail Modal
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Open request detail modal with populated data
+ */
+function openRequestDetail(id) {
+  const r  = REQUESTS.find(x => x.id === id);
+  if (!r) return;
+  const sc  = STATUS_CFG[r.status];
+  const urg = URGENCY_LABELS[r.urgencyLevel];
+
+  document.getElementById('rd-ref').textContent = r.referenceNumber;
+
+  // Status strip
+  const strip = document.getElementById('rd-status-strip');
+  strip.style.background = sc.bg;
+  document.getElementById('rd-status-icon').textContent = sc.icon;
+  document.getElementById('rd-status-label').style.color = sc.color;
+  document.getElementById('rd-status-label').textContent = 'Status';
+  document.getElementById('rd-status-text').style.color  = sc.color;
+  document.getElementById('rd-status-text').textContent  = sc.label;
+  document.getElementById('rd-status-sub').style.color   = sc.color;
+  document.getElementById('rd-status-sub').textContent   = sc.sub;
+  document.getElementById('rd-blood-ghost').textContent  = BT_LABELS[r.bloodType];
+  document.getElementById('rd-blood-ghost').style.color  = sc.color;
+
+  // Fields
+  document.getElementById('rd-blood').textContent    = BT_LABELS[r.bloodType];
+  document.getElementById('rd-comp').textContent     = COMP_LABELS[r.bloodComponent];
+  document.getElementById('rd-units').textContent    = r.numberOfUnits + ' unit(s)';
+  document.getElementById('rd-urgency').innerHTML    = `<span class="badge ${URGENCY_BADGE[r.urgencyLevel]}">${urg}</span>`;
+  document.getElementById('rd-patient').textContent  = r.patientName + ' · ' + r.patientAge + ' yrs / ' + r.patientSex;
+  document.getElementById('rd-cat').textContent      = CAT_LABELS[r.requestCategory] + ' · ' + r.ageGroup;
+  document.getElementById('rd-physician').textContent= r.requestingPhysician;
+  document.getElementById('rd-required').textContent = r.requiredBy ? formatDate(r.requiredBy) : 'As soon as possible';
+
+  // Rejection
+  const rejBox = document.getElementById('rd-rejection-box');
+  if (rejBox) {
+    if (r.rejectionReason) {
+      rejBox.style.display = 'block';
+      document.getElementById('rd-rejection-text').textContent = r.rejectionReason;
+    } else {
+      rejBox.style.display = 'none';
+    }
+  }
+
+  // Fulfilled
+  const fulBox = document.getElementById('rd-fulfilled-box');
+  if (fulBox) {
+    if (r.fulfilledByBag) {
+      fulBox.style.display = 'block';
+      document.getElementById('rd-bag-id').textContent     = r.fulfilledByBag.id;
+      document.getElementById('rd-released-at').textContent = formatDate(r.fulfilledByBag.dispensedAt);
+    } else {
+      fulBox.style.display = 'none';
+    }
+  }
+
+  // Doctor's Note
+  const docBox = document.getElementById('rd-doc-box');
+  const docBtn = document.getElementById('rd-view-doc-btn');
+  if (docBox && docBtn) {
+    if (r.doctorsNoteUrl) {
+      docBox.style.display = 'block';
+      docBtn.onclick = () => {
+        window.reqViewDoc(r.doctorsNoteUrl, 'Request\'s Form - ' + r.referenceNumber);
+      };
+    } else {
+      docBox.style.display = 'none';
+    }
+  }
+
+  // Cancel
+  const cancelRow = document.getElementById('rd-cancel-row');
+  cancelRow.style.display = r.status === 'PENDING' ? 'block' : 'none';
+  document.getElementById('rd-cancel-btn').onclick = () => {
+    cancelTargetId = r.id;
+    closeModal('requestDetailModal');
+    openModal('cancelConfirmModal');
+  };
+
+  openModal('requestDetailModal');
 }
 
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
-    if (window.innerWidth <= 768) closeSidebar();
-  });
-});
-
-window.addEventListener('resize', () => {
-  if (window.innerWidth > 768) closeSidebar();
-});
-
-// ─── Utility ───────────────────────────────────────────────────
-function formatDate(d) {
-  if (!d) return '—';
-  const dateStr = d.includes('T') ? d : d + 'T00:00:00';
-  return new Date(dateStr)
-    .toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' });
+/**
+ * Confirm request cancellation
+ */
+function confirmCancel() {
+  const r = REQUESTS.find(x => x.id === cancelTargetId);
+  if (r) r.status = 'CANCELLED';
+  closeModal('cancelConfirmModal');
+  filterRequests(currentFilter, document.querySelector('.active-filter'));
+  renderDashboard();
 }
 
-// ─── Backend Integration ──────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// Document Viewer
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * View request document (PDF or image) in modal
+ */
+window.reqViewDoc = function (url, label) {
+  if (!url) {
+    alert('No document uploaded for this request.');
+    return;
+  }
+
+  const docLabel = document.getElementById('req-doc-label');
+  const docFrame = document.getElementById('req-doc-frame');
+
+  if (!docLabel || !docFrame) return;
+
+  docLabel.textContent = label;
+
+  const isPdf = url.toLowerCase().includes('.pdf');
+  const googleViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+
+  if (isPdf) {
+    docFrame.innerHTML = `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`;
+  } else {
+    docFrame.innerHTML = `<img src="${url}" 
+      style="width:100%;border-radius:10px;display:block;max-height:520px;object-fit:contain" 
+      alt="${label}"
+      onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:var(--muted);font-size:13px\\'>Preview unavailable — <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ↗</a></div>'" />`;
+  }
+
+  openModal('req-doc-modal');
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ 4️⃣ HOSPITAL PROFILE TAB ░░░
+// ═══════════════════════════════════════════════════════════════
+
+// Note: Hospital profile form is handled by HTML form inputs
+// No JavaScript logic required for read-only display
+// Save/Cancel buttons can be wired to backend endpoints
+
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ BACKEND INTEGRATION ░░░
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Fetch hospital blood requests from backend
  */
@@ -794,36 +956,9 @@ async function loadHospitalRequests() {
   }
 }
 
-// ─── Document Viewer ──────────────────────────────────────────
-window.reqViewDoc = function (url, label) {
-  if (!url) {
-    alert('No document uploaded for this request.');
-    return;
-  }
-
-  const docLabel = document.getElementById('req-doc-label');
-  const docFrame = document.getElementById('req-doc-frame');
-
-  if (!docLabel || !docFrame) return;
-
-  docLabel.textContent = label;
-
-  const isPdf = url.toLowerCase().includes('.pdf');
-  const googleViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-
-  if (isPdf) {
-    docFrame.innerHTML = `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`;
-  } else {
-    docFrame.innerHTML = `<img src="${url}" 
-      style="width:100%;border-radius:10px;display:block;max-height:520px;object-fit:contain" 
-      alt="${label}"
-      onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:var(--muted);font-size:13px\\'>Preview unavailable — <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ↗</a></div>'" />`;
-  }
-
-  openModal('req-doc-modal');
-};
-
-
+/**
+ * Logout user
+ */
 async function logout() {
   try {
     const response = await fetch("/api/auth/logout", {
@@ -839,8 +974,13 @@ async function logout() {
   }
 }
 
-// ─── Init ──────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ INITIALIZATION ░░░
+// ═══════════════════════════════════════════════════════════════
+
 document.addEventListener('DOMContentLoaded', () => {
+  // Set dashboard date
   const dashDate = document.getElementById('dash-date');
   if (dashDate) {
     dashDate.textContent = new Date().toLocaleDateString('en-PH', {
@@ -851,6 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Set minimum date for blood request form
   const reqDateNeeded = document.getElementById('req-date-needed');
   if (reqDateNeeded) {
     reqDateNeeded.min = new Date().toISOString().slice(0, 10);
@@ -861,4 +1002,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load requests from backend
   loadHospitalRequests();
+
+  // Setup modal close on backdrop click
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => {
+      if (e.target === o) o.classList.remove('show');
+    });
+  });
+
+  // Setup mobile sidebar
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (window.innerWidth <= 768) closeSidebar();
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) closeSidebar();
+  });
 });

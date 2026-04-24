@@ -124,40 +124,139 @@
                 </div>
             </div>
 
-            <!-- Quick status info -->
+            <!-- Blood Bank Status - Privacy Focused -->
             <div class="card">
                 <div class="card-header">
-                <div class="card-title">Blood Bank Status</div>
-                <span style="font-size:12px;color:var(--muted)">CNPH Blood Bank</span>
+                <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+                    <div>
+                    <div class="card-title">Blood Bank Availability</div>
+                    <span style="font-size:12px;color:var(--muted)">CNPH Blood Bank</span>
+                    </div>
+                    <button class="btn-ghost" id="refresh-blood-status" onclick="refreshBloodBankStatus()" style="padding:6px 12px;font-size:14px">
+                    🔄 Refresh
+                    </button>
+                </div>
                 </div>
                 <div class="card-body">
                 <div class="notice notice-info" style="margin-bottom:14px">
                     <span>ℹ</span>
-                    <span>Blood availability is updated by the blood bank team. Contact them directly for urgent needs: <strong>(088) 123-4567</strong></span>
+                    <span>Last updated: <strong id="bloodbank-last-updated">Just now</strong></span>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-                    <div style="text-align:center;background:var(--red-soft);border-radius:8px;padding:10px">
-                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--red)">O−</div>
-                    <div style="font-size:10px;color:var(--red);font-weight:700;margin-top:2px">Critical</div>
+
+                <!-- Blood Type Availability Grid -->
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+                    <!-- O Negative -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">O−</div>
+                    <div id="blood-o-neg-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--amber-soft);color:var(--amber)">Low Stock</div>
                     </div>
-                    <div style="text-align:center;background:var(--green-soft);border-radius:8px;padding:10px">
-                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--green)">O+</div>
-                    <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px">Available</div>
+
+                    <!-- O Positive -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">O+</div>
+                    <div id="blood-o-pos-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--green-soft);color:var(--green)">Available</div>
                     </div>
-                    <div style="text-align:center;background:var(--green-soft);border-radius:8px;padding:10px">
-                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--green)">A+</div>
-                    <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px">Available</div>
+
+                    <!-- A Positive -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">A+</div>
+                    <div id="blood-a-pos-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--green-soft);color:var(--green)">Available</div>
                     </div>
-                    <div style="text-align:center;background:var(--amber-soft);border-radius:8px;padding:10px">
-                    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:var(--amber)">AB−</div>
-                    <div style="font-size:10px;color:var(--amber);font-weight:700;margin-top:2px">Low</div>
+
+                    <!-- A Negative -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">A−</div>
+                    <div id="blood-a-neg-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--gray-soft);color:var(--muted)">Not Available</div>
+                    </div>
+
+                    <!-- B Positive -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">B+</div>
+                    <div id="blood-b-pos-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--green-soft);color:var(--green)">Available</div>
+                    </div>
+
+                    <!-- B Negative -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">B−</div>
+                    <div id="blood-b-neg-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--amber-soft);color:var(--amber)">Low Stock</div>
+                    </div>
+
+                    <!-- AB Positive -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">AB+</div>
+                    <div id="blood-ab-pos-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--gray-soft);color:var(--muted)">Not Available</div>
+                    </div>
+
+                    <!-- AB Negative -->
+                    <div style="border-radius:8px;padding:12px;background:var(--surface-secondary);border:1px solid var(--border)">
+                    <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--text)">AB−</div>
+                    <div id="blood-ab-neg-status" style="font-size:11px;font-weight:700;margin-top:6px;padding:4px 6px;border-radius:4px;text-align:center;background:var(--amber-soft);color:var(--amber)">Low Stock</div>
+                    </div>
+                </div>
+
+                <!-- Status Legend -->
+                <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+                    <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:8px">Legend:</div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <div style="width:6px;height:6px;border-radius:50%;background:var(--green)"></div>
+                        <span>Available</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <div style="width:6px;height:6px;border-radius:50%;background:var(--amber)"></div>
+                        <span>Low Stock</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <div style="width:6px;height:6px;border-radius:50%;background:var(--muted)"></div>
+                        <span>Not Available</span>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- Request Help Section -->
+                <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+                    <div style="font-size:12px;color:var(--text)">
+                    <strong>Blood not available?</strong><br>
+                    <span style="color:var(--muted);font-size:11px">Contact the blood bank directly at <strong>(088) 123-4567</strong> or submit an <strong>urgent request</strong> for priority processing.</span>
                     </div>
                 </div>
                 </div>
             </div>
+            </div>
+
+            <!-- Optional: Component Type Availability (can be added separately) -->
+            <!-- Uncomment if you want to show blood component availability as well -->
+        
+            <div class="card" style="margin-top:16px">
+                <div class="card-header">
+                <div class="card-title">Component Availability</div>
+                <span style="font-size:12px;color:var(--muted)">Blood components in stock</span>
+                </div>
+                <div class="card-body">
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;font-size:12px">
+                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--green)">
+                    <div style="font-weight:600">Whole Blood</div>
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-whole-blood">Available</div>
+                    </div>
+                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--green)">
+                    <div style="font-weight:600">PRBC</div>
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-prbc">Available</div>
+                    </div>
+                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--amber)">
+                    <div style="font-weight:600">Platelets</div>
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-platelets">Low Stock</div>
+                    </div>
+                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--green)">
+                    <div style="font-weight:600">Fresh Frozen Plasma</div>
+                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-ffp">Available</div>
+                    </div>
+                </div>
+                </div>
             </div>
         </div>
 
+        
+       
 
         <!-- ════════════════════════════
             PANEL: BLOOD REQUEST
