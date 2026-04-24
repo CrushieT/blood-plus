@@ -45,7 +45,7 @@ public class BloodBagRequestService {
         request.setDoctorsNoteKey(cloudResult[1]);
 
         request.setPatientName(dto.getPatientName().trim());
-        request.setPatientAge(dto.getPatientAge());
+        request.setPatientAge(dto.getPatientAge()); 
         request.setPatientSex(dto.getPatientSex());
         request.setWardRoom(dto.getWardRoom());
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());

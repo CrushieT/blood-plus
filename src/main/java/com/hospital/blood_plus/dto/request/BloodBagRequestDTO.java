@@ -1,5 +1,6 @@
 package com.hospital.blood_plus.dto.request;
 
+import com.hospital.blood_plus.model.BloodBag.ComponentType;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 
@@ -25,7 +26,7 @@ public class BloodBagRequestDTO {
     // ─────────────────────────────────────────────
 
     private BloodBag.BloodType bloodType;
-    private BloodBagRequest.BloodComponent bloodComponent;
+    private ComponentType bloodComponent;
     private Integer numberOfUnits;
 
     // ─────────────────────────────────────────────
@@ -63,7 +64,7 @@ public class BloodBagRequestDTO {
     public String getPatientSex() { return patientSex; }
     public void setPatientSex(String patientSex) { this.patientSex = patientSex; }
 
-    public String getWardRoom() { return wardRoom; }
+    public String getWardRoom() { return wardRoom; } 
     public void setWardRoom(String wardRoom) { this.wardRoom = wardRoom; }
 
     public String getRequestingPhysician() { return requestingPhysician; }
@@ -78,8 +79,8 @@ public class BloodBagRequestDTO {
     public BloodBag.BloodType getBloodType() { return bloodType; }
     public void setBloodType(BloodBag.BloodType bloodType) { this.bloodType = bloodType; }
 
-    public BloodBagRequest.BloodComponent getBloodComponent() { return bloodComponent; }
-    public void setBloodComponent(BloodBagRequest.BloodComponent bloodComponent) { this.bloodComponent = bloodComponent; }
+    public ComponentType getBloodComponent() { return bloodComponent; }
+    public void setBloodComponent(ComponentType bloodComponent) { this.bloodComponent = bloodComponent; }
 
     public Integer getNumberOfUnits() { return numberOfUnits; }
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }

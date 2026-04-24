@@ -516,8 +516,8 @@ function fmtDate(d) {
 // ── Form downloads ─────────────────────────────────────────────
 function downloadForm(type) {
   const links = {
-    adult: 'landing_page/forms/Blood_Request_Form_Adult.pdf',
-    pedia: 'landing_page/forms/Blood_Request_Form_Pediatric.pdf'
+    adult: 'forms/Blood_Request_Form_Adult.pdf',
+    pedia: 'forms/Blood_Request_Form_Pediatric.pdf'
   };
   const a = document.createElement('a');
   a.href = links[type];
