@@ -209,4 +209,10 @@ public class HospitalService {
         }
         return base + "@1234";
     }
+
+
+    ////// Hospital Account /////////////////
+    
+
+    
 }

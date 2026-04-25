@@ -308,4 +308,283 @@ public class BloodBagService {
     }
 
 
+    ////// HOSPITAL ACCOUNT ///////////
+    // ──────────────────────────────────────────────────────────────
+    // Blood Type Availability
+    // ──────────────────────────────────────────────────────────────
+ 
+    /**
+     * Get availability status for all blood types
+     * Returns: Map<BloodType, AvailabilityStatus>
+     * Status: AVAILABLE, LOW_STOCK, NOT_AVAILABLE
+     */
+    public Map<String, Map<String, Object>> getAllBloodTypeAvailability() {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+ 
+        for (BloodBag.BloodType bt : BloodBag.BloodType.values()) {
+            int count = countAvailableBagsByBloodType(bt);
+            result.put(formatBloodType(bt), buildAvailabilityMap(count));
+        }
+ 
+        return result;
+    }
+ 
+    /**
+     * Count available blood bags by blood type (not expired, not used)
+     */
+    private int countAvailableBagsByBloodType(BloodBag.BloodType bloodType) {
+        LocalDateTime now = LocalDateTime.now();
+        List<BloodBag> bags = bloodBagRepository.findByBloodTypeAndStatus(
+                bloodType, BloodBag.BagStatus.AVAILABLE);
+        
+        return (int) bags.stream()
+                .filter(bag -> bag.getExpiresAt().isAfter(now))
+                .count();
+    }
+ 
+    /**
+     * Get single blood type availability
+     */
+    public Map<String, Object> getBloodTypeAvailability(String bloodTypeStr) {
+        try {
+            BloodBag.BloodType bloodType = BloodBag.BloodType.valueOf(bloodTypeStr);
+            int count = countAvailableBagsByBloodType(bloodType);
+            return buildAvailabilityMap(count);
+        } catch (IllegalArgumentException e) {
+            return Map.of("status", "INVALID", "count", 0);
+        }
+    }
+ 
+    /**
+     * Map count to status threshold
+     * CRITICAL: 0 bags
+     * LOW_STOCK: 1-5 bags
+     * AVAILABLE: 6+ bags
+     */
+    private Map<String, Object> buildAvailabilityMap(int count) {
+        String status;
+        String label;
+        String color;
+ 
+        if (count == 0) {
+            status = "NOT_AVAILABLE";
+            label = "Not Available";
+            color = "not-available";
+        } else if (count >= 1 && count <= 5) {
+            status = "LOW_STOCK";
+            label = "Low Stock";
+            color = "low-stock";
+        } else {
+            status = "AVAILABLE";
+            label = "Available";
+            color = "available";
+        }
+ 
+        return Map.of(
+                "status", status,
+                "label", label,
+                "color", color,
+                "count", count,
+                "threshold", Map.of(
+                        "low", 5,
+                        "critical", 0
+                )
+        );
+    }
+ 
+    // ──────────────────────────────────────────────────────────────
+    // Blood Component Availability
+    // ──────────────────────────────────────────────────────────────
+ 
+    /**
+     * Get availability for all blood components
+     */
+    public Map<String, Map<String, Object>> getAllComponentAvailability() {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+ 
+        BloodBag.ComponentType[] components = {
+                BloodBag.ComponentType.WHOLE_BLOOD,
+                BloodBag.ComponentType.PRBC,
+                BloodBag.ComponentType.LEUKOREDUCED_PRBC,
+                BloodBag.ComponentType.ALIQUOTED_PRBC,
+                BloodBag.ComponentType.PLATELET_CONCENTRATE,
+                BloodBag.ComponentType.FRESH_FROZEN_PLASMA,
+                BloodBag.ComponentType.CRYOPRECIPITATE,
+                BloodBag.ComponentType.CRYOSUPERNATANT
+        };
+ 
+        for (BloodBag.ComponentType comp : components) {
+            int count = countAvailableBagsByComponent(comp);
+            result.put(formatComponentType(comp), buildComponentAvailabilityMap(comp, count));
+        }
+ 
+        return result;
+    }
+ 
+    /**
+     * Count available bags by component type
+     */
+    private int countAvailableBagsByComponent(BloodBag.ComponentType componentType) {
+        LocalDateTime now = LocalDateTime.now();
+        List<BloodBag> bags = bloodBagRepository.findByComponentTypeAndStatus(
+                componentType, BloodBag.BagStatus.AVAILABLE);
+        
+        return (int) bags.stream()
+                .filter(bag -> bag.getExpiresAt().isAfter(now))
+                .count();
+    }
+ 
+    /**
+     * Get single component availability
+     */
+    public Map<String, Object> getComponentAvailability(String componentStr) {
+        try {
+            BloodBag.ComponentType componentType = BloodBag.ComponentType.valueOf(componentStr);
+            int count = countAvailableBagsByComponent(componentType);
+            return buildComponentAvailabilityMap(componentType, count);
+        } catch (IllegalArgumentException e) {
+            return Map.of("status", "INVALID", "count", 0);
+        }
+    }
+ 
+    /**
+     * Build component-specific availability map
+     * Platelets: LOW threshold at 3 bags (short shelf life of 5 days)
+     * Other components: LOW threshold at 5 bags
+     */
+    private Map<String, Object> buildComponentAvailabilityMap(
+            BloodBag.ComponentType componentType, int count) {
+ 
+        int lowThreshold = componentType == BloodBag.ComponentType.PLATELET_CONCENTRATE ? 3 : 5;
+ 
+        String status;
+        String label;
+        String color;
+ 
+        if (count == 0) {
+            status = "NOT_AVAILABLE";
+            label = "Not Available";
+            color = "not-available";
+        } else if (count >= 1 && count <= lowThreshold) {
+            status = "LOW_STOCK";
+            label = "Low Stock";
+            color = "low-stock";
+        } else {
+            status = "AVAILABLE";
+            label = "Available";
+            color = "available";
+        }
+ 
+        return Map.of(
+                "status", status,
+                "label", label,
+                "color", color,
+                "count", count,
+                "displayName", formatComponentDisplay(componentType),
+                "abbreviation", formatComponentAbbr(componentType),
+                "threshold", Map.of(
+                        "low", lowThreshold,
+                        "critical", 0
+                ),
+                "shelfLife", getComponentShelfLife(componentType)
+        );
+    }
+ 
+    // ──────────────────────────────────────────────────────────────
+    // Blood Bank Summary
+    // ──────────────────────────────────────────────────────────────
+ 
+    /**
+     * Get comprehensive blood bank status for dashboard
+     */
+    public Map<String, Object> getBloodBankStatus() {
+        Map<String, Object> status = new LinkedHashMap<>();
+ 
+        status.put("timestamp", LocalDateTime.now());
+        status.put("lastUpdated", "Just now");
+        
+        Map<String, Map<String, Object>> bloodTypes = getAllBloodTypeAvailability();
+        status.put("bloodTypes", bloodTypes);
+        
+        Map<String, Map<String, Object>> components = getAllComponentAvailability();
+        status.put("components", components);
+ 
+        // Summary counts
+        int totalAvailable = bloodTypes.values().stream()
+                .mapToInt(m -> (Integer) m.get("count"))
+                .sum();
+ 
+        int lowStockCount = (int) bloodTypes.values().stream()
+                .filter(m -> "LOW_STOCK".equals(m.get("status")))
+                .count();
+ 
+        int notAvailableCount = (int) bloodTypes.values().stream()
+                .filter(m -> "NOT_AVAILABLE".equals(m.get("status")))
+                .count();
+ 
+        status.put("summary", Map.of(
+                "totalBagsAvailable", totalAvailable,
+                "bloodTypesWithLowStock", lowStockCount,
+                "bloodTypesNotAvailable", notAvailableCount,
+                "totalBloodTypes", bloodTypes.size()
+        ));
+ 
+        return status;
+    }
+ 
+    // ──────────────────────────────────────────────────────────────
+    // Formatting Utilities
+    // ──────────────────────────────────────────────────────────────
+ 
+    private String formatBloodType(BloodBag.BloodType bloodType) {
+        return switch (bloodType) {
+            case O_POS -> "O+";
+            case O_NEG -> "O−";
+            case A_POS -> "A+";
+            case A_NEG -> "A−";
+            case B_POS -> "B+";
+            case B_NEG -> "B−";
+            case AB_POS -> "AB+";
+            case AB_NEG -> "AB−";
+        };
+    }
+ 
+    private String formatComponentType(BloodBag.ComponentType componentType) {
+        return componentType.toString().toLowerCase().replace("_", "-");
+    }
+ 
+    private String formatComponentDisplay(BloodBag.ComponentType componentType) {
+        return switch (componentType) {
+            case WHOLE_BLOOD -> "Whole Blood";
+            case PRBC -> "Packed RBC";
+            case LEUKOREDUCED_PRBC -> "Leukoreduced PRBC";
+            case ALIQUOTED_PRBC -> "Aliquoted PRBC";
+            case PLATELET_CONCENTRATE -> "Platelet Concentrate";
+            case FRESH_FROZEN_PLASMA -> "Fresh Frozen Plasma";
+            case CRYOPRECIPITATE -> "Cryoprecipitate";
+            case CRYOSUPERNATANT -> "Cryosupernatant";
+        };
+    }
+ 
+    private String formatComponentAbbr(BloodBag.ComponentType componentType) {
+        return switch (componentType) {
+            case WHOLE_BLOOD -> "WB";
+            case PRBC -> "PRBC";
+            case LEUKOREDUCED_PRBC -> "LR-PRBC";
+            case ALIQUOTED_PRBC -> "ALQ-PRBC";
+            case PLATELET_CONCENTRATE -> "PC";
+            case FRESH_FROZEN_PLASMA -> "FFP";
+            case CRYOPRECIPITATE -> "CRYO";
+            case CRYOSUPERNATANT -> "CRYO-SN";
+        };
+    }
+ 
+    private String getComponentShelfLife(BloodBag.ComponentType componentType) {
+        return switch (componentType) {
+            case WHOLE_BLOOD, PRBC, LEUKOREDUCED_PRBC, ALIQUOTED_PRBC -> "42 days";
+            case PLATELET_CONCENTRATE -> "5 days";
+            case FRESH_FROZEN_PLASMA, CRYOPRECIPITATE, CRYOSUPERNATANT -> "1 year";
+        };
+    }
+
 }
