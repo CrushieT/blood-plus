@@ -69,4 +69,39 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
             BloodBag.BloodType bloodType,
             BloodBag.ComponentType componentType,
             BloodBag.BagStatus status);
+
+    List<BloodBag> findByBloodType(BloodBag.BloodType bloodType);
+ 
+   
+    @Query("SELECT b FROM BloodBag b WHERE b.bloodType = :bloodType " +
+           "AND b.status = 'AVAILABLE' AND b.expiresAt > :now")
+    List<BloodBag> findAvailableByBloodType(
+            @Param("bloodType") BloodBag.BloodType bloodType,
+            @Param("now") LocalDateTime now);
+ 
+  
+    List<BloodBag> findByComponentType(BloodBag.ComponentType componentType);
+ 
+    @Query("SELECT b FROM BloodBag b WHERE b.componentType = :componentType " +
+           "AND b.status = 'AVAILABLE' AND b.expiresAt > :now")
+    List<BloodBag> findAvailableByComponentType(
+            @Param("componentType") BloodBag.ComponentType componentType,
+            @Param("now") LocalDateTime now);
+ 
+    @Query("SELECT b FROM BloodBag b WHERE b.status = 'AVAILABLE' AND b.expiresAt > :now")
+    List<BloodBag> findAllAvailable(@Param("now") LocalDateTime now);
+ 
+    long countByStatus(BloodBag.BagStatus status);
+ 
+    @Query("SELECT COUNT(b) FROM BloodBag b WHERE b.bloodType = :bloodType " +
+           "AND b.status = 'AVAILABLE' AND b.expiresAt > :now")
+    int countAvailableByBloodType(
+            @Param("bloodType") BloodBag.BloodType bloodType,
+            @Param("now") LocalDateTime now);
+ 
+    @Query("SELECT COUNT(b) FROM BloodBag b WHERE b.componentType = :componentType " +
+           "AND b.status = 'AVAILABLE' AND b.expiresAt > :now")
+    int countAvailableByComponentType(
+            @Param("componentType") BloodBag.ComponentType componentType,
+            @Param("now") LocalDateTime now);
 }
