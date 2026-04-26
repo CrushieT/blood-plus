@@ -1,0 +1,166 @@
+package com.hospital.blood_plus.service;
+
+import com.hospital.blood_plus.dto.response.AdminDashboardDTO;
+import com.hospital.blood_plus.model.BloodBag;
+import com.hospital.blood_plus.model.BloodBagRequest;
+import com.hospital.blood_plus.repository.BloodBagRepository;
+import com.hospital.blood_plus.repository.BloodBagRequestRepository;
+import com.hospital.blood_plus.repository.HospitalProfileRepository;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+@Service
+public class DashboardService {
+
+    private final BloodBagRepository bloodBagRepository;
+    private final BloodBagRequestRepository bloodBagRequestRepository;
+    private final HospitalProfileRepository hospitalProfileRepository;
+
+    public DashboardService(BloodBagRepository bloodBagRepository,
+                            BloodBagRequestRepository bloodBagRequestRepository,
+                            HospitalProfileRepository hospitalProfileRepository) {
+        this.bloodBagRepository = bloodBagRepository;
+        this.bloodBagRequestRepository = bloodBagRequestRepository;
+        this.hospitalProfileRepository = hospitalProfileRepository;
+    }
+
+    /**
+     * Get comprehensive dashboard summary for admin panel
+     */
+    public AdminDashboardDTO getDashboardSummary() {
+        // 1. Count critical blood types (≤5 units)
+        int criticalCount = countCriticalBloodTypes();
+
+        // 2. Count total hospitals
+        long totalHospitals = hospitalProfileRepository.count();
+
+        // 3. Count total available units
+        int totalUnits = countTotalAvailableUnits();
+
+        // 4. Count pending requests
+        long pendingRequests = bloodBagRequestRepository.countByStatus(BloodBagRequest.RequestStatus.PENDING);
+
+        // 5. Blood bank summary by type (unit count)
+        Map<String, Integer> bloodBankSummary = getBloodBankCountByType();
+
+        // 6. Blood bank volume by type (mL)
+        Map<String, Integer> bloodBankVolume = getBloodBankVolumeByType();
+
+        // 7. Count open system bags
+        int openSystemCount = countOpenSystemBags();
+
+        // 8. Count bags expiring within 7 days
+        int expiringSoon = countExpiringBags();
+
+        return new AdminDashboardDTO(
+                criticalCount,
+                (int) totalHospitals,
+                totalUnits,
+                (int) pendingRequests,
+                bloodBankSummary,
+                bloodBankVolume,
+                openSystemCount,
+                expiringSoon
+        );
+    }
+
+    /**
+     * Count blood types with ≤5 units available
+     */
+    private int countCriticalBloodTypes() {
+        List<Object[]> counts = bloodBagRepository.getBloodBankCountByTypeQuery();
+        return (int) counts.stream()
+                .filter(row -> ((Long) row[1]) <= 5)
+                .count();
+    }
+
+    /**
+     * Count total units (only AVAILABLE status)
+     */
+    private int countTotalAvailableUnits() {
+        List<BloodBag> bags = bloodBagRepository.findByStatusOrderByExpiresAtAsc(BloodBag.BagStatus.AVAILABLE);
+        return bags.stream()
+                .map(BloodBag::getVolumeMl)
+                .mapToInt(Integer::intValue)
+                .sum() / 450; // Approximate: 450mL = 1 unit
+    }
+
+    /**
+     * Get count of blood units by blood type (only AVAILABLE)
+     */
+    private Map<String, Integer> getBloodBankCountByType() {
+        List<BloodBag> bags = bloodBagRepository.findByStatusOrderByExpiresAtAsc(BloodBag.BagStatus.AVAILABLE);
+        Map<String, Integer> countByType = new LinkedHashMap<>();
+
+        // Initialize all blood types
+        String[] bloodTypes = {
+                "O_NEG", "O_POS", "A_POS", "A_NEG",
+                "B_POS", "B_NEG", "AB_POS", "AB_NEG"
+        };
+        for (String type : bloodTypes) {
+            countByType.put(type, 0);
+        }
+
+        // Count by blood type
+        for (BloodBag bag : bags) {
+            if (bag.getBloodType() == null) continue;
+            String key = bag.getBloodType().name();
+            countByType.put(key, countByType.getOrDefault(key, 0) + 1);
+        }
+
+        return countByType;
+    }
+
+    /**
+     * Get volume (mL) of blood by blood type (only AVAILABLE)
+     */
+    private Map<String, Integer> getBloodBankVolumeByType() {
+        List<BloodBag> bags = bloodBagRepository.findByStatusOrderByExpiresAtAsc(BloodBag.BagStatus.AVAILABLE);
+        Map<String, Integer> volumeByType = new LinkedHashMap<>();
+
+        // Initialize all blood types
+        String[] bloodTypes = {
+                "O_NEG", "O_POS", "A_POS", "A_NEG",
+                "B_POS", "B_NEG", "AB_POS", "AB_NEG"
+        };
+        for (String type : bloodTypes) {
+            volumeByType.put(type, 0);
+        }
+
+        // Sum volumes by blood type
+        for (BloodBag bag : bags) {
+            if (bag.getBloodType() == null) continue;
+            String key = bag.getBloodType().name();
+            volumeByType.put(key, volumeByType.getOrDefault(key, 0) + (bag.getVolumeMl() != null ? bag.getVolumeMl() : 0));
+        }
+
+        return volumeByType;
+    }
+
+    /**
+     * Count bags with open system (converted Whole Blood to PRBC)
+     */
+    private int countOpenSystemBags() {
+        List<BloodBag> bags = bloodBagRepository.findByOpenSystem(true);
+        return (int) bags.stream()
+                .filter(b -> b.getStatus() == BloodBag.BagStatus.AVAILABLE)
+                .count();
+    }
+
+    /**
+     * Count AVAILABLE bags expiring within 7 days
+     */
+    private int countExpiringBags() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime soon = now.plusDays(7);
+
+        List<BloodBag> bags = bloodBagRepository.findByStatusOrderByExpiresAtAsc(BloodBag.BagStatus.AVAILABLE);
+        return (int) bags.stream()
+                .filter(b -> b.getExpiresAt() != null
+                        && b.getExpiresAt().isAfter(now)
+                        && b.getExpiresAt().isBefore(soon))
+                .count();
+    }
+}

@@ -16,6 +16,7 @@ import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
+import com.hospital.blood_plus.service.DashboardService;
 import com.hospital.blood_plus.service.StaffService;
 
 import java.util.List;
@@ -37,17 +38,20 @@ public class AdminController {
     private final BloodBagRequestService  bloodBagRequestService;
     private final StaffService            staffService;
     private final HospitalService         hospitalService;
+    private final DashboardService        dashboardService;
 
     public AdminController(BloodBagService bloodBagService,
                            UserRepository userRepository,
                            BloodBagRequestService bloodBagRequestService,
                            HospitalService hospitalService,
-                            StaffService staffService) {
+                           StaffService staffService,
+                           DashboardService dashboardService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
         this.staffService = staffService;
         this.hospitalService = hospitalService;
+        this.dashboardService = dashboardService;
     }
 
     // ── Dashboard ─────────────────────────────────────────────
@@ -56,7 +60,7 @@ public class AdminController {
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboard() {
         try {
-            return ResponseEntity.ok(bloodBagService.getDashboardSummary());
+            return ResponseEntity.ok(dashboardService.getDashboardSummary());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }

@@ -19,6 +19,7 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\StaffDTOs.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\UpdateHospitalProfileDTO.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\VerifyEmailRequest.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\AdminDashboardDTO.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\AdminDashboardResponse.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\BloodBagAvailableDTO.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\BloodBagResponse.java
@@ -39,6 +40,7 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\BloodBagRequestService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\BloodBagService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\CloudinaryService.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\DashboardService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\EmailService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\HospitalProfileService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\HospitalService.java

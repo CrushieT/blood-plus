@@ -44,7 +44,6 @@ function showPanel(id, navEl) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     navEl.classList.add('active');
   }
-  
 }
 
 
@@ -2515,7 +2514,7 @@ async function hospCreate() {
         
         // Clear form
         ['hosp-add-email','hosp-add-name','hosp-add-address','hosp-add-city','hosp-add-province',
-         'hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone','hosp-add-status','hosp-add-pass'].forEach(id => {
+         'hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone','hosp-add-status'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
