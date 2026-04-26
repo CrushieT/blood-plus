@@ -14,7 +14,6 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     // Fetch all requests made by a specific AppUser
     List<BloodBagRequest> findByRequestedByOrderByRequestedAtDesc(AppUser user);
 
-    // Fetch all requests linked to a DonorProfile
     // Fetch all DONOR-type requests (for admin)
     List<BloodBagRequest> findByRequesterTypeOrderByRequestedAtDesc(
         BloodBagRequest.RequesterType type
@@ -39,4 +38,5 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     // Optional: Get by hospital and status (for filtering)
     List<BloodBagRequest> findByHospitalProfileAndStatusOrderByRequestedAtDesc(
             HospitalProfile hospital, BloodBagRequest.RequestStatus status);
+    long countByStatus(BloodBagRequest.RequestStatus status);
 }

@@ -104,4 +104,46 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
     int countAvailableByComponentType(
             @Param("componentType") BloodBag.ComponentType componentType,
             @Param("now") LocalDateTime now);
+
+        // ═════════════════════════════════════════════════════════
+    // DASHBOARD SUMMARY QUERIES
+    // ═════════════════════════════════════════════════════════
+ 
+    // Get inventory summary by blood type
+    @Query("SELECT b.bloodType, COUNT(b) FROM BloodBag b WHERE b.status = 'AVAILABLE' " +
+           "GROUP BY b.bloodType ORDER BY b.bloodType ASC")
+    List<Object[]> getInventorySummaryByType();
+ 
+    // Get total units available
+    @Query("SELECT COUNT(b) FROM BloodBag b WHERE b.status = 'AVAILABLE'")
+    long countTotalAvailableUnits();
+ 
+    // Get status distribution (for dashboard charts)
+    @Query("SELECT b.status, COUNT(b) FROM BloodBag b GROUP BY b.status")
+    List<Object[]> getStatusDistribution();
+ 
+    // Get component distribution (for analytics)
+    @Query("SELECT b.componentType, COUNT(b) FROM BloodBag b WHERE b.status = 'AVAILABLE' " +
+           "GROUP BY b.componentType")
+    List<Object[]> getComponentDistribution();
+
+     // BASIC STATUS QUERIES
+    // ═════════════════════════════════════════════════════════
+ 
+    // Get all bags by status ordered by expiry date
+    List<BloodBag> findByStatusOrderByExpiresAtAsc(BloodBag.BagStatus status);
+ 
+    // Get all bags by status ordered by expiry date (descending)
+    List<BloodBag> findByStatusOrderByExpiresAtDesc(BloodBag.BagStatus status);
+ 
+
+    // Get all bags by transaction number
+    Optional<BloodBag> findByTransactionNumber(String transactionNumber);
+    // Get open system bags (converted Whole Blood to PRBC)
+    List<BloodBag> findByOpenSystem(boolean openSystem);
+
+    @Query("SELECT b.bloodType, COUNT(b) FROM BloodBag b " +
+       "WHERE b.status = 'AVAILABLE' " +
+       "GROUP BY b.bloodType")
+List<Object[]> getBloodBankCountByTypeQuery();
 }
