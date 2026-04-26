@@ -45,13 +45,18 @@
       <div class="nav-item" onclick="showPanel('staff', this)">
         <span class="nav-icon">👤</span> Staff
       </div>
+
+      <div class="nav-label">Account</div>
+      <div class="nav-item" onclick="showPanel('profile', this)">
+        <span class="nav-icon">👨‍💼</span> My Profile
+      </div>
     </nav>
 
     <div class="user-card">
-      <div class="user-avatar">AD</div>
+      <div class="user-avatar" id="sidebar-user-avatar">AD</div>
       <div class="user-info">
-        <div class="user-name">Admin</div>
-        <div class="user-type">System Administrator</div>
+        <div class="user-name" id="sidebar-user-name">Admin</div>
+        <div class="user-type" id="sidebar-user-role">System Administrator</div>
       </div>
     </div>
 
@@ -758,6 +763,264 @@
   </div>
   <!-- END panel-staff -->
 
+
+  <!-- ═════════════════════════════════════════════════════════════
+      PANEL: ADMIN PROFILE (Account Settings)
+  ═════════════════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-profile">
+    <div class="topbar">
+      <div>
+        <div class="page-title">My Profile</div>
+        <div class="page-sub">Manage your account settings and profile information</div>
+      </div>
+    </div>
+
+    <!-- ROLE-AWARE PROFILE CONTAINER -->
+    <div id="admin-profile-container" class="profile-container" style="display:none">
+      <!-- Tab Navigation -->
+      <div class="profile-tabs">
+        <button class="profile-tab-btn active" onclick="switchProfileTab('overview', this)">
+          👤 Overview
+        </button>
+        <button class="profile-tab-btn" onclick="switchProfileTab('security', this)">
+          🔒 Security
+        </button>
+      </div>
+
+      <!-- TAB 1: OVERVIEW (ADMIN) -->
+      <div id="profile-tab-overview" class="profile-tab-content">
+        <div class="profile-grid">
+          <!-- Left Column: Avatar & Status -->
+          <div class="profile-card">
+            <div class="profile-avatar-section">
+              <div class="profile-avatar-display" id="profile-avatar-display">AD</div>
+              <div style="flex:1">
+                <div class="profile-name" id="profile-name-display">Administrator</div>
+                <div class="profile-role" id="profile-role-display">System Administrator</div>
+                <div class="profile-status active-status" id="profile-status-display">● Active</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+              <div class="profile-info-row">
+                <span class="profile-info-label">Account Type</span>
+                <span class="profile-info-value">Administrator</span>
+              </div>
+              <div class="profile-info-row">
+                <span class="profile-info-label">Member Since</span>
+                <span class="profile-info-value" id="profile-member-since">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Edit Form -->
+          <div class="profile-card">
+            <div class="profile-card-title">Account Information</div>
+            <div id="profile-edit-error" class="profile-error" style="display:none"></div>
+            <div id="profile-edit-success" class="profile-success" style="display:none"></div>
+            
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Email Address <span style="color:var(--crimson)">*</span></label>
+                <input type="email" id="profile-email" placeholder="admin@bloodplus.ph" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Username <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="profile-username" placeholder="Administrator" required>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:18px">
+              <button class="btn-primary" onclick="submitAdminProfileUpdate()">Save Changes</button>
+              <button class="btn-ghost" onclick="resetAdminProfileForm()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: SECURITY (ADMIN) -->
+      <div id="profile-tab-security" class="profile-tab-content" style="display:none">
+        <div class="profile-card" style="max-width:540px">
+          <div class="profile-card-title">Change Password</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:18px">
+            Update your password to keep your account secure. Use a strong, unique password.
+          </p>
+
+          <div id="security-error" class="profile-error" style="display:none"></div>
+          <div id="security-success" class="profile-success" style="display:none"></div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>Current Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="current-password" placeholder="Enter current password" required>
+              <span onclick="togglePasswordVisibility('current-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="new-password" placeholder="Enter new password" oninput="checkPasswordStrength()" required>
+              <span onclick="togglePasswordVisibility('new-password')" class="password-toggle">👁</span>
+            </div>
+            <div id="password-strength" class="password-strength-meter"></div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:18px">
+            <label>Confirm New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="confirm-password" placeholder="Confirm new password" required>
+              <span onclick="togglePasswordVisibility('confirm-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" onclick="submitPasswordChange()">Update Password</button>
+            <button class="btn-ghost" onclick="resetPasswordForm()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF PROFILE CONTAINER -->
+    <div id="staff-profile-container" class="profile-container" style="display:none">
+      <!-- Tab Navigation -->
+      <div class="profile-tabs">
+        <button class="profile-tab-btn active" onclick="switchStaffProfileTab('overview', this)">
+          👤 Overview
+        </button>
+        <button class="profile-tab-btn" onclick="switchStaffProfileTab('security', this)">
+          🔒 Security
+        </button>
+      </div>
+
+      <!-- TAB 1: OVERVIEW (STAFF) -->
+      <div id="staff-profile-tab-overview" class="profile-tab-content">
+        <div class="profile-grid">
+          <!-- Left Column: Avatar & Status -->
+          <div class="profile-card">
+            <div class="profile-avatar-section">
+              <div class="profile-avatar-display" id="staff-profile-avatar-display">ST</div>
+              <div style="flex:1">
+                <div class="profile-name" id="staff-profile-name-display">Staff Member</div>
+                <div class="profile-role" id="staff-profile-role-display">Position</div>
+                <div class="profile-status active-status" id="staff-profile-status-display">● Active</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+              <div class="profile-info-row">
+                <span class="profile-info-label">Staff ID</span>
+                <span class="profile-info-value" id="staff-profile-staffid">-</span>
+              </div>
+              <div class="profile-info-row">
+                <span class="profile-info-label">Department</span>
+                <span class="profile-info-value" id="staff-profile-department">-</span>
+              </div>
+              <div class="profile-info-row">
+                <span class="profile-info-label">Hired</span>
+                <span class="profile-info-value" id="staff-profile-hiredate">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Edit Form -->
+          <div class="profile-card">
+            <div class="profile-card-title">Personal Information</div>
+            <div id="staff-profile-edit-error" class="profile-error" style="display:none"></div>
+            <div id="staff-profile-edit-success" class="profile-success" style="display:none"></div>
+            
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>First Name <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="staff-profile-firstname" placeholder="First Name" required>
+              </div>
+              <div class="form-group-m">
+                <label>Last Name <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="staff-profile-lastname" placeholder="Last Name" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Email <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <input type="email" id="staff-profile-email" placeholder="email@example.com" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Phone Number</label>
+                <input type="tel" id="staff-profile-phone" placeholder="+63 9XX XXX XXXX">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Department <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <input type="text" id="staff-profile-department-input" placeholder="Department" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
+              </div>
+              <div class="form-group-m">
+                <label>Position <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <input type="text" id="staff-profile-position-input" placeholder="Position" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:18px">
+              <button class="btn-primary" onclick="submitStaffProfileUpdate()">Save Changes</button>
+              <button class="btn-ghost" onclick="resetStaffProfileForm()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: SECURITY (STAFF) -->
+      <div id="staff-profile-tab-security" class="profile-tab-content" style="display:none">
+        <div class="profile-card" style="max-width:540px">
+          <div class="profile-card-title">Change Password</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:18px">
+            Update your password to keep your account secure. Use a strong, unique password.
+          </p>
+
+          <div id="staff-security-error" class="profile-error" style="display:none"></div>
+          <div id="staff-security-success" class="profile-success" style="display:none"></div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>Current Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="staff-current-password" placeholder="Enter current password" required>
+              <span onclick="togglePasswordVisibility('staff-current-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="staff-new-password" placeholder="Enter new password" oninput="checkStaffPasswordStrength()" required>
+              <span onclick="togglePasswordVisibility('staff-new-password')" class="password-toggle">👁</span>
+            </div>
+            <div id="staff-password-strength" class="password-strength-meter"></div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:18px">
+            <label>Confirm New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="staff-confirm-password" placeholder="Confirm new password" required>
+              <span onclick="togglePasswordVisibility('staff-confirm-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" onclick="submitStaffPasswordChange()">Update Password</button>
+            <button class="btn-ghost" onclick="resetStaffPasswordForm()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- END panel-profile -->
+
   </main>
 
   <!-- ══════════════════════════════════════
@@ -1101,7 +1364,7 @@
  
  
 <!-- ═══════════════════════════════════════════
-    MODALS — paste inside the MODALS section
+    MODALS — Staff Management
 ═══════════════════════════════════════════ -->
  
 <!-- Add Staff Modal -->
