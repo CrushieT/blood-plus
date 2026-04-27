@@ -888,6 +888,9 @@ async function submitAddBloodStock() {
   }
 }
 
+// ANALYTICS
+
+
 
 // ═══════════════════════════════════════════════════════
 // BLOOD REQUESTS
@@ -2446,24 +2449,7 @@ function hospNextPage() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// MODAL HELPERS
-// ──────────────────────────────────────────────────────────────
-function openModal(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('open');
-}
 
-function closeModal(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('open');
-}
-
-document.querySelectorAll('.modal-overlay').forEach(o => {
-    o.addEventListener('click', e => {
-        if (e.target === o) o.classList.remove('open');
-    });
-});
 
 // ──────────────────────────────────────────────────────────────
 // CREATE HOSPITAL — Submit form
@@ -2654,4 +2640,828 @@ function hospConfirmDelete(id) {
     }
 
     hospDelete(id); // ✅ PASS ID HERE
+}
+
+
+
+// ══════════════════════════════════════════════════════════════
+// STAFF PROFILE FUNCTIONS
+// ══════════════════════════════════════════════════════════════
+// ── GLOBAL STATE ──
+let currentUserRole = 'STAFF'; // Set from backend
+let currentUserId = null;
+let currentUserData = {};
+ 
+// ── INITIALIZATION ──
+document.addEventListener('DOMContentLoaded', () => {
+  loadCurrentUserProfile();
+  initializeProfileListeners();
+});
+ 
+// ── LOAD CURRENT USER PROFILE ──
+async function loadCurrentUserProfile() {
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Failed to load user profile');
+      return;
+    }
+
+    const userData = await response.json();
+    currentUserRole = userData.role;
+    currentUserId = userData.id;
+
+    if (currentUserRole === 'ADMIN') {
+      loadAdminProfile();
+    } else if (currentUserRole === 'STAFF') {
+      loadStaffProfile();
+    }
+  } catch (error) {
+    console.error('Error loading profile:', error);
+  }
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// ADMIN PROFILE FUNCTIONS
+// ══════════════════════════════════════════════════════════════
+
+async function loadAdminProfile() {
+  try {
+    const response = await fetch('/api/admin/profile', {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Failed to load admin profile');
+      return;
+    }
+
+    const adminData = await response.json();
+    currentUserData = adminData;
+    currentUserId = adminData.id;
+    
+    // Show admin profile container, hide staff
+    const adminContainer = document.getElementById('admin-profile-container');
+    const staffContainer = document.getElementById('staff-profile-container');
+    if (adminContainer) adminContainer.style.display = 'block';
+    if (staffContainer) staffContainer.style.display = 'none';
+    
+    // Populate sidebar
+    updateSidebarUser('AD', adminData.username || 'Administrator', 'System Administrator');
+    
+    // Populate profile panel
+    populateAdminProfileForm(adminData);
+    
+    // Show the first tab (Overview) by default
+    showAdminProfileDefaultTab();
+  } catch (error) {
+    console.error('Error loading admin profile:', error);
+  }
+}
+
+function populateAdminProfileForm(data) {
+  // Populate avatar
+  const avatarEl = document.getElementById('profile-avatar-display');
+  if (avatarEl) {
+    avatarEl.textContent = (data.username || 'Admin').substring(0, 2).toUpperCase();
+  }
+  
+  // Populate name and role
+  const nameDisplay = document.getElementById('profile-name-display');
+  const roleDisplay = document.getElementById('profile-role-display');
+  if (nameDisplay) nameDisplay.textContent = data.username || 'Administrator';
+  if (roleDisplay) roleDisplay.textContent = 'System Administrator';
+  
+  // Populate member since
+  const memberSinceEl = document.getElementById('profile-member-since');
+  if (memberSinceEl && data.createdAt) {
+    memberSinceEl.textContent = formatDate(data.createdAt);
+  }
+  
+  // Populate form fields
+  const emailField = document.getElementById('profile-email');
+  const usernameField = document.getElementById('profile-username');
+  
+  if (emailField) emailField.value = data.email || '';
+  if (usernameField) usernameField.value = data.username || '';
+}
+
+function showAdminProfileDefaultTab() {
+  // Display the first tab (Overview) by default using CSS classes
+  const firstTabButton = document.querySelector('#admin-profile-container .profile-tab-btn:first-child');
+  const firstTabContent = document.querySelector('#admin-profile-container .profile-tab-content:first-child');
+  
+  // Remove active class from all tabs and buttons
+  document.querySelectorAll('#admin-profile-container .profile-tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  document.querySelectorAll('#admin-profile-container .profile-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Add active class to first tab and button
+  if (firstTabContent) {
+    firstTabContent.classList.add('active');
+  }
+  
+  if (firstTabButton) {
+    firstTabButton.classList.add('active');
+  }
+}
+ 
+async function submitAdminProfileUpdate() {
+  const email = document.getElementById('profile-email').value;
+  const username = document.getElementById('profile-username').value;
+  
+  // Validation
+  if (!email || !username) {
+    showProfileError('All fields are required');
+    return;
+  }
+  
+  if (!isValidEmail(email)) {
+    showProfileError('Invalid email address');
+    return;
+  }
+  
+  // Show loading state
+  const submitBtn = event.target;
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Saving...';
+  submitBtn.disabled = true;
+  
+  try {
+    const response = await fetch('/api/admin/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        email: email,
+        username: username
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showProfileError(errorData.message || 'Failed to update profile');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    const updated = await response.json();
+    currentUserData = updated;
+    
+    showProfileSuccess('Profile updated successfully');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    showProfileError('An error occurred while updating profile');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
+}
+ 
+function resetAdminProfileForm() {
+  populateAdminProfileForm(currentUserData);
+  document.getElementById('profile-edit-error').style.display = 'none';
+  document.getElementById('profile-edit-success').style.display = 'none';
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// STAFF PROFILE FUNCTIONS
+// ══════════════════════════════════════════════════════════════
+
+async function loadStaffProfile() {
+  try {
+    const response = await fetch('/api/admin/staff/profile', {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Failed to load staff profile');
+      return;
+    }
+
+    const staffData = await response.json();
+    currentUserData = staffData;
+    currentUserId = staffData.id;
+    
+    // Show staff profile container, hide admin
+    const adminContainer = document.getElementById('admin-profile-container');
+    const staffContainer = document.getElementById('staff-profile-container');
+    if (adminContainer) adminContainer.style.display = 'none';
+    if (staffContainer) staffContainer.style.display = 'block';
+    
+    // Populate sidebar
+    const initials = (staffData.firstName.charAt(0) + staffData.lastName.charAt(0)).toUpperCase();
+    updateSidebarUser(initials, staffData.firstName + ' ' + staffData.lastName, staffData.position);
+    
+    // Populate profile panel
+    populateStaffProfileForm(staffData);
+    
+    // Show the first tab (Overview) by default
+    showStaffProfileDefaultTab();
+  } catch (error) {
+    console.error('Error loading staff profile:', error);
+  }
+}
+
+function populateStaffProfileForm(data) {
+  // Populate avatar
+  const avatarEl = document.getElementById('staff-profile-avatar-display');
+  if (avatarEl) {
+    const initials = (data.firstName.charAt(0) + data.lastName.charAt(0)).toUpperCase();
+    avatarEl.textContent = initials;
+  }
+  
+  // Populate name and role
+  const nameDisplay = document.getElementById('staff-profile-name-display');
+  const roleDisplay = document.getElementById('staff-profile-role-display');
+  if (nameDisplay) nameDisplay.textContent = data.firstName + ' ' + data.lastName;
+  if (roleDisplay) roleDisplay.textContent = data.position || '-';
+  
+  // Populate info cards
+  const staffIdEl = document.getElementById('staff-profile-staffid');
+  const deptEl = document.getElementById('staff-profile-department');
+  const hiredEl = document.getElementById('staff-profile-hiredate');
+  
+  if (staffIdEl) staffIdEl.textContent = data.staffId || '-';
+  if (deptEl) deptEl.textContent = data.department || '-';
+  if (hiredEl) hiredEl.textContent = data.hireDate ? formatDate(data.hireDate) : '-';
+  
+  // Populate form fields
+  const firstNameField = document.getElementById('staff-profile-firstname');
+  const lastNameField = document.getElementById('staff-profile-lastname');
+  const emailField = document.getElementById('staff-profile-email');
+  const phoneField = document.getElementById('staff-profile-phone');
+  const deptInputField = document.getElementById('staff-profile-department-input');
+  const posInputField = document.getElementById('staff-profile-position-input');
+  
+  if (firstNameField) firstNameField.value = data.firstName || '';
+  if (lastNameField) lastNameField.value = data.lastName || '';
+  if (emailField) emailField.value = (data.user && data.user.email) || '';
+  if (phoneField) phoneField.value = data.phoneNumber || '';
+  if (deptInputField) deptInputField.value = data.department || '';
+  if (posInputField) posInputField.value = data.position || '';
+}
+
+function showStaffProfileDefaultTab() {
+  // Display the first tab (Overview) by default using CSS classes
+  const firstTabButton = document.querySelector('#staff-profile-container .profile-tab-btn:first-child');
+  const firstTabContent = document.querySelector('#staff-profile-container .profile-tab-content:first-child');
+  
+  // Remove active class from all tabs and buttons
+  document.querySelectorAll('#staff-profile-container .profile-tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  document.querySelectorAll('#staff-profile-container .profile-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Add active class to first tab and button
+  if (firstTabContent) {
+    firstTabContent.classList.add('active');
+  }
+  
+  if (firstTabButton) {
+    firstTabButton.classList.add('active');
+  }
+}
+
+async function submitStaffProfileUpdate() {
+  const firstName = document.getElementById('staff-profile-firstname').value;
+  const lastName = document.getElementById('staff-profile-lastname').value;
+  const phoneNumber = document.getElementById('staff-profile-phone').value;
+  
+  // Validation
+  if (!firstName || !lastName) {
+    showStaffProfileError('First Name and Last Name are required');
+    return;
+  }
+  
+  // Show loading state
+  const submitBtn = event.target;
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Saving...';
+  submitBtn.disabled = true;
+  
+  try {
+    const response = await fetch('/api/admin/staff/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: phoneNumber
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showStaffProfileError(errorData.message || 'Failed to update profile');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    const updated = await response.json();
+    currentUserData = updated;
+    
+    // Update sidebar with new name
+    const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+    updateSidebarUser(initials, firstName + ' ' + lastName, currentUserData.position);
+    
+    showStaffProfileSuccess('Profile updated successfully');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    showStaffProfileError('An error occurred while updating profile');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
+}
+
+function resetStaffProfileForm() {
+  populateStaffProfileForm(currentUserData);
+  document.getElementById('staff-profile-edit-error').style.display = 'none';
+  document.getElementById('staff-profile-edit-success').style.display = 'none';
+}
+
+function updateSidebarUser(initials, name, role) {
+  const avatarEl = document.getElementById('sidebar-user-avatar');
+  const nameEl = document.getElementById('sidebar-user-name');
+  const roleEl = document.getElementById('sidebar-user-role');
+  
+  if (avatarEl) avatarEl.textContent = initials;
+  if (nameEl) nameEl.textContent = name;
+  if (roleEl) roleEl.textContent = role;
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PASSWORD MANAGEMENT (BOTH ADMIN AND STAFF)
+// ══════════════════════════════════════════════════════════════
+
+function checkPasswordStrength() {
+  const password = document.getElementById('new-password').value;
+  const meter = document.getElementById('password-strength');
+  
+  if (!password) {
+    meter.classList.remove('show');
+    return;
+  }
+  
+  meter.classList.add('show');
+  meter.innerHTML = '';
+  
+  let strength = 0;
+  if (password.length >= 8) strength++;
+  if (password.match(/[a-z]/) && password.match(/[A-Z]/)) strength++;
+  if (password.match(/[0-9]/)) strength++;
+  if (password.match(/[^a-zA-Z0-9]/)) strength++;
+  
+  const bar = document.createElement('div');
+  bar.className = 'password-strength-bar';
+  
+  if (strength <= 1) {
+    bar.classList.add('password-strength-weak');
+  } else if (strength <= 2) {
+    bar.classList.add('password-strength-fair');
+  } else {
+    bar.classList.add('password-strength-strong');
+  }
+  
+  meter.appendChild(bar);
+}
+
+function checkStaffPasswordStrength() {
+  const password = document.getElementById('staff-new-password').value;
+  const meter = document.getElementById('staff-password-strength');
+  
+  if (!password) {
+    meter.classList.remove('show');
+    return;
+  }
+  
+  meter.classList.add('show');
+  meter.innerHTML = '';
+  
+  let strength = 0;
+  if (password.length >= 8) strength++;
+  if (password.match(/[a-z]/) && password.match(/[A-Z]/)) strength++;
+  if (password.match(/[0-9]/)) strength++;
+  if (password.match(/[^a-zA-Z0-9]/)) strength++;
+  
+  const bar = document.createElement('div');
+  bar.className = 'password-strength-bar';
+  
+  if (strength <= 1) {
+    bar.classList.add('password-strength-weak');
+  } else if (strength <= 2) {
+    bar.classList.add('password-strength-fair');
+  } else {
+    bar.classList.add('password-strength-strong');
+  }
+  
+  meter.appendChild(bar);
+}
+
+function togglePasswordVisibility(fieldId) {
+  const field = document.getElementById(fieldId);
+  const isPassword = field.type === 'password';
+  field.type = isPassword ? 'text' : 'password';
+  event.target.textContent = isPassword ? '🙈' : '👁';
+}
+
+async function submitPasswordChange() {
+  const currentPassword = document.getElementById('current-password').value;
+  const newPassword = document.getElementById('new-password').value;
+  const confirmPassword = document.getElementById('confirm-password').value;
+  
+  // Validation
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    showSecurityError('All password fields are required');
+    return;
+  }
+  
+  if (newPassword.length < 8) {
+    showSecurityError('New password must be at least 8 characters long');
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    showSecurityError('New password and confirmation do not match');
+    return;
+  }
+  
+  if (currentPassword === newPassword) {
+    showSecurityError('New password must be different from current password');
+    return;
+  }
+  
+  // Show loading state
+  const submitBtn = event.target;
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Updating...';
+  submitBtn.disabled = true;
+  
+  try {
+    const response = await fetch('/api/admin/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        currentPassword: currentPassword,
+        newPassword: newPassword
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showSecurityError(errorData.message || 'Failed to change password');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    // Clear form
+    document.getElementById('current-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    document.getElementById('password-strength').classList.remove('show');
+    
+    showSecuritySuccess('Password updated successfully');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  } catch (error) {
+    console.error('Error changing password:', error);
+    showSecurityError('An error occurred while changing password');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
+}
+
+async function submitStaffPasswordChange() {
+  const currentPassword = document.getElementById('staff-current-password').value;
+  const newPassword = document.getElementById('staff-new-password').value;
+  const confirmPassword = document.getElementById('staff-confirm-password').value;
+  
+  // Validation
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    showStaffSecurityError('All password fields are required');
+    return;
+  }
+  
+  if (newPassword.length < 8) {
+    showStaffSecurityError('New password must be at least 8 characters long');
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    showStaffSecurityError('New password and confirmation do not match');
+    return;
+  }
+  
+  if (currentPassword === newPassword) {
+    showStaffSecurityError('New password must be different from current password');
+    return;
+  }
+  
+  // Show loading state
+  const submitBtn = event.target;
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Updating...';
+  submitBtn.disabled = true;
+  
+  try {
+    const response = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        currentPassword: currentPassword,
+        newPassword: newPassword
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showStaffSecurityError(errorData.message || 'Failed to change password');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    // Clear form
+    document.getElementById('staff-current-password').value = '';
+    document.getElementById('staff-new-password').value = '';
+    document.getElementById('staff-confirm-password').value = '';
+    document.getElementById('staff-password-strength').classList.remove('show');
+    
+    showStaffSecuritySuccess('Password updated successfully');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  } catch (error) {
+    console.error('Error changing password:', error);
+    showStaffSecurityError('An error occurred while changing password');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
+}
+
+function resetPasswordForm() {
+  document.getElementById('current-password').value = '';
+  document.getElementById('new-password').value = '';
+  document.getElementById('confirm-password').value = '';
+  document.getElementById('password-strength').classList.remove('show');
+  document.getElementById('security-error').style.display = 'none';
+  document.getElementById('security-success').style.display = 'none';
+}
+
+function resetStaffPasswordForm() {
+  document.getElementById('staff-current-password').value = '';
+  document.getElementById('staff-new-password').value = '';
+  document.getElementById('staff-confirm-password').value = '';
+  document.getElementById('staff-password-strength').classList.remove('show');
+  document.getElementById('staff-security-error').style.display = 'none';
+  document.getElementById('staff-security-success').style.display = 'none';
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PROFILE TAB SWITCHING
+// ══════════════════════════════════════════════════════════════
+
+function switchProfileTab(tabName, element) {
+  // For Admin Profile - Use classes instead of inline styles
+  document.querySelectorAll('#admin-profile-container .profile-tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  document.querySelectorAll('#admin-profile-container .profile-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  const tabElement = document.getElementById('profile-tab-' + tabName);
+  if (tabElement) {
+    tabElement.classList.add('active');
+  }
+  
+  element.classList.add('active');
+}
+
+function switchStaffProfileTab(tabName, element) {
+  // For Staff Profile - Use classes instead of inline styles
+  document.querySelectorAll('#staff-profile-container .profile-tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  document.querySelectorAll('#staff-profile-container .profile-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  const tabElement = document.getElementById('staff-profile-tab-' + tabName);
+  if (tabElement) {
+    tabElement.classList.add('active');
+  }
+  
+  element.classList.add('active');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PANEL SWITCHING
+// ══════════════════════════════════════════════════════════════
+
+function showPanel(panelName, element) {
+  document.querySelectorAll('.panel').forEach(panel => {
+    panel.classList.remove('active');
+  });
+  
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  
+  const panelElement = document.getElementById('panel-' + panelName);
+  if (panelElement) {
+    panelElement.classList.add('active');
+  }
+  
+  if (element) {
+    element.classList.add('active');
+  }
+  
+  window.scrollTo(0, 0);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ══════════════════════════════════════════════════════════════
+
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+ 
+function formatDate(dateString) {
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  return new Date(dateString).toLocaleDateString('en-US', options);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// ERROR & SUCCESS MESSAGE HANDLERS
+// ══════════════════════════════════════════════════════════════
+
+// Admin Profile Messages
+function showProfileError(message) {
+  const errorEl = document.getElementById('profile-edit-error');
+  if (errorEl) {
+    errorEl.textContent = message;
+    errorEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      errorEl.style.display = 'none';
+    }, 5000);
+  }
+}
+ 
+function showProfileSuccess(message) {
+  const successEl = document.getElementById('profile-edit-success');
+  if (successEl) {
+    successEl.textContent = message;
+    successEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      successEl.style.display = 'none';
+    }, 4000);
+  }
+}
+
+// Staff Profile Messages
+function showStaffProfileError(message) {
+  const errorEl = document.getElementById('staff-profile-edit-error');
+  if (errorEl) {
+    errorEl.textContent = message;
+    errorEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      errorEl.style.display = 'none';
+    }, 5000);
+  }
+}
+
+function showStaffProfileSuccess(message) {
+  const successEl = document.getElementById('staff-profile-edit-success');
+  if (successEl) {
+    successEl.textContent = message;
+    successEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      successEl.style.display = 'none';
+    }, 4000);
+  }
+}
+
+// Security Messages (Admin)
+function showSecurityError(message) {
+  const errorEl = document.getElementById('security-error');
+  if (errorEl) {
+    errorEl.textContent = message;
+    errorEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      errorEl.style.display = 'none';
+    }, 5000);
+  }
+}
+ 
+function showSecuritySuccess(message) {
+  const successEl = document.getElementById('security-success');
+  if (successEl) {
+    successEl.textContent = message;
+    successEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      successEl.style.display = 'none';
+    }, 4000);
+  }
+}
+
+// Security Messages (Staff)
+function showStaffSecurityError(message) {
+  const errorEl = document.getElementById('staff-security-error');
+  if (errorEl) {
+    errorEl.textContent = message;
+    errorEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      errorEl.style.display = 'none';
+    }, 5000);
+  }
+}
+
+function showStaffSecuritySuccess(message) {
+  const successEl = document.getElementById('staff-security-success');
+  if (successEl) {
+    successEl.textContent = message;
+    successEl.style.display = 'flex';
+    
+    setTimeout(() => {
+      successEl.style.display = 'none';
+    }, 4000);
+  }
+}
+
+
+
+// ══════════════════════════════════════════════════════════════
+// EVENT LISTENERS INITIALIZATION
+// ══════════════════════════════════════════════════════════════
+
+function initializeProfileListeners() {
+  // Add any additional event listeners if needed
+  document.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const activePanel = document.querySelector('.panel.active');
+      if (activePanel && activePanel.id === 'panel-profile') {
+        // Optional: auto-submit on Enter if needed
+      }
+    }
+  });
 }

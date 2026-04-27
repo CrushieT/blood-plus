@@ -5,6 +5,12 @@ import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.UpdateHospitalRequest;
+import com.hospital.blood_plus.dto.request.ProfileDTO.AdminProfileDTO;
+import com.hospital.blood_plus.dto.request.ProfileDTO.ChangePasswordRequest;
+import com.hospital.blood_plus.dto.request.ProfileDTO.MessageResponse;
+import com.hospital.blood_plus.dto.request.ProfileDTO.StaffProfileDTO;
+import com.hospital.blood_plus.dto.request.ProfileDTO.UpdateAdminProfileRequest;
+import com.hospital.blood_plus.dto.request.ProfileDTO.UpdateStaffProfileRequest;
 import com.hospital.blood_plus.service.HospitalService;
 import com.hospital.blood_plus.dto.request.StaffDTOs.CreateStaffRequest;
 import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
@@ -14,6 +20,7 @@ import com.hospital.blood_plus.repository.UserRepository;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
+import com.hospital.blood_plus.service.AdminProfileService;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
 import com.hospital.blood_plus.service.DashboardService;
@@ -39,19 +46,22 @@ public class AdminController {
     private final StaffService            staffService;
     private final HospitalService         hospitalService;
     private final DashboardService        dashboardService;
+    private final AdminProfileService     adminProfileService;
 
     public AdminController(BloodBagService bloodBagService,
                            UserRepository userRepository,
                            BloodBagRequestService bloodBagRequestService,
                            HospitalService hospitalService,
                            StaffService staffService,
-                           DashboardService dashboardService) {
+                           DashboardService dashboardService,
+                           AdminProfileService adminProfileService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
         this.staffService = staffService;
         this.hospitalService = hospitalService;
         this.dashboardService = dashboardService;
+        this.adminProfileService = adminProfileService;
     }
 
     // ── Dashboard ─────────────────────────────────────────────
@@ -504,4 +514,107 @@ public class AdminController {
         }
     }
     
+    ///////////// ADMIN PROFILE PANEL/////////////////
+    /**
+     * Get admin's own profile
+     * GET /api/admin/profile
+     */
+    @GetMapping("/profile")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminProfileDTO> getAdminProfile(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        AdminProfileDTO profile = adminProfileService.getAdminProfile(userDetails.getUsername());
+        return ResponseEntity.ok(profile);
+    }
+    
+    /**
+     * Update admin's profile (email, username)
+     * PUT /api/admin/profile
+     */
+    @PutMapping("/profile")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminProfileDTO> updateAdminProfile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody UpdateAdminProfileRequest request) {
+        AdminProfileDTO updated = adminProfileService.updateAdminProfile(
+                userDetails.getUsername(),
+                request
+        );
+        return ResponseEntity.ok(updated);
+    }
+ 
+    /**
+     * Change admin password
+     * POST /api/admin/change-password
+     */
+    @PostMapping("/change-password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<MessageResponse> changeAdminPassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody ChangePasswordRequest request) {
+        adminProfileService.changePassword(userDetails.getUsername(), request);
+        return ResponseEntity.ok(new MessageResponse("Password updated successfully"));
+    }
+ 
+    // ═════════════════════════════════════════════════════════════════
+    // STAFF PROFILE ENDPOINTS
+    // ═════════════════════════════════════════════════════════════════
+ 
+    /**
+     * Get staff member's profile
+     * GET /api/staff/profile
+     */
+    @GetMapping("/staff/profile")
+    @PreAuthorize("hasRole('STAFF')")
+    public ResponseEntity<StaffProfileDTO> getStaffProfile(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        StaffProfileDTO profile = adminProfileService.getStaffProfile(userDetails.getUsername());
+        return ResponseEntity.ok(profile);
+    }
+ 
+    /**
+     * Update staff member's profile (first name, last name, phone)
+     * PUT /api/staff/profile
+     */
+    @PutMapping("/staff/profile")
+    @PreAuthorize("hasRole('STAFF')")
+    public ResponseEntity<StaffProfileDTO> updateStaffProfile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody UpdateStaffProfileRequest request) {
+        StaffProfileDTO updated = adminProfileService.updateStaffProfile(
+                userDetails.getUsername(),
+                request
+        );
+        return ResponseEntity.ok(updated);
+    }
+ 
+    /**
+     * Change staff password
+     * POST /api/staff/change-password
+     */
+    @PostMapping("/staff/change-password")
+    @PreAuthorize("hasRole('STAFF')")
+    public ResponseEntity<MessageResponse> changeStaffPassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody ChangePasswordRequest request) {
+        adminProfileService.changePassword(userDetails.getUsername(), request);
+        return ResponseEntity.ok(new MessageResponse("Password updated successfully"));
+    }
+ 
+    // ═════════════════════════════════════════════════════════════════
+    // UNIVERSAL ENDPOINT (for /api/auth/change-password)
+    // ═════════════════════════════════════════════════════════════════
+ 
+    /**
+     * Change password for any authenticated user
+     * POST /api/auth/change-password
+     */
+    @PostMapping("/auth/change-password")
+    public ResponseEntity<MessageResponse> changePassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody ChangePasswordRequest request) {
+        adminProfileService.changePassword(userDetails.getUsername(), request);
+        return ResponseEntity.ok(new MessageResponse("Password updated successfully"));
+    }
+
 }

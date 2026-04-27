@@ -1681,11 +1681,11 @@ async function logout() {
       credentials: "include"
     });
     if (response.ok) {
-      window.location.href = "/landing_page/index.html";
+      window.location.href = "blood-request.html";
     }
   } catch (error) {
     console.error("Logout error:", error);
-    window.location.href = "/landing_page/index.html";
+    window.location.href = "blood-request.html";
   }
 }
 
