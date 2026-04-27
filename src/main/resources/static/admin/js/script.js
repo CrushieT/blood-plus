@@ -888,6 +888,9 @@ async function submitAddBloodStock() {
   }
 }
 
+// ANALYTICS
+
+
 
 // ═══════════════════════════════════════════════════════
 // BLOOD REQUESTS
@@ -2446,24 +2449,7 @@ function hospNextPage() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// MODAL HELPERS
-// ──────────────────────────────────────────────────────────────
-function openModal(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('open');
-}
 
-function closeModal(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('open');
-}
-
-document.querySelectorAll('.modal-overlay').forEach(o => {
-    o.addEventListener('click', e => {
-        if (e.target === o) o.classList.remove('open');
-    });
-});
 
 // ──────────────────────────────────────────────────────────────
 // CREATE HOSPITAL — Submit form
@@ -2657,37 +2643,48 @@ function hospConfirmDelete(id) {
 }
 
 
-/* ═════════════════════════════════════════════════════════════════
-   PROFILE MANAGEMENT JAVASCRIPT - Admin & Staff Account Handling
-   ═════════════════════════════════════════════════════════════════ */
-/* ═════════════════════════════════════════════════════════════════
-   PROFILE MANAGEMENT JAVASCRIPT - Admin & Staff Account Handling
-   ═════════════════════════════════════════════════════════════════ */
- 
+
+// ══════════════════════════════════════════════════════════════
+// STAFF PROFILE FUNCTIONS
+// ══════════════════════════════════════════════════════════════
 // ── GLOBAL STATE ──
-let currentUserRole = 'ADMIN'; // Set from backend (ADMIN or STAFF)
+let currentUserRole = 'STAFF'; // Set from backend
 let currentUserId = null;
 let currentUserData = {};
  
 // ── INITIALIZATION ──
 document.addEventListener('DOMContentLoaded', () => {
-  // Load current user profile from backend
   loadCurrentUserProfile();
   initializeProfileListeners();
 });
  
 // ── LOAD CURRENT USER PROFILE ──
-function loadCurrentUserProfile() {
-  // Replace with actual API call
-  // GET /api/auth/me or /api/admin/profile or /api/staff/profile
-  
-  // Get role from session/token
-  currentUserRole = getUserRoleFromSession(); // 'ADMIN' or 'STAFF'
-  
-  if (currentUserRole === 'ADMIN') {
-    loadAdminProfile();
-  } else if (currentUserRole === 'STAFF') {
-    loadStaffProfile();
+async function loadCurrentUserProfile() {
+  try {
+    const response = await fetch('/api/auth/me', {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Failed to load user profile');
+      return;
+    }
+
+    const userData = await response.json();
+    currentUserRole = userData.role;
+    currentUserId = userData.id;
+
+    if (currentUserRole === 'ADMIN') {
+      loadAdminProfile();
+    } else if (currentUserRole === 'STAFF') {
+      loadStaffProfile();
+    }
+  } catch (error) {
+    console.error('Error loading profile:', error);
   }
 }
  
@@ -2695,32 +2692,42 @@ function loadCurrentUserProfile() {
 // ADMIN PROFILE FUNCTIONS
 // ══════════════════════════════════════════════════════════════
 
-function loadAdminProfile() {
-  // API call: GET /api/admin/profile
-  // or for logged-in user: GET /api/auth/me (if role is ADMIN)
-  
-  const mockAdminData = {
-    id: 1,
-    email: 'admin@bloodplus.ph',
-    username: 'Administrator',
-    role: 'ADMIN',
-    createdAt: '2024-01-15T10:30:00Z'
-  };
-  
-  currentUserData = mockAdminData;
-  currentUserId = mockAdminData.id;
-  
-  // Show admin profile container, hide staff
-  const adminContainer = document.getElementById('admin-profile-container');
-  const staffContainer = document.getElementById('staff-profile-container');
-  if (adminContainer) adminContainer.style.display = 'block';
-  if (staffContainer) staffContainer.style.display = 'none';
-  
-  // Populate sidebar
-  updateSidebarUser('AD', 'Administrator', 'System Administrator');
-  
-  // Populate profile panel
-  populateAdminProfileForm(mockAdminData);
+async function loadAdminProfile() {
+  try {
+    const response = await fetch('/api/admin/profile', {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Failed to load admin profile');
+      return;
+    }
+
+    const adminData = await response.json();
+    currentUserData = adminData;
+    currentUserId = adminData.id;
+    
+    // Show admin profile container, hide staff
+    const adminContainer = document.getElementById('admin-profile-container');
+    const staffContainer = document.getElementById('staff-profile-container');
+    if (adminContainer) adminContainer.style.display = 'block';
+    if (staffContainer) staffContainer.style.display = 'none';
+    
+    // Populate sidebar
+    updateSidebarUser('AD', adminData.username || 'Administrator', 'System Administrator');
+    
+    // Populate profile panel
+    populateAdminProfileForm(adminData);
+    
+    // Show the first tab (Overview) by default
+    showAdminProfileDefaultTab();
+  } catch (error) {
+    console.error('Error loading admin profile:', error);
+  }
 }
 
 function populateAdminProfileForm(data) {
@@ -2749,8 +2756,32 @@ function populateAdminProfileForm(data) {
   if (emailField) emailField.value = data.email || '';
   if (usernameField) usernameField.value = data.username || '';
 }
+
+function showAdminProfileDefaultTab() {
+  // Display the first tab (Overview) by default using CSS classes
+  const firstTabButton = document.querySelector('#admin-profile-container .profile-tab-btn:first-child');
+  const firstTabContent = document.querySelector('#admin-profile-container .profile-tab-content:first-child');
+  
+  // Remove active class from all tabs and buttons
+  document.querySelectorAll('#admin-profile-container .profile-tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  document.querySelectorAll('#admin-profile-container .profile-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Add active class to first tab and button
+  if (firstTabContent) {
+    firstTabContent.classList.add('active');
+  }
+  
+  if (firstTabButton) {
+    firstTabButton.classList.add('active');
+  }
+}
  
-function submitAdminProfileUpdate() {
+async function submitAdminProfileUpdate() {
   const email = document.getElementById('profile-email').value;
   const username = document.getElementById('profile-username').value;
   
@@ -2771,21 +2802,40 @@ function submitAdminProfileUpdate() {
   submitBtn.textContent = 'Saving...';
   submitBtn.disabled = true;
   
-  // API call - PUT /api/admin/profile
-  const payload = {
-    email: email,
-    username: username
-  };
-  
-  // Mock delay - replace with actual API call
-  setTimeout(() => {
-    currentUserData.email = email;
-    currentUserData.username = username;
+  try {
+    const response = await fetch('/api/admin/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        email: email,
+        username: username
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showProfileError(errorData.message || 'Failed to update profile');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    const updated = await response.json();
+    currentUserData = updated;
     
     showProfileSuccess('Profile updated successfully');
     submitBtn.textContent = originalText;
     submitBtn.disabled = false;
-  }, 1000);
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    showProfileError('An error occurred while updating profile');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
 }
  
 function resetAdminProfileForm() {
@@ -2799,43 +2849,43 @@ function resetAdminProfileForm() {
 // STAFF PROFILE FUNCTIONS
 // ══════════════════════════════════════════════════════════════
 
-function loadStaffProfile() {
-  // API call: GET /api/staff/profile
-  // Returns StaffProfile with linked AppUser data
-  
-  const mockStaffData = {
-    id: 5,
-    staffId: 'STF-005',
-    firstName: 'Juan',
-    lastName: 'Dela Cruz',
-    department: 'Blood Bank',
-    position: 'Medical Technologist',
-    phoneNumber: '+63 912 345 6789',
-    hireDate: '2023-06-15',
-    createdAt: '2023-06-15T09:00:00Z',
-    user: {
-      id: 5,
-      email: 'juan.dela.cruz@bloodplus.ph',
-      username: 'juan.cruz',
-      role: 'STAFF'
+async function loadStaffProfile() {
+  try {
+    const response = await fetch('/api/admin/staff/profile', {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      console.error('Failed to load staff profile');
+      return;
     }
-  };
-  
-  currentUserData = mockStaffData;
-  currentUserId = mockStaffData.id;
-  
-  // Show staff profile container, hide admin
-  const adminContainer = document.getElementById('admin-profile-container');
-  const staffContainer = document.getElementById('staff-profile-container');
-  if (adminContainer) adminContainer.style.display = 'none';
-  if (staffContainer) staffContainer.style.display = 'block';
-  
-  // Populate sidebar
-  const initials = (mockStaffData.firstName.charAt(0) + mockStaffData.lastName.charAt(0)).toUpperCase();
-  updateSidebarUser(initials, mockStaffData.firstName + ' ' + mockStaffData.lastName, mockStaffData.position);
-  
-  // Populate profile panel
-  populateStaffProfileForm(mockStaffData);
+
+    const staffData = await response.json();
+    currentUserData = staffData;
+    currentUserId = staffData.id;
+    
+    // Show staff profile container, hide admin
+    const adminContainer = document.getElementById('admin-profile-container');
+    const staffContainer = document.getElementById('staff-profile-container');
+    if (adminContainer) adminContainer.style.display = 'none';
+    if (staffContainer) staffContainer.style.display = 'block';
+    
+    // Populate sidebar
+    const initials = (staffData.firstName.charAt(0) + staffData.lastName.charAt(0)).toUpperCase();
+    updateSidebarUser(initials, staffData.firstName + ' ' + staffData.lastName, staffData.position);
+    
+    // Populate profile panel
+    populateStaffProfileForm(staffData);
+    
+    // Show the first tab (Overview) by default
+    showStaffProfileDefaultTab();
+  } catch (error) {
+    console.error('Error loading staff profile:', error);
+  }
 }
 
 function populateStaffProfileForm(data) {
@@ -2877,7 +2927,31 @@ function populateStaffProfileForm(data) {
   if (posInputField) posInputField.value = data.position || '';
 }
 
-function submitStaffProfileUpdate() {
+function showStaffProfileDefaultTab() {
+  // Display the first tab (Overview) by default using CSS classes
+  const firstTabButton = document.querySelector('#staff-profile-container .profile-tab-btn:first-child');
+  const firstTabContent = document.querySelector('#staff-profile-container .profile-tab-content:first-child');
+  
+  // Remove active class from all tabs and buttons
+  document.querySelectorAll('#staff-profile-container .profile-tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  document.querySelectorAll('#staff-profile-container .profile-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Add active class to first tab and button
+  if (firstTabContent) {
+    firstTabContent.classList.add('active');
+  }
+  
+  if (firstTabButton) {
+    firstTabButton.classList.add('active');
+  }
+}
+
+async function submitStaffProfileUpdate() {
   const firstName = document.getElementById('staff-profile-firstname').value;
   const lastName = document.getElementById('staff-profile-lastname').value;
   const phoneNumber = document.getElementById('staff-profile-phone').value;
@@ -2894,18 +2968,31 @@ function submitStaffProfileUpdate() {
   submitBtn.textContent = 'Saving...';
   submitBtn.disabled = true;
   
-  // API call - PUT /api/staff/profile
-  const payload = {
-    firstName: firstName,
-    lastName: lastName,
-    phoneNumber: phoneNumber
-  };
-  
-  // Mock delay - replace with actual API call
-  setTimeout(() => {
-    currentUserData.firstName = firstName;
-    currentUserData.lastName = lastName;
-    currentUserData.phoneNumber = phoneNumber;
+  try {
+    const response = await fetch('/api/admin/staff/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        firstName: firstName,
+        lastName: lastName,
+        phoneNumber: phoneNumber
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showStaffProfileError(errorData.message || 'Failed to update profile');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    const updated = await response.json();
+    currentUserData = updated;
     
     // Update sidebar with new name
     const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
@@ -2914,7 +3001,12 @@ function submitStaffProfileUpdate() {
     showStaffProfileSuccess('Profile updated successfully');
     submitBtn.textContent = originalText;
     submitBtn.disabled = false;
-  }, 1000);
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    showStaffProfileError('An error occurred while updating profile');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
 }
 
 function resetStaffProfileForm() {
@@ -2938,7 +3030,6 @@ function updateSidebarUser(initials, name, role) {
 // PASSWORD MANAGEMENT (BOTH ADMIN AND STAFF)
 // ══════════════════════════════════════════════════════════════
 
-// Admin Password Functions
 function checkPasswordStrength() {
   const password = document.getElementById('new-password').value;
   const meter = document.getElementById('password-strength');
@@ -2971,7 +3062,6 @@ function checkPasswordStrength() {
   meter.appendChild(bar);
 }
 
-// Staff Password Functions
 function checkStaffPasswordStrength() {
   const password = document.getElementById('staff-new-password').value;
   const meter = document.getElementById('staff-password-strength');
@@ -3011,7 +3101,7 @@ function togglePasswordVisibility(fieldId) {
   event.target.textContent = isPassword ? '🙈' : '👁';
 }
 
-function submitPasswordChange() {
+async function submitPasswordChange() {
   const currentPassword = document.getElementById('current-password').value;
   const newPassword = document.getElementById('new-password').value;
   const confirmPassword = document.getElementById('confirm-password').value;
@@ -3043,14 +3133,29 @@ function submitPasswordChange() {
   submitBtn.textContent = 'Updating...';
   submitBtn.disabled = true;
   
-  // API call - POST /api/auth/change-password
-  const payload = {
-    currentPassword: currentPassword,
-    newPassword: newPassword
-  };
-  
-  // Mock delay - replace with actual API call
-  setTimeout(() => {
+  try {
+    const response = await fetch('/api/admin/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        currentPassword: currentPassword,
+        newPassword: newPassword
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showSecurityError(errorData.message || 'Failed to change password');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    // Clear form
     document.getElementById('current-password').value = '';
     document.getElementById('new-password').value = '';
     document.getElementById('confirm-password').value = '';
@@ -3059,10 +3164,15 @@ function submitPasswordChange() {
     showSecuritySuccess('Password updated successfully');
     submitBtn.textContent = originalText;
     submitBtn.disabled = false;
-  }, 1200);
+  } catch (error) {
+    console.error('Error changing password:', error);
+    showSecurityError('An error occurred while changing password');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
 }
 
-function submitStaffPasswordChange() {
+async function submitStaffPasswordChange() {
   const currentPassword = document.getElementById('staff-current-password').value;
   const newPassword = document.getElementById('staff-new-password').value;
   const confirmPassword = document.getElementById('staff-confirm-password').value;
@@ -3094,14 +3204,29 @@ function submitStaffPasswordChange() {
   submitBtn.textContent = 'Updating...';
   submitBtn.disabled = true;
   
-  // API call - POST /api/staff/change-password or POST /api/auth/change-password
-  const payload = {
-    currentPassword: currentPassword,
-    newPassword: newPassword
-  };
-  
-  // Mock delay - replace with actual API call
-  setTimeout(() => {
+  try {
+    const response = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        currentPassword: currentPassword,
+        newPassword: newPassword
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      showStaffSecurityError(errorData.message || 'Failed to change password');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+      return;
+    }
+
+    // Clear form
     document.getElementById('staff-current-password').value = '';
     document.getElementById('staff-new-password').value = '';
     document.getElementById('staff-confirm-password').value = '';
@@ -3110,7 +3235,12 @@ function submitStaffPasswordChange() {
     showStaffSecuritySuccess('Password updated successfully');
     submitBtn.textContent = originalText;
     submitBtn.disabled = false;
-  }, 1200);
+  } catch (error) {
+    console.error('Error changing password:', error);
+    showStaffSecurityError('An error occurred while changing password');
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
 }
 
 function resetPasswordForm() {
@@ -3137,9 +3267,9 @@ function resetStaffPasswordForm() {
 // ══════════════════════════════════════════════════════════════
 
 function switchProfileTab(tabName, element) {
-  // For Admin Profile
+  // For Admin Profile - Use classes instead of inline styles
   document.querySelectorAll('#admin-profile-container .profile-tab-content').forEach(tab => {
-    tab.style.display = 'none';
+    tab.classList.remove('active');
   });
   
   document.querySelectorAll('#admin-profile-container .profile-tab-btn').forEach(btn => {
@@ -3148,16 +3278,16 @@ function switchProfileTab(tabName, element) {
   
   const tabElement = document.getElementById('profile-tab-' + tabName);
   if (tabElement) {
-    tabElement.style.display = 'block';
+    tabElement.classList.add('active');
   }
   
   element.classList.add('active');
 }
 
 function switchStaffProfileTab(tabName, element) {
-  // For Staff Profile
+  // For Staff Profile - Use classes instead of inline styles
   document.querySelectorAll('#staff-profile-container .profile-tab-content').forEach(tab => {
-    tab.style.display = 'none';
+    tab.classList.remove('active');
   });
   
   document.querySelectorAll('#staff-profile-container .profile-tab-btn').forEach(btn => {
@@ -3166,7 +3296,7 @@ function switchStaffProfileTab(tabName, element) {
   
   const tabElement = document.getElementById('staff-profile-tab-' + tabName);
   if (tabElement) {
-    tabElement.style.display = 'block';
+    tabElement.classList.add('active');
   }
   
   element.classList.add('active');
@@ -3211,13 +3341,6 @@ function isValidEmail(email) {
 function formatDate(dateString) {
   const options = { year: 'numeric', month: 'long', day: 'numeric' };
   return new Date(dateString).toLocaleDateString('en-US', options);
-}
-
-function getUserRoleFromSession() {
-  // Replace with actual session/token validation
-  // This should come from your authentication system
-  const role = localStorage.getItem('userRole') || 'STAFF';
-  return role;
 }
 
 
@@ -3325,43 +3448,6 @@ function showStaffSecuritySuccess(message) {
   }
 }
 
-
-// ══════════════════════════════════════════════════════════════
-// LOGOUT & MODAL MANAGEMENT
-// ══════════════════════════════════════════════════════════════
-
-function handleLogout() {
-  openModal('logoutModal');
-}
- 
-async function logout() {
-  try {
-    const response = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include"
-    });
-    if (response.ok) {
-      window.location.href = "blood-request.html";
-    }
-  } catch (error) {
-    console.error("Logout error:", error);
-    window.location.href = "blood-request.html";
-  }
-}
-
-function openModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-    modal.style.display = 'flex';
-  }
-}
- 
-function closeModal(modalId) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-    modal.style.display = 'none';
-  }
-}
 
 
 // ══════════════════════════════════════════════════════════════

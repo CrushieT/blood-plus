@@ -2081,3 +2081,35 @@ body {
     border-color: rgba(255, 255, 255, 0.1);
   }
 }
+/* Profile Tab Content - Ensure proper visibility control */
+.profile-tab-content {
+  display: none !important;
+}
+ 
+.profile-tab-content.active {
+  display: block !important;
+}
+ 
+/* Make sure buttons work properly */
+.profile-tab-btn {
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+ 
+.profile-tab-btn.active {
+  color: var(--charcoal);
+  border-bottom-color: var(--crimson);
+  font-weight: 600;
+}
+ 
+
+/* Blood bank/analytics */
