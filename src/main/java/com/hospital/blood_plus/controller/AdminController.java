@@ -1,6 +1,7 @@
 package com.hospital.blood_plus.controller;
 
 import com.hospital.blood_plus.dto.request.AllocateRequestDTO;
+import com.hospital.blood_plus.dto.request.AnalyticsDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
@@ -21,6 +22,7 @@ import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.AdminProfileService;
+import com.hospital.blood_plus.service.AnalyticsService;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
 import com.hospital.blood_plus.service.DashboardService;
@@ -47,6 +49,7 @@ public class AdminController {
     private final HospitalService         hospitalService;
     private final DashboardService        dashboardService;
     private final AdminProfileService     adminProfileService;
+    private AnalyticsService              analyticsService;
 
     public AdminController(BloodBagService bloodBagService,
                            UserRepository userRepository,
@@ -54,7 +57,8 @@ public class AdminController {
                            HospitalService hospitalService,
                            StaffService staffService,
                            DashboardService dashboardService,
-                           AdminProfileService adminProfileService) {
+                           AdminProfileService adminProfileService,
+                           AnalyticsService analyticsService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
@@ -62,6 +66,7 @@ public class AdminController {
         this.hospitalService = hospitalService;
         this.dashboardService = dashboardService;
         this.adminProfileService = adminProfileService;
+        this.analyticsService = analyticsService;
     }
 
     // ── Dashboard ─────────────────────────────────────────────
@@ -315,6 +320,53 @@ public class AdminController {
             ));
         } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    //// ANALYTICS //////
+    /**
+     * Get all dashboard metrics
+     * 
+     * @return AnalyticsDTO containing all dashboard metrics
+     */
+    @GetMapping("/analytics")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    public ResponseEntity<AnalyticsDTO> getDashboardMetrics() {
+        try {
+            AnalyticsDTO metrics = analyticsService.getDashboardMetrics();
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
+        }
+    }
+ 
+    /**
+     * Health check endpoint for analytics service
+     * 
+     * @return Status message
+     */
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("Analytics service is running");
+    }
+ 
+    /**
+     * Refresh dashboard metrics (clears any caching if implemented)
+     * 
+     * @return Refreshed AnalyticsDTO
+     */
+    @PostMapping("/refresh")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AnalyticsDTO> refreshMetrics() {
+        try {
+            AnalyticsDTO metrics = analyticsService.getDashboardMetrics();
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
         }
     }
 

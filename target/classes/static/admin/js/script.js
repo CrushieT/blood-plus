@@ -889,8 +889,389 @@ async function submitAddBloodStock() {
 }
 
 // ANALYTICS
+  const AnalyticsDashboard = {
+  // API configuration
+  apiConfig: {
+    baseUrl: window.location.origin,
+    endpoint: '/api/admin/analytics',
+    refreshInterval: 30000 // 30 seconds
+  },
 
+  // Current data
+  data: null,
+  isLoading: false,
+  lastUpdate: null,
 
+  /**
+   * Initialize dashboard - fetch data and render
+   */
+  init: function() {
+    this.loadMetrics();
+    
+    // Setup auto-refresh
+    setInterval(() => {
+      this.loadMetrics();
+    }, this.apiConfig.refreshInterval);
+  },
+
+  /**
+   * Fetch metrics from backend API
+   */
+  loadMetrics: function() {
+    const self = this;
+    
+    if (this.isLoading) return;
+    this.isLoading = true;
+
+    fetch(`${this.apiConfig.baseUrl}${this.apiConfig.endpoint}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Analytics data received:', data);
+        self.data = data;
+        self.lastUpdate = new Date();
+        self.render();
+        self.isLoading = false;
+        // console.log('Analytics dashboard updated at:', self.lastUpdate);
+      })
+      .catch(error => {
+        console.error('Error fetching analytics data:', error);
+        self.isLoading = false;
+        // Show error state in UI
+        self.showErrorState();
+      });
+  },
+
+  /**
+   * Render all metrics to DOM
+   */
+  render: function() {
+    if (!this.data) return;
+
+    this.renderRequestStatus();
+    this.renderUrgency();
+    this.renderCategory();
+    this.renderBloodTypes();
+    this.renderDispatch();
+    this.renderAlerts();
+    this.renderRequesterType();
+    this.renderBloodComponents();
+    this.renderHospitals();
+    this.renderFulfillmentMetrics();
+  },
+
+  /**
+   * Render request status metrics
+   */
+  renderRequestStatus: function() {
+    const statuses = ['pending', 'approved', 'allocated', 'released', 'rejected'];
+    statuses.forEach(status => {
+      const el = document.querySelector(`[data-metric="request-${status}"]`);
+      if (el && this.data.requests) {
+        el.textContent = this.data.requests[status] || 0;
+      }
+    });
+  },
+
+  /**
+   * Render urgency breakdown with percentage bars
+   */
+  renderUrgency: function() {
+    if (!this.data.urgency) return;
+
+    const total = Object.values(this.data.urgency).reduce((a, b) => a + b, 0);
+
+    Object.entries(this.data.urgency).forEach(([level, count]) => {
+      const el = document.querySelector(`[data-metric="urgency-${level.toLowerCase()}"]`);
+      if (el) el.textContent = count;
+      
+      const barEl = document.querySelector(`[data-urgency="${level}"]`);
+      if (barEl) {
+        const percentage = total > 0 ? (count / total) * 100 : 0;
+        barEl.style.width = percentage + '%';
+        barEl.setAttribute('data-width', percentage.toFixed(1));
+      }
+    });
+  },
+
+  /**
+   * Render category breakdown with percentage bars
+   */
+  renderCategory: function() {
+    if (!this.data.category) return;
+
+    const total = Object.values(this.data.category).reduce((a, b) => a + b, 0);
+
+    Object.entries(this.data.category).forEach(([cat, count]) => {
+      const el = document.querySelector(`[data-metric="category-${cat.toLowerCase()}"]`);
+      if (el) el.textContent = count;
+      
+      const barEl = document.querySelector(`[data-category="${cat}"]`);
+      if (barEl) {
+        const percentage = total > 0 ? (count / total) * 100 : 0;
+        barEl.style.width = percentage + '%';
+      }
+    });
+  },
+
+  /**
+   * Render blood type inventory with smart status indicators
+   * Maps API keys (e.g., "O Positive") to DOM keys (e.g., "blood-o-pos")
+   */
+  renderBloodTypes: function() {
+    if (!this.data.bloodTypes) return;
+
+    // Map API blood type names to DOM element keys
+    const bloodTypeMap = {
+      'O Positive': 'o-pos',
+      'O Negative': 'o-neg',
+      'A Positive': 'a-pos',
+      'A Negative': 'a-neg',
+      'B Positive': 'b-pos',
+      'B Negative': 'b-neg',
+      'AB Positive': 'ab-pos',
+      'AB Negative': 'ab-neg'
+    };
+
+    Object.entries(bloodTypeMap).forEach(([apiKey, domKey]) => {
+      const count = this.data.bloodTypes[apiKey] || 0;
+      const el = document.querySelector(`[data-metric="blood-${domKey}"]`);
+      if (el) {
+        el.textContent = count;
+      }
+
+      // Determine status based on count
+      let status = 'Healthy';
+      let statusColor = 'var(--green)';
+      
+      if (count < 5) {
+        status = 'Critical';
+        statusColor = 'var(--crimson)';
+      } else if (count < 10) {
+        status = 'Low Stock';
+        statusColor = 'var(--amber)';
+      }
+
+      const statusEl = document.querySelector(`[data-status="blood-${domKey}-status"]`);
+      if (statusEl) {
+        statusEl.textContent = status;
+        statusEl.style.color = statusColor;
+      }
+    });
+  },
+
+  /**
+   * Render dispatch metrics
+   */
+  renderDispatch: function() {
+    if (!this.data.dispatch) return;
+
+    const dispatchTypes = ['USED', 'DISCARDED', 'TRANSFERRED'];
+    dispatchTypes.forEach(type => {
+      const el = document.querySelector(`[data-metric="dispatch-${type.toLowerCase()}"]`);
+      if (el) el.textContent = this.data.dispatch[type] || 0;
+    });
+  },
+
+  /**
+   * Render expiry and quality alerts
+   */
+  renderAlerts: function() {
+    if (!this.data.alerts) return;
+
+    const alertEl1 = document.querySelector('[data-metric="alert-expiring-soon"]');
+    if (alertEl1) alertEl1.textContent = this.data.alerts.expiringSoon || 0;
+
+    const alertEl2 = document.querySelector('[data-metric="alert-expired"]');
+    if (alertEl2) alertEl2.textContent = this.data.alerts.expired || 0;
+
+    const alertEl3 = document.querySelector('[data-metric="alert-quality-issues"]');
+    if (alertEl3) alertEl3.textContent = this.data.alerts.qualityIssues || 0;
+  },
+
+  /**
+   * Render requester type breakdown
+   */
+  renderRequesterType: function() {
+    if (!this.data.requesterType) return;
+
+    const hospital = this.data.requesterType.HOSPITAL || 0;
+    const anonymous = this.data.requesterType.ANONYMOUS || 0;
+    const total = hospital + anonymous;
+
+    const hospitalEl = document.querySelector('[data-metric="requester-hospital"]');
+    if (hospitalEl) hospitalEl.textContent = hospital;
+
+    const anonymousEl = document.querySelector('[data-metric="requester-anonymous"]');
+    if (anonymousEl) anonymousEl.textContent = anonymous;
+    
+    if (total > 0) {
+      const hospitalPctEl = document.querySelector('[data-metric="requester-hospital-pct"]');
+      if (hospitalPctEl) {
+        hospitalPctEl.textContent = Math.round((hospital / total) * 100) + '%';
+      }
+
+      const anonymousPctEl = document.querySelector('[data-metric="requester-anonymous-pct"]');
+      if (anonymousPctEl) {
+        anonymousPctEl.textContent = Math.round((anonymous / total) * 100) + '%';
+      }
+    }
+  },
+
+  /**
+   * Render blood component breakdown
+   * Maps API component names to DOM element keys
+   */
+  renderBloodComponents: function() {
+    if (!this.data.bloodComponent) return;
+
+    // Map API blood component names to DOM element keys
+    const componentMap = {
+      'WHOLE_BLOOD': 'whole-blood',
+      'PRBC': 'red-cells',
+      'LEUKOREDUCED_PRBC': 'red-cells',
+      'ALIQUOTED_PRBC': 'red-cells',
+      'FRESH_FROZEN_PLASMA': 'plasma',
+      'PLATELET_CONCENTRATE': 'platelets',
+      'CRYOPRECIPITATE': 'plasma',
+      'CRYOSUPERNATANT': 'plasma'
+    };
+
+    // Aggregate components by category
+    const aggregated = {
+      'whole-blood': 0,
+      'red-cells': 0,
+      'plasma': 0,
+      'platelets': 0
+    };
+
+    Object.entries(this.data.bloodComponent).forEach(([key, count]) => {
+      const category = componentMap[key];
+      if (category) {
+        aggregated[category] += count;
+      }
+    });
+
+    const total = Object.values(aggregated).reduce((a, b) => a + b, 0);
+
+    Object.entries(aggregated).forEach(([label, count]) => {
+      const el = document.querySelector(`[data-metric="component-${label}"]`);
+      if (el) el.textContent = count;
+
+      const pctEl = document.querySelector(`[data-metric="component-${label}-pct"]`);
+      if (pctEl) {
+        pctEl.textContent = total > 0 ? Math.round((count / total) * 100) + '%' : '0%';
+      }
+    });
+  },
+
+  /**
+   * Render top requesting hospitals
+   */
+  renderHospitals: function() {
+    if (!this.data.hospitals || this.data.hospitals.length === 0) {
+      return;
+    }
+
+    const container = document.getElementById('hospital-list');
+    if (!container) return;
+
+    container.innerHTML = this.data.hospitals.map((hospital, idx) => {
+      const fulfillmentRate = hospital.requests > 0 
+        ? Math.round((hospital.fulfilled / hospital.requests) * 100) 
+        : 0;
+      
+      const statusColor = fulfillmentRate >= 90 
+        ? 'var(--green)' 
+        : fulfillmentRate >= 70 
+          ? 'var(--amber)' 
+          : 'var(--crimson)';
+
+      return `
+        <div style="background:var(--cream);border-radius:10px;padding:12px;border-left:4px solid ${statusColor}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${this.escapeHtml(hospital.name)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${hospital.fulfilled}/${hospital.requests} fulfilled</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:16px;font-weight:700;color:var(--charcoal)">${fulfillmentRate}%</div>
+            </div>
+          </div>
+          <div style="height:4px;background:var(--cream);border-radius:2px;overflow:hidden">
+            <div style="height:100%;background:linear-gradient(90deg, var(--green), #10b981);width:${fulfillmentRate}%"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  /**
+   * Render fulfillment metrics
+   * Now shows average DAYS to release instead of hours
+   */
+  renderFulfillmentMetrics: function() {
+    if (!this.data.fulfillmentMetrics) return;
+
+    const metrics = this.data.fulfillmentMetrics;
+
+    // Fulfillment rate
+    const rateEl = document.querySelector('[data-metric="fulfillment-rate"]');
+    if (rateEl) {
+      rateEl.textContent = metrics.rate.toFixed(1) + '%';
+    }
+
+    // Progress bar
+    const barEl = document.querySelector('[data-metric-bar="fulfillment-rate"]');
+    if (barEl) {
+      barEl.style.width = metrics.rate + '%';
+    }
+
+    // Total released
+    const releasedEl = document.querySelector('[data-metric="total-released"]');
+    if (releasedEl) {
+      releasedEl.textContent = metrics.totalReleased;
+    }
+
+    // Average days to release (changed from hours)
+    const daysEl = document.querySelector('[data-metric="avg-fulfillment-days"]');
+    if (daysEl) {
+      daysEl.textContent = metrics.avgDaysToRelease.toFixed(1) + ' days';
+    }
+  },
+
+  /**
+   * Show error state when API fails
+   */
+  showErrorState: function() {
+    const elements = document.querySelectorAll('[data-metric]');
+    elements.forEach(el => {
+      el.textContent = 'Error';
+      el.style.color = 'var(--crimson)';
+    });
+  },
+
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml: function(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+};
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  AnalyticsDashboard.init();
+});
+
+// Expose for external access/debugging
+window.AnalyticsDashboard = AnalyticsDashboard;
 
 // ═══════════════════════════════════════════════════════
 // BLOOD REQUESTS

@@ -8,6 +8,7 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\controller\BloodRequestController.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\controller\HospitalController.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\AllocateRequestDTO.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\AnalyticsDTO.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\ApproveRequestDTO.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\BloodBagRequestDTO.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\request\BloodBankIntakeRequest.java
@@ -37,6 +38,7 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\StaffProfileRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\UserRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\AdminProfileService.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\AnalyticsService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\AppUserDetails.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\AppUserDetailsService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\BloodBagRequestService.java

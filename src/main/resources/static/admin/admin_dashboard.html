@@ -390,77 +390,377 @@
 
       <!-- TAB 3 — ANALYTICS -->
       <div id="bb-tab-analytics" style="display:none">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-header"><div class="card-title">Stock by Blood Type</div></div>
-            <div class="card-body">
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">O−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:30%"></div></div><div class="analytic-val">18</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">O+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:80%;background:var(--green)"></div></div><div class="analytic-val">48</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">A+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:65%;background:var(--green)"></div></div><div class="analytic-val">39</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">A−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:20%;background:var(--amber)"></div></div><div class="analytic-val">12</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">B+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:55%;background:var(--green)"></div></div><div class="analytic-val">33</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">B−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:15%;background:var(--amber)"></div></div><div class="analytic-val">9</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">AB+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:18%;background:var(--muted)"></div></div><div class="analytic-val">11</div></div>
-              <div class="analytic-row" style="margin-bottom:0"><div class="analytic-label" style="width:48px">AB−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:10%"></div></div><div class="analytic-val">6</div></div>
+      <!-- SECTION 1: REQUEST METRICS OVERVIEW -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Request Status Overview</div>
+          <span style="font-size:12px;color:var(--muted)">All blood bag requests across system</span>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px">
+            <!-- PENDING -->
+            <div style="background:var(--amber-light);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--amber)">
+              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Pending</div>
+              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--amber)" data-metric="request-pending">-</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px">Awaiting review</div>
+            </div>
+            
+            <!-- APPROVED -->
+            <div style="background:var(--green-light);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--green)">
+              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Approved</div>
+              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--green)" data-metric="request-approved">-</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px">Ready to allocate</div>
+            </div>
+            
+            <!-- ALLOCATED -->
+            <div style="background:#e3f2fd;border-radius:12px;padding:16px;text-align:center;border-left:4px solid #1976d2">
+              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Allocated</div>
+              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:#1976d2" data-metric="request-allocated">-</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px">Bags assigned</div>
+            </div>
+            
+            <!-- RELEASED -->
+            <div style="background:#f0f4ff;border-radius:12px;padding:16px;text-align:center;border-left:4px solid #7c3aed">
+              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Released</div>
+              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:#7c3aed" data-metric="request-released">-</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px">Delivered to hospital</div>
+            </div>
+            
+            <!-- REJECTED -->
+            <div style="background:var(--soft-red);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--crimson)">
+              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Rejected</div>
+              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--crimson)" data-metric="request-rejected">-</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px">Not approved</div>
             </div>
           </div>
-
-          <div class="card">
-            <div class="card-header"><div class="card-title">Requests Fulfilled</div></div>
-            <div class="card-body">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div style="background:var(--green-light);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--green)">34</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Approved</div>
+        </div>
+      </div>
+    
+      <!-- SECTION 2: CRITICAL REQUEST METRICS -->
+      <div class="grid-2">
+        <!-- URGENCY BREAKDOWN -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Requests by Urgency</div></div>
+          <div class="card-body">
+            <div class="analytic-row">
+              <div class="analytic-label" style="width:80px">CRITICAL</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:#dc2626" data-urgency="CRITICAL" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="urgency-critical">-</div>
+            </div>
+            <div class="analytic-row">
+              <div class="analytic-label" style="width:80px">HIGH</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:var(--amber)" data-urgency="HIGH" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="urgency-high">-</div>
+            </div>
+            <div class="analytic-row">
+              <div class="analytic-label" style="width:80px">MEDIUM</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:#3b82f6" data-urgency="MEDIUM" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="urgency-medium">-</div>
+            </div>
+            <div class="analytic-row" style="margin-bottom:0">
+              <div class="analytic-label" style="width:80px">LOW</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:var(--green)" data-urgency="LOW" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="urgency-low">-</div>
+            </div>
+          </div>
+        </div>
+    
+        <!-- REQUEST CATEGORY BREAKDOWN -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Requests by Category</div></div>
+          <div class="card-body">
+            <div class="analytic-row">
+              <div class="analytic-label" style="width:80px">EMERGENCY</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:#dc2626" data-category="EMERGENCY" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="category-emergency">-</div>
+            </div>
+            <div class="analytic-row">
+              <div class="analytic-label" style="width:80px">INPATIENT</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:#3b82f6" data-category="INPATIENT" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="category-inpatient">-</div>
+            </div>
+            <div class="analytic-row">
+              <div class="analytic-label" style="width:80px">OUTPATIENT</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:var(--green)" data-category="OUTPATIENT" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="category-outpatient">-</div>
+            </div>
+            <div class="analytic-row" style="margin-bottom:0">
+              <div class="analytic-label" style="width:80px">HOSPITAL</div>
+              <div class="analytic-bar-wrap">
+                <div class="analytic-bar" style="background:#9333ea" data-category="HOSPITAL" data-width="0"></div>
+              </div>
+              <div class="analytic-val" data-metric="category-hospital">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- SECTION 3: INVENTORY & STOCK -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Current Blood Type Inventory</div>
+          <span style="font-size:12px;color:var(--muted)">Available units in stock</span>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:12px">
+            <!-- O- -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#dc2626"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">O−</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-o-neg">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-o-neg-status">-</div>
+            </div>
+            
+            <!-- O+ -->
+            <div style="background:var(--green-light);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--green)"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">O+</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-o-pos">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-o-pos-status">-</div>
+            </div>
+            
+            <!-- A- -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--amber)"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">A−</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-a-neg">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-a-neg-status">-</div>
+            </div>
+            
+            <!-- A+ -->
+            <div style="background:var(--green-light);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--green)"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">A+</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-a-pos">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-a-pos-status">-</div>
+            </div>
+            
+            <!-- B- -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--amber)"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">B−</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-b-neg">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-b-neg-status">-</div>
+            </div>
+            
+            <!-- B+ -->
+            <div style="background:var(--green-light);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--green)"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">B+</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-b-pos">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-b-pos-status">-</div>
+            </div>
+            
+            <!-- AB- -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#6b7280"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">AB−</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-ab-neg">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-ab-neg-status">-</div>
+            </div>
+            
+            <!-- AB+ -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#6b7280"></div>
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">AB+</div>
+              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-ab-pos">-</div>
+              <div style="font-size:10px;color:var(--muted)">units</div>
+              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-ab-pos-status">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- SECTION 4: WASTAGE & DISPOSAL -->
+      <div class="grid-2">
+        <!-- DISPATCH OVERVIEW -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Bag Dispatch Summary</div>
+            <span style="font-size:12px;color:var(--muted)">Bags removed from inventory</span>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;gap:10px">
+              <div style="background:#fef2f2;border-radius:10px;padding:12px;border-left:4px solid #dc2626">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Used</span>
+                  <span style="font-size:20px;font-weight:700;color:#dc2626" data-metric="dispatch-used">-</span>
                 </div>
-                <div style="background:var(--soft-red);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--crimson)">6</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Rejected</div>
+              </div>
+              <div style="background:#fef3c7;border-radius:10px;padding:12px;border-left:4px solid var(--amber)">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Discarded</span>
+                  <span style="font-size:20px;font-weight:700;color:var(--amber)" data-metric="dispatch-discarded">-</span>
                 </div>
-                <div style="background:var(--amber-light);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--amber)">4</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Pending</div>
-                </div>
-                <div style="background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--charcoal)">44</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Total</div>
+              </div>
+              <div style="background:#f0fdf4;border-radius:10px;padding:12px;border-left:4px solid var(--green)">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Transferred</span>
+                  <span style="font-size:20px;font-weight:700;color:var(--green)" data-metric="dispatch-transferred">-</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
+    
+        <!-- EXPIRY & QUALITY ALERTS -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title">Bag Wastage Overview</div>
-            <span style="font-size:12px;color:var(--muted)">Expired + discarded bags this month</span>
+            <div class="card-title">Expiry & Quality Alerts</div>
+            <span style="font-size:12px;color:var(--muted)">Bags requiring attention</span>
           </div>
           <div class="card-body">
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-              <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--crimson)">O−</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--charcoal)">3</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
+            <div style="display:grid;gap:10px">
+              <div style="background:#fef2f2;border-radius:10px;padding:12px;border-left:4px solid #dc2626">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Expiring Soon (≤7 days)</span>
+                  <span style="font-size:20px;font-weight:700;color:#dc2626" data-metric="alert-expiring-soon">-</span>
+                </div>
               </div>
-              <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--charcoal)">A−</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--charcoal)">2</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
+              <div style="background:#fef3c7;border-radius:10px;padding:12px;border-left:4px solid var(--amber)">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Expired</span>
+                  <span style="font-size:20px;font-weight:700;color:var(--amber)" data-metric="alert-expired">-</span>
+                </div>
               </div>
-              <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--crimson)">AB−</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--charcoal)">1</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
-              </div>
-              <div style="background:var(--soft-red);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--crimson)">Total</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--crimson)">6</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
+              <div style="background:#fef2f2;border-radius:10px;padding:12px;border-left:4px solid #dc2626">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Quality Issues</span>
+                  <span style="font-size:20px;font-weight:700;color:#dc2626" data-metric="alert-quality-issues">-</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+    
+      <!-- SECTION 5: REQUEST FULFILLMENT METRICS -->
+      <div class="grid-2">
+        <!-- FULFILLMENT RATE -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Request Fulfillment Performance</div>
+            <span style="font-size:12px;color:var(--muted)">Based on released requests</span>
+          </div>
+          <div class="card-body">
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:12px;color:var(--muted)">Fulfillment Rate</span>
+                <span style="font-size:14px;font-weight:700;color:var(--charcoal)" data-metric="fulfillment-rate">-</span>
+              </div>
+              <div style="height:8px;background:var(--cream);border-radius:4px;overflow:hidden">
+                <div style="height:100%;background:linear-gradient(90deg, var(--green), #10b981);width:0%" data-metric-bar="fulfillment-rate"></div>
+              </div>
+            </div>
+    
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+              <div style="text-align:center">
+                <div style="font-size:20px;font-weight:700;color:var(--charcoal)" data-metric="total-released">-</div>
+                <div style="font-size:11px;color:var(--muted)">Total Released</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-size:20px;font-weight:700;color:var(--charcoal)" data-metric="avg-fulfillment-days">-</div>
+                <div style="font-size:11px;color:var(--muted)">Avg Days to Release</div>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+        <!-- REQUESTER TYPE BREAKDOWN -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Requests by Requester Type</div>
+            <span style="font-size:12px;color:var(--muted)">Hospital vs Anonymous</span>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div style="background:#e3f2fd;border-radius:10px;padding:16px;text-align:center">
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Hospital Requests</div>
+                <div style="font-size:28px;font-weight:700;color:#1976d2" data-metric="requester-hospital">-</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:6px" data-metric="requester-hospital-pct">-</div>
+              </div>
+              <div style="background:#f0fdf4;border-radius:10px;padding:16px;text-align:center">
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Anonymous Requests</div>
+                <div style="font-size:28px;font-weight:700;color:var(--green)" data-metric="requester-anonymous">-</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:6px" data-metric="requester-anonymous-pct">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- SECTION 6: BLOOD COMPONENT BREAKDOWN -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Requests by Blood Component</div>
+          <span style="font-size:12px;color:var(--muted)">Types of blood products requested</span>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px">
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Whole Blood</div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-whole-blood">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-whole-blood-pct">-</div>
+            </div>
+            
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Red Cells</div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-red-cells">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-red-cells-pct">-</div>
+            </div>
+            
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Plasma</div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-plasma">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-plasma-pct">-</div>
+            </div>
+            
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Platelets</div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-platelets">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-platelets-pct">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- SECTION 7: HOSPITAL PERFORMANCE -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Top Requesting Hospitals</div>
+          <span style="font-size:12px;color:var(--muted)">Hospitals with most active requests</span>
+        </div>
+        <div class="card-body">
+          <div id="hospital-list" style="display:grid;gap:10px">
+            <!-- Populated by JS from API -->
+            <div style="background:var(--cream);border-radius:10px;padding:12px;text-align:center;color:var(--muted);font-size:12px">
+              Loading hospital data...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     </div>
     <!-- END panel-bloodbank -->
 
