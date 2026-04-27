@@ -91,7 +91,12 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
     @Query("SELECT b FROM BloodBag b WHERE b.status = 'AVAILABLE' AND b.expiresAt > :now")
     List<BloodBag> findAllAvailable(@Param("now") LocalDateTime now);
  
-    long countByStatus(BloodBag.BagStatus status);
+    @Query("""
+    SELECT COUNT(b)
+    FROM BloodBag b
+    WHERE b.status = :status
+""")
+Long countByStatusCustom(@Param("status") BagStatus status);
  
     @Query("SELECT COUNT(b) FROM BloodBag b WHERE b.bloodType = :bloodType " +
            "AND b.status = 'AVAILABLE' AND b.expiresAt > :now")
@@ -146,4 +151,33 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
        "WHERE b.status = 'AVAILABLE' " +
        "GROUP BY b.bloodType")
 List<Object[]> getBloodBankCountByTypeQuery();
+
+    Long countByBloodTypeAndStatus(BloodType bloodType, BagStatus status);
+ 
+    @Query("""
+        SELECT COUNT(b)
+        FROM BloodBag b
+        WHERE b.expiresAt BETWEEN :now AND :soon
+        AND b.status = 'AVAILABLE'
+        """)
+    Long countExpiringSoon(
+        @Param("now") LocalDateTime now,
+        @Param("soon") LocalDateTime soon
+    );
+ 
+    @Query("""
+    SELECT COUNT(b)
+    FROM BloodBag b
+    WHERE b.expiresAt < CURRENT_TIMESTAMP
+    AND (b.status = 'AVAILABLE' OR b.status = 'EXPIRED')
+""")
+Long countExpired();
+ 
+    @Query("SELECT COUNT(b) FROM BloodBag b WHERE b.status = 'DISCARDED'")
+    Long countWithQualityIssues();
+ 
+    @Query("SELECT b FROM BloodBag b WHERE b.status = 'AVAILABLE' ORDER BY b.bloodType")
+    List<BloodBag> findAllAvailableBags();
+ 
+    boolean existsByBloodTypeAndStatus(BloodType bloodType, BagStatus status);
 }
