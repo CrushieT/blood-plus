@@ -4195,7 +4195,7 @@ function loggingUpdateSummary() {
 
     // Released requests
     const releasedCount = loggingState.statusLogs.filter(log => log.newStatus === 'RELEASED').length;
-    const pendingEl = document.getElementById('logging-released-count');
+    const releasedEl = document.getElementById('logging-released-count');
     if (releasedEl) {
       releasedEl.textContent = releasedCount;
     }
