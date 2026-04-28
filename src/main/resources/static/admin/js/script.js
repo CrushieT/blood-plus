@@ -931,7 +931,6 @@ async function submitAddBloodStock() {
         return response.json();
       })
       .then(data => {
-        console.log('Analytics data received:', data);
         self.data = data;
         self.lastUpdate = new Date();
         self.render();
@@ -3846,3 +3845,782 @@ function initializeProfileListeners() {
     }
   });
 }
+
+
+//////// LOGS PANEL //////
+// ═══════════════════════════════════════════════════════════════
+// LOGGING PANEL — COMPLETE JAVASCRIPT (FIXED)
+// ═══════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════
+// SAMPLE DATA
+// ═══════════════════════════════════════════════════════════════
+
+const SAMPLE_STATUS_LOGS = [
+  {
+    id: 1,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-10T08:15:00",
+    notes: "Request created from anonymous form"
+  },
+  {
+    id: 2,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-10T09:30:00",
+    notes: "Approved - patient hemoglobin level critical, units available"
+  },
+  {
+    id: 3,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "APPROVED",
+    newStatus: "ALLOCATED",
+    changedBy: { id: 203, fullName: "Blood Bank Staff" },
+    changedAt: "2024-01-10T10:15:00",
+    notes: "Allocated 2 units of O+ blood from inventory BAG-2024-001, BAG-2024-002"
+  },
+  {
+    id: 4,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "ALLOCATED",
+    newStatus: "READY_FOR_RELEASE",
+    changedBy: { id: 204, fullName: "Lab Technician" },
+    changedAt: "2024-01-10T11:00:00",
+    notes: "Blood bags passed quality checks and cross-match testing"
+  },
+  {
+    id: 5,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "READY_FOR_RELEASE",
+    newStatus: "RELEASED",
+    changedBy: { id: 205, fullName: "Nurse Johnson" },
+    changedAt: "2024-01-10T11:45:00",
+    notes: "Released to Ward 3 - received by Nurse Johnson"
+  },
+  {
+    id: 6,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-11T07:45:00",
+    notes: "Emergency request - STAT units needed"
+  },
+  {
+    id: 7,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-11T08:00:00",
+    notes: "STAT approval - emergency surgery scheduled"
+  },
+  {
+    id: 8,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "APPROVED",
+    newStatus: "ALLOCATED",
+    changedBy: { id: 203, fullName: "Blood Bank Staff" },
+    changedAt: "2024-01-11T08:10:00",
+    notes: "Emergency allocation: 4 units O+, 2 units A+, 2 units AB+"
+  },
+  {
+    id: 9,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "ALLOCATED",
+    newStatus: "READY_FOR_RELEASE",
+    changedBy: { id: 204, fullName: "Lab Technician" },
+    changedAt: "2024-01-11T08:25:00",
+    notes: "Expedited quality checks completed - ready for OR"
+  },
+  {
+    id: 10,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "READY_FOR_RELEASE",
+    newStatus: "RELEASED",
+    changedBy: { id: 206, fullName: "Dr. Anderson" },
+    changedAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 11,
+    request: { id: 103, referenceNumber: "REF-2024-0003" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-12T06:30:00",
+    notes: "Routine transfusion request for outpatient"
+  },
+  {
+    id: 12,
+    request: { id: 103, referenceNumber: "REF-2024-0003" },
+    oldStatus: "PENDING",
+    newStatus: "REJECTED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-12T07:15:00",
+    notes: "Insufficient clinical justification - patient hemoglobin level adequate for treatment"
+  },
+  {
+    id: 13,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-13T10:00:00",
+    notes: "Routine inpatient request - pediatric patient"
+  },
+  {
+    id: 14,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-13T10:45:00",
+    notes: "Approved - pediatric transfusion for anemia management"
+  },
+  {
+    id: 15,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    oldStatus: "APPROVED",
+    newStatus: "ALLOCATED",
+    changedBy: { id: 203, fullName: "Blood Bank Staff" },
+    changedAt: "2024-01-13T11:20:00",
+    notes: "Allocated 1 unit O+ PRBCs for pediatric use"
+  },
+  {
+    id: 16,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-14T14:20:00",
+    notes: "Platelets request for chemotherapy patient"
+  },
+  {
+    id: 17,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-14T14:50:00",
+    notes: "Approved - platelet count critical, units available"
+  }
+];
+
+const SAMPLE_FULFILLMENTS = [
+  {
+    id: 1,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    bloodBag: { id: 1001, bagNumber: "BAG-2024-001", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 205, fullName: "Nurse Johnson" },
+    fulfilledAt: "2024-01-10T11:45:00",
+    notes: "Released to Ward 3 - received by Nurse Johnson"
+  },
+  {
+    id: 2,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    bloodBag: { id: 1002, bagNumber: "BAG-2024-002", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 205, fullName: "Nurse Johnson" },
+    fulfilledAt: "2024-01-10T11:45:00",
+    notes: "Released to Ward 3 - received by Nurse Johnson"
+  },
+  {
+    id: 3,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1003, bagNumber: "BAG-2024-003", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 4,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1004, bagNumber: "BAG-2024-004", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 5,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1005, bagNumber: "BAG-2024-005", bloodType: "A+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 6,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1006, bagNumber: "BAG-2024-006", bloodType: "A+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 7,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1007, bagNumber: "BAG-2024-007", bloodType: "AB+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 8,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1008, bagNumber: "BAG-2024-008", bloodType: "AB+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 9,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    bloodBag: { id: 1009, bagNumber: "BAG-2024-009", bloodType: "O+", componentType: "PRBCs" },
+    fulfilledBy: { id: 207, fullName: "Pediatric Nurse Lee" },
+    fulfilledAt: "2024-01-13T12:00:00",
+    notes: "Released to Pediatric Ward - received by Nurse Lee"
+  },
+  {
+    id: 10,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    bloodBag: { id: 1010, bagNumber: "BAG-2024-010", bloodType: "A+", componentType: "PLATELETS" },
+    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
+    fulfilledAt: "2024-01-14T15:30:00",
+    notes: "Released to Oncology Ward - chemotherapy patient"
+  },
+  {
+    id: 11,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    bloodBag: { id: 1011, bagNumber: "BAG-2024-011", bloodType: "A+", componentType: "PLATELETS" },
+    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
+    fulfilledAt: "2024-01-14T15:30:00",
+    notes: "Released to Oncology Ward - chemotherapy patient"
+  },
+  {
+    id: 12,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    bloodBag: { id: 1012, bagNumber: "BAG-2024-012", bloodType: "A+", componentType: "PLATELETS" },
+    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
+    fulfilledAt: "2024-01-14T15:30:00",
+    notes: "Released to Oncology Ward - chemotherapy patient"
+  }
+];
+
+// ═══════════════════════════════════════════════════════════════
+// STATE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+const loggingState = {
+  statusLogs: [],
+  fulfillments: [],
+  statusLogsPage: 1,
+  fulfillmentsPage: 1,
+  itemsPerPage: 10,
+  currentTab: 'status-logs'
+};
+
+// ═══════════════════════════════════════════════════════════════
+// INITIALIZATION & LOADING
+// ═══════════════════════════════════════════════════════════════
+
+function initializeLoggingPanel() {
+  // console.log('📊 Initializing Logging Panel...');
+  
+  // Check if elements exist
+  const requiredElements = [
+    'logging-fulfillments-count',
+    'logging-status-changes-count',
+    'logging-pending-requests-count',
+    'logging-released-count',
+    'logging-status-tbody',
+    'logging-fulfillment-tbody'
+  ];
+  
+  const missingElements = requiredElements.filter(id => !document.getElementById(id));
+  
+  if (missingElements.length > 0) {
+    console.error('❌ Missing HTML elements:', missingElements);
+    console.error('Make sure logging-panel.html is included in your page');
+    return;
+  }
+  
+  // Load sample data
+  loggingState.statusLogs = JSON.parse(JSON.stringify(SAMPLE_STATUS_LOGS));
+  loggingState.fulfillments = JSON.parse(JSON.stringify(SAMPLE_FULFILLMENTS));
+  
+  
+  
+  // Reset pagination
+  loggingState.statusLogsPage = 1;
+  loggingState.fulfillmentsPage = 1;
+  
+  // Update UI
+  loggingUpdateSummary();
+  loggingStatusRender();
+  
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUMMARY STATS
+// ═══════════════════════════════════════════════════════════════
+
+function loggingUpdateSummary() {
+  try {
+    // Total fulfillments
+    const totalFulfillments = loggingState.fulfillments.length;
+    const fulfillmentsEl = document.getElementById('logging-fulfillments-count');
+    if (fulfillmentsEl) {
+      fulfillmentsEl.textContent = totalFulfillments;
+    }
+
+    // Total status changes
+    const totalStatusChanges = loggingState.statusLogs.length;
+    const statusChangesEl = document.getElementById('logging-status-changes-count');
+    if (statusChangesEl) {
+      statusChangesEl.textContent = totalStatusChanges;
+    }
+
+    // Pending requests
+    const pendingCount = loggingState.statusLogs.filter(log => log.newStatus === 'PENDING').length;
+    const pendingEl = document.getElementById('logging-pending-requests-count');
+    if (pendingEl) {
+      pendingEl.textContent = pendingCount;
+    }
+
+    // Released requests
+    const releasedCount = loggingState.statusLogs.filter(log => log.newStatus === 'RELEASED').length;
+    const pendingEl = document.getElementById('logging-released-count');
+    if (releasedEl) {
+      releasedEl.textContent = releasedCount;
+    }
+  } catch (error) {
+    console.error('Error updating summary:', error);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+
+function switchLoggingTab(tabName, element) {
+  
+  // Hide all tabs
+  document.querySelectorAll('.logging-tab-content').forEach(tab => {
+    tab.style.display = 'none';
+  });
+
+  // Remove active class from all buttons
+  document.querySelectorAll('.logging-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // Show selected tab
+  const tabElement = document.getElementById(`logging-${tabName}-tab`);
+  if (tabElement) {
+    tabElement.style.display = 'block';
+  } else {
+    console.error('Tab not found:', `logging-${tabName}-tab`);
+  }
+  
+  element.classList.add('active');
+  loggingState.currentTab = tabName;
+
+  // Render appropriate data
+  if (tabName === 'status-logs') {
+    loggingStatusRender();
+  } else {
+    loggingFulfillmentRender();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATUS LOGS — FILTERING & RENDERING
+// ═══════════════════════════════════════════════════════════════
+
+function getFilteredStatusLogs() {
+  const searchEl = document.getElementById('logging-status-search');
+  const statusFilterEl = document.getElementById('logging-status-filter-status');
+  const sortEl = document.getElementById('logging-status-sort');
+
+  const search = searchEl ? searchEl.value.toLowerCase() : '';
+  const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
+  const sort = sortEl ? sortEl.value : 'date_desc';
+  let filtered = loggingState.statusLogs.filter(log => {
+    const matchSearch = !search || 
+      String(log.request?.id || '').includes(search) ||
+      (log.request?.referenceNumber || '').toLowerCase().includes(search);
+
+    const matchStatus = statusFilter === 'ALL' || log.newStatus === statusFilter;
+
+    return matchSearch && matchStatus;
+  });
+
+  // Sort
+  if (sort === 'date_desc') {
+    filtered.sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt));
+  } else if (sort === 'date_asc') {
+    filtered.sort((a, b) => new Date(a.changedAt) - new Date(b.changedAt));
+  } else if (sort === 'request_id') {
+    filtered.sort((a, b) => (a.request?.id || 0) - (b.request?.id || 0));
+  }
+
+  return filtered;
+}
+
+function loggingStatusRender() {
+  try {
+    const filtered = getFilteredStatusLogs();
+    const pageSize = loggingState.itemsPerPage;
+    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+    const startIdx = (loggingState.statusLogsPage - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const pageData = filtered.slice(startIdx, endIdx);
+
+    const tbody = document.getElementById('logging-status-tbody');
+    const empty = document.getElementById('logging-status-empty');
+
+    if (!tbody) {
+      console.error('❌ logging-status-tbody element not found');
+      return;
+    }
+
+    tbody.innerHTML = '';
+
+    if (pageData.length === 0) {
+      if (empty) empty.style.display = 'block';
+      console.log('No status logs to display');
+    } else {
+      if (empty) empty.style.display = 'none';
+      pageData.forEach(log => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>#${log.request?.id || 'N/A'}</strong></td>
+          <td>${log.request?.referenceNumber || '—'}</td>
+          <td><span class="status-badge" style="background:#E8F0FF;color:#0066CC">${log.oldStatus || '—'}</span></td>
+          <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus}</span></td>
+          <td>${log.changedBy?.fullName || 'System'}</td>
+          <td>${formatDateTime(log.changedAt)}</td>
+          <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '—'}</td>
+          <td>
+            <button class="btn-ghost" onclick="viewStatusLogDetail(${log.id})" style="padding:4px 8px;font-size:11px">View</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Update pagination
+    const showingEl = document.getElementById('logging-status-showing');
+    const pageLabelEl = document.getElementById('logging-status-page-label');
+    const prevEl = document.getElementById('logging-status-prev');
+    const nextEl = document.getElementById('logging-status-next');
+    const resultsEl = document.getElementById('logging-status-results-info');
+
+    if (showingEl) showingEl.textContent = `Showing ${startIdx + 1}–${Math.min(endIdx, filtered.length)} of ${filtered.length}`;
+    if (pageLabelEl) pageLabelEl.textContent = `${loggingState.statusLogsPage} / ${totalPages}`;
+    if (prevEl) prevEl.disabled = loggingState.statusLogsPage === 1;
+    if (nextEl) nextEl.disabled = loggingState.statusLogsPage >= totalPages;
+    if (resultsEl) resultsEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+  } catch (error) {
+    console.error('Error rendering status logs:', error);
+  }
+}
+
+function loggingStatusPrevPage() {
+  if (loggingState.statusLogsPage > 1) {
+    loggingState.statusLogsPage--;
+    loggingStatusRender();
+  }
+}
+
+function loggingStatusNextPage() {
+  const filtered = getFilteredStatusLogs();
+  const totalPages = Math.ceil(filtered.length / loggingState.itemsPerPage) || 1;
+  if (loggingState.statusLogsPage < totalPages) {
+    loggingState.statusLogsPage++;
+    loggingStatusRender();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FULFILLMENTS — FILTERING & RENDERING
+// ═══════════════════════════════════════════════════════════════
+
+function getFilteredFulfillments() {
+  const searchEl = document.getElementById('logging-fulfillment-search');
+  const dateFromEl = document.getElementById('logging-fulfillment-date-from');
+  const dateToEl = document.getElementById('logging-fulfillment-date-to');
+  const sortEl = document.getElementById('logging-fulfillment-sort');
+
+  const search = searchEl ? searchEl.value.toLowerCase() : '';
+  const dateFrom = dateFromEl ? dateFromEl.value : '';
+  const dateTo = dateToEl ? dateToEl.value : '';
+  const sort = sortEl ? sortEl.value : 'date_desc';
+
+  let filtered = loggingState.fulfillments.filter(fulfillment => {
+    const matchSearch = !search || 
+      String(fulfillment.request?.id || '').includes(search) ||
+      String(fulfillment.bloodBag?.bagNumber || '').includes(search);
+
+    const fulfilledDate = new Date(fulfillment.fulfilledAt);
+    const matchDateFrom = !dateFrom || fulfilledDate >= new Date(dateFrom);
+    const matchDateTo = !dateTo || fulfilledDate <= new Date(dateTo);
+
+    return matchSearch && matchDateFrom && matchDateTo;
+  });
+
+  // Sort
+  if (sort === 'date_desc') {
+    filtered.sort((a, b) => new Date(b.fulfilledAt) - new Date(a.fulfilledAt));
+  } else if (sort === 'date_asc') {
+    filtered.sort((a, b) => new Date(a.fulfilledAt) - new Date(b.fulfilledAt));
+  } else if (sort === 'request_id') {
+    filtered.sort((a, b) => (a.request?.id || 0) - (b.request?.id || 0));
+  }
+
+  return filtered;
+}
+
+function loggingFulfillmentRender() {
+  try {
+    const filtered = getFilteredFulfillments();
+    const pageSize = loggingState.itemsPerPage;
+    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+    const startIdx = (loggingState.fulfillmentsPage - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const pageData = filtered.slice(startIdx, endIdx);
+
+    const tbody = document.getElementById('logging-fulfillment-tbody');
+    const empty = document.getElementById('logging-fulfillment-empty');
+
+    if (!tbody) {
+      console.error('❌ logging-fulfillment-tbody element not found');
+      return;
+    }
+
+    tbody.innerHTML = '';
+
+    if (pageData.length === 0) {
+      if (empty) empty.style.display = 'block';
+      console.log('No fulfillments to display');
+    } else {
+      if (empty) empty.style.display = 'none';
+      pageData.forEach(fulfillment => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>#${fulfillment.request?.id || 'N/A'}</strong></td>
+          <td><strong>${fulfillment.bloodBag?.bagNumber || 'N/A'}</strong></td>
+          <td>${fulfillment.bloodBag?.bloodType || '—'}</td>
+          <td>${fulfillment.bloodBag?.componentType || '—'}</td>
+          <td>${fulfillment.fulfilledBy?.fullName || 'System'}</td>
+          <td>${formatDateTime(fulfillment.fulfilledAt)}</td>
+          <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${fulfillment.notes || '—'}</td>
+          <td>
+            <button class="btn-ghost" onclick="viewFulfillmentDetail(${fulfillment.id})" style="padding:4px 8px;font-size:11px">View</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Update pagination
+    const showingEl = document.getElementById('logging-fulfillment-showing');
+    const pageLabelEl = document.getElementById('logging-fulfillment-page-label');
+    const prevEl = document.getElementById('logging-fulfillment-prev');
+    const nextEl = document.getElementById('logging-fulfillment-next');
+    const resultsEl = document.getElementById('logging-fulfillment-results-info');
+
+    if (showingEl) showingEl.textContent = `Showing ${startIdx + 1}–${Math.min(endIdx, filtered.length)} of ${filtered.length}`;
+    if (pageLabelEl) pageLabelEl.textContent = `${loggingState.fulfillmentsPage} / ${totalPages}`;
+    if (prevEl) prevEl.disabled = loggingState.fulfillmentsPage === 1;
+    if (nextEl) nextEl.disabled = loggingState.fulfillmentsPage >= totalPages;
+    if (resultsEl) resultsEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+  } catch (error) {
+    console.error('Error rendering fulfillments:', error);
+  }
+}
+
+function loggingFulfillmentPrevPage() {
+  if (loggingState.fulfillmentsPage > 1) {
+    loggingState.fulfillmentsPage--;
+    loggingFulfillmentRender();
+  }
+}
+
+function loggingFulfillmentNextPage() {
+  const filtered = getFilteredFulfillments();
+  const totalPages = Math.ceil(filtered.length / loggingState.itemsPerPage) || 1;
+  if (loggingState.fulfillmentsPage < totalPages) {
+    loggingState.fulfillmentsPage++;
+    loggingFulfillmentRender();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DETAIL VIEWS & ACTIONS
+// ═══════════════════════════════════════════════════════════════
+
+function viewStatusLogDetail(logId) {
+  const log = loggingState.statusLogs.find(l => l.id === logId);
+  if (!log) {
+    console.error('Log not found:', logId);
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="width:90%;max-width:500px">
+      <div class="modal-header">
+        <h3>Status Change Details</h3>
+        <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
+      </div>
+      <div class="modal-body" style="padding:20px">
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Request ID</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">#${log.request?.id || 'N/A'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Reference Number</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">${log.request?.referenceNumber || '—'}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px">
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">Old Status</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.oldStatus || '—'}</div>
+          </div>
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">New Status</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.newStatus}</div>
+          </div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Changed By</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.changedBy?.fullName || 'System'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Changed At</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${formatDateTime(log.changedAt)}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Notes</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px;background:var(--bg-light);padding:12px;border-radius:4px;min-height:80px">${log.notes || '—'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function viewFulfillmentDetail(fulfillmentId) {
+  const fulfillment = loggingState.fulfillments.find(f => f.id === fulfillmentId);
+  if (!fulfillment) {
+    console.error('Fulfillment not found:', fulfillmentId);
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="width:90%;max-width:550px">
+      <div class="modal-header">
+        <h3>Fulfillment Details</h3>
+        <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
+      </div>
+      <div class="modal-body" style="padding:20px">
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Request ID</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">#${fulfillment.request?.id || 'N/A'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Blood Bag Number</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px;font-family:monospace">${fulfillment.bloodBag?.bagNumber || 'N/A'}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px">
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">Blood Type</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.bloodBag?.bloodType || '—'}</div>
+          </div>
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">Component</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.bloodBag?.componentType || '—'}</div>
+          </div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Fulfilled By</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.fulfilledBy?.fullName || 'System'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Fulfilled At</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${formatDateTime(fulfillment.fulfilledAt)}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Notes</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px;background:var(--bg-light);padding:12px;border-radius:4px;min-height:80px">${fulfillment.notes || '—'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════
+
+function exportLogs() {
+  const statusLogs = getFilteredStatusLogs();
+  const fulfillments = getFilteredFulfillments();
+
+  let csvContent = 'data:text/csv;charset=utf-8,';
+
+  // Status Logs
+  csvContent += 'REQUEST ID,REFERENCE #,OLD STATUS,NEW STATUS,CHANGED BY,CHANGED AT,NOTES\n';
+  statusLogs.forEach(log => {
+    csvContent += `${log.request?.id || ''},${log.request?.referenceNumber || ''},${log.oldStatus || ''},${log.newStatus},${log.changedBy?.fullName || 'System'},${log.changedAt},"${(log.notes || '').replace(/"/g, '""')}"\n`;
+  });
+
+  csvContent += '\n\nREQUEST ID,BLOOD BAG ID,BLOOD TYPE,COMPONENT,FULFILLED BY,FULFILLED AT,NOTES\n';
+  fulfillments.forEach(f => {
+    csvContent += `${f.request?.id || ''},${f.bloodBag?.bagNumber || ''},${f.bloodBag?.bloodType || ''},${f.bloodBag?.componentType || ''},${f.fulfilledBy?.fullName || 'System'},${f.fulfilledAt},"${(f.notes || '').replace(/"/g, '""')}"\n`;
+  });
+
+  const link = document.createElement('a');
+  link.setAttribute('href', encodeURI(csvContent));
+  link.setAttribute('download', `blood-bank-logs-${new Date().toISOString().split('T')[0]}.csv`);
+  link.click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+function formatDateTime(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatDate(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+initializeLoggingPanel()
