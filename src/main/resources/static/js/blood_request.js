@@ -342,6 +342,10 @@ var CATEGORY_LABELS_R = {
   INPATIENT: 'Inpatient (CNPH)', OUTPATIENT: 'Outpatient', EMERGENCY: 'Emergency'
 };
 
+var REQUEST_TYPE_LABELS_R = {
+  STAT: 'STAT (Emergency)', ROUTINE: 'Routine'
+};
+
 function reviewRow(l, v) {
   return '<div class="review-row"><span class="lbl">' + l + '</span><span class="val">' + (v || '—') + '</span></div>';
 }
@@ -386,10 +390,10 @@ function buildReview() {
   const reactionDate = document.getElementById('f-reactionDate').value;
 
   let clinicalHtml = '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Clinical Information</div>';
-  clinicalHtml += reviewRow('Request Type', reqType);
-  if (diagnosis) clinicalHtml += reviewRow('Diagnosis', diagnosis);
+  clinicalHtml += reviewRow('Request Type', REQUEST_TYPE_LABELS_R[reqType] || reqType);
+  if (diagnosis) clinicalHtml += reviewRow('Diagnosis/Clinical Impression', diagnosis);
   if (hemoglobin) clinicalHtml += reviewRow('Hemoglobin (g/L)', hemoglobin);
-  if (hematocrit) clinicalHtml += reviewRow('Hematocrit (%)', hematocrit);
+  if (hematocrit) clinicalHtml += reviewRow('Hematocrit (%)', (parseFloat(hematocrit) * 100).toFixed(1));
   clinicalHtml += reviewRow('Previous Transfusion', prevTrans);
   if (prevTrans === 'YES') {
     if (prevTransDate) clinicalHtml += reviewRow('  When', prevTransDate);
@@ -486,11 +490,11 @@ function getRadioVal(name) {
   return checked ? checked.value : '';
 }
 
-// ── Submit (NO BACKEND QUERY - Just show in console) ─────────────
+// ── Submit with NEW PDF FIELDS ─────────────────────────────────
 async function submitRequest() {
   hideError();
 
-  // Gather all form data (NOT sent to backend yet)
+  // Gather all form data
   const patientName   = document.getElementById('f-patientName').value.trim();
   const age           = document.getElementById('f-age').value;
   const sex           = document.getElementById('f-sex').value;
@@ -509,68 +513,65 @@ async function submitRequest() {
   const contact       = document.getElementById('f-contact').value.trim();
   const email         = document.getElementById('f-email').value.trim();
 
-  // Clinical data
-  const diagnosis     = document.getElementById('f-diagnosis').value.trim();
-  const hemoglobin    = document.getElementById('f-hemoglobin').value;
-  const hematocrit    = document.getElementById('f-hematocrit').value;
-  const requestType   = getRadioVal('requestType');
-  const prevTransfusion = getRadioVal('prevTransfusion');
-  const prevTransDate = document.getElementById('f-prevTransDate').value;
-  const prevUnits     = document.getElementById('f-prevUnits').value;
-  const prevReaction  = getRadioVal('prevReaction');
-  const reactionDate  = document.getElementById('f-reactionDate').value;
-  const reactionDetails = document.getElementById('f-reactionDetails').value.trim();
+  // ── NEW PDF FIELDS ──
+  const diagnosis           = document.getElementById('f-diagnosis').value.trim();
+  const hemoglobin          = document.getElementById('f-hemoglobin').value;
+  const hematocrit          = document.getElementById('f-hematocrit').value;
+  const requestType         = getRadioVal('requestType');
+  const prevTransfusion     = getRadioVal('prevTransfusion');
+  const prevTransDate       = document.getElementById('f-prevTransDate').value;
+  const prevUnits           = document.getElementById('f-prevUnits').value;
+  const prevReaction        = getRadioVal('prevReaction');
+  const reactionDate        = document.getElementById('f-reactionDate').value;
+  const reactionDetails     = document.getElementById('f-reactionDetails').value.trim();
 
   // Indications
   const indications = getSelectedIndications();
+  const indicationCodes = indications.map(ind => ind.code).join(',');
 
-  // Build complete data object (for display only)
+  // Build complete data object
   const completeData = {
     // Patient
-    patientName:           patientName,
-    patientAge:            parseInt(age),
-    patientSex:            sex,
-    wardRoom:              ward,
-    requestingPhysician:   physician,
-    ageGroup:              ageGroup,
-    requestCategory:       category,
+    patientName:                patientName,
+    patientAge:                 parseInt(age),
+    patientSex:                 sex,
+    wardRoom:                   ward || null,
+    requestingPhysician:        physician,
+    ageGroup:                   ageGroup,
+    requestCategory:            category,
     
     // Blood
-    bloodType:             bloodType,
-    bloodComponent:        component,
-    numberOfUnits:         parseInt(units),
-    urgencyLevel:          urgency,
-    requiredBy:            requiredBy || null,
+    bloodType:                  bloodType,
+    bloodComponent:             component,
+    numberOfUnits:              parseInt(units),
+    urgencyLevel:               urgency,
+    requiredBy:                 requiredBy || null,
     
-    // Clinical
-    diagnosis:             diagnosis || null,
-    hemoglobin:            hemoglobin ? parseFloat(hemoglobin) : null,
-    hematocrit:            hematocrit ? parseFloat(hematocrit) : null,
-    requestType:           requestType,
+    // Clinical (NEW PDF FIELDS)
+    clinicalImpression:         diagnosis || null,
+    hemoglobin:                 hemoglobin ? parseFloat(hemoglobin) : null,
+    hematocrit:                 hematocrit ? parseFloat(hematocrit) : null,
+    requestType:                requestType || 'ROUTINE',
     
-    // Transfusion History
-    prevTransfusion:       prevTransfusion,
-    previousTransfusionDate: prevTransDate || null,
-    previousUnitsTransfused: prevUnits ? parseInt(prevUnits) : null,
+    // Transfusion History (NEW PDF FIELDS)
+    previousTransfusionHistory: prevTransfusion + (prevTransDate ? ` on ${prevTransDate}${prevUnits ? `, ${prevUnits} units` : ''}` : '') || null,
     
-    // Reaction History
-    previousReaction:      prevReaction,
-    previousReactionDate:  reactionDate || null,
-    reactionDetails:       reactionDetails || null,
+    // Reaction History (NEW PDF FIELDS)
+    previousReactionHistory:    prevReaction + (reactionDate ? ` on ${reactionDate}${reactionDetails ? `, ${reactionDetails}` : ''}` : '') || null,
     
-    // Indications
-    indications:           indications,
+    // Indication (NEW PDF FIELD)
+    indication:                 indicationCodes || null,
     
     // Contact & Notes
-    requesterName:         requesterName,
-    requesterRelationship: relationship,
-    requesterContact:      contact,
-    requesterEmail:        email,
-    notes:                 notes
+    requesterName:              requesterName,
+    requesterRelationship:      relationship || null,
+    requesterContact:           contact,
+    requesterEmail:             email,
+    notes:                       notes || null
   };
 
-  // Log to console (for development/testing)
-  console.log('=== COMPLETE FORM DATA (NOT SENT TO BACKEND YET) ===');
+  // Log to console for development
+  console.log('=== FORM DATA (ABOUT TO SEND) ===');
   console.log(JSON.stringify(completeData, null, 2));
   console.log('=== FILE ATTACHED ===');
   console.log(selectedFile ? `${selectedFile.name} (${selectedFile.size} bytes)` : 'No file');
@@ -580,34 +581,44 @@ async function submitRequest() {
   btn.textContent = 'Submitting…';
 
   try {
-    // TEMPORARILY: Just show success (not sending to backend)
-    // When ready to send to backend, uncomment the fetch below and remove the setTimeout
-    
-    // FUTURE BACKEND CALL (commented out):
-    /*
+    // Send to backend
     const formData = new FormData();
     formData.append('data', new Blob([JSON.stringify(completeData)], { type: 'application/json' }));
-    formData.append('doctorsNote', selectedFile);
+    if (selectedFile) {
+      formData.append('doctorsNote', selectedFile);
+    }
 
-    const res = await fetch('/api/req/blood-requests', { method: 'POST', body: formData });
+    const res = await fetch('/api/req/blood-requests', { 
+      method: 'POST', 
+      body: formData 
+    });
     const json = await res.json();
 
     if (!res.ok) {
       showError(json.error || 'Submission failed. Please try again.');
       return;
     }
-    */
 
-    // Simulate success after 1 second
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Generate a mock reference number
-    const mockRefNum = 'BR-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 100000)).padStart(5, '0');
+    // Success response
+    const mockRefNum = json.referenceNumber || ('BR-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 100000)).padStart(5, '0'));
 
     document.getElementById('request-form-body').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
     document.getElementById('success-ref').textContent = mockRefNum;
     document.getElementById('success-email').textContent = email;
+
+    // Store for tracker
+    sessionStorage.setItem(mockRefNum, JSON.stringify({
+      refNum: mockRefNum,
+      patientName: patientName,
+      bloodType: bloodType,
+      component: component,
+      urgency: urgency,
+      units: units,
+      physician: physician,
+      status: 'PENDING',
+      submittedAt: new Date().toISOString()
+    }));
 
   } catch (err) {
     showError('Error processing request. Please try again.');
@@ -687,9 +698,12 @@ const URGENCY_LABELS = {
 const STATUS_CFG = {
   PENDING:    { label:'Pending Review',       badge:'status-pending',   step:1 },
   APPROVED:   { label:'Approved',             badge:'status-approved',  step:2 },
-  RELEASED:   { label:'Ready for Pickup',     badge:'status-released',  step:3 },
+  ALLOCATED:  { label:'Allocated',            badge:'status-approved',  step:2 },
+  READY_FOR_RELEASE: { label:'Ready for Pickup', badge:'status-released', step:3 },
+  RELEASED:   { label:'Released',             badge:'status-released',  step:3 },
   TRANSFUSED: { label:'Transfused',           badge:'status-transfused',step:4 },
   REJECTED:   { label:'Rejected',             badge:'status-rejected',  step:-1 },
+  CANCELLED:  { label:'Cancelled',            badge:'status-cancelled', step:-1 }
 };
 
 // Demo data for testing tracker
@@ -741,19 +755,20 @@ async function trackRequest() {
       bloodType:       api.bloodType,
       component:       api.bloodComponent,
       urgency:         api.urgencyLevel,
-      physician:       api.physician,
+      physician:       api.requestingPhysician,
       units:           api.numberOfUnits || 0,
       patientName:     api.patientName,
       submittedAt:     api.requestedAt,
       approvedAt:      api.reviewedAt,
-      releasedAt:      api.releasedAt,
-      transfusedAt:    api.transfusedAt,
+      releasedAt:      null, // Will be added in future updates
+      transfusedAt:    null,
       adminNotes:      api.notes,
       rejectionReason: api.rejectionReason
     };
   } catch (err) {
+    // Fall back to demo or session storage
     data = DEMO_REQUESTS[refNum] ||
-      JSON.parse(sessionStorage.getItem(refNum) || 'null');
+      (sessionStorage.getItem(refNum) ? JSON.parse(sessionStorage.getItem(refNum)) : null);
   }
 
   if (!data) {
@@ -793,7 +808,7 @@ async function trackRequest() {
 
   function timelineItem(idx, step) {
     const stepNum = idx + 1;
-    if (data.status === 'REJECTED') {
+    if (data.status === 'REJECTED' || data.status === 'CANCELLED') {
       if (stepNum > 2) return '';
       const isDone    = stepNum === 1;
       return `
@@ -803,7 +818,7 @@ async function trackRequest() {
             ${stepNum < 2 ? `<div class="tl-line pending"></div>` : ''}
           </div>
           <div class="tl-content">
-            <div class="tl-label">Request Rejected</div>
+            <div class="tl-label">Request ${data.status}</div>
             ${data.rejectionReason ? `<div class="tl-time">${data.rejectionReason}</div>` : ''}
           </div>
         </div>`;
@@ -848,11 +863,11 @@ async function trackRequest() {
       <div class="track-info-grid">
         <div class="track-info-cell">
           <div class="track-info-label">Blood Type</div>
-          <div class="track-info-val">${data.bloodType}</div>
+          <div class="track-info-val">${BLOOD_LABELS[data.bloodType] || data.bloodType}</div>
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Component</div>
-          <div class="track-info-val">${data.component}</div>
+          <div class="track-info-val">${COMPONENT_LABELS[data.component] || data.component}</div>
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Units</div>
@@ -860,7 +875,7 @@ async function trackRequest() {
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Urgency</div>
-          <div class="track-info-val">${data.urgency}</div>
+          <div class="track-info-val">${URGENCY_LABELS[data.urgency] || data.urgency}</div>
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Physician</div>

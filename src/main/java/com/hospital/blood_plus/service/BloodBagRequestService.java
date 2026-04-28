@@ -4,6 +4,7 @@ import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
+import com.hospital.blood_plus.model.BloodBagRequest.RequestStatus;
 import com.hospital.blood_plus.model.HospitalProfile;
 import com.hospital.blood_plus.repository.BloodBagRepository;
 import com.hospital.blood_plus.repository.BloodBagRequestRepository;
@@ -37,42 +38,82 @@ public class BloodBagRequestService {
     public BloodBagRequest submitAnonymousRequest(BloodBagRequestDTO dto,
                                                   MultipartFile doctorsNote) throws IOException {
         validate(dto, doctorsNote);
-
+ 
         BloodBagRequest request = new BloodBagRequest();
-
-        String[] cloudResult = cloudinaryService.uploadDoctorsNote(doctorsNote);
-        request.setDoctorsNoteUrl(cloudResult[0]);
-        request.setDoctorsNoteKey(cloudResult[1]);
-
+ 
+        // ─────────────────────────────────────────────
+        // UPLOAD DOCTOR'S NOTE
+        // ─────────────────────────────────────────────
+        if (doctorsNote != null && !doctorsNote.isEmpty()) {
+            String[] cloudResult = cloudinaryService.uploadDoctorsNote(doctorsNote);
+            request.setDoctorsNoteUrl(cloudResult[0]);
+            request.setDoctorsNoteKey(cloudResult[1]);
+        }
+ 
+        // ─────────────────────────────────────────────
+        // PATIENT INFORMATION (EXISTING)
+        // ─────────────────────────────────────────────
         request.setPatientName(dto.getPatientName().trim());
         request.setPatientAge(dto.getPatientAge()); 
         request.setPatientSex(dto.getPatientSex());
         request.setWardRoom(dto.getWardRoom());
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());
-
+ 
         request.setAgeGroup(dto.getAgeGroup() != null
                 ? dto.getAgeGroup()
                 : BloodBagRequest.AgeGroup.ADULT);
         request.setRequestCategory(dto.getRequestCategory() != null
                 ? dto.getRequestCategory()
                 : BloodBagRequest.RequestCategory.INPATIENT);
-
+ 
+        // ─────────────────────────────────────────────
+        // BLOOD DETAILS (EXISTING)
+        // ─────────────────────────────────────────────
         request.setBloodType(dto.getBloodType());
         request.setBloodComponent(dto.getBloodComponent());
         request.setNumberOfUnits(dto.getNumberOfUnits());
+ 
+        // ─────────────────────────────────────────────
+        // URGENCY & DATES (EXISTING)
+        // ─────────────────────────────────────────────
         request.setUrgencyLevel(dto.getUrgencyLevel());
         request.setRequiredBy(dto.getRequiredBy());
-        request.setNotes(dto.getNotes());
-
+ 
+        // ─────────────────────────────────────────────
+        // CONTACT / REQUESTER (EXISTING)
+        // ─────────────────────────────────────────────
         request.setRequesterName(dto.getRequesterName().trim());
         request.setRequesterRelationship(dto.getRequesterRelationship());
         request.setRequesterContact(dto.getRequesterContact().trim());
         request.setRequesterEmail(dto.getRequesterEmail().trim().toLowerCase());
-
+ 
+        // ─────────────────────────────────────────────
+        // NOTES (EXISTING)
+        // ─────────────────────────────────────────────
+        request.setNotes(dto.getNotes());
+ 
+        // ─────────────────────────────────────────────
+        // NEW FIELDS — FROM PDF FORMS
+        // ─────────────────────────────────────────────
+        request.setHemoglobin(dto.getHemoglobin());
+        request.setHematocrit(dto.getHematocrit());
+        request.setRequestType(dto.getRequestType() != null 
+                ? dto.getRequestType()
+                : BloodBagRequest.RequestType.ROUTINE);
+        request.setPreviousTransfusionHistory(dto.getPreviousTransfusionHistory());
+        request.setPreviousReactionHistory(dto.getPreviousReactionHistory());
+        request.setIndication(dto.getIndication());
+        request.setClinicalImpression(dto.getClinicalImpression());
+        request.setAttendingPhysician(dto.getAttendingPhysician());
+        request.setContactNumber(dto.getContactNumber());
+ 
+        // ─────────────────────────────────────────────
+        // REQUEST LIFECYCLE
+        // ─────────────────────────────────────────────
         request.setRequesterType(BloodBagRequest.RequesterType.ANONYMOUS);
-        request.setStatus(BloodBagRequest.RequestStatus.PENDING);
+        request.setStatus(RequestStatus.PENDING);
         request.setReferenceNumber(generateReferenceNumber());
-
+ 
         return repository.save(request);
     }
 
@@ -329,35 +370,45 @@ public class BloodBagRequestService {
     // VALIDATION
     // ─────────────────────────────────────────────
 
-    private void validate(BloodBagRequestDTO dto, MultipartFile file) {
-        if (dto.getPatientName() == null || dto.getPatientName().isBlank())
+    private void validate(BloodBagRequestDTO dto, MultipartFile doctorsNote) {
+        // Required patient fields
+        if (dto.getPatientName() == null || dto.getPatientName().trim().isEmpty())
             throw new IllegalArgumentException("Patient name is required.");
-        if (dto.getPatientAge() == null)
-            throw new IllegalArgumentException("Patient age is required.");
-        if (dto.getPatientSex() == null || dto.getPatientSex().isBlank())
+        if (dto.getPatientAge() == null || dto.getPatientAge() <= 0)
+            throw new IllegalArgumentException("Valid patient age is required.");
+        if (dto.getPatientSex() == null || dto.getPatientSex().trim().isEmpty())
             throw new IllegalArgumentException("Patient sex is required.");
-        if (dto.getRequestingPhysician() == null || dto.getRequestingPhysician().isBlank())
+        if (dto.getRequestingPhysician() == null || dto.getRequestingPhysician().trim().isEmpty())
             throw new IllegalArgumentException("Requesting physician is required.");
+ 
+        // Required blood details
         if (dto.getBloodType() == null)
             throw new IllegalArgumentException("Blood type is required.");
         if (dto.getBloodComponent() == null)
             throw new IllegalArgumentException("Blood component is required.");
-        if (dto.getNumberOfUnits() == null)
-            throw new IllegalArgumentException("Number of units is required.");
+        if (dto.getNumberOfUnits() == null || dto.getNumberOfUnits() <= 0)
+            throw new IllegalArgumentException("Number of units must be greater than 0.");
+ 
+        // Required urgency
         if (dto.getUrgencyLevel() == null)
             throw new IllegalArgumentException("Urgency level is required.");
-        if (dto.getRequesterName() == null || dto.getRequesterName().isBlank())
-            throw new IllegalArgumentException("Contact name is required.");
-        if (dto.getRequesterRelationship() == null || dto.getRequesterRelationship().isBlank())
-            throw new IllegalArgumentException("Relationship is required.");
-        if (dto.getRequesterContact() == null || dto.getRequesterContact().isBlank())
+ 
+        // Required contact fields (for walk-in/anonymous)
+        if (dto.getRequesterName() == null || dto.getRequesterName().trim().isEmpty())
+            throw new IllegalArgumentException("Requester name is required.");
+        if (dto.getRequesterContact() == null || dto.getRequesterContact().trim().isEmpty())
             throw new IllegalArgumentException("Contact number is required.");
         if (dto.getRequesterEmail() == null || !dto.getRequesterEmail().contains("@"))
-            throw new IllegalArgumentException("Valid email is required.");
-        if (file == null || file.isEmpty())
-            throw new IllegalArgumentException("Doctor's note is required.");
+            throw new IllegalArgumentException("Valid email address is required.");
+ 
+        // Required file
+        if (doctorsNote == null || doctorsNote.isEmpty())
+            throw new IllegalArgumentException("Doctor's note or blood request form is required.");
+ 
+        // At least one indication must be provided
+        if (dto.getIndication() == null || dto.getIndication().trim().isEmpty())
+            throw new IllegalArgumentException("At least one indication for transfusion must be selected.");
     }
-
     // ─────────────────────────────────────────────
     // REFERENCE NUMBER
     // ─────────────────────────────────────────────

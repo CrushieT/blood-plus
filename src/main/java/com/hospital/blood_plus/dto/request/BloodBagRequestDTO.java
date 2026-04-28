@@ -9,7 +9,7 @@ import java.time.LocalDate;
 public class BloodBagRequestDTO {
 
     // ─────────────────────────────────────────────
-    // PATIENT INFO
+    // PATIENT INFO (EXISTING)
     // ─────────────────────────────────────────────
 
     private String patientName;
@@ -22,7 +22,7 @@ public class BloodBagRequestDTO {
     private BloodBagRequest.RequestCategory requestCategory;
 
     // ─────────────────────────────────────────────
-    // BLOOD DETAILS
+    // BLOOD DETAILS (EXISTING)
     // ─────────────────────────────────────────────
 
     private BloodBag.BloodType bloodType;
@@ -30,14 +30,14 @@ public class BloodBagRequestDTO {
     private Integer numberOfUnits;
 
     // ─────────────────────────────────────────────
-    // URGENCY
+    // URGENCY (EXISTING)
     // ─────────────────────────────────────────────
 
     private BloodBagRequest.UrgencyLevel urgencyLevel;
     private LocalDate requiredBy;
 
     // ─────────────────────────────────────────────
-    // CONTACT INFO (WALK-IN)
+    // CONTACT INFO / REQUESTER (EXISTING)
     // ─────────────────────────────────────────────
 
     private String requesterName;
@@ -46,13 +46,27 @@ public class BloodBagRequestDTO {
     private String requesterEmail;
 
     // ─────────────────────────────────────────────
-    // NOTES
+    // NOTES (EXISTING)
     // ─────────────────────────────────────────────
 
     private String notes;
 
     // ─────────────────────────────────────────────
-    // GETTERS & SETTERS
+    // NEW FIELDS — FROM PDF FORMS
+    // ─────────────────────────────────────────────
+
+    private Double hemoglobin;                       // From "HEMOGLOBIN" field (g/L)
+    private Double hematocrit;                       // From "HEMATOCRIT" field (decimal: 0.30 = 30%)
+    private BloodBagRequest.RequestType requestType; // STAT or ROUTINE
+    private String previousTransfusionHistory;       // "Yes/No" + when + units
+    private String previousReactionHistory;          // "Yes/No" + when + details
+    private String indication;                       // Comma-separated codes: "PR-1,PR-2" or "WB-1,R-2"
+    private String clinicalImpression;               // From "CLINICAL IMPRESSION / DIAGNOSIS"
+    private String attendingPhysician;               // From "ATTENDING PHYSICIAN"
+    private String contactNumber;                    // From "CONTACT NUM."
+
+    // ─────────────────────────────────────────────
+    // GETTERS & SETTERS (EXISTING)
     // ─────────────────────────────────────────────
 
     public String getPatientName() { return patientName; }
@@ -106,4 +120,34 @@ public class BloodBagRequestDTO {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
+    // ─────────────────────────────────────────────
+    // GETTERS & SETTERS — NEW PDF FIELDS
+    // ─────────────────────────────────────────────
+
+    public Double getHemoglobin() { return hemoglobin; }
+    public void setHemoglobin(Double hemoglobin) { this.hemoglobin = hemoglobin; }
+
+    public Double getHematocrit() { return hematocrit; }
+    public void setHematocrit(Double hematocrit) { this.hematocrit = hematocrit; }
+
+    public BloodBagRequest.RequestType getRequestType() { return requestType; }
+    public void setRequestType(BloodBagRequest.RequestType requestType) { this.requestType = requestType; }
+
+    public String getPreviousTransfusionHistory() { return previousTransfusionHistory; }
+    public void setPreviousTransfusionHistory(String previousTransfusionHistory) { this.previousTransfusionHistory = previousTransfusionHistory; }
+
+    public String getPreviousReactionHistory() { return previousReactionHistory; }
+    public void setPreviousReactionHistory(String previousReactionHistory) { this.previousReactionHistory = previousReactionHistory; }
+
+    public String getIndication() { return indication; }
+    public void setIndication(String indication) { this.indication = indication; }
+
+    public String getClinicalImpression() { return clinicalImpression; }
+    public void setClinicalImpression(String clinicalImpression) { this.clinicalImpression = clinicalImpression; }
+
+    public String getAttendingPhysician() { return attendingPhysician; }
+    public void setAttendingPhysician(String attendingPhysician) { this.attendingPhysician = attendingPhysician; }
+
+    public String getContactNumber() { return contactNumber; }
+    public void setContactNumber(String contactNumber) { this.contactNumber = contactNumber; }
 }

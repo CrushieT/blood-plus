@@ -34,10 +34,14 @@ public class BloodBagRequest {
         INPATIENT, OUTPATIENT, HOSPITAL, EMERGENCY
     }
 
+    public enum RequestType {
+        STAT, ROUTINE
+    }
+
     
 
     // ─────────────────────────────────────────────
-    // Core / Shared Fields
+    // Core / Shared Fields (EXISTING)
     // ─────────────────────────────────────────────
 
     @Id
@@ -75,7 +79,7 @@ public class BloodBagRequest {
     private LocalDateTime requestedAt;
 
     @Column
-    private LocalDate  requiredBy;
+    private LocalDate requiredBy;
 
     @Column(length = 1000)
     private String notes;
@@ -101,7 +105,7 @@ public class BloodBagRequest {
     private BloodBag fulfilledByBag;
 
     // ─────────────────────────────────────────────
-    // ANONYMOUS — Patient Information
+    // ANONYMOUS — Patient Information (EXISTING)
     // ─────────────────────────────────────────────
 
     @Column(length = 200)
@@ -120,7 +124,7 @@ public class BloodBagRequest {
     private String requestingPhysician;
 
     // ─────────────────────────────────────────────
-    // Patient Type & Category
+    // Patient Type & Category (EXISTING)
     // ─────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)
@@ -132,7 +136,7 @@ public class BloodBagRequest {
     private RequestCategory requestCategory;
 
     // ─────────────────────────────────────────────
-    // Blood Request Details
+    // Blood Request Details (EXISTING)
     // ─────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)
@@ -143,7 +147,7 @@ public class BloodBagRequest {
     private Integer numberOfUnits;
 
     // ─────────────────────────────────────────────
-    // Contact / Requester Information
+    // Contact / Requester Information (EXISTING)
     // ─────────────────────────────────────────────
 
     @Column(length = 150)
@@ -159,11 +163,43 @@ public class BloodBagRequest {
     private String requesterEmail;
 
     // ─────────────────────────────────────────────
-    // Reference Number
+    // Reference Number (EXISTING)
     // ─────────────────────────────────────────────
 
     @Column(length = 30, unique = true)
     private String referenceNumber;
+
+    // ─────────────────────────────────────────────
+    // NEW FIELDS — FROM PDF FORMS
+    // ─────────────────────────────────────────────
+
+    @Column
+    private Double hemoglobin;  // From "HEMOGLOBIN" field (g/L)
+
+    @Column
+    private Double hematocrit;  // From "HEMATOCRIT" field (decimal: 0.30 = 30%)
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private RequestType requestType;  // STAT or ROUTINE
+
+    @Column(length = 500)
+    private String previousTransfusionHistory;  // "Yes/No" + when + units
+
+    @Column(length = 500)
+    private String previousReactionHistory;  // "Yes/No" + when + details
+
+    @Column(length = 500)
+    private String indication;  // Comma-separated codes: "PR-1,PR-2" or "WB-1,R-2"
+
+    @Column(length = 200)
+    private String clinicalImpression;  // From "CLINICAL IMPRESSION / DIAGNOSIS"
+
+    @Column(length = 200)
+    private String attendingPhysician;  // From "ATTENDING PHYSICIAN"
+
+    @Column(length = 20)
+    private String contactNumber;  // From "CONTACT NUM."
 
     // ─────────────────────────────────────────────
     // Lifecycle
@@ -174,7 +210,10 @@ public class BloodBagRequest {
         requestedAt = LocalDateTime.now();
     }
 
-    // Getters & Setters 
+    // ─────────────────────────────────────────────
+    // Getters & Setters (EXISTING)
+    // ─────────────────────────────────────────────
+
     public Long getId() { return id; }
 
     public AppUser getRequestedBy() { return requestedBy; }
@@ -182,7 +221,6 @@ public class BloodBagRequest {
 
     public HospitalProfile getHospitalProfile() { return hospitalProfile; }
     public void setHospitalProfile(HospitalProfile hospitalProfile) { this.hospitalProfile = hospitalProfile; }
-
 
     public RequesterType getRequesterType() { return requesterType; }
     public void setRequesterType(RequesterType requesterType) { this.requesterType = requesterType; }
@@ -201,8 +239,8 @@ public class BloodBagRequest {
 
     public LocalDateTime getRequestedAt() { return requestedAt; }
 
-    public LocalDate  getRequiredBy() { return requiredBy; }
-    public void setRequiredBy(LocalDate   requiredBy) { this.requiredBy = requiredBy; }
+    public LocalDate getRequiredBy() { return requiredBy; }
+    public void setRequiredBy(LocalDate requiredBy) { this.requiredBy = requiredBy; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
@@ -226,7 +264,7 @@ public class BloodBagRequest {
     public void setFulfilledByBag(BloodBag fulfilledByBag) { this.fulfilledByBag = fulfilledByBag; }
 
     // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Patient Info
+    // Getters & Setters — ANONYMOUS Patient Info (EXISTING)
     // ─────────────────────────────────────────────
 
     public String getPatientName() { return patientName; }
@@ -245,7 +283,7 @@ public class BloodBagRequest {
     public void setRequestingPhysician(String requestingPhysician) { this.requestingPhysician = requestingPhysician; }
 
     // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Patient Type & Category
+    // Getters & Setters — ANONYMOUS Patient Type & Category (EXISTING)
     // ─────────────────────────────────────────────
 
     public AgeGroup getAgeGroup() { return ageGroup; }
@@ -255,7 +293,7 @@ public class BloodBagRequest {
     public void setRequestCategory(RequestCategory requestCategory) { this.requestCategory = requestCategory; }
 
     // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Blood Details
+    // Getters & Setters — ANONYMOUS Blood Details (EXISTING)
     // ─────────────────────────────────────────────
 
     public ComponentType getBloodComponent() { return bloodComponent; }
@@ -265,7 +303,7 @@ public class BloodBagRequest {
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }
 
     // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Contact Info
+    // Getters & Setters — ANONYMOUS Contact Info (EXISTING)
     // ─────────────────────────────────────────────
 
     public String getRequesterName() { return requesterName; }
@@ -281,9 +319,40 @@ public class BloodBagRequest {
     public void setRequesterEmail(String requesterEmail) { this.requesterEmail = requesterEmail; }
 
     // ─────────────────────────────────────────────
-    // Getters & Setters — Reference Number
+    // Getters & Setters — Reference Number (EXISTING)
     // ─────────────────────────────────────────────
 
     public String getReferenceNumber() { return referenceNumber; }
     public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
+
+    // ─────────────────────────────────────────────
+    // Getters & Setters — NEW PDF FIELDS
+    // ─────────────────────────────────────────────
+
+    public Double getHemoglobin() { return hemoglobin; }
+    public void setHemoglobin(Double hemoglobin) { this.hemoglobin = hemoglobin; }
+
+    public Double getHematocrit() { return hematocrit; }
+    public void setHematocrit(Double hematocrit) { this.hematocrit = hematocrit; }
+
+    public RequestType getRequestType() { return requestType; }
+    public void setRequestType(RequestType requestType) { this.requestType = requestType; }
+
+    public String getPreviousTransfusionHistory() { return previousTransfusionHistory; }
+    public void setPreviousTransfusionHistory(String previousTransfusionHistory) { this.previousTransfusionHistory = previousTransfusionHistory; }
+
+    public String getPreviousReactionHistory() { return previousReactionHistory; }
+    public void setPreviousReactionHistory(String previousReactionHistory) { this.previousReactionHistory = previousReactionHistory; }
+
+    public String getIndication() { return indication; }
+    public void setIndication(String indication) { this.indication = indication; }
+
+    public String getClinicalImpression() { return clinicalImpression; }
+    public void setClinicalImpression(String clinicalImpression) { this.clinicalImpression = clinicalImpression; }
+
+    public String getAttendingPhysician() { return attendingPhysician; }
+    public void setAttendingPhysician(String attendingPhysician) { this.attendingPhysician = attendingPhysician; }
+
+    public String getContactNumber() { return contactNumber; }
+    public void setContactNumber(String contactNumber) { this.contactNumber = contactNumber; }
 }

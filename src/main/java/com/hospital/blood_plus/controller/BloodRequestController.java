@@ -28,18 +28,23 @@ public class BloodRequestController {
             @RequestPart("data") BloodBagRequestDTO dto,
             @RequestPart(value = "doctorsNote", required = false) MultipartFile doctorsNote) {
         try {
+            // Validate and save the request (service handles mapping and file upload)
             BloodBagRequest saved = bloodBagRequestService.submitAnonymousRequest(dto, doctorsNote);
-
+ 
+            // Build response
             Map<String, Object> response = new HashMap<>();
             response.put("referenceNumber", saved.getReferenceNumber());
             response.put("status", saved.getStatus());
+            response.put("requestedAt", saved.getRequestedAt());
             response.put("message", "Request submitted successfully. A confirmation will be sent to " + saved.getRequesterEmail());
-
+ 
             return ResponseEntity.ok(response);
-
+ 
         } catch (IllegalArgumentException e) {
+            // Validation errors
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
+            // Server errors
             e.printStackTrace();
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Failed to submit request. Please try again."));
