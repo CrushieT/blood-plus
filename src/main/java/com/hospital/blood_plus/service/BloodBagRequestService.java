@@ -92,20 +92,39 @@ public class BloodBagRequestService {
         // ─────────────────────────────────────────────
         request.setNotes(dto.getNotes());
  
-        // ─────────────────────────────────────────────
+        // ═════════════════════════════════════════════════════════════
         // NEW FIELDS — FROM PDF FORMS
+        // ═════════════════════════════════════════════════════════════
+ 
         // ─────────────────────────────────────────────
+        // CLINICAL INFORMATION
+        // ─────────────────────────────────────────────
+        request.setClinicalImpression(dto.getClinicalImpression());
+        request.setAttendingPhysician(dto.getAttendingPhysician());
+        request.setContactNumber(dto.getContactNumber());
         request.setHemoglobin(dto.getHemoglobin());
         request.setHematocrit(dto.getHematocrit());
         request.setRequestType(dto.getRequestType() != null 
                 ? dto.getRequestType()
                 : BloodBagRequest.RequestType.ROUTINE);
-        request.setPreviousTransfusionHistory(dto.getPreviousTransfusionHistory());
-        request.setPreviousReactionHistory(dto.getPreviousReactionHistory());
+ 
+        // ─────────────────────────────────────────────
+        // TRANSFUSION HISTORY (STRUCTURED)
+        // ─────────────────────────────────────────────
+        request.setHadPreviousTransfusion(dto.getHadPreviousTransfusion());
+        request.setPreviousTransfusionDate(dto.getPreviousTransfusionDate());
+        request.setPreviousTransfusionUnits(dto.getPreviousTransfusionUnits());
+ 
+        // ─────────────────────────────────────────────
+        // REACTION HISTORY (STRUCTURED)
+        // ─────────────────────────────────────────────
+        request.setHadPreviousReaction(dto.getHadPreviousReaction());
+        request.setPreviousReactionDate(dto.getPreviousReactionDate());
+ 
+        // ─────────────────────────────────────────────
+        // INDICATIONS FOR TRANSFUSION
+        // ─────────────────────────────────────────────
         request.setIndication(dto.getIndication());
-        request.setClinicalImpression(dto.getClinicalImpression());
-        request.setAttendingPhysician(dto.getAttendingPhysician());
-        request.setContactNumber(dto.getContactNumber());
  
         // ─────────────────────────────────────────────
         // REQUEST LIFECYCLE
@@ -124,6 +143,9 @@ public class BloodBagRequestService {
     public List<BloodBagRequest> getAllRequests() {
         return repository.findAllByOrderByRequestedAtDesc();
     }
+    public List<BloodBagRequest> getByStatus(BloodBagRequest.RequestStatus status) {
+        return repository.findByStatus(status);
+    }
 
     public BloodBagRequest getByReferenceNumber(String refNum) {
         return repository.findByReferenceNumber(refNum)
@@ -131,9 +153,7 @@ public class BloodBagRequestService {
                         "No request found for reference number: " + refNum));
     }
 
-    public List<BloodBagRequest> getByStatus(BloodBagRequest.RequestStatus status) {
-        return repository.findByStatus(status);
-    }
+    
 
     // ─────────────────────────────────────────────
     // WORKFLOW ACTIONS
@@ -280,66 +300,152 @@ public class BloodBagRequestService {
 
 
     public BloodBagRequest submitHospitalRequest(BloodBagRequestDTO dto,
-                                                 MultipartFile doctorsNote,
-                                                 AppUser requestingUser,
-                                                 HospitalProfile hospital) throws IOException {
+                                                MultipartFile doctorsNote,
+                                                AppUser requestingUser,
+                                                HospitalProfile hospital) throws IOException {
         
         validateHospitalRequest(dto, doctorsNote);
- 
+    
         BloodBagRequest request = new BloodBagRequest();
-
-        // Only upload if file is provided
+    
+        // ─────────────────────────────────────────────────────────────
+        // UPLOAD DOCTORS NOTE (If provided)
+        // ─────────────────────────────────────────────────────────────
+        
         if (doctorsNote != null && !doctorsNote.isEmpty()) {
             String[] cloudResult = cloudinaryService.uploadDoctorsNote(doctorsNote);
             request.setDoctorsNoteUrl(cloudResult[0]);
             request.setDoctorsNoteKey(cloudResult[1]);
         }
- 
+    
+        // ─────────────────────────────────────────────────────────────
+        // CORE PATIENT INFORMATION
+        // ─────────────────────────────────────────────────────────────
+        
         request.setPatientName(dto.getPatientName().trim());
         request.setPatientAge(dto.getPatientAge());
         request.setPatientSex(dto.getPatientSex());
-        request.setWardRoom(dto.getWardRoom());
+        request.setWardRoom(dto.getWardRoom() != null ? dto.getWardRoom() : "");
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());
- 
+    
+        // ─────────────────────────────────────────────────────────────
+        // PATIENT TYPE & CATEGORY
+        // ─────────────────────────────────────────────────────────────
+        
         request.setAgeGroup(dto.getAgeGroup() != null
                 ? dto.getAgeGroup()
                 : BloodBagRequest.AgeGroup.ADULT);
         request.setRequestCategory(dto.getRequestCategory() != null
                 ? dto.getRequestCategory()
                 : BloodBagRequest.RequestCategory.INPATIENT);
- 
+    
+        // ─────────────────────────────────────────────────────────────
+        // BLOOD REQUEST DETAILS
+        // ─────────────────────────────────────────────────────────────
+        
         request.setBloodType(dto.getBloodType());
         request.setBloodComponent(dto.getBloodComponent());
         request.setNumberOfUnits(dto.getNumberOfUnits());
         request.setUrgencyLevel(dto.getUrgencyLevel());
         request.setRequiredBy(dto.getRequiredBy());
-        request.setNotes(dto.getNotes());
-        // request.setDiagnosis(dto.getDiagnosis());
- 
-        // Hospital context
+        request.setNotes(dto.getNotes() != null ? dto.getNotes() : "");
+    
+        // ─────────────────────────────────────────────────────────────
+        // NEW CLINICAL DATA FIELDS (Step 3 - Optional)
+        // ─────────────────────────────────────────────────────────────
+        
+        if (dto.getClinicalImpression() != null) {
+            request.setClinicalImpression(dto.getClinicalImpression().trim());
+        }
+        if (dto.getAttendingPhysician() != null) {
+            request.setAttendingPhysician(dto.getAttendingPhysician().trim());
+        }
+        if (dto.getContactNumber() != null) {
+            request.setContactNumber(dto.getContactNumber().trim());
+        }
+        if (dto.getHemoglobin() != null) {
+            request.setHemoglobin(dto.getHemoglobin());
+        }
+        if (dto.getHematocrit() != null) {
+            request.setHematocrit(dto.getHematocrit());
+        }
+        if (dto.getRequestType() != null) {
+            request.setRequestType(dto.getRequestType());
+        }
+    
+        // ─────────────────────────────────────────────────────────────
+        // TRANSFUSION HISTORY (Step 3 - Optional)
+        // ─────────────────────────────────────────────────────────────
+        
+        if (dto.getHadPreviousTransfusion() != null) {
+            request.setHadPreviousTransfusion(dto.getHadPreviousTransfusion());
+            
+            if (dto.getHadPreviousTransfusion() && dto.getPreviousTransfusionDate() != null) {
+                request.setPreviousTransfusionDate(dto.getPreviousTransfusionDate());
+            }
+            
+            if (dto.getHadPreviousTransfusion() && dto.getPreviousTransfusionUnits() != null) {
+                request.setPreviousTransfusionUnits(dto.getPreviousTransfusionUnits());
+            }
+        }
+    
+        // ─────────────────────────────────────────────────────────────
+        // REACTION HISTORY (Step 3 - Optional)
+        // ─────────────────────────────────────────────────────────────
+        
+        if (dto.getHadPreviousReaction() != null) {
+            request.setHadPreviousReaction(dto.getHadPreviousReaction());
+            
+            if (dto.getHadPreviousReaction() && dto.getPreviousReactionDate() != null) {
+                request.setPreviousReactionDate(dto.getPreviousReactionDate());
+            }
+            
+            // NEW: Set reaction details if provided
+            if (dto.getHadPreviousReaction() && dto.getPreviousReactionDetails() != null) {
+                request.setPreviousReactionDetails(dto.getPreviousReactionDetails().trim());
+            }
+        }
+    
+        // ─────────────────────────────────────────────────────────────
+        // INDICATIONS FOR TRANSFUSION (Step 4 - Required)
+        // ─────────────────────────────────────────────────────────────
+        
+        if (dto.getIndication() != null && !dto.getIndication().isBlank()) {
+            request.setIndication(dto.getIndication());
+        }
+    
+        // ─────────────────────────────────────────────────────────────
+        // HOSPITAL CONTEXT
+        // ─────────────────────────────────────────────────────────────
+        
         request.setHospitalProfile(hospital);
         request.setRequestedBy(requestingUser);
- 
-        // // Diagnosis field (for hospital requests, more detailed)
-        // request.setDiagnosis(dto.getDiagnosis());
- 
-        // For hospital requests, requester info comes from the hospital account itself
-        // Set placeholders or pull from hospital profile if needed
+    
+        // ─────────────────────────────────────────────────────────────
+        // REQUESTER INFORMATION (From hospital account)
+        // ─────────────────────────────────────────────────────────────
+        
         request.setRequesterName(hospital.getContactPersonName() != null
                 ? hospital.getContactPersonName()
                 : "Hospital Account");
         request.setRequesterRelationship("Hospital");
         request.setRequesterContact(hospital.getPhoneNumber());
         request.setRequesterEmail(requestingUser.getEmail());
- 
+    
+        // ─────────────────────────────────────────────────────────────
+        // REQUEST METADATA
+        // ─────────────────────────────────────────────────────────────
+        
         request.setRequesterType(BloodBagRequest.RequesterType.HOSPITAL);
         request.setStatus(BloodBagRequest.RequestStatus.PENDING);
         request.setReferenceNumber(generateReferenceNumber());
- 
+    
         return repository.save(request);
     }
     
-
+    /**
+     * Updated validation - now validates indication as required
+     */
     private void validateHospitalRequest(BloodBagRequestDTO dto, MultipartFile file) {
         if (dto.getPatientName() == null || dto.getPatientName().isBlank())
             throw new IllegalArgumentException("Patient name is required.");
@@ -353,10 +459,18 @@ public class BloodBagRequestService {
             throw new IllegalArgumentException("Blood type is required.");
         if (dto.getBloodComponent() == null)
             throw new IllegalArgumentException("Blood component is required.");
-        if (dto.getNumberOfUnits() == null)
-            throw new IllegalArgumentException("Number of units is required.");
+        if (dto.getNumberOfUnits() == null || dto.getNumberOfUnits() < 1)
+            throw new IllegalArgumentException("Number of units is required (minimum 1).");
         if (dto.getUrgencyLevel() == null)
             throw new IllegalArgumentException("Urgency level is required.");
+        
+        // NEW: Validate indication is provided
+        if (dto.getIndication() == null || dto.getIndication().isBlank())
+            throw new IllegalArgumentException("At least one indication for transfusion is required.");
+        
+        // NEW: Validate doctors note is provided
+        if (file == null || file.isEmpty())
+            throw new IllegalArgumentException("Doctor's Blood Request Form is required.");
     }
     // ─────────────────────────────────────────────
     // GET REQUESTS BY HOSPITAL
@@ -409,6 +523,7 @@ public class BloodBagRequestService {
         if (dto.getIndication() == null || dto.getIndication().trim().isEmpty())
             throw new IllegalArgumentException("At least one indication for transfusion must be selected.");
     }
+ 
     // ─────────────────────────────────────────────
     // REFERENCE NUMBER
     // ─────────────────────────────────────────────

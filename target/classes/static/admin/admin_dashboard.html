@@ -6,6 +6,7 @@
   <title>BloodPlus — Admin Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link href="css/styles.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -30,7 +31,7 @@
       <div class="nav-item active" onclick="showPanel('dashboard', this)">
         <span class="nav-icon">🏠</span> Dashboard
       </div>
-
+    
       <div class="nav-label">Management</div>
       <div class="nav-item" onclick="showPanel('bloodbank', this)">
         <span class="nav-icon">🩸</span> Blood Bank
@@ -45,7 +46,12 @@
       <div class="nav-item" onclick="showPanel('staff', this)">
         <span class="nav-icon">👤</span> Staff
       </div>
-
+    
+      <div class="nav-label">Auditing</div>
+      <div class="nav-item" onclick="showPanel('logging', this)">
+        <span class="nav-icon">📊</span> Request Logs
+      </div>
+    
       <div class="nav-label">Account</div>
       <div class="nav-item" onclick="showPanel('profile', this)">
         <span class="nav-icon">👨‍💼</span> My Profile
@@ -1062,7 +1068,179 @@
     </div>
   </div>
   <!-- END panel-staff -->
+   
+  <!-- ═══════════LOGGING PANEL ═══════════ -->
+  <div class="panel" id="panel-logging">
 
+    <div class="topbar">
+      <div>
+        <div class="page-title">Request Logs</div>
+        <div class="page-sub">View status changes and fulfillment history</div>
+      </div>
+      <div class="topbar-right" style="display:flex;gap:8px;">
+        <button class="btn-primary" onclick="exportStatusLogsExcel()">⬇️ Export Status Logs</button>
+        <button class="btn-primary" onclick="exportFulfillmentsExcel()">⬇️ Export Fulfillments</button>
+      </div>
+    </div>
+
+    <!-- Summary Strip -->
+    <div class="bb-summary-strip">
+      <div class="bb-strip-item" style="background:var(--green-light)">
+        <div class="bb-strip-val" style="color:var(--green)" id="logging-fulfillments-count">0</div>
+        <div class="bb-strip-label">Total Fulfillments</div>
+      </div>
+      <div class="bb-strip-item" style="background:#E8F0FF">
+        <div class="bb-strip-val" style="color:var(--blue)" id="logging-status-changes-count">0</div>
+        <div class="bb-strip-label">Status Changes</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--amber-light)">
+        <div class="bb-strip-val" style="color:var(--amber)" id="logging-pending-requests-count">0</div>
+        <div class="bb-strip-label">Pending Requests</div>
+      </div>
+      <div class="bb-strip-item" style="background:#F0E8FF">
+        <div class="bb-strip-val" style="color:#8B5CF6" id="logging-released-count">0</div>
+        <div class="bb-strip-label">Released</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="logging-tabs" style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
+      <button class="logging-tab-btn active" onclick="switchLoggingTab('status-logs', this)">
+        📝 Status Logs
+      </button>
+      <button class="logging-tab-btn" onclick="switchLoggingTab('fulfillments', this)">
+        ✅ Fulfillments
+      </button>
+    </div>
+
+    <!-- ═══ STATUS LOGS TAB ═══ -->
+    <div id="logging-status-logs-tab" class="logging-tab-content" style="display:block">
+      
+      <!-- Filter Bar -->
+      <div class="req-filter-bar" style="margin-bottom:10px">
+        <div class="req-search-wrap">
+          <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+          <input class="req-search-input" id="logging-status-search" type="text"
+            placeholder="Search request ID, reference number…"
+            oninput="loggingStatusRender()">
+        </div>
+        <select class="req-select" id="logging-status-filter-status" onchange="loggingStatusRender()">
+          <option value="ALL">All Status Changes</option>
+          <option value="PENDING">→ PENDING</option>
+          <option value="APPROVED">→ APPROVED</option>
+          <option value="ALLOCATED">→ ALLOCATED</option>
+          <option value="READY_FOR_RELEASE">→ READY_FOR_RELEASE</option>
+          <option value="RELEASED">→ RELEASED</option>
+          <option value="REJECTED">→ REJECTED</option>
+          <option value="CANCELLED">→ CANCELLED</option>
+        </select>
+        <select class="req-select" id="logging-status-sort" onchange="loggingStatusRender()">
+          <option value="date_desc">Newest First</option>
+          <option value="date_asc">Oldest First</option>
+          <option value="request_id">By Request ID</option>
+        </select>
+      </div>
+
+      <!-- Status Logs Table -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Status Change History</div>
+          <span style="font-size:12px;color:var(--muted)" id="logging-status-results-info"></span>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <table class="data-table" style="min-width:980px">
+            <thead><tr>
+              <th>Request ID</th>
+              <th>Reference #</th>
+              <th>Old Status</th>
+              <th>New Status</th>
+              <th>Changed By</th>
+              <th>Changed At</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="logging-status-tbody"></tbody>
+          </table>
+          <div id="logging-status-empty" class="bb-empty" style="display:none">
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">📋</div>
+            No status changes match the current filters.
+          </div>
+        </div>
+        <!-- Pagination -->
+        <div id="logging-status-footer" style="display:flex;align-items:center;justify-content:space-between;
+            padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+          <span id="logging-status-showing"></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-ghost" id="logging-status-prev" onclick="loggingStatusPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+            <span id="logging-status-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+            <button class="btn-ghost" id="logging-status-next" onclick="loggingStatusNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ FULFILLMENTS TAB ═══ -->
+    <div id="logging-fulfillments-tab" class="logging-tab-content" style="display:none">
+      
+      <!-- Filter Bar -->
+      <div class="req-filter-bar" style="margin-bottom:10px">
+        <div class="req-search-wrap">
+          <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+          <input class="req-search-input" id="logging-fulfillment-search" type="text"
+            placeholder="Search request ID, blood bag ID…"
+            oninput="loggingFulfillmentRender()">
+        </div>
+        <input class="req-select" type="date" id="logging-fulfillment-date-from" 
+          onchange="loggingFulfillmentRender()" style="padding:8px 12px;border:1px solid var(--border)">
+        <input class="req-select" type="date" id="logging-fulfillment-date-to" 
+          onchange="loggingFulfillmentRender()" style="padding:8px 12px;border:1px solid var(--border)">
+        <select class="req-select" id="logging-fulfillment-sort" onchange="loggingFulfillmentRender()">
+          <option value="date_desc">Newest First</option>
+          <option value="date_asc">Oldest First</option>
+          <option value="request_id">By Request ID</option>
+        </select>
+      </div>
+
+      <!-- Fulfillments Table -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Fulfillment Records</div>
+          <span style="font-size:12px;color:var(--muted)" id="logging-fulfillment-results-info"></span>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <table class="data-table" style="min-width:920px">
+            <thead><tr>
+              <th>Request ID</th>
+              <th>Blood Bag ID</th>
+              <th>Blood Type</th>
+              <th>Component</th>
+              <th>Fulfilled By</th>
+              <th>Fulfilled At</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="logging-fulfillment-tbody"></tbody>
+          </table>
+          <div id="logging-fulfillment-empty" class="bb-empty" style="display:none">
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">✅</div>
+            No fulfillments match the current filters.
+          </div>
+        </div>
+        <!-- Pagination -->
+        <div id="logging-fulfillment-footer" style="display:flex;align-items:center;justify-content:space-between;
+            padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+          <span id="logging-fulfillment-showing"></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-ghost" id="logging-fulfillment-prev" onclick="loggingFulfillmentPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+            <span id="logging-fulfillment-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+            <button class="btn-ghost" id="logging-fulfillment-next" onclick="loggingFulfillmentNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!-- END panel-logging -->
 
   <!-- ═════════════════════════════════════════════════════════════
       PANEL: ADMIN PROFILE (Account Settings)
@@ -1658,7 +1836,22 @@
       </div>
     </div>
   </div>
-
+  
+  <div id="req-details-modal" class="req-details-modal">
+    <div class="req-details-modal-backdrop"></div>
+    <div class="req-details-modal-content">
+      <div class="req-details-modal-header">
+        <h2 id="req-details-title" class="req-details-title">Blood Request Details</h2>
+        <button class="req-details-close" onclick="window.closeReqDetailsModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="req-details-modal-body" id="req-details-body"></div>
+    </div>
+  </div>
 
   
  

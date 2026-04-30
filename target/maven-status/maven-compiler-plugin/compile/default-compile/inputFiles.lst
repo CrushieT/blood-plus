@@ -30,6 +30,8 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\BloodBagDispatch.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\BloodBagRequest.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\HospitalProfile.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\RequestFulfillment.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\RequestStatusLog.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\StaffProfile.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\BloodBagDispatchRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\BloodBagRepository.java

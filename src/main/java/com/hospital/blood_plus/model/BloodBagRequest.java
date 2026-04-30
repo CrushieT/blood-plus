@@ -38,8 +38,6 @@ public class BloodBagRequest {
         STAT, ROUTINE
     }
 
-    
-
     // ─────────────────────────────────────────────
     // Core / Shared Fields (EXISTING)
     // ─────────────────────────────────────────────
@@ -169,28 +167,13 @@ public class BloodBagRequest {
     @Column(length = 30, unique = true)
     private String referenceNumber;
 
+    // ═════════════════════════════════════════════════════════════
+    // NEW FIELDS — FROM PDF FORMS (WITH BETTER STRUCTURE)
+    // ═════════════════════════════════════════════════════════════
+
     // ─────────────────────────────────────────────
-    // NEW FIELDS — FROM PDF FORMS
+    // CLINICAL INFORMATION
     // ─────────────────────────────────────────────
-
-    @Column
-    private Double hemoglobin;  // From "HEMOGLOBIN" field (g/L)
-
-    @Column
-    private Double hematocrit;  // From "HEMATOCRIT" field (decimal: 0.30 = 30%)
-
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private RequestType requestType;  // STAT or ROUTINE
-
-    @Column(length = 500)
-    private String previousTransfusionHistory;  // "Yes/No" + when + units
-
-    @Column(length = 500)
-    private String previousReactionHistory;  // "Yes/No" + when + details
-
-    @Column(length = 500)
-    private String indication;  // Comma-separated codes: "PR-1,PR-2" or "WB-1,R-2"
 
     @Column(length = 200)
     private String clinicalImpression;  // From "CLINICAL IMPRESSION / DIAGNOSIS"
@@ -200,6 +183,57 @@ public class BloodBagRequest {
 
     @Column(length = 20)
     private String contactNumber;  // From "CONTACT NUM."
+
+    @Column
+    private Double hemoglobin;  // (g/L)
+
+    @Column
+    private Double hematocrit;  // (decimal: 0.30 = 30%)
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private RequestType requestType;  // STAT or ROUTINE
+
+    // ─────────────────────────────────────────────
+    // TRANSFUSION HISTORY (STRUCTURED)
+    // ─────────────────────────────────────────────
+
+    @Column
+    private Boolean hadPreviousTransfusion;  // YES/NO from checkbox
+
+    @Column
+    private LocalDate previousTransfusionDate;  // When last transfused
+
+    @Column
+    private Integer previousTransfusionUnits;  // How many units
+
+    // Legacy field (still supported for backward compatibility)
+    @Column(length = 500)
+    private String previousTransfusionHistory;  // Pipe-separated: "YES|2026-04-01|1"
+
+    // ─────────────────────────────────────────────
+    // REACTION HISTORY (STRUCTURED)
+    // ─────────────────────────────────────────────
+
+    @Column
+    private Boolean hadPreviousReaction;  // YES/NO from checkbox
+
+    @Column
+    private LocalDate previousReactionDate;  // When reaction occurred
+
+    @Column(length = 500)
+    private String previousReactionDetails;  // Type of reaction
+
+    // Legacy field (still supported for backward compatibility)
+    @Column(length = 500)
+    private String previousReactionHistory;  // Pipe-separated: "YES|2026-04-01|Mild fever"
+
+    // ─────────────────────────────────────────────
+    // INDICATIONS FOR TRANSFUSION
+    // ─────────────────────────────────────────────
+
+    @Column(length = 500)
+    private String indication;  // Comma-separated codes: "F-1,F-2,F-3"
 
     // ─────────────────────────────────────────────
     // Lifecycle
@@ -263,10 +297,6 @@ public class BloodBagRequest {
     public BloodBag getFulfilledByBag() { return fulfilledByBag; }
     public void setFulfilledByBag(BloodBag fulfilledByBag) { this.fulfilledByBag = fulfilledByBag; }
 
-    // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Patient Info (EXISTING)
-    // ─────────────────────────────────────────────
-
     public String getPatientName() { return patientName; }
     public void setPatientName(String patientName) { this.patientName = patientName; }
 
@@ -282,29 +312,17 @@ public class BloodBagRequest {
     public String getRequestingPhysician() { return requestingPhysician; }
     public void setRequestingPhysician(String requestingPhysician) { this.requestingPhysician = requestingPhysician; }
 
-    // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Patient Type & Category (EXISTING)
-    // ─────────────────────────────────────────────
-
     public AgeGroup getAgeGroup() { return ageGroup; }
     public void setAgeGroup(AgeGroup ageGroup) { this.ageGroup = ageGroup; }
 
     public RequestCategory getRequestCategory() { return requestCategory; }
     public void setRequestCategory(RequestCategory requestCategory) { this.requestCategory = requestCategory; }
 
-    // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Blood Details (EXISTING)
-    // ─────────────────────────────────────────────
-
     public ComponentType getBloodComponent() { return bloodComponent; }
     public void setBloodComponent(ComponentType bloodComponent) { this.bloodComponent = bloodComponent; }
 
     public Integer getNumberOfUnits() { return numberOfUnits; }
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }
-
-    // ─────────────────────────────────────────────
-    // Getters & Setters — ANONYMOUS Contact Info (EXISTING)
-    // ─────────────────────────────────────────────
 
     public String getRequesterName() { return requesterName; }
     public void setRequesterName(String requesterName) { this.requesterName = requesterName; }
@@ -318,16 +336,21 @@ public class BloodBagRequest {
     public String getRequesterEmail() { return requesterEmail; }
     public void setRequesterEmail(String requesterEmail) { this.requesterEmail = requesterEmail; }
 
-    // ─────────────────────────────────────────────
-    // Getters & Setters — Reference Number (EXISTING)
-    // ─────────────────────────────────────────────
-
     public String getReferenceNumber() { return referenceNumber; }
     public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
 
     // ─────────────────────────────────────────────
     // Getters & Setters — NEW PDF FIELDS
     // ─────────────────────────────────────────────
+
+    public String getClinicalImpression() { return clinicalImpression; }
+    public void setClinicalImpression(String clinicalImpression) { this.clinicalImpression = clinicalImpression; }
+
+    public String getAttendingPhysician() { return attendingPhysician; }
+    public void setAttendingPhysician(String attendingPhysician) { this.attendingPhysician = attendingPhysician; }
+
+    public String getContactNumber() { return contactNumber; }
+    public void setContactNumber(String contactNumber) { this.contactNumber = contactNumber; }
 
     public Double getHemoglobin() { return hemoglobin; }
     public void setHemoglobin(Double hemoglobin) { this.hemoglobin = hemoglobin; }
@@ -338,21 +361,74 @@ public class BloodBagRequest {
     public RequestType getRequestType() { return requestType; }
     public void setRequestType(RequestType requestType) { this.requestType = requestType; }
 
+    // ─────────────────────────────────────────────
+    // TRANSFUSION HISTORY — NEW STRUCTURED FIELDS
+    // ─────────────────────────────────────────────
+
+    public Boolean getHadPreviousTransfusion() { return hadPreviousTransfusion; }
+    public void setHadPreviousTransfusion(Boolean hadPreviousTransfusion) { this.hadPreviousTransfusion = hadPreviousTransfusion; }
+
+    public LocalDate getPreviousTransfusionDate() { return previousTransfusionDate; }
+    public void setPreviousTransfusionDate(LocalDate previousTransfusionDate) { this.previousTransfusionDate = previousTransfusionDate; }
+
+    public Integer getPreviousTransfusionUnits() { return previousTransfusionUnits; }
+    public void setPreviousTransfusionUnits(Integer previousTransfusionUnits) { this.previousTransfusionUnits = previousTransfusionUnits; }
+
     public String getPreviousTransfusionHistory() { return previousTransfusionHistory; }
     public void setPreviousTransfusionHistory(String previousTransfusionHistory) { this.previousTransfusionHistory = previousTransfusionHistory; }
+
+    // ─────────────────────────────────────────────
+    // REACTION HISTORY — NEW STRUCTURED FIELDS
+    // ─────────────────────────────────────────────
+
+    public Boolean getHadPreviousReaction() { return hadPreviousReaction; }
+    public void setHadPreviousReaction(Boolean hadPreviousReaction) { this.hadPreviousReaction = hadPreviousReaction; }
+
+    public LocalDate getPreviousReactionDate() { return previousReactionDate; }
+    public void setPreviousReactionDate(LocalDate previousReactionDate) { this.previousReactionDate = previousReactionDate; }
+
+    public String getPreviousReactionDetails() { return previousReactionDetails; }
+    public void setPreviousReactionDetails(String previousReactionDetails) { this.previousReactionDetails = previousReactionDetails; }
 
     public String getPreviousReactionHistory() { return previousReactionHistory; }
     public void setPreviousReactionHistory(String previousReactionHistory) { this.previousReactionHistory = previousReactionHistory; }
 
+    // ─────────────────────────────────────────────
+    // INDICATIONS
+    // ─────────────────────────────────────────────
+
     public String getIndication() { return indication; }
     public void setIndication(String indication) { this.indication = indication; }
 
-    public String getClinicalImpression() { return clinicalImpression; }
-    public void setClinicalImpression(String clinicalImpression) { this.clinicalImpression = clinicalImpression; }
+    // ─────────────────────────────────────────────
+    // HELPER METHOD — Format transfusion history for display
+    // ─────────────────────────────────────────────
 
-    public String getAttendingPhysician() { return attendingPhysician; }
-    public void setAttendingPhysician(String attendingPhysician) { this.attendingPhysician = attendingPhysician; }
+    public String formatTransfusionHistory() {
+        if (hadPreviousTransfusion == null || !hadPreviousTransfusion) {
+            return "No previous transfusion";
+        }
+        if (previousTransfusionDate != null && previousTransfusionUnits != null) {
+            return String.format("YES on %s, %d unit%s", 
+                previousTransfusionDate, 
+                previousTransfusionUnits,
+                previousTransfusionUnits > 1 ? "s" : "");
+        }
+        return "YES (details not specified)";
+    }
 
-    public String getContactNumber() { return contactNumber; }
-    public void setContactNumber(String contactNumber) { this.contactNumber = contactNumber; }
+    // ─────────────────────────────────────────────
+    // HELPER METHOD — Format reaction history for display
+    // ─────────────────────────────────────────────
+
+    public String formatReactionHistory() {
+        if (hadPreviousReaction == null || !hadPreviousReaction) {
+            return "No previous reaction";
+        }
+        if (previousReactionDate != null) {
+            String detail = previousReactionDetails != null ? previousReactionDetails : "Not specified";
+            return String.format("YES on %s: %s", previousReactionDate, detail);
+        }
+        return "YES (details not specified)";
+    }
 }

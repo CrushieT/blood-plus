@@ -931,7 +931,6 @@ async function submitAddBloodStock() {
         return response.json();
       })
       .then(data => {
-        console.log('Analytics data received:', data);
         self.data = data;
         self.lastUpdate = new Date();
         self.render();
@@ -1274,10 +1273,217 @@ document.addEventListener('DOMContentLoaded', function() {
 window.AnalyticsDashboard = AnalyticsDashboard;
 
 // ═══════════════════════════════════════════════════════
-// BLOOD REQUESTS
+// BLOOD REQUESTS — COMPLETE WITH DETAILS MODAL & ADVANCED INDICATION MAPPING
+// Supports indications like: F-1,F-2,F-5,F-5a,F-5b with hierarchical display
 // ═══════════════════════════════════════════════════════
 
 (function () {
+  /* ─────────────────────────────────────────────────────────
+     INDICATION MAPPING — Maps indication codes to descriptions
+     Supports both main codes (R-1, F-5) and sub-codes (F-5a, F-5b)
+  ───────────────────────────────────────────────────────── */
+  const INDICATION_MAP = {
+    // WHOLE BLOOD (Adult)
+    'WB-1': 'Active bleeding with at least 15% blood volume loss, Hb<90 g/L, or BP drop >20%',
+    'WB-2': 'Other whole blood indications (requires review)',
+
+    // PACKED RED BLOOD CELLS (Adult)
+    'R-1': 'Hemoglobin < 80 g/L or Hematocrit < 0.24',
+    'R-2': 'Preoperative with Hb < 80 g/L or Hct < 0.24-0.30, or major surgery with high bleeding risk',
+    'R-2a': 'Preoperative hemoglobin of less than 80 g/L or Hematocrit less than 0.24 (24%) or Hematocrit less than 0.30 (30%)',
+    'R-2b': 'Major operation with high probability of bleeding with a Hemoglobin of less than 100 g/L or Hematocrit less than 0.30 (30%)',
+    'R-2c': 'Sign of hemodynamic instability or inadequate oxygen carrying capacity (symptomatic anemia)',
+    'R-3': 'Symptomatic anemia (dyspnea, syncope, tachycardia, chest pain, etc.)',
+    'R-4': 'Hb < 80 g/L with concomitant COPD, CAD, hemoglobinopathy, or sepsis',
+    'R-5': 'Other PRBC indications (requires review)',
+
+    // WHOLE RED BLOOD CELLS (Adult)
+    'W-1': 'History of allergic/anaphylactic reactions in immunocompromised patients',
+    'W-2': 'Group O blood transfusion in emergency when specific blood unavailable',
+    'W-3': 'Paroxysmal Nocturnal Hemoglobinuria (PNH)',
+    'W-4': 'Other WRBC indications (requires review)',
+
+    // PLATELET CONCENTRATE (Adult)
+    'P-1': 'Prophylactic for count < 20,000 (not TTP/ITP/HUS)',
+    'P-2': 'Active bleeding with platelet count < 50,000',
+    'P-3': 'Platelet count < 50,000 and invasive procedure within 8 hours',
+    'P-4': 'Platelet count < 100,000 and surgery in critical areas (eyes, brain, etc.)',
+    'P-5': 'Massive transfusion with diffuse microvascular bleeding',
+    'P-6': 'Other platelet indications (requires review)',
+
+    // CRYOPRECIPITATE (Adult)
+    'C-1': 'Significant Hypofibrinogenemia (< 100 mg/dL)',
+    'C-2': 'Hemophilia A',
+    'C-3': 'Von Willebrand\'s Disease or Uremic Bleeding with prolonged BT',
+    'C-4': 'Other cryoprecipitate indications (requires review)',
+
+    // FRESH FROZEN PLASMA (Adult) — with sub-codes
+    'F-1': 'PT or PTT > 1.5x normal within 8 hours (PT>17 sec or PTT>47 sec)',
+    'F-2': 'Specific factor deficiencies not treatable with cryoprecipitate',
+    'F-3': 'Coumadin reversal in bleeding patients (Vitamin K ineffective)',
+    'F-4': 'Treatment of Thrombotic Thrombocytopenic Purpura (TTP)',
+    'F-5': 'Clinical Coagulopathy associated with:',
+    'F-5a': 'Massive Transfusion (>20 units of blood in 24 hours)',
+    'F-5b': 'Late pregnancy termination or Abruptio Placentae',
+    'F-6': 'Other FFP indications (requires review)',
+
+    // WHOLE BLOOD (Pediatric)
+    'PW-1': 'Exchange transfusion in infant with indirect bilirubin ≥20 mg/dL in first week',
+    'PW-2': 'Hyperbilirubinemia with prematurity/illness (asphyxia, acidosis, sepsis, hemolysis)',
+    'PW-3': 'Other whole blood indications (requires review)',
+
+    // PACKED RED BLOOD CELLS (Pediatric)
+    'PR-1': 'Signs/symptoms of anemia (pallor, etc.)',
+    'PR-2': 'Hypovolemia from acute blood loss with shock signs or >10% loss',
+    'PR-3': 'Major surgery candidate with Hematocrit < 0.30 or <0.35 (nocturnal)',
+    'PR-4': 'Hypertransfusion for chronic hemolytic anemia (Thalassemia)',
+    'PR-5': 'Hemoglobin ≥130 g/L and on assisted ventilation',
+    'PR-6': 'Anemia with Hb < 80 g/L or Hct < 0.25',
+    'PR-7': 'Blood volume reduction 10 mL/kg with Hct < 0.45 in newborn <4 months',
+    'PR-8': 'Pulmonary disease or CHD with Hct 0.40-0.45',
+    'PR-9': 'Other PRBC indications (requires review)',
+
+    // WHOLE RED BLOOD CELLS (Pediatric)
+    'PWR': 'Other WRBC indications (requires review)',
+
+    // PLATELET CONCENTRATE (Pediatric)
+    'PP-1': 'Active bleeding with thrombocytopenia < 50,000 or ICH risk',
+    'PP-2': 'Active bleeding with qualitative defect',
+    'PP-3': 'Prophylaxis for severe thrombocytopenia < 20,000 or qualitative defect',
+    'PP-4': 'Invasive procedure with thrombocytopenia < 70,000 or qualitative defect',
+    'PP-5': 'Other platelet indications (requires review)',
+
+    // FRESH FROZEN PLASMA (Pediatric)
+    'PF-1': 'Multiple coagulation factor deficiency (e.g., dengue shock syndrome)',
+    'PF-2': 'Congenital factor deficiency',
+    'PF-3': 'Anti-Thrombin III Deficiency',
+    'PF-4': 'Bleeding in exchange transfusion or massive transfusion (>1 blood volume)',
+    'PF-5': 'Other FFP indications (requires review)',
+
+    // CRYOPRECIPITATE (Pediatric)
+    'PC-1': 'Factor VIII Deficiency (Hemophilia A)',
+    'PC-2': 'Von Willebrand\'s Disease',
+    'PC-3': 'Disseminated Intravascular Coagulation (DIC)',
+    'PC-4': 'Uremia with active bleeding or invasive procedure planned',
+    'PC-5': 'Other cryoprecipitate indications (requires review)',
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     UTILITY — Format indications with support for sub-codes
+  ───────────────────────────────────────────────────────── */
+  function formatIndications(indicationString) {
+    if (!indicationString) return 'Not specified';
+    
+    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    const descriptions = codes.map(code => {
+      const description = INDICATION_MAP[code];
+      return description || code;
+    }).filter(Boolean);
+    
+    return descriptions.length > 0 ? descriptions : ['Not specified'];
+  }
+
+  function getIndicationBadges(indicationString) {
+    if (!indicationString) return '';
+    
+    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    return codes.map(code => {
+      return `<span class="req-indication-badge">${code}</span>`;
+    }).join('');
+  }
+
+  /**
+   * Render indication details with parent/sub-code hierarchy
+   * Groups parent codes with their sub-codes (e.g., F-5, F-5a, F-5b)
+   */
+  function renderIndicationDetails(indicationString) {
+    if (!indicationString) {
+      return '<span class="req-details-value">Not specified</span>';
+    }
+
+    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    
+    // Group parent codes with their sub-codes
+    const grouped = {};
+    codes.forEach(code => {
+      const parentMatch = code.match(/^([A-Z]+-\d+)/);
+      const parentCode = parentMatch ? parentMatch[1] : code;
+      
+      if (!grouped[parentCode]) {
+        grouped[parentCode] = {
+          parent: parentCode,
+          main: null,
+          subs: []
+        };
+      }
+      
+      // Separate main code from sub-codes
+      if (code === parentCode) {
+        grouped[parentCode].main = code;
+      } else {
+        grouped[parentCode].subs.push(code);
+      }
+    });
+
+    // Render grouped indications
+    let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+    
+    Object.keys(grouped).sort().forEach(parentCode => {
+      const group = grouped[parentCode];
+      const mainDescription = INDICATION_MAP[group.main] || '';
+      const subCodes = group.subs;
+      
+      // If there are sub-codes, render parent with sub-codes as children
+      if (subCodes.length > 0) {
+        html += `
+          <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
+            <div style="font-weight:600;color:var(--blue,#0066cc);margin-bottom:8px;font-size:13px">
+              ${group.main}
+            </div>
+            <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-bottom:12px">
+              ${mainDescription}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-left:12px;border-left:2px solid var(--border,#e0e0e0);padding-left:12px;">
+        `;
+        
+        subCodes.forEach(code => {
+          const subLetter = code.replace(parentCode, '').toLowerCase();
+          const subDescription = INDICATION_MAP[code] || code;
+          html += `
+            <div>
+              <div style="font-weight:600;color:var(--muted,#666);font-size:12px;margin-bottom:2px">
+                ${subLetter}.
+              </div>
+              <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.4">
+                ${subDescription}
+              </div>
+            </div>
+          `;
+        });
+        
+        html += `
+            </div>
+          </div>
+        `;
+      } else {
+        // No sub-codes, just render the main code
+        html += `
+          <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
+            <div style="font-weight:600;color:var(--blue,#0066cc);margin-bottom:4px;font-size:13px">
+              ${group.main}
+            </div>
+            <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5">
+              ${mainDescription}
+            </div>
+          </div>
+        `;
+      }
+    });
+    
+    html += '</div>';
+    return html;
+  }
+
   /* ─────────────────────────────────────────────────────────
      CONSTANTS
   ───────────────────────────────────────────────────────── */
@@ -1300,10 +1506,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     MEDIUM: 'tag-low', LOW: 'tag-good',
   };
  
-  /*
-   * needsBag: true  → clicking this action opens the bag picker
-   *           false → clicking opens the simple confirm modal
-   */
   const REQ_NEXT = {
     PENDING:           { label: 'Approve',         cls: 'req-btn-approve',  next: 'APPROVED',          endpoint: 'approve',  needsBag: false },
     APPROVED:          { label: 'Mark Allocated',  cls: 'req-btn-allocate', next: 'ALLOCATED',         endpoint: 'allocate', needsBag: true  },
@@ -1347,17 +1549,13 @@ window.AnalyticsDashboard = AnalyticsDashboard;
   let reqCurrentFilter = 'ALL';
   let reqPendingRejectId = null;
  
-  /* simple confirm modal */
   let confirmPending = null;
  
-  /* bag picker */
   let bagPickerReqId    = null;
-  let bagPickerSelected = null; // comma-separated bag id strings
+  let bagPickerSelected = null;
   let bagPickerData     = [];
-  let bagPickerIsChange = false; // true when re-selecting after allocation
+  let bagPickerIsChange = false;
  
-  /* per-request: bags already fetched for preview in card */
-  // reqBagCache[reqId] = { loading, bags, error }
   const reqBagCache = {};
  
   /* ─────────────────────────────────────────────────────────
@@ -1378,7 +1576,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
               ?? r.requesterName
               ?? '—';
  
-    // Preserve any already-allocated bag info from the server
     const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
  
     return {
@@ -1386,25 +1583,50 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       name,
       type:           r.requesterType    ?? 'ANONYMOUS',
       patient:        r.patientName      ?? '—',
+      patientName:    r.patientName      ?? '—',
+      patientAge:     r.patientAge       ?? null,
+      patientSex:     r.patientSex       ?? null,
+      wardRoom:       r.wardRoom         ?? null,
+      requestingPhysician: r.requestingPhysician ?? null,
+      ageGroup:       r.ageGroup         ?? null,
+      requestCategory: r.requestCategory ?? null,
       bloodType:      r.bloodType        ?? '—',
       component:      COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '—',
       bloodComponent: r.bloodComponent   ?? null,
       units:          r.numberOfUnits    ?? r.volumeMl ?? 1,
+      volumeMl:       r.volumeMl         ?? null,
       urgency:        r.urgencyLevel     ?? 'LOW',
+      urgencyLevel:   r.urgencyLevel     ?? 'LOW',
+      requiredBy:     r.requiredBy       ?? null,
       date:           r.requestedAt
         ? new Date(r.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '—',
       status:         r.status           ?? 'PENDING',
+      requesterName:  r.requesterName    ?? null,
+      requesterRelationship: r.requesterRelationship ?? null,
+      requesterContact: r.requesterContact ?? null,
+      requesterEmail: r.requesterEmail   ?? null,
+      notes:          r.notes            ?? null,
+      indication:     r.indication       ?? null,
+      clinicalImpression: r.clinicalImpression ?? null,
+      attendingPhysician: r.attendingPhysician ?? null,
+      contactNumber:  r.contactNumber    ?? null,
+      hemoglobin:     r.hemoglobin       ?? null,
+      hematocrit:     r.hematocrit       ?? null,
+      requestType:    r.requestType      ?? null,
+      hadPreviousTransfusion: r.hadPreviousTransfusion ?? false,
+      previousTransfusionDate: r.previousTransfusionDate ?? null,
+      previousTransfusionUnits: r.previousTransfusionUnits ?? null,
+      hadPreviousReaction: r.hadPreviousReaction ?? false,
+      previousReactionDate: r.previousReactionDate ?? null,
+      previousReactionDetails: r.previousReactionDetails ?? null,
       docUrl,
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
-      allocatedBags,  // [{id, serialNumber, bloodType, componentType, volumeMl, expiresAt}]
+      allocatedBags,
     };
   }
  
-  /* ─────────────────────────────────────────────────────────
-     FETCH — requests
-  ───────────────────────────────────────────────────────── */
   function reqShowLoading() {
     const el = document.getElementById('req-list');
     if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⏳</div>Loading requests…</div>`;
@@ -1445,16 +1667,11 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     }
   }
  
-  /* ─────────────────────────────────────────────────────────
-     FETCH — available bags for a request (card preview)
-     Called when a card is expanded and status is PENDING or APPROVED
-  ───────────────────────────────────────────────────────── */
   async function reqFetchCompatibleBags(req) {
     const cacheKey = req.id;
     if (reqBagCache[cacheKey]?.loading || reqBagCache[cacheKey]?.bags) return;
  
     reqBagCache[cacheKey] = { loading: true, bags: null, error: null };
-    // spinner is already rendered by reqBuildBagPreviewHTML when cache.loading is true
  
     try {
       const params = new URLSearchParams({
@@ -1475,19 +1692,16 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       reqBagCache[cacheKey] = { loading: false, bags: [], error: err.message };
     }
  
-    // Re-render just the bag preview section of this card
     const previewEl = document.getElementById(`req-bag-preview-${req.id}`);
     if (previewEl) {
       previewEl.outerHTML = reqBuildBagPreviewHTML(req);
     }
   }
  
-  /* Build the bag preview HTML (compatible bags shown in the card) */
   function reqBuildBagPreviewHTML(req) {
     const cache = reqBagCache[req.id];
     const id    = `req-bag-preview-${req.id}`;
  
-    // Only show preview for PENDING and APPROVED (before allocation)
     if (!['PENDING', 'APPROVED'].includes(req.status)) return `<div id="${id}"></div>`;
  
     if (!cache || cache.loading) {
@@ -1549,9 +1763,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     </div>`;
   }
  
-  /* ─────────────────────────────────────────────────────────
-     BAG PICKER MODAL — allocate step
-  ───────────────────────────────────────────────────────── */
   async function openBagPicker(reqId, isChange = false) {
     bagPickerReqId    = reqId;
     bagPickerSelected = null;
@@ -1572,12 +1783,10 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     inner.innerHTML     = `<div class="req-bag-picker-loading">⏳ Loading available bags…</div>`;
     modal.classList.add('open');
  
-    // Pre-select already-allocated bags when changing
     if (isChange && req.allocatedBags?.length) {
       bagPickerSelected = req.allocatedBags.map(b => String(b.id)).join(',');
     }
  
-    // Use cache if already loaded
     const cached = reqBagCache[req.id];
     if (cached?.bags) {
       bagPickerData = cached.bags;
@@ -1595,7 +1804,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const json = await res.json();
       bagPickerData = Array.isArray(json) ? json : (json.data ?? json.content ?? []);
-      // Also cache it
       reqBagCache[req.id] = { loading: false, bags: bagPickerData, error: null };
     } catch (err) {
       console.error('[BagPicker] fetch failed', err);
@@ -1698,15 +1906,12 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     const prevStatus = req.status;
     const prevBags   = req.allocatedBags;
  
-    // Capture full bag objects BEFORE closing the modal clears bagPickerData
     const capturedBags = bagPickerData.filter(b => bagIds.includes(String(b.id)));
  
-    // Optimistic update — use captured full objects so display is correct immediately
     req.status        = 'ALLOCATED';
     req.allocatedBags = capturedBags;
     reqExpanded[req.id] = true;
  
-    // Invalidate cache so fresh bags are fetched next time card is expanded
     delete reqBagCache[req.id];
  
     reqCloseBagPicker();
@@ -1725,8 +1930,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       }
       const data = await res.json();
       req.status = data.status ?? 'ALLOCATED';
-      // Server only returns IDs in reservedBags — keep using captured full objects
-      // capturedBags already has the correct data so no re-assignment needed
       reqRender();
     } catch (err) {
       console.error('[reqAllocate] failed', err);
@@ -1737,16 +1940,12 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     }
   };
  
-  /* ─────────────────────────────────────────────────────────
-     SIMPLE CONFIRM MODAL (approve / ready / release)
-  ───────────────────────────────────────────────────────── */
   window.reqOpenConfirm = function (id, endpoint) {
     const req  = reqData.find(x => x.id === id);
     if (!req) return;
     const next = REQ_NEXT[req.status];
     if (!next) return;
  
-    /* allocate goes straight to bag picker — no confirm step */
     if (endpoint === 'allocate') {
       openBagPicker(id, false);
       return;
@@ -1796,7 +1995,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       const data = await res.json();
       r.status   = data.status ?? next.next;
       reqRender();
-      if (endpoint === 'release') {        // ← add this block
+      if (endpoint === 'release') {
         openReleaseReceipt(r, data);
       }
     } catch (err) {
@@ -1808,39 +2007,36 @@ window.AnalyticsDashboard = AnalyticsDashboard;
   };
 
   function openReleaseReceipt(req, data) {
-      const payload = {
-        referenceNumber: req.referenceNumber ?? data.referenceNumber,
-        releasedAt:      new Date().toISOString(),
-        patientName:     req.patient,
-        bloodType:       req.bloodType,          // e.g. "A_POS"
-        wardRoom:        req.wardRoom ?? null,
-        physician:       req.physician ?? null,
-        hospitalName:    req.name,
-        urgency:         req.urgency,
-        releasedBy:      data.releasedBy ?? null,
-        bags:            (req.allocatedBags ?? []).map(b => ({
-          serialNumber:  b.serialNumber,
-          bloodType:     b.bloodType,
-          componentType: b.componentType,
-          volumeMl:      b.volumeMl,
-          expiresAt:     b.expiresAt,
-        })),
+    const payload = {
+      referenceNumber: req.referenceNumber ?? data.referenceNumber,
+      releasedAt:      new Date().toISOString(),
+      patientName:     req.patient,
+      bloodType:       req.bloodType,
+      wardRoom:        req.wardRoom ?? null,
+      physician:       req.physician ?? null,
+      hospitalName:    req.name,
+      urgency:         req.urgency,
+      releasedBy:      data.releasedBy ?? null,
+      bags:            (req.allocatedBags ?? []).map(b => ({
+        serialNumber:  b.serialNumber,
+        bloodType:     b.bloodType,
+        componentType: b.componentType,
+        volumeMl:      b.volumeMl,
+        expiresAt:     b.expiresAt,
+      })),
     };
     
-    
     const encoded = btoa(JSON.stringify(payload));
-    // Path to wherever you host the receipt HTML
     const url = `receipt/blood-release-receipt.html?data=${encoded}`;
     window.open(url, '_blank');
   }
+
   window.reqPrintReceipt = function(id) {
-      const req = reqData.find(x => x.id === id);
-      if (!req) return;
-      openReleaseReceipt(req, {});
-    };
-  /* ─────────────────────────────────────────────────────────
-     REJECT MODAL
-  ───────────────────────────────────────────────────────── */
+    const req = reqData.find(x => x.id === id);
+    if (!req) return;
+    openReleaseReceipt(req, {});
+  };
+
   window.reqOpenReject = function (id) {
     reqPendingRejectId = id;
     const r = reqData.find(x => x.id === id);
@@ -1888,9 +2084,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     }
   };
  
-  /* ─────────────────────────────────────────────────────────
-     DOCUMENT PREVIEW MODAL
-  ───────────────────────────────────────────────────────── */
   window.reqViewDoc = function (url, label) {
     if (!url) { alert('No document uploaded for this request.'); return; }
     document.getElementById('req-doc-label').textContent = label;
@@ -1903,9 +2096,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     document.getElementById('req-doc-modal').classList.add('open');
   };
  
-  /* ─────────────────────────────────────────────────────────
-     FILTER / SORT / SEARCH
-  ───────────────────────────────────────────────────────── */
   function reqGetFiltered() {
     const q       = (document.getElementById('req-search')?.value || '').toLowerCase().trim();
     const urgency = document.getElementById('req-filter-urgency')?.value || 'ALL';
@@ -1933,9 +2123,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     reqFetchByStatus(status);
   };
  
-  /* ─────────────────────────────────────────────────────────
-     RENDER — status flow bar
-  ───────────────────────────────────────────────────────── */
   function reqRenderFlow(status) {
     if (status === 'REJECTED') return `<div style="margin-bottom:16px"><span class="tag tag-rejected">Rejected</span></div>`;
     const idx = REQ_STATUSES.indexOf(status);
@@ -1950,11 +2137,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     return h + `</div>`;
   }
  
-  /* ─────────────────────────────────────────────────────────
-     RENDER — allocated bags section (shown after allocation)
-  ───────────────────────────────────────────────────────── */
   function reqRenderAllocatedBags(req) {
-    // Only show for ALLOCATED, READY_FOR_RELEASE, RELEASED
     if (!['ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'].includes(req.status)) return '';
     if (!req.allocatedBags?.length) return '';
  
@@ -1989,9 +2172,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     </div>`;
   }
  
-  /* ─────────────────────────────────────────────────────────
-     RENDER — action bar
-  ───────────────────────────────────────────────────────── */
   function reqRenderActions(req) {
     if (req.status === 'RELEASED') {
       return `<div class="req-action-bar">
@@ -2012,16 +2192,11 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     return h + `</div>`;
   }
  
-  /* ─────────────────────────────────────────────────────────
-     RENDER — full card
-  ───────────────────────────────────────────────────────── */
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
  
-    // Trigger background bag-fetch when card is expanded and status is pre-allocation
     if (isExp && ['PENDING', 'APPROVED'].includes(req.status)) {
-      // Defer so the DOM renders first, then fetch updates the section
       setTimeout(() => reqFetchCompatibleBags(req), 0);
     }
  
@@ -2052,15 +2227,21 @@ window.AnalyticsDashboard = AnalyticsDashboard;
         ${reqRenderFlow(req.status)}
  
         <div class="req-detail-grid">
-          <div class="req-detail-box">
-            <div class="req-detail-box-title">Patient info</div>
+          <div class="req-detail-box" onclick="window.openReqDetailsModal(${req.id})" 
+               style="cursor:pointer;transition:all 0.2s ease"
+               onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'"
+               onmouseout="this.style.boxShadow=''">
+            <div class="req-detail-box-title">Patient info 👁️ <span style="font-size:10px;font-weight:400;color:var(--muted)">click to view</span></div>
             <div class="req-detail-row"><span class="lbl">Name</span><span class="val">${req.patient}</span></div>
             <div class="req-detail-row"><span class="lbl">Blood type</span><span class="val">${req.bloodType}</span></div>
             <div class="req-detail-row"><span class="lbl">Component</span><span class="val">${req.component}</span></div>
             <div class="req-detail-row"><span class="lbl">Units needed</span><span class="val">${req.units}</span></div>
           </div>
-          <div class="req-detail-box">
-            <div class="req-detail-box-title">Requester info</div>
+          <div class="req-detail-box" onclick="window.openReqDetailsModal(${req.id})" 
+               style="cursor:pointer;transition:all 0.2s ease"
+               onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'"
+               onmouseout="this.style.boxShadow=''">
+            <div class="req-detail-box-title">Requester info 👁️ <span style="font-size:10px;font-weight:400;color:var(--muted)">click to view</span></div>
             <div class="req-detail-row"><span class="lbl">From</span><span class="val">${req.name}</span></div>
             <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${req.type[0] + req.type.slice(1).toLowerCase()}</span></div>
             <div class="req-detail-row"><span class="lbl">Urgency</span><span class="val">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span></div>
@@ -2096,16 +2277,10 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     </div>`;
   }
  
-  /* ─────────────────────────────────────────────────────────
-     CHANGE BAGS — opens picker pre-populated with current selection
-  ───────────────────────────────────────────────────────── */
   window.reqOpenChangeBags = function (id) {
     openBagPicker(id, true);
   };
  
-  /* ─────────────────────────────────────────────────────────
-     MAIN RENDER
-  ───────────────────────────────────────────────────────── */
   function reqRender() {
     const list = document.getElementById('req-list');
     const info = document.getElementById('req-results-info');
@@ -2128,9 +2303,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
  
-  /* ─────────────────────────────────────────────────────────
-     MODAL BACKDROP CLOSE
-  ───────────────────────────────────────────────────────── */
   ['req-reject-modal', 'req-doc-modal', 'req-confirm-modal', 'req-bag-picker-modal'].forEach(modalId => {
     const el = document.getElementById(modalId);
     if (!el) return;
@@ -2143,9 +2315,254 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     });
   });
  
-  /* ─────────────────────────────────────────────────────────
-     BOOT
-  ───────────────────────────────────────────────────────── */
+  window.initReqDetailsModal = function () {
+    if (document.getElementById('req-details-modal')) return;
+    document.body.insertAdjacentHTML('beforeend', window.REQ_DETAILS_MODAL_HTML);
+    const modal = document.getElementById('req-details-modal');
+    const backdrop = modal.querySelector('.req-details-modal-backdrop');
+    backdrop.addEventListener('click', () => window.closeReqDetailsModal());
+  };
+
+  window.openReqDetailsModal = function (reqId) {
+    window.initReqDetailsModal();
+    
+    const req = reqData.find(x => x.id === reqId);
+    if (!req) {
+      console.warn('[ReqDetailsModal] Request not found:', reqId);
+      return;
+    }
+    
+    const modal = document.getElementById('req-details-modal');
+    const title = document.getElementById('req-details-title');
+    const body = document.getElementById('req-details-body');
+    
+    title.textContent = `Request #${req.id} — ${req.name}`;
+    body.innerHTML = renderReqDetailsContent(req);
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.closeReqDetailsModal = function () {
+    const modal = document.getElementById('req-details-modal');
+    if (modal) modal.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  function renderReqDetailsContent(req) {
+    const indicationCodes = req.indication ? req.indication.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const indicationBadges = getIndicationBadges(req.indication);
+    const indicationDetailsHtml = renderIndicationDetails(req.indication);
+
+    return `
+      <div class="req-details-sections">
+        
+        <div class="req-details-section">
+          <div class="req-details-section-title">Request Status</div>
+          <div class="req-details-grid-2">
+            <div class="req-details-field">
+              <span class="req-details-label">Reference #</span>
+              <span class="req-details-value">${req.id ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Status</span>
+              <span class="req-details-value">
+                <span class="tag ${REQ_STATUS_TAG[req.status] ?? ''}">${REQ_STATUS_LABEL[req.status] ?? req.status}</span>
+              </span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Urgency</span>
+              <span class="req-details-value">
+                <span class="tag ${REQ_URGENCY_TAG[req.urgency] ?? ''}">${req.urgency ?? '—'}</span>
+              </span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Request Type</span>
+              <span class="req-details-value">${req.requestType ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Submitted</span>
+              <span class="req-details-value">${req.date ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Required By</span>
+              <span class="req-details-value">${req.requiredBy ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="req-details-section">
+          <div class="req-details-section-title">Patient Information</div>
+          <div class="req-details-grid-2">
+            <div class="req-details-field">
+              <span class="req-details-label">Patient Name</span>
+              <span class="req-details-value">${req.patientName ?? req.patient ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Age / Age Group</span>
+              <span class="req-details-value">${req.patientAge ?? '—'} ${req.ageGroup ? `(${req.ageGroup})` : ''}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Sex</span>
+              <span class="req-details-value">${req.patientSex ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Ward / Room</span>
+              <span class="req-details-value">${req.wardRoom ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Category</span>
+              <span class="req-details-value">${req.requestCategory ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Requesting Physician</span>
+              <span class="req-details-value">${req.requestingPhysician ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="req-details-section">
+          <div class="req-details-section-title">Blood Requirements</div>
+          <div class="req-details-grid-2">
+            <div class="req-details-field">
+              <span class="req-details-label">Blood Type</span>
+              <span class="req-details-value req-details-highlight">${req.bloodType ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Component</span>
+              <span class="req-details-value">${req.component ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Units Needed</span>
+              <span class="req-details-value req-details-highlight">${req.units ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Volume (mL)</span>
+              <span class="req-details-value">${req.volumeMl ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Notes</span>
+              <span class="req-details-value">${req.notes ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="req-details-section">
+          <div class="req-details-section-title">Transfusion Indications</div>
+          ${indicationCodes.length > 0 ? `
+            <div style="margin-bottom:12px">
+              <div class="req-indication-badges">
+                ${indicationBadges}
+              </div>
+            </div>
+            <div style="font-size:13px;color:var(--charcoal);line-height:1.8;">
+              ${indicationDetailsHtml}
+            </div>
+          ` : `<span class="req-details-value">Not specified</span>`}
+        </div>
+
+        <div class="req-details-section">
+          <div class="req-details-section-title">Clinical Information</div>
+          <div class="req-details-grid-2">
+            <div class="req-details-field">
+              <span class="req-details-label">Clinical Impression</span>
+              <span class="req-details-value">${req.clinicalImpression ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Attending Physician</span>
+              <span class="req-details-value">${req.attendingPhysician ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Contact Number</span>
+              <span class="req-details-value">${req.contactNumber ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Hemoglobin (g/L)</span>
+              <span class="req-details-value">${req.hemoglobin ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Hematocrit (%)</span>
+              <span class="req-details-value">${req.hematocrit ? (req.hematocrit * 100).toFixed(1) : '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="req-details-section">
+          <div class="req-details-section-title">Transfusion History</div>
+          <div class="req-details-grid-2">
+            <div class="req-details-field">
+              <span class="req-details-label">Previous Transfusion</span>
+              <span class="req-details-value">${req.hadPreviousTransfusion ? 'Yes' : 'No'}</span>
+            </div>
+            ${req.hadPreviousTransfusion ? `
+              <div class="req-details-field">
+                <span class="req-details-label">Last Transfusion Date</span>
+                <span class="req-details-value">${req.previousTransfusionDate ?? '—'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Units Transfused</span>
+                <span class="req-details-value">${req.previousTransfusionUnits ?? '—'}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="req-details-section">
+          <div class="req-details-section-title">Reaction History</div>
+          <div class="req-details-grid-2">
+            <div class="req-details-field">
+              <span class="req-details-label">Previous Reaction</span>
+              <span class="req-details-value">${req.hadPreviousReaction ? 'Yes' : 'No'}</span>
+            </div>
+            ${req.hadPreviousReaction ? `
+              <div class="req-details-field">
+                <span class="req-details-label">Reaction Date</span>
+                <span class="req-details-value">${req.previousReactionDate ?? '—'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Reaction Details</span>
+                <span class="req-details-value">${req.previousReactionDetails ?? '—'}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="req-details-section">
+          <div class="req-details-section-title">Requester Information</div>
+          <div class="req-details-grid-2">
+            <div class="req-details-field">
+              <span class="req-details-label">Requester Name</span>
+              <span class="req-details-value">${req.requesterName ?? req.name ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Relationship</span>
+              <span class="req-details-value">${req.requesterRelationship ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Contact</span>
+              <span class="req-details-value">${req.requesterContact ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Email</span>
+              <span class="req-details-value">${req.requesterEmail ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Requester Type</span>
+              <span class="req-details-value">${req.type ?? '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        ${req.status === 'REJECTED' && req.rejectionReason ? `
+          <div class="req-details-section req-details-section-rejected">
+            <div class="req-details-section-title" style="color: var(--crimson)">Rejection Reason</div>
+            <div class="req-details-value" style="color: var(--charcoal); line-height: 1.6;">${req.rejectionReason}</div>
+          </div>
+        ` : ''}
+
+      </div>
+    `;
+  }
+
   reqFetchAll();
 })();
 
@@ -3846,3 +4263,846 @@ function initializeProfileListeners() {
     }
   });
 }
+
+
+//////// LOGS PANEL //////
+// ═══════════════════════════════════════════════════════════════
+// LOGGING PANEL — COMPLETE JAVASCRIPT (FIXED)
+// ═══════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════
+// SAMPLE DATA
+// ═══════════════════════════════════════════════════════════════
+
+const SAMPLE_STATUS_LOGS = [
+  {
+    id: 1,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-10T08:15:00",
+    notes: "Request created from anonymous form"
+  },
+  {
+    id: 2,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-10T09:30:00",
+    notes: "Approved - patient hemoglobin level critical, units available"
+  },
+  {
+    id: 3,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "APPROVED",
+    newStatus: "ALLOCATED",
+    changedBy: { id: 203, fullName: "Blood Bank Staff" },
+    changedAt: "2024-01-10T10:15:00",
+    notes: "Allocated 2 units of O+ blood from inventory BAG-2024-001, BAG-2024-002"
+  },
+  {
+    id: 4,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "ALLOCATED",
+    newStatus: "READY_FOR_RELEASE",
+    changedBy: { id: 204, fullName: "Lab Technician" },
+    changedAt: "2024-01-10T11:00:00",
+    notes: "Blood bags passed quality checks and cross-match testing"
+  },
+  {
+    id: 5,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    oldStatus: "READY_FOR_RELEASE",
+    newStatus: "RELEASED",
+    changedBy: { id: 205, fullName: "Nurse Johnson" },
+    changedAt: "2024-01-10T11:45:00",
+    notes: "Released to Ward 3 - received by Nurse Johnson"
+  },
+  {
+    id: 6,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-11T07:45:00",
+    notes: "Emergency request - STAT units needed"
+  },
+  {
+    id: 7,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-11T08:00:00",
+    notes: "STAT approval - emergency surgery scheduled"
+  },
+  {
+    id: 8,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "APPROVED",
+    newStatus: "ALLOCATED",
+    changedBy: { id: 203, fullName: "Blood Bank Staff" },
+    changedAt: "2024-01-11T08:10:00",
+    notes: "Emergency allocation: 4 units O+, 2 units A+, 2 units AB+"
+  },
+  {
+    id: 9,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "ALLOCATED",
+    newStatus: "READY_FOR_RELEASE",
+    changedBy: { id: 204, fullName: "Lab Technician" },
+    changedAt: "2024-01-11T08:25:00",
+    notes: "Expedited quality checks completed - ready for OR"
+  },
+  {
+    id: 10,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    oldStatus: "READY_FOR_RELEASE",
+    newStatus: "RELEASED",
+    changedBy: { id: 206, fullName: "Dr. Anderson" },
+    changedAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 11,
+    request: { id: 103, referenceNumber: "REF-2024-0003" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-12T06:30:00",
+    notes: "Routine transfusion request for outpatient"
+  },
+  {
+    id: 12,
+    request: { id: 103, referenceNumber: "REF-2024-0003" },
+    oldStatus: "PENDING",
+    newStatus: "REJECTED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-12T07:15:00",
+    notes: "Insufficient clinical justification - patient hemoglobin level adequate for treatment"
+  },
+  {
+    id: 13,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-13T10:00:00",
+    notes: "Routine inpatient request - pediatric patient"
+  },
+  {
+    id: 14,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-13T10:45:00",
+    notes: "Approved - pediatric transfusion for anemia management"
+  },
+  {
+    id: 15,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    oldStatus: "APPROVED",
+    newStatus: "ALLOCATED",
+    changedBy: { id: 203, fullName: "Blood Bank Staff" },
+    changedAt: "2024-01-13T11:20:00",
+    notes: "Allocated 1 unit O+ PRBCs for pediatric use"
+  },
+  {
+    id: 16,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    oldStatus: null,
+    newStatus: "PENDING",
+    changedBy: { id: 201, fullName: "Hospital Admin" },
+    changedAt: "2024-01-14T14:20:00",
+    notes: "Platelets request for chemotherapy patient"
+  },
+  {
+    id: 17,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    oldStatus: "PENDING",
+    newStatus: "APPROVED",
+    changedBy: { id: 202, fullName: "Dr. Smith" },
+    changedAt: "2024-01-14T14:50:00",
+    notes: "Approved - platelet count critical, units available"
+  }
+];
+
+const SAMPLE_FULFILLMENTS = [
+  {
+    id: 1,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    bloodBag: { id: 1001, bagNumber: "BAG-2024-001", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 205, fullName: "Nurse Johnson" },
+    fulfilledAt: "2024-01-10T11:45:00",
+    notes: "Released to Ward 3 - received by Nurse Johnson"
+  },
+  {
+    id: 2,
+    request: { id: 101, referenceNumber: "REF-2024-0001" },
+    bloodBag: { id: 1002, bagNumber: "BAG-2024-002", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 205, fullName: "Nurse Johnson" },
+    fulfilledAt: "2024-01-10T11:45:00",
+    notes: "Released to Ward 3 - received by Nurse Johnson"
+  },
+  {
+    id: 3,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1003, bagNumber: "BAG-2024-003", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 4,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1004, bagNumber: "BAG-2024-004", bloodType: "O+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 5,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1005, bagNumber: "BAG-2024-005", bloodType: "A+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 6,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1006, bagNumber: "BAG-2024-006", bloodType: "A+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 7,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1007, bagNumber: "BAG-2024-007", bloodType: "AB+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 8,
+    request: { id: 102, referenceNumber: "REF-2024-0002" },
+    bloodBag: { id: 1008, bagNumber: "BAG-2024-008", bloodType: "AB+", componentType: "WHOLE_BLOOD" },
+    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
+    fulfilledAt: "2024-01-11T08:35:00",
+    notes: "Released to OR - emergency surgery in progress"
+  },
+  {
+    id: 9,
+    request: { id: 104, referenceNumber: "REF-2024-0004" },
+    bloodBag: { id: 1009, bagNumber: "BAG-2024-009", bloodType: "O+", componentType: "PRBCs" },
+    fulfilledBy: { id: 207, fullName: "Pediatric Nurse Lee" },
+    fulfilledAt: "2024-01-13T12:00:00",
+    notes: "Released to Pediatric Ward - received by Nurse Lee"
+  },
+  {
+    id: 10,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    bloodBag: { id: 1010, bagNumber: "BAG-2024-010", bloodType: "A+", componentType: "PLATELETS" },
+    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
+    fulfilledAt: "2024-01-14T15:30:00",
+    notes: "Released to Oncology Ward - chemotherapy patient"
+  },
+  {
+    id: 11,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    bloodBag: { id: 1011, bagNumber: "BAG-2024-011", bloodType: "A+", componentType: "PLATELETS" },
+    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
+    fulfilledAt: "2024-01-14T15:30:00",
+    notes: "Released to Oncology Ward - chemotherapy patient"
+  },
+  {
+    id: 12,
+    request: { id: 105, referenceNumber: "REF-2024-0005" },
+    bloodBag: { id: 1012, bagNumber: "BAG-2024-012", bloodType: "A+", componentType: "PLATELETS" },
+    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
+    fulfilledAt: "2024-01-14T15:30:00",
+    notes: "Released to Oncology Ward - chemotherapy patient"
+  }
+];
+
+// ═══════════════════════════════════════════════════════════════
+// STATE MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+const loggingState = {
+  statusLogs: [],
+  fulfillments: [],
+  statusLogsPage: 1,
+  fulfillmentsPage: 1,
+  itemsPerPage: 10,
+  currentTab: 'status-logs'
+};
+
+// ═══════════════════════════════════════════════════════════════
+// INITIALIZATION & LOADING
+// ═══════════════════════════════════════════════════════════════
+
+function initializeLoggingPanel() {
+  // console.log('📊 Initializing Logging Panel...');
+  
+  // Check if elements exist
+  const requiredElements = [
+    'logging-fulfillments-count',
+    'logging-status-changes-count',
+    'logging-pending-requests-count',
+    'logging-released-count',
+    'logging-status-tbody',
+    'logging-fulfillment-tbody'
+  ];
+  
+  const missingElements = requiredElements.filter(id => !document.getElementById(id));
+  
+  if (missingElements.length > 0) {
+    console.error('❌ Missing HTML elements:', missingElements);
+    console.error('Make sure logging-panel.html is included in your page');
+    return;
+  }
+  
+  // Load sample data
+  loggingState.statusLogs = JSON.parse(JSON.stringify(SAMPLE_STATUS_LOGS));
+  loggingState.fulfillments = JSON.parse(JSON.stringify(SAMPLE_FULFILLMENTS));
+  
+  
+  
+  // Reset pagination
+  loggingState.statusLogsPage = 1;
+  loggingState.fulfillmentsPage = 1;
+  
+  // Update UI
+  loggingUpdateSummary();
+  loggingStatusRender();
+  
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUMMARY STATS
+// ═══════════════════════════════════════════════════════════════
+
+function loggingUpdateSummary() {
+  try {
+    // Total fulfillments
+    const totalFulfillments = loggingState.fulfillments.length;
+    const fulfillmentsEl = document.getElementById('logging-fulfillments-count');
+    if (fulfillmentsEl) {
+      fulfillmentsEl.textContent = totalFulfillments;
+    }
+
+    // Total status changes
+    const totalStatusChanges = loggingState.statusLogs.length;
+    const statusChangesEl = document.getElementById('logging-status-changes-count');
+    if (statusChangesEl) {
+      statusChangesEl.textContent = totalStatusChanges;
+    }
+
+    // Pending requests
+    const pendingCount = loggingState.statusLogs.filter(log => log.newStatus === 'PENDING').length;
+    const pendingEl = document.getElementById('logging-pending-requests-count');
+    if (pendingEl) {
+      pendingEl.textContent = pendingCount;
+    }
+
+    // Released requests
+    const releasedCount = loggingState.statusLogs.filter(log => log.newStatus === 'RELEASED').length;
+    const releasedEl = document.getElementById('logging-released-count');
+    if (releasedEl) {
+      releasedEl.textContent = releasedCount;
+    }
+  } catch (error) {
+    console.error('Error updating summary:', error);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+
+function switchLoggingTab(tabName, element) {
+  
+  // Hide all tabs
+  document.querySelectorAll('.logging-tab-content').forEach(tab => {
+    tab.style.display = 'none';
+  });
+
+  // Remove active class from all buttons
+  document.querySelectorAll('.logging-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // Show selected tab
+  const tabElement = document.getElementById(`logging-${tabName}-tab`);
+  if (tabElement) {
+    tabElement.style.display = 'block';
+  } else {
+    console.error('Tab not found:', `logging-${tabName}-tab`);
+  }
+  
+  element.classList.add('active');
+  loggingState.currentTab = tabName;
+
+  // Render appropriate data
+  if (tabName === 'status-logs') {
+    loggingStatusRender();
+  } else {
+    loggingFulfillmentRender();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATUS LOGS — FILTERING & RENDERING
+// ═══════════════════════════════════════════════════════════════
+
+function getFilteredStatusLogs() {
+  const searchEl = document.getElementById('logging-status-search');
+  const statusFilterEl = document.getElementById('logging-status-filter-status');
+  const sortEl = document.getElementById('logging-status-sort');
+
+  const search = searchEl ? searchEl.value.toLowerCase() : '';
+  const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
+  const sort = sortEl ? sortEl.value : 'date_desc';
+  let filtered = loggingState.statusLogs.filter(log => {
+    const matchSearch = !search || 
+      String(log.request?.id || '').includes(search) ||
+      (log.request?.referenceNumber || '').toLowerCase().includes(search);
+
+    const matchStatus = statusFilter === 'ALL' || log.newStatus === statusFilter;
+
+    return matchSearch && matchStatus;
+  });
+
+  // Sort
+  if (sort === 'date_desc') {
+    filtered.sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt));
+  } else if (sort === 'date_asc') {
+    filtered.sort((a, b) => new Date(a.changedAt) - new Date(b.changedAt));
+  } else if (sort === 'request_id') {
+    filtered.sort((a, b) => (a.request?.id || 0) - (b.request?.id || 0));
+  }
+
+  return filtered;
+}
+
+function loggingStatusRender() {
+  try {
+    const filtered = getFilteredStatusLogs();
+    const pageSize = loggingState.itemsPerPage;
+    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+    const startIdx = (loggingState.statusLogsPage - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const pageData = filtered.slice(startIdx, endIdx);
+
+    const tbody = document.getElementById('logging-status-tbody');
+    const empty = document.getElementById('logging-status-empty');
+
+    if (!tbody) {
+      console.error('❌ logging-status-tbody element not found');
+      return;
+    }
+
+    tbody.innerHTML = '';
+
+    if (pageData.length === 0) {
+      if (empty) empty.style.display = 'block';
+      console.log('No status logs to display');
+    } else {
+      if (empty) empty.style.display = 'none';
+      pageData.forEach(log => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>#${log.request?.id || 'N/A'}</strong></td>
+          <td>${log.request?.referenceNumber || '—'}</td>
+          <td><span class="status-badge" style="background:#E8F0FF;color:#0066CC">${log.oldStatus || '—'}</span></td>
+          <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus}</span></td>
+          <td>${log.changedBy?.fullName || 'System'}</td>
+          <td>${formatDateTime(log.changedAt)}</td>
+          <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '—'}</td>
+          <td>
+            <button class="btn-ghost" onclick="viewStatusLogDetail(${log.id})" style="padding:4px 8px;font-size:11px">View</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Update pagination
+    const showingEl = document.getElementById('logging-status-showing');
+    const pageLabelEl = document.getElementById('logging-status-page-label');
+    const prevEl = document.getElementById('logging-status-prev');
+    const nextEl = document.getElementById('logging-status-next');
+    const resultsEl = document.getElementById('logging-status-results-info');
+
+    if (showingEl) showingEl.textContent = `Showing ${startIdx + 1}–${Math.min(endIdx, filtered.length)} of ${filtered.length}`;
+    if (pageLabelEl) pageLabelEl.textContent = `${loggingState.statusLogsPage} / ${totalPages}`;
+    if (prevEl) prevEl.disabled = loggingState.statusLogsPage === 1;
+    if (nextEl) nextEl.disabled = loggingState.statusLogsPage >= totalPages;
+    if (resultsEl) resultsEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+  } catch (error) {
+    console.error('Error rendering status logs:', error);
+  }
+}
+
+function loggingStatusPrevPage() {
+  if (loggingState.statusLogsPage > 1) {
+    loggingState.statusLogsPage--;
+    loggingStatusRender();
+  }
+}
+
+function loggingStatusNextPage() {
+  const filtered = getFilteredStatusLogs();
+  const totalPages = Math.ceil(filtered.length / loggingState.itemsPerPage) || 1;
+  if (loggingState.statusLogsPage < totalPages) {
+    loggingState.statusLogsPage++;
+    loggingStatusRender();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FULFILLMENTS — FILTERING & RENDERING
+// ═══════════════════════════════════════════════════════════════
+
+function getFilteredFulfillments() {
+  const searchEl = document.getElementById('logging-fulfillment-search');
+  const dateFromEl = document.getElementById('logging-fulfillment-date-from');
+  const dateToEl = document.getElementById('logging-fulfillment-date-to');
+  const sortEl = document.getElementById('logging-fulfillment-sort');
+
+  const search = searchEl ? searchEl.value.toLowerCase() : '';
+  const dateFrom = dateFromEl ? dateFromEl.value : '';
+  const dateTo = dateToEl ? dateToEl.value : '';
+  const sort = sortEl ? sortEl.value : 'date_desc';
+
+  let filtered = loggingState.fulfillments.filter(fulfillment => {
+    const matchSearch = !search || 
+      String(fulfillment.request?.id || '').includes(search) ||
+      String(fulfillment.bloodBag?.bagNumber || '').includes(search);
+
+    const fulfilledDate = new Date(fulfillment.fulfilledAt);
+    const matchDateFrom = !dateFrom || fulfilledDate >= new Date(dateFrom);
+    const matchDateTo = !dateTo || fulfilledDate <= new Date(dateTo);
+
+    return matchSearch && matchDateFrom && matchDateTo;
+  });
+
+  // Sort
+  if (sort === 'date_desc') {
+    filtered.sort((a, b) => new Date(b.fulfilledAt) - new Date(a.fulfilledAt));
+  } else if (sort === 'date_asc') {
+    filtered.sort((a, b) => new Date(a.fulfilledAt) - new Date(b.fulfilledAt));
+  } else if (sort === 'request_id') {
+    filtered.sort((a, b) => (a.request?.id || 0) - (b.request?.id || 0));
+  }
+
+  return filtered;
+}
+
+function loggingFulfillmentRender() {
+  try {
+    const filtered = getFilteredFulfillments();
+    const pageSize = loggingState.itemsPerPage;
+    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+    const startIdx = (loggingState.fulfillmentsPage - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const pageData = filtered.slice(startIdx, endIdx);
+
+    const tbody = document.getElementById('logging-fulfillment-tbody');
+    const empty = document.getElementById('logging-fulfillment-empty');
+
+    if (!tbody) {
+      console.error('❌ logging-fulfillment-tbody element not found');
+      return;
+    }
+
+    tbody.innerHTML = '';
+
+    if (pageData.length === 0) {
+      if (empty) empty.style.display = 'block';
+      console.log('No fulfillments to display');
+    } else {
+      if (empty) empty.style.display = 'none';
+      pageData.forEach(fulfillment => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>#${fulfillment.request?.id || 'N/A'}</strong></td>
+          <td><strong>${fulfillment.bloodBag?.bagNumber || 'N/A'}</strong></td>
+          <td>${fulfillment.bloodBag?.bloodType || '—'}</td>
+          <td>${fulfillment.bloodBag?.componentType || '—'}</td>
+          <td>${fulfillment.fulfilledBy?.fullName || 'System'}</td>
+          <td>${formatDateTime(fulfillment.fulfilledAt)}</td>
+          <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${fulfillment.notes || '—'}</td>
+          <td>
+            <button class="btn-ghost" onclick="viewFulfillmentDetail(${fulfillment.id})" style="padding:4px 8px;font-size:11px">View</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Update pagination
+    const showingEl = document.getElementById('logging-fulfillment-showing');
+    const pageLabelEl = document.getElementById('logging-fulfillment-page-label');
+    const prevEl = document.getElementById('logging-fulfillment-prev');
+    const nextEl = document.getElementById('logging-fulfillment-next');
+    const resultsEl = document.getElementById('logging-fulfillment-results-info');
+
+    if (showingEl) showingEl.textContent = `Showing ${startIdx + 1}–${Math.min(endIdx, filtered.length)} of ${filtered.length}`;
+    if (pageLabelEl) pageLabelEl.textContent = `${loggingState.fulfillmentsPage} / ${totalPages}`;
+    if (prevEl) prevEl.disabled = loggingState.fulfillmentsPage === 1;
+    if (nextEl) nextEl.disabled = loggingState.fulfillmentsPage >= totalPages;
+    if (resultsEl) resultsEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+  } catch (error) {
+    console.error('Error rendering fulfillments:', error);
+  }
+}
+
+function loggingFulfillmentPrevPage() {
+  if (loggingState.fulfillmentsPage > 1) {
+    loggingState.fulfillmentsPage--;
+    loggingFulfillmentRender();
+  }
+}
+
+function loggingFulfillmentNextPage() {
+  const filtered = getFilteredFulfillments();
+  const totalPages = Math.ceil(filtered.length / loggingState.itemsPerPage) || 1;
+  if (loggingState.fulfillmentsPage < totalPages) {
+    loggingState.fulfillmentsPage++;
+    loggingFulfillmentRender();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DETAIL VIEWS & ACTIONS
+// ═══════════════════════════════════════════════════════════════
+
+function viewStatusLogDetail(logId) {
+  const log = loggingState.statusLogs.find(l => l.id === logId);
+  if (!log) {
+    console.error('Log not found:', logId);
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="width:90%;max-width:500px">
+      <div class="modal-header">
+        <h3>Status Change Details</h3>
+        <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
+      </div>
+      <div class="modal-body" style="padding:20px">
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Request ID</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">#${log.request?.id || 'N/A'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Reference Number</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">${log.request?.referenceNumber || '—'}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px">
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">Old Status</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.oldStatus || '—'}</div>
+          </div>
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">New Status</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.newStatus}</div>
+          </div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Changed By</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.changedBy?.fullName || 'System'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Changed At</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${formatDateTime(log.changedAt)}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Notes</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px;background:var(--bg-light);padding:12px;border-radius:4px;min-height:80px">${log.notes || '—'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function viewFulfillmentDetail(fulfillmentId) {
+  const fulfillment = loggingState.fulfillments.find(f => f.id === fulfillmentId);
+  if (!fulfillment) {
+    console.error('Fulfillment not found:', fulfillmentId);
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="width:90%;max-width:550px">
+      <div class="modal-header">
+        <h3>Fulfillment Details</h3>
+        <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
+      </div>
+      <div class="modal-body" style="padding:20px">
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Request ID</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">#${fulfillment.request?.id || 'N/A'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Blood Bag Number</label>
+          <div style="font-size:16px;color:var(--charcoal);margin-top:4px;font-family:monospace">${fulfillment.bloodBag?.bagNumber || 'N/A'}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px">
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">Blood Type</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.bloodBag?.bloodType || '—'}</div>
+          </div>
+          <div>
+            <label style="font-weight:600;color:var(--muted);font-size:12px">Component</label>
+            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.bloodBag?.componentType || '—'}</div>
+          </div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Fulfilled By</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.fulfilledBy?.fullName || 'System'}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Fulfilled At</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${formatDateTime(fulfillment.fulfilledAt)}</div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-weight:600;color:var(--muted);font-size:12px">Notes</label>
+          <div style="font-size:14px;color:var(--charcoal);margin-top:4px;background:var(--bg-light);padding:12px;border-radius:4px;min-height:80px">${fulfillment.notes || '—'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════
+function exportStatusLogsExcel() {
+  const statusLogs = getFilteredStatusLogs();
+
+  if (!statusLogs.length) {
+    alert('No status log data to export.');
+    return;
+  }
+
+  const rows = statusLogs.map(log => ({
+    'Request ID':    log.request?.id             || '',
+    'Reference #':   log.request?.referenceNumber || '',
+    'Old Status':    log.oldStatus               || '',
+    'New Status':    log.newStatus               || '',
+    'Changed By':    log.changedBy?.fullName      || 'System',
+    'Changed At':    formatExcelDate(log.changedAt),
+    'Notes':         log.notes                   || '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 12 }, // Request ID
+    { wch: 18 }, // Reference #
+    { wch: 18 }, // Old Status
+    { wch: 22 }, // New Status
+    { wch: 20 }, // Changed By
+    { wch: 22 }, // Changed At
+    { wch: 40 }, // Notes
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Status Logs');
+
+  XLSX.writeFile(wb, `status-logs-${today()}.xlsx`);
+}
+
+function exportFulfillmentsExcel() {
+  const fulfillments = getFilteredFulfillments();
+
+  if (!fulfillments.length) {
+    alert('No fulfillment data to export.');
+    return;
+  }
+
+  const rows = fulfillments.map(f => ({
+    'Request ID':   f.request?.id              || '',
+    'Blood Bag ID': f.bloodBag?.bagNumber       || '',
+    'Blood Type':   f.bloodBag?.bloodType       || '',
+    'Component':    f.bloodBag?.componentType   || '',
+    'Fulfilled By': f.fulfilledBy?.fullName     || 'System',
+    'Fulfilled At': formatExcelDate(f.fulfilledAt),
+    'Notes':        f.notes                    || '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 12 }, // Request ID
+    { wch: 18 }, // Blood Bag ID
+    { wch: 12 }, // Blood Type
+    { wch: 16 }, // Component
+    { wch: 20 }, // Fulfilled By
+    { wch: 22 }, // Fulfilled At
+    { wch: 40 }, // Notes
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Fulfillments');
+
+  XLSX.writeFile(wb, `fulfillments-${today()}.xlsx`);
+}
+
+// ── Helpers ──────────────────────────────────────────────
+function formatExcelDate(raw) {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d)) return raw; // fallback: return as-is if unparseable
+  return d.toLocaleString('en-US', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  });
+}
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+// ═══════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+function formatDateTime(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatDate(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+initializeLoggingPanel()
