@@ -490,108 +490,159 @@ function getRadioVal(name) {
   return checked ? checked.value : '';
 }
 
-// ── Submit with NEW PDF FIELDS ─────────────────────────────────
+// ── Submit with COMPLETE STRUCTURED DATA (MATCHING JAVA DTO/MODEL) ────────────
+// ── Submit with ONLY EXISTING FORM FIELDS ────────────────────
 async function submitRequest() {
   hideError();
 
-  // Gather all form data
+  // ──────────────────────────────────────────────
+  // PATIENT INFORMATION (PAGE 1)
+  // ──────────────────────────────────────────────
   const patientName   = document.getElementById('f-patientName').value.trim();
-  const age           = document.getElementById('f-age').value;
-  const sex           = document.getElementById('f-sex').value;
-  const ward          = document.getElementById('f-ward').value.trim();
-  const physician     = document.getElementById('f-physician').value.trim();
-  const bloodType     = document.getElementById('f-bloodType').value;
-  const component     = document.getElementById('f-component').value;
-  const units         = document.getElementById('f-units').value;
-  const urgency       = getRadioVal('urgency');
+  const patientAge    = document.getElementById('f-age').value;
+  const patientSex    = document.getElementById('f-sex').value;
+  const wardRoom      = document.getElementById('f-ward').value.trim();
+  const requestingPhysician = document.getElementById('f-physician').value.trim();
+
+  // ──────────────────────────────────────────────
+  // PATIENT TYPE & CATEGORY (PAGE 1)
+  // ──────────────────────────────────────────────
   const ageGroup      = getRadioVal('ageGroup');
-  const category      = getRadioVal('category');
-  const requiredBy    = document.getElementById('f-requiredBy').value;
-  const notes         = document.getElementById('f-notes').value.trim();
-  const requesterName = document.getElementById('f-requesterName').value.trim();
-  const relationship  = document.getElementById('f-relationship').value;
-  const contact       = document.getElementById('f-contact').value.trim();
-  const email         = document.getElementById('f-email').value.trim();
+  const requestCategory = getRadioVal('category');
 
-  // ── NEW PDF FIELDS ──
-  const diagnosis           = document.getElementById('f-diagnosis').value.trim();
-  const hemoglobin          = document.getElementById('f-hemoglobin').value;
-  const hematocrit          = document.getElementById('f-hematocrit').value;
-  const requestType         = getRadioVal('requestType');
-  const prevTransfusion     = getRadioVal('prevTransfusion');
-  const prevTransDate       = document.getElementById('f-prevTransDate').value;
-  const prevUnits           = document.getElementById('f-prevUnits').value;
-  const prevReaction        = getRadioVal('prevReaction');
-  const reactionDate        = document.getElementById('f-reactionDate').value;
-  const reactionDetails     = document.getElementById('f-reactionDetails').value.trim();
+  // ──────────────────────────────────────────────
+  // BLOOD DETAILS (PAGE 2)
+  // ──────────────────────────────────────────────
+  const bloodType     = document.getElementById('f-bloodType').value;
+  const bloodComponent = document.getElementById('f-component').value;
+  const numberOfUnits = document.getElementById('f-units').value;
 
-  // Indications
+  // ──────────────────────────────────────────────
+  // CLINICAL INFORMATION (PAGE 2)
+  // ──────────────────────────────────────────────
+  const clinicalImpression = document.getElementById('f-diagnosis').value.trim();
+  const hemoglobin = document.getElementById('f-hemoglobin').value;
+  const hematocrit = document.getElementById('f-hematocrit').value;
+  const requestType = getRadioVal('requestType');
+
+  // ──────────────────────────────────────────────
+  // TRANSFUSION HISTORY (PAGE 2)
+  // ──────────────────────────────────────────────
+  const hadPreviousTransfusion = getRadioVal('prevTransfusion') === 'YES';
+  const previousTransfusionDate = document.getElementById('f-prevTransDate').value;
+  const previousTransfusionUnits = document.getElementById('f-prevUnits').value;
+
+  // ──────────────────────────────────────────────
+  // REACTION HISTORY (PAGE 2)
+  // ──────────────────────────────────────────────
+  const hadPreviousReaction = getRadioVal('prevReaction') === 'YES';
+  const previousReactionDate = document.getElementById('f-reactionDate').value;
+  const previousReactionDetails = document.getElementById('f-reactionDetails').value.trim();
+
+  // ──────────────────────────────────────────────
+  // INDICATIONS FOR TRANSFUSION (PAGE 2)
+  // ──────────────────────────────────────────────
   const indications = getSelectedIndications();
-  const indicationCodes = indications.map(ind => ind.code).join(',');
+  const indication = indications.map(ind => ind.code).join(',');
 
-  // Build complete data object
-  const completeData = {
-    // Patient
-    patientName:                patientName,
-    patientAge:                 parseInt(age),
-    patientSex:                 sex,
-    wardRoom:                   ward || null,
-    requestingPhysician:        physician,
-    ageGroup:                   ageGroup,
-    requestCategory:            category,
-    
-    // Blood
-    bloodType:                  bloodType,
-    bloodComponent:             component,
-    numberOfUnits:              parseInt(units),
-    urgencyLevel:               urgency,
-    requiredBy:                 requiredBy || null,
-    
-    // Clinical (NEW PDF FIELDS)
-    clinicalImpression:         diagnosis || null,
-    hemoglobin:                 hemoglobin ? parseFloat(hemoglobin) : null,
-    hematocrit:                 hematocrit ? parseFloat(hematocrit) : null,
-    requestType:                requestType || 'ROUTINE',
-    
-    // Transfusion History (NEW PDF FIELDS)
-    previousTransfusionHistory: prevTransfusion + (prevTransDate ? ` on ${prevTransDate}${prevUnits ? `, ${prevUnits} units` : ''}` : '') || null,
-    
-    // Reaction History (NEW PDF FIELDS)
-    previousReactionHistory:    prevReaction + (reactionDate ? ` on ${reactionDate}${reactionDetails ? `, ${reactionDetails}` : ''}` : '') || null,
-    
-    // Indication (NEW PDF FIELD)
-    indication:                 indicationCodes || null,
-    
-    // Contact & Notes
-    requesterName:              requesterName,
-    requesterRelationship:      relationship || null,
-    requesterContact:           contact,
-    requesterEmail:             email,
-    notes:                       notes || null
+  // ──────────────────────────────────────────────
+  // URGENCY & TIMING (PAGE 2)
+  // ──────────────────────────────────────────────
+  const urgencyLevel  = getRadioVal('urgency');
+  const requiredBy    = document.getElementById('f-requiredBy').value;
+
+  // ──────────────────────────────────────────────
+  // NOTES (PAGE 3)
+  // ──────────────────────────────────────────────
+  const notes = document.getElementById('f-notes').value.trim();
+
+  // ──────────────────────────────────────────────
+  // CONTACT / REQUESTER INFORMATION (PAGE 3)
+  // ──────────────────────────────────────────────
+  const requesterName = document.getElementById('f-requesterName').value.trim();
+  const requesterRelationship = document.getElementById('f-relationship').value;
+  const requesterContact = document.getElementById('f-contact').value.trim();
+  const requesterEmail = document.getElementById('f-email').value.trim();
+
+  // ══════════════════════════════════════════════════════════════
+  // BUILD COMPLETE DATA OBJECT (MATCHING BloodBagRequestDTO)
+  // ══════════════════════════════════════════════════════════════
+  const requestData = {
+    // PATIENT INFO
+    patientName: patientName,
+    patientAge: patientAge ? parseInt(patientAge) : null,
+    patientSex: patientSex || null,
+    wardRoom: wardRoom || null,
+    requestingPhysician: requestingPhysician,
+
+    // PATIENT TYPE & CATEGORY
+    ageGroup: ageGroup,
+    requestCategory: requestCategory,
+
+    // BLOOD DETAILS
+    bloodType: bloodType,
+    bloodComponent: bloodComponent,
+    numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : null,
+
+    // URGENCY & TIMING
+    urgencyLevel: urgencyLevel,
+    requiredBy: requiredBy || null,
+
+    // CONTACT / REQUESTER
+    requesterName: requesterName,
+    requesterRelationship: requesterRelationship || null,
+    requesterContact: requesterContact,
+    requesterEmail: requesterEmail,
+
+    // NOTES
+    notes: notes || null,
+
+    // CLINICAL INFORMATION
+    clinicalImpression: clinicalImpression || null,
+    hemoglobin: hemoglobin ? parseFloat(hemoglobin) : null,
+    hematocrit: hematocrit ? parseFloat(hematocrit) : null,
+    requestType: requestType || 'ROUTINE',
+
+    // TRANSFUSION HISTORY (STRUCTURED)
+    hadPreviousTransfusion: hadPreviousTransfusion,
+    previousTransfusionDate: previousTransfusionDate || null,
+    previousTransfusionUnits: previousTransfusionUnits ? parseInt(previousTransfusionUnits) : null,
+
+    // REACTION HISTORY (STRUCTURED)
+    hadPreviousReaction: hadPreviousReaction,
+    previousReactionDate: previousReactionDate || null,
+    previousReactionDetails: previousReactionDetails || null,
+
+    // INDICATIONS
+    indication: indication || null
   };
+  
 
   // Log to console for development
-  console.log('=== FORM DATA (ABOUT TO SEND) ===');
-  console.log(JSON.stringify(completeData, null, 2));
+  console.log('=== BLOOD BAG REQUEST DATA (STRUCTURED) ===');
+  console.log(JSON.stringify(requestData, null, 2));
   console.log('=== FILE ATTACHED ===');
   console.log(selectedFile ? `${selectedFile.name} (${selectedFile.size} bytes)` : 'No file');
 
+  // Disable button during submission
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.textContent = 'Submitting…';
 
   try {
-    // Send to backend
+    // Build FormData with JSON data and file
     const formData = new FormData();
-    formData.append('data', new Blob([JSON.stringify(completeData)], { type: 'application/json' }));
+    formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
     if (selectedFile) {
       formData.append('doctorsNote', selectedFile);
     }
 
-    const res = await fetch('/api/req/blood-requests', { 
-      method: 'POST', 
-      body: formData 
+    // Send to backend
+    const res = await fetch('/api/req/blood-requests', {
+      method: 'POST',
+      body: formData
     });
+
     const json = await res.json();
 
     if (!res.ok) {
@@ -599,23 +650,47 @@ async function submitRequest() {
       return;
     }
 
-    // Success response
-    const mockRefNum = json.referenceNumber || ('BR-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 100000)).padStart(5, '0'));
+    // Success: generate/retrieve reference number
+    const mockRefNum = json.referenceNumber || 
+      ('BR-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 100000)).padStart(5, '0'));
 
+    // Hide form, show success screen
     document.getElementById('request-form-body').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
     document.getElementById('success-ref').textContent = mockRefNum;
-    document.getElementById('success-email').textContent = email;
+    document.getElementById('success-email').textContent = requesterEmail;
 
-    // Store for tracker
+    // Store in session for tracker (including all fields)
     sessionStorage.setItem(mockRefNum, JSON.stringify({
       refNum: mockRefNum,
       patientName: patientName,
+      patientAge: patientAge,
+      patientSex: patientSex,
+      wardRoom: wardRoom,
+      requestingPhysician: requestingPhysician,
+      ageGroup: ageGroup,
+      requestCategory: requestCategory,
       bloodType: bloodType,
-      component: component,
-      urgency: urgency,
-      units: units,
-      physician: physician,
+      bloodComponent: bloodComponent,
+      numberOfUnits: numberOfUnits,
+      urgencyLevel: urgencyLevel,
+      requiredBy: requiredBy,
+      requesterName: requesterName,
+      requesterRelationship: requesterRelationship,
+      requesterContact: requesterContact,
+      requesterEmail: requesterEmail,
+      notes: notes,
+      clinicalImpression: clinicalImpression,
+      hemoglobin: hemoglobin,
+      hematocrit: hematocrit,
+      requestType: requestType,
+      hadPreviousTransfusion: hadPreviousTransfusion,
+      previousTransfusionDate: previousTransfusionDate,
+      previousTransfusionUnits: previousTransfusionUnits,
+      hadPreviousReaction: hadPreviousReaction,
+      previousReactionDate: previousReactionDate,
+      previousReactionDetails: previousReactionDetails,
+      indication: indication,
       status: 'PENDING',
       submittedAt: new Date().toISOString()
     }));

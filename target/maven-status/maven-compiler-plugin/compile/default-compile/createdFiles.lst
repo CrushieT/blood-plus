@@ -58,7 +58,6 @@ com\hospital\blood_plus\repository\BloodBagRepository.class
 com\hospital\blood_plus\dto\request\ApproveRequestDTO.class
 com\hospital\blood_plus\dto\response\BloodBagResponse.class
 com\hospital\blood_plus\model\BloodBag$BloodType.class
-com\hospital\blood_plus\controller\HospitalController.class
 com\hospital\blood_plus\model\HospitalProfile.class
 com\hospital\blood_plus\repository\UserRepository.class
 com\hospital\blood_plus\dto\request\VerifyEmailRequest.class

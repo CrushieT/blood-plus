@@ -6,6 +6,7 @@
   <title>BloodPlus — Admin Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link href="css/styles.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -1076,8 +1077,9 @@
         <div class="page-title">Request Logs</div>
         <div class="page-sub">View status changes and fulfillment history</div>
       </div>
-      <div class="topbar-right">
-        <button class="btn-primary" onclick="exportLogs()">⬇️ Export Logs</button>
+      <div class="topbar-right" style="display:flex;gap:8px;">
+        <button class="btn-primary" onclick="exportStatusLogsExcel()">⬇️ Export Status Logs</button>
+        <button class="btn-primary" onclick="exportFulfillmentsExcel()">⬇️ Export Fulfillments</button>
       </div>
     </div>
 
@@ -1834,7 +1836,22 @@
       </div>
     </div>
   </div>
-
+  
+  <div id="req-details-modal" class="req-details-modal">
+    <div class="req-details-modal-backdrop"></div>
+    <div class="req-details-modal-content">
+      <div class="req-details-modal-header">
+        <h2 id="req-details-title" class="req-details-title">Blood Request Details</h2>
+        <button class="req-details-close" onclick="window.closeReqDetailsModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="req-details-modal-body" id="req-details-body"></div>
+    </div>
+  </div>
 
   
  

@@ -181,7 +181,7 @@ public class AdminController {
 
     // PENDING → APPROVED  (no body needed — bag selection happens at allocate)
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')") 
     @PutMapping("/blood-requests/{id}/approve")
     public ResponseEntity<?> approveRequest(
             @PathVariable Long id,
