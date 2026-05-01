@@ -1123,12 +1123,297 @@ function resetNewRequestForm() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ░░░ 3️⃣ MY REQUESTS TAB - ENHANCED FILTERING & SORTING ░░░
+// ░░░ 3️⃣ MY REQUESTS TAB - ENHANCED WITH BACKEND & INDICATIONS ░░░
 // ═══════════════════════════════════════════════════════════════
 
 // Global state for sorting
 let currentSort = 'recent';
 let columnSort = {}; // Track column sort states
+
+// ──────────────────────────────────────────────────────────────
+// INDICATION MAP — Reference for all transfusion indications
+// ──────────────────────────────────────────────────────────────
+
+const INDICATION_MAP = {
+    // WHOLE BLOOD (Adult)
+    'WB-1': 'Active bleeding with at least 15% blood volume loss, Hb<90 g/L, or BP drop >20%',
+    'WB-2': 'Other whole blood indications (requires review)',
+
+    // PACKED RED BLOOD CELLS (Adult)
+    'R-1': 'Hemoglobin < 80 g/L or Hematocrit < 0.24',
+    'R-2': 'Preoperative with Hb < 80 g/L or Hct < 0.24-0.30, or major surgery with high bleeding risk',
+    'R-2a': 'Preoperative hemoglobin of less than 80 g/L or Hematocrit less than 0.24 (24%) or Hematocrit less than 0.30 (30%)',
+    'R-2b': 'Major operation with high probability of bleeding with a Hemoglobin of less than 100 g/L or Hematocrit less than 0.30 (30%)',
+    'R-2c': 'Sign of hemodynamic instability or inadequate oxygen carrying capacity (symptomatic anemia)',
+    'R-3': 'Symptomatic anemia (dyspnea, syncope, tachycardia, chest pain, etc.)',
+    'R-4': 'Hb < 80 g/L with concomitant COPD, CAD, hemoglobinopathy, or sepsis',
+    'R-5': 'Other PRBC indications (requires review)',
+
+    // WHOLE RED BLOOD CELLS (Adult)
+    'W-1': 'History of allergic/anaphylactic reactions in immunocompromised patients',
+    'W-2': 'Group O blood transfusion in emergency when specific blood unavailable',
+    'W-3': 'Paroxysmal Nocturnal Hemoglobinuria (PNH)',
+    'W-4': 'Other WRBC indications (requires review)',
+
+    // PLATELET CONCENTRATE (Adult)
+    'P-1': 'Prophylactic for count < 20,000 (not TTP/ITP/HUS)',
+    'P-2': 'Active bleeding with platelet count < 50,000',
+    'P-3': 'Platelet count < 50,000 and invasive procedure within 8 hours',
+    'P-4': 'Platelet count < 100,000 and surgery in critical areas (eyes, brain, etc.)',
+    'P-5': 'Massive transfusion with diffuse microvascular bleeding',
+    'P-6': 'Other platelet indications (requires review)',
+
+    // CRYOPRECIPITATE (Adult)
+    'C-1': 'Significant Hypofibrinogenemia (< 100 mg/dL)',
+    'C-2': 'Hemophilia A',
+    'C-3': 'Von Willebrand\'s Disease or Uremic Bleeding with prolonged BT',
+    'C-4': 'Other cryoprecipitate indications (requires review)',
+
+    // FRESH FROZEN PLASMA (Adult)
+    'F-1': 'PT or PTT > 1.5x normal within 8 hours (PT>17 sec or PTT>47 sec)',
+    'F-2': 'Specific factor deficiencies not treatable with cryoprecipitate',
+    'F-3': 'Coumadin reversal in bleeding patients (Vitamin K ineffective)',
+    'F-4': 'Treatment of Thrombotic Thrombocytopenic Purpura (TTP)',
+    'F-5': 'Clinical Coagulopathy associated with:',
+    'F-5a': 'Massive Transfusion (>20 units of blood in 24 hours)',
+    'F-5b': 'Late pregnancy termination or Abruptio Placentae',
+    'F-6': 'Other FFP indications (requires review)',
+
+    // WHOLE BLOOD (Pediatric)
+    'PW-1': 'Exchange transfusion in infant with indirect bilirubin ≥20 mg/dL in first week',
+    'PW-2': 'Hyperbilirubinemia with prematurity/illness (asphyxia, acidosis, sepsis, hemolysis)',
+    'PW-3': 'Other whole blood indications (requires review)',
+
+    // PACKED RED BLOOD CELLS (Pediatric)
+    'PR-1': 'Signs/symptoms of anemia (pallor, etc.)',
+    'PR-2': 'Hypovolemia from acute blood loss with shock signs or >10% loss',
+    'PR-3': 'Major surgery candidate with Hematocrit < 0.30 or <0.35 (nocturnal)',
+    'PR-4': 'Hypertransfusion for chronic hemolytic anemia (Thalassemia)',
+    'PR-5': 'Hemoglobin ≥130 g/L and on assisted ventilation',
+    'PR-6': 'Anemia with Hb < 80 g/L or Hct < 0.25',
+    'PR-7': 'Blood volume reduction 10 mL/kg with Hct < 0.45 in newborn <4 months',
+    'PR-8': 'Pulmonary disease or CHD with Hct 0.40-0.45',
+    'PR-9': 'Other PRBC indications (requires review)',
+
+    // WHOLE RED BLOOD CELLS (Pediatric)
+    'PWR': 'Other WRBC indications (requires review)',
+
+    // PLATELET CONCENTRATE (Pediatric)
+    'PP-1': 'Active bleeding with thrombocytopenia < 50,000 or ICH risk',
+    'PP-2': 'Active bleeding with qualitative defect',
+    'PP-3': 'Prophylaxis for severe thrombocytopenia < 20,000 or qualitative defect',
+    'PP-4': 'Invasive procedure with thrombocytopenia < 70,000 or qualitative defect',
+    'PP-5': 'Other platelet indications (requires review)',
+
+    // FRESH FROZEN PLASMA (Pediatric)
+    'PF-1': 'Multiple coagulation factor deficiency (e.g., dengue shock syndrome)',
+    'PF-2': 'Congenital factor deficiency',
+    'PF-3': 'Anti-Thrombin III Deficiency',
+    'PF-4': 'Bleeding in exchange transfusion or massive transfusion (>1 blood volume)',
+    'PF-5': 'Other FFP indications (requires review)',
+
+    // CRYOPRECIPITATE (Pediatric)
+    'PC-1': 'Factor VIII Deficiency (Hemophilia A)',
+    'PC-2': 'Von Willebrand\'s Disease',
+    'PC-3': 'Disseminated Intravascular Coagulation (DIC)',
+    'PC-4': 'Uremia with active bleeding or invasive procedure planned',
+    'PC-5': 'Other cryoprecipitate indications (requires review)',
+};
+
+// ──────────────────────────────────────────────────────────────
+// INDICATION UTILITY FUNCTIONS
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Format indications string into array of descriptions
+ * @param {string} indicationString - Comma-separated codes (e.g., "R-1,R-2a,R-3")
+ * @returns {array} Array of description strings
+ */
+function formatIndications(indicationString) {
+    if (!indicationString) return [];
+    
+    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    const descriptions = codes.map(code => {
+        const description = INDICATION_MAP[code];
+        return description || code;
+    }).filter(Boolean);
+    
+    return descriptions.length > 0 ? descriptions : [];
+}
+
+/**
+ * Generate HTML badges for indication codes
+ * @param {string} indicationString - Comma-separated codes
+ * @returns {string} HTML string with badges
+ */
+function getIndicationBadges(indicationString) {
+    if (!indicationString) return '';
+    
+    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    return codes.map(code => {
+        return `<span class="req-indication-badge">${code}</span>`;
+    }).join('');
+}
+
+/**
+ * Render indication details with parent/sub-code hierarchy
+ * Groups parent codes with their sub-codes (e.g., F-5, F-5a, F-5b)
+ * @param {string} indicationString - Comma-separated codes
+ * @returns {string} HTML string with grouped indication details
+ */
+function renderIndicationDetails(indicationString) {
+    if (!indicationString) {
+        return '<span class="req-details-value">Not specified</span>';
+    }
+
+    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    
+    // Group parent codes with their sub-codes
+    const grouped = {};
+    codes.forEach(code => {
+        const parentMatch = code.match(/^([A-Z]+-\d+)/);
+        const parentCode = parentMatch ? parentMatch[1] : code;
+        
+        if (!grouped[parentCode]) {
+            grouped[parentCode] = {
+                parent: parentCode,
+                main: null,
+                subs: []
+            };
+        }
+        
+        // Separate main code from sub-codes
+        if (code === parentCode) {
+            grouped[parentCode].main = code;
+        } else {
+            grouped[parentCode].subs.push(code);
+        }
+    });
+    
+    // Build HTML
+    let html = '<div style="margin-bottom:12px">';
+    
+    Object.values(grouped).forEach(group => {
+        // Main code
+        if (group.main) {
+            const desc = INDICATION_MAP[group.main] || group.main;
+            html += `
+                <div style="margin-bottom:8px">
+                    <strong>${group.main}</strong>: ${desc}
+                </div>
+            `;
+        }
+        
+        // Sub-codes
+        group.subs.forEach(subCode => {
+            const desc = INDICATION_MAP[subCode] || subCode;
+            html += `
+                <div style="margin-left:20px;margin-bottom:6px;color:var(--muted)">
+                    <strong>${subCode}</strong>: ${desc}
+                </div>
+            `;
+        });
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+// ──────────────────────────────────────────────────────────────
+// BACKEND INTEGRATION — Load requests from API
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Load hospital blood requests from backend
+ * Transforms API response to match local REQUESTS format
+ */
+async function loadHospitalRequests() {
+    try {
+        const response = await fetch('/api/hospital/blood-requests', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            console.error('Failed to fetch requests:', response.status);
+            return;
+        }
+
+        const requests = await response.json();
+
+        // Transform backend response to match local REQUESTS format
+        REQUESTS = requests.map(req => ({
+            id: req.id,
+            referenceNumber: req.referenceNumber,
+            patientName: req.patientName,
+            patientAge: req.patientAge, 
+            patientSex: req.patientSex,
+            wardRoom: req.wardRoom || '',
+            requestingPhysician: req.requestingPhysician,
+            ageGroup: req.ageGroup,
+            requestCategory: req.requestCategory,
+            bloodType: req.bloodType,
+            bloodComponent: req.bloodComponent,
+            numberOfUnits: req.numberOfUnits,
+            volumeMl: req.volumeMl || null,
+            urgencyLevel: req.urgencyLevel,
+            status: req.status,
+            requestType: req.requestType || null,
+            requestedAt: req.requestedAt,
+            requiredBy: req.requiredBy || null,
+            notes: req.notes || '',
+            doctorsNoteUrl: req.doctorsNoteUrl || null,
+            doctorsNoteKey: req.doctorsNoteKey || null,
+            
+            // Clinical info (NEW)
+            clinicalImpression: req.clinicalImpression || null,
+            attendingPhysician: req.attendingPhysician || null,
+            contactNumber: req.contactNumber || null,
+            hemoglobin: req.hemoglobin || null,
+            hematocrit: req.hematocrit || null,
+            
+            // Transfusion history (NEW)
+            hadPreviousTransfusion: req.hadPreviousTransfusion || false,
+            previousTransfusionDate: req.previousTransfusionDate || null,
+            previousTransfusionUnits: req.previousTransfusionUnits || null,
+            
+            // Reaction history (NEW)
+            hadPreviousReaction: req.hadPreviousReaction || false,
+            previousReactionDate: req.previousReactionDate || null,
+            previousReactionDetails: req.previousReactionDetails || null,
+            
+            // Indications (NEW)
+            indication: req.indication || null,
+            
+            // Requester info (NEW)
+            requesterName: req.requesterName || null,
+            requesterRelationship: req.requesterRelationship || null,
+            requesterContact: req.requesterContact || null,
+            requesterEmail: req.requesterEmail || null,
+            requesterType: req.requesterType || null,
+            
+            // Fulfillment & rejection
+            rejectionReason: req.rejectionReason || null,
+            reviewedAt: req.reviewedAt || null,
+            fulfilledByBag: req.fulfilledByBag || null
+        }));
+        console.log(requests);
+        // Re-render with fetched data
+        renderDashboard();
+        filterRequests(currentFilter, document.querySelector('.active-filter'));
+
+    } catch (error) {
+        console.error('Error loading hospital requests:', error);
+    }
+}
+
+// Call on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadHospitalRequests();
+});
 
 // ──────────────────────────────────────────────────────────────
 // Filter & Sort UI Management
@@ -1315,7 +1600,6 @@ function filterRequests(filter, btn) {
     // Apply date range filter
     if (dateRange) {
         const now = new Date();
-        const reqDate = new Date(today);
         let filterDate;
         
         switch(dateRange) {
@@ -1460,22 +1744,34 @@ function updateRequestStats(list) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Request Detail Modal (Original Functions)
-// ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// REQUEST DETAIL MODAL — ENHANCED WITH ALL SECTIONS
+// ══════════════════════════════════════════════════════════════
 
 /**
- * Open request detail modal with populated data
+ * Open request detail modal with comprehensive data population
+ * Maps all request data to modal fields including:
+ * - Request Status
+ * - Patient Information
+ * - Blood Requirements
+ * - Transfusion Indications (with INDICATION_MAP)
+ * - Clinical Information
+ * - Transfusion History
+ * - Reaction History
+ * - Requester Information
  */
 function openRequestDetail(id) {
     const r = REQUESTS.find(x => x.id === id);
     if (!r) return;
+    
     const sc = STATUS_CFG[r.status];
     const urg = URGENCY_LABELS[r.urgencyLevel];
     
+    // ─────────────────────────────────────────────
+    // HEADER & STATUS STRIP
+    // ─────────────────────────────────────────────
     document.getElementById('rd-ref').textContent = r.referenceNumber;
     
-    // Status strip
     const strip = document.getElementById('rd-status-strip');
     strip.style.background = sc.bg;
     document.getElementById('rd-status-icon').textContent = sc.icon;
@@ -1484,66 +1780,174 @@ function openRequestDetail(id) {
     document.getElementById('rd-status-text').style.color = sc.color;
     document.getElementById('rd-status-text').textContent = sc.label;
     document.getElementById('rd-status-sub').style.color = sc.color;
-    document.getElementById('rd-status-sub').textContent = sc.sub;
+    document.getElementById('rd-status-sub').textContent = sc.sub || '';
     document.getElementById('rd-blood-ghost').textContent = BT_LABELS[r.bloodType];
     document.getElementById('rd-blood-ghost').style.color = sc.color;
     
-    // Fields
+    // ─────────────────────────────────────────────
+    // SECTION: REQUEST STATUS
+    // ─────────────────────────────────────────────
     document.getElementById('rd-blood').textContent = BT_LABELS[r.bloodType];
-    document.getElementById('rd-comp').textContent = COMP_LABELS[r.bloodComponent];
-    document.getElementById('rd-units').textContent = r.numberOfUnits + ' unit(s)';
     document.getElementById('rd-urgency').innerHTML = `<span class="badge ${URGENCY_BADGE[r.urgencyLevel]}">${urg}</span>`;
-    document.getElementById('rd-patient').textContent = r.patientName + ' · ' + r.patientAge + ' yrs / ' + r.patientSex;
-    document.getElementById('rd-cat').textContent = CAT_LABELS[r.requestCategory] + ' · ' + r.ageGroup;
-    document.getElementById('rd-physician').textContent = r.requestingPhysician;
+    document.getElementById('rd-status-badge').innerHTML = `<span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span>`;
+    document.getElementById('rd-request-type').textContent = r.requestType || '—';
+    document.getElementById('rd-submitted-date').textContent = formatDate(r.requestedAt) || '—';
     document.getElementById('rd-required').textContent = r.requiredBy ? formatDate(r.requiredBy) : 'As soon as possible';
     
-    // Rejection
+    // ─────────────────────────────────────────────
+    // SECTION: PATIENT INFORMATION
+    // ─────────────────────────────────────────────
+    document.getElementById('rd-patient').textContent = r.patientName || '—';
+    document.getElementById('rd-patient-age').textContent = 
+        (r.patientAge || '—') + (r.ageGroup ? ` (${r.ageGroup})` : '');
+    document.getElementById('rd-patient-sex').textContent = r.patientSex || '—';
+    document.getElementById('rd-ward-room').textContent = r.wardRoom || '—';
+    document.getElementById('rd-cat').textContent = r.requestCategory || '—';
+    document.getElementById('rd-physician').textContent = r.requestingPhysician || '—';
+    
+    // ─────────────────────────────────────────────
+    // SECTION: BLOOD REQUIREMENTS
+    // ─────────────────────────────────────────────
+    document.getElementById('rd-comp').textContent = COMP_LABELS[r.bloodComponent] || r.bloodComponent || '—';
+    document.getElementById('rd-units').textContent = r.numberOfUnits ? `${r.numberOfUnits} unit(s)` : '—';
+    document.getElementById('rd-volume').textContent = r.volumeMl ? `${r.volumeMl} mL` : '—';
+    document.getElementById('rd-notes').textContent = r.notes || '—';
+    
+    // ─────────────────────────────────────────────
+    // SECTION: TRANSFUSION INDICATIONS
+    // ─────────────────────────────────────────────
+    const indicationsSection = document.getElementById('rd-indications-section');
+    if (r.indication) {
+        const indCodes = r.indication.split(',').map(c => c.trim()).filter(c => c);
+        if (indCodes.length > 0) {
+            indicationsSection.style.display = 'block';
+            
+            
+            // Build indication details with grouped hierarchy
+            document.getElementById('rd-indication-details').innerHTML = renderIndicationDetails(r.indication);
+        } else {
+            indicationsSection.style.display = 'none';
+        }
+    } else {
+        indicationsSection.style.display = 'none';
+    }
+    
+    // ─────────────────────────────────────────────
+    // SECTION: CLINICAL INFORMATION
+    // ─────────────────────────────────────────────
+    document.getElementById('rd-clinical-impression').textContent = r.clinicalImpression || '—';
+    document.getElementById('rd-attending-physician').textContent = r.attendingPhysician || '—';
+    document.getElementById('rd-contact-number').textContent = r.contactNumber || '—';
+    document.getElementById('rd-hemoglobin').textContent = r.hemoglobin ? `${r.hemoglobin} g/L` : '—';
+    document.getElementById('rd-hematocrit').textContent = r.hematocrit 
+        ? `${(r.hematocrit * 100).toFixed(1)}%` 
+        : '—';
+    
+    // ─────────────────────────────────────────────
+    // SECTION: TRANSFUSION HISTORY
+    // ─────────────────────────────────────────────
+    const hasPrevTransfusion = r.hadPreviousTransfusion === true;
+    document.getElementById('rd-previous-transfusion').textContent = hasPrevTransfusion ? 'Yes' : 'No';
+    
+    const transfusionDateBox = document.getElementById('rd-transfusion-date-box');
+    const transfusionUnitsBox = document.getElementById('rd-transfusion-units-box');
+    
+    if (hasPrevTransfusion) {
+        transfusionDateBox.style.display = 'block';
+        transfusionUnitsBox.style.display = 'block';
+        document.getElementById('rd-transfusion-date').textContent = 
+            r.previousTransfusionDate ? formatDate(r.previousTransfusionDate) : '—';
+        document.getElementById('rd-transfusion-units').textContent = 
+            r.previousTransfusionUnits ? `${r.previousTransfusionUnits} unit(s)` : '—';
+    } else {
+        transfusionDateBox.style.display = 'none';
+        transfusionUnitsBox.style.display = 'none';
+    }
+    
+    // ─────────────────────────────────────────────
+    // SECTION: REACTION HISTORY
+    // ─────────────────────────────────────────────
+    const hasPrevReaction = r.hadPreviousReaction === true;
+    document.getElementById('rd-previous-reaction').textContent = hasPrevReaction ? 'Yes' : 'No';
+    
+    const reactionDateBox = document.getElementById('rd-reaction-date-box');
+    const reactionDetailsBox = document.getElementById('rd-reaction-details-box');
+    
+    if (hasPrevReaction) {
+        reactionDateBox.style.display = 'block';
+        reactionDetailsBox.style.display = 'block';
+        document.getElementById('rd-reaction-date').textContent = 
+            r.previousReactionDate ? formatDate(r.previousReactionDate) : '—';
+        document.getElementById('rd-reaction-details').textContent = 
+            r.previousReactionDetails || '—';
+    } else {
+        reactionDateBox.style.display = 'none';
+        reactionDetailsBox.style.display = 'none';
+    }
+    
+    // ─────────────────────────────────────────────
+    // SECTION: REQUESTER INFORMATION
+    // ─────────────────────────────────────────────
+    document.getElementById('rd-requester-name').textContent = r.requesterName || '—';
+    document.getElementById('rd-requester-relationship').textContent = r.requesterRelationship || '—';
+    document.getElementById('rd-requester-contact').textContent = r.requesterContact || '—';
+    document.getElementById('rd-requester-email').textContent = r.requesterEmail || '—';
+    document.getElementById('rd-requester-type').textContent = r.requesterType || '—';
+    
+    // ─────────────────────────────────────────────
+    // REJECTION REASON (if applicable)
+    // ─────────────────────────────────────────────
     const rejBox = document.getElementById('rd-rejection-box');
-    if (rejBox) {
-        if (r.rejectionReason) {
-            rejBox.style.display = 'block';
-            document.getElementById('rd-rejection-text').textContent = r.rejectionReason;
-        } else {
-            rejBox.style.display = 'none';
-        }
+    if (r.rejectionReason && r.status === 'REJECTED') {
+        rejBox.style.display = 'block';
+        document.getElementById('rd-rejection-text').textContent = r.rejectionReason;
+    } else {
+        rejBox.style.display = 'none';
     }
     
-    // Fulfilled
+    // ─────────────────────────────────────────────
+    // FULFILLED BY BAG (if applicable)
+    // ─────────────────────────────────────────────
     const fulBox = document.getElementById('rd-fulfilled-box');
-    if (fulBox) {
-        if (r.fulfilledByBag) {
-            fulBox.style.display = 'block';
-            document.getElementById('rd-bag-id').textContent = r.fulfilledByBag.id;
-            document.getElementById('rd-released-at').textContent = formatDate(r.fulfilledByBag.dispensedAt);
-        } else {
-            fulBox.style.display = 'none';
-        }
+    if (r.fulfilledByBag && r.status === 'RELEASED') {
+        fulBox.style.display = 'block';
+        document.getElementById('rd-bag-id').textContent = r.fulfilledByBag.id || '—';
+        document.getElementById('rd-released-at').textContent = 
+            r.fulfilledByBag.dispensedAt ? formatDate(r.fulfilledByBag.dispensedAt) : '—';
+    } else {
+        fulBox.style.display = 'none';
     }
     
-    // Doctor's Note
+    // ─────────────────────────────────────────────
+    // DOCTOR'S NOTE / REQUEST DOCUMENT
+    // ─────────────────────────────────────────────
     const docBox = document.getElementById('rd-doc-box');
     const docBtn = document.getElementById('rd-view-doc-btn');
-    if (docBox && docBtn) {
-        if (r.doctorsNoteUrl) {
-            docBox.style.display = 'block';
-            docBtn.onclick = () => {
-                window.reqViewDoc(r.doctorsNoteUrl, 'Request\'s Form - ' + r.referenceNumber);
-            };
-        } else {
-            docBox.style.display = 'none';
-        }
+    if (r.doctorsNoteUrl) {
+        docBox.style.display = 'block';
+        docBtn.onclick = () => {
+            window.reqViewDoc(r.doctorsNoteUrl, `Request Form - ${r.referenceNumber}`);
+        };
+    } else {
+        docBox.style.display = 'none';
     }
     
-    // Cancel
+    // ─────────────────────────────────────────────
+    // CANCEL BUTTON (only for PENDING status)
+    // ─────────────────────────────────────────────
     const cancelRow = document.getElementById('rd-cancel-row');
-    cancelRow.style.display = r.status === 'PENDING' ? 'block' : 'none';
-    document.getElementById('rd-cancel-btn').onclick = () => {
-        cancelTargetId = r.id;
-        closeModal('requestDetailModal');
-        openModal('cancelConfirmModal');
-    };
+    if (r.status === 'PENDING') {
+        cancelRow.style.display = 'block';
+        document.getElementById('rd-cancel-btn').onclick = () => {
+            cancelTargetId = r.id;
+            closeModal('requestDetailModal');
+            openModal('cancelConfirmModal');
+        };
+    } else {
+        cancelRow.style.display = 'none';
+    }
     
+    // Open the modal
     openModal('requestDetailModal');
 }
 
@@ -1592,6 +1996,15 @@ window.reqViewDoc = function (url, label) {
     
     openModal('req-doc-modal');
 };
+
+// ──────────────────────────────────────────────────────────────
+// HELPER: Format dates
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Format date for display
+ * Expected format: "Mar 15, 2026" or similar
+ */
 
 // ═══════════════════════════════════════════════════════════════
 // ░░░ 4️⃣ HOSPITAL PROFILE TAB ░░░
@@ -1889,19 +2302,6 @@ function showProfileError(message) {
 }
 
 
-// openModal(id) and closeModal(id) should already exist in hospital-dashboard.js
-// If not, add these:
-/*
-function openModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) modal.classList.add('show');
-}
-
-function closeModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) modal.classList.remove('show');
-}
-*/
 
 // ──────────────────────────────────────────────────────────────
 // Initialize on DOM Ready
@@ -1917,62 +2317,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ BACKEND INTEGRATION ░░░
-// ═══════════════════════════════════════════════════════════════
-
-
-async function loadHospitalRequests() {
-  try {
-    const response = await fetch('/api/hospital/blood-requests', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch requests:', response.status);
-      return;
-    }
-
-    const requests = await response.json();
-
-    // Transform backend response to match local REQUESTS format
-    REQUESTS = requests.map(req => ({
-      id: req.id,
-      referenceNumber: req.referenceNumber,
-      patientName: req.patientName,
-      patientAge: req.patientAge, 
-      patientSex: req.patientSex,
-      wardRoom: req.wardRoom || '',
-      requestingPhysician: req.requestingPhysician,
-      ageGroup: req.ageGroup,
-      requestCategory: req.requestCategory,
-      bloodType: req.bloodType,
-      bloodComponent: req.bloodComponent,
-      numberOfUnits: req.numberOfUnits,
-      urgencyLevel: req.urgencyLevel,
-      status: req.status,
-      requestedAt: req.requestedAt ? req.requestedAt.split('T')[0] : new Date().toISOString().split('T')[0],
-      requiredBy: req.requiredBy,
-      notes: req.notes || '',
-      doctorsNoteUrl: req.doctorsNoteUrl || null,
-      doctorsNoteKey: req.doctorsNoteKey || null,
-      rejectionReason: req.rejectionReason || null,
-      reviewedAt: req.reviewedAt,
-      fulfilledByBag: null
-    }));
-    
-    // Re-render with fetched data
-    renderDashboard();
-    filterRequests(currentFilter, document.querySelector('.active-filter'));
-
-  } catch (error) {
-    console.error('Error loading hospital requests:', error);
-  }
-}
 
 /**
  * Logout user

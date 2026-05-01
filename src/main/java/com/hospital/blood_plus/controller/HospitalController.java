@@ -6,12 +6,14 @@ import com.hospital.blood_plus.dto.request.UpdateHospitalProfileDTO;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.model.HospitalProfile;
+import com.hospital.blood_plus.model.RequestFulfillment;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
 import com.hospital.blood_plus.service.HospitalProfileService;
 import com.hospital.blood_plus.repository.HospitalProfileRepository;
 import com.hospital.blood_plus.repository.UserRepository;
 
+import org.apache.el.stream.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -395,29 +397,96 @@ public class HospitalController {
     }
 
 
-    private Map<String, Object> buildHospitalRequestResponse(BloodBagRequest req) {
+    public Map<String, Object> buildHospitalRequestResponse(BloodBagRequest req) {
         Map<String, Object> res = new HashMap<>();
+ 
+        // ─────────────────────────────────────────────
+        // CORE REQUEST FIELDS
+        // ─────────────────────────────────────────────
         res.put("id", req.getId());
         res.put("referenceNumber", req.getReferenceNumber());
+        res.put("status", req.getStatus());
+        res.put("requestType", req.getRequestType());
+        res.put("urgencyLevel", req.getUrgencyLevel());
+ 
+        // ─────────────────────────────────────────────
+        // PATIENT INFORMATION
+        // ─────────────────────────────────────────────
         res.put("patientName", req.getPatientName());
         res.put("patientAge", req.getPatientAge());
         res.put("patientSex", req.getPatientSex());
         res.put("wardRoom", req.getWardRoom());
+        res.put("ageGroup", req.getAgeGroup());
+        res.put("requestCategory", req.getRequestCategory());
         res.put("requestingPhysician", req.getRequestingPhysician());
+ 
+        // ─────────────────────────────────────────────
+        // BLOOD REQUIREMENTS
+        // ─────────────────────────────────────────────
         res.put("bloodType", req.getBloodType());
         res.put("bloodComponent", req.getBloodComponent());
         res.put("numberOfUnits", req.getNumberOfUnits());
-        res.put("urgencyLevel", req.getUrgencyLevel());
-        res.put("requestCategory", req.getRequestCategory());
-        res.put("ageGroup", req.getAgeGroup());
-        res.put("status", req.getStatus());
+        res.put("volumeMl", req.getVolumeMl());
+ 
+        // ─────────────────────────────────────────────
+        // REQUEST DATES & DEADLINES
+        // ─────────────────────────────────────────────
         res.put("requestedAt", req.getRequestedAt());
         res.put("requiredBy", req.getRequiredBy());
         res.put("reviewedAt", req.getReviewedAt());
-        res.put("rejectionReason", req.getRejectionReason());
+ 
+        // ─────────────────────────────────────────────
+        // CLINICAL INFORMATION
+        // ─────────────────────────────────────────────
+        res.put("clinicalImpression", req.getClinicalImpression());
+        res.put("attendingPhysician", req.getAttendingPhysician());
+        res.put("contactNumber", req.getContactNumber());
+        res.put("hemoglobin", req.getHemoglobin());
+        res.put("hematocrit", req.getHematocrit());
+ 
+        // ─────────────────────────────────────────────
+        // TRANSFUSION HISTORY
+        // ─────────────────────────────────────────────
+        res.put("hadPreviousTransfusion", req.getHadPreviousTransfusion());
+        res.put("previousTransfusionDate", req.getPreviousTransfusionDate());
+        res.put("previousTransfusionUnits", req.getPreviousTransfusionUnits());
+        res.put("previousTransfusionHistory", req.getPreviousTransfusionHistory());
+ 
+        // ─────────────────────────────────────────────
+        // REACTION HISTORY
+        // ─────────────────────────────────────────────
+        res.put("hadPreviousReaction", req.getHadPreviousReaction());
+        res.put("previousReactionDate", req.getPreviousReactionDate());
+        res.put("previousReactionDetails", req.getPreviousReactionDetails());
+        res.put("previousReactionHistory", req.getPreviousReactionHistory());
+ 
+        // ─────────────────────────────────────────────
+        // INDICATIONS FOR TRANSFUSION
+        // ─────────────────────────────────────────────
+        res.put("indication", req.getIndication());
+ 
+        // ─────────────────────────────────────────────
+        // REQUESTER INFORMATION
+        // ─────────────────────────────────────────────
+        res.put("requesterName", req.getRequesterName());
+        res.put("requesterRelationship", req.getRequesterRelationship());
+        res.put("requesterContact", req.getRequesterContact());
+        res.put("requesterEmail", req.getRequesterEmail());
+        res.put("requesterType", req.getRequesterType());
+ 
+        // ─────────────────────────────────────────────
+        // REQUEST DOCUMENTS
+        // ─────────────────────────────────────────────
         res.put("notes", req.getNotes());
         res.put("doctorsNoteUrl", req.getDoctorsNoteUrl());
         res.put("doctorsNoteKey", req.getDoctorsNoteKey());
+ 
+        // ─────────────────────────────────────────────
+        // STATUS & RESOLUTION
+        // ─────────────────────────────────────────────
+        res.put("rejectionReason", req.getRejectionReason());
+ 
         return res;
     }
+ 
 }
