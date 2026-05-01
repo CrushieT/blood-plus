@@ -12,7 +12,9 @@ import com.hospital.blood_plus.dto.request.ProfileDTO.MessageResponse;
 import com.hospital.blood_plus.dto.request.ProfileDTO.StaffProfileDTO;
 import com.hospital.blood_plus.dto.request.ProfileDTO.UpdateAdminProfileRequest;
 import com.hospital.blood_plus.dto.request.ProfileDTO.UpdateStaffProfileRequest;
+import com.hospital.blood_plus.dto.request.RequestStatusLogDTO;
 import com.hospital.blood_plus.service.HospitalService;
+import com.hospital.blood_plus.service.RequestStatusLogService;
 import com.hospital.blood_plus.dto.request.StaffDTOs.CreateStaffRequest;
 import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
 import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
@@ -21,6 +23,7 @@ import com.hospital.blood_plus.repository.UserRepository;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
+import com.hospital.blood_plus.model.RequestStatusLog;
 import com.hospital.blood_plus.service.AdminProfileService;
 import com.hospital.blood_plus.service.AnalyticsService;
 import com.hospital.blood_plus.service.BloodBagRequestService;
@@ -30,6 +33,7 @@ import com.hospital.blood_plus.service.StaffService;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,6 +54,7 @@ public class AdminController {
     private final DashboardService        dashboardService;
     private final AdminProfileService     adminProfileService;
     private AnalyticsService              analyticsService;
+    private RequestStatusLogService requestStatusLogService;
 
     public AdminController(BloodBagService bloodBagService,
                            UserRepository userRepository,
@@ -58,7 +63,8 @@ public class AdminController {
                            StaffService staffService,
                            DashboardService dashboardService,
                            AdminProfileService adminProfileService,
-                           AnalyticsService analyticsService) {
+                           AnalyticsService analyticsService,
+                           RequestStatusLogService requestStatusLogService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
@@ -67,7 +73,9 @@ public class AdminController {
         this.dashboardService = dashboardService;
         this.adminProfileService = adminProfileService;
         this.analyticsService = analyticsService;
+        this.requestStatusLogService = requestStatusLogService;
     }
+
 
     // ── Dashboard ─────────────────────────────────────────────
 
@@ -185,15 +193,31 @@ public class AdminController {
     @PutMapping("/blood-requests/{id}/approve")
     public ResponseEntity<?> approveRequest(
             @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            BloodBagRequest req = bloodBagRequestService.approveRequest(id, currentUser);
+            // Extract user with consistent logic
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+ 
+            BloodBagRequest req = bloodBagRequestService.approveRequest(id, user);
+            
+            // Log the status change
+            requestStatusLogService.logStatusChange(
+                    req,
+                    BloodBagRequest.RequestStatus.PENDING,
+                    BloodBagRequest.RequestStatus.APPROVED,
+                    user,
+                    "Request approved"
+            );
+ 
             return ResponseEntity.ok(Map.of(
                     "message",         "Request approved.",
                     "referenceNumber", req.getReferenceNumber(),
                     "status",          req.getStatus()
             ));
         } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -205,19 +229,35 @@ public class AdminController {
     public ResponseEntity<?> rejectRequest(
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal AppUser currentUser) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
             String reason = body.getOrDefault("rejectionReason", "").trim();
             if (reason.isBlank())
                 return ResponseEntity.badRequest().body(Map.of("error", "Rejection reason is required."));
-
-            BloodBagRequest req = bloodBagRequestService.rejectRequest(id, reason, currentUser);
+ 
+            // Extract user with consistent logic
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+ 
+            BloodBagRequest req = bloodBagRequestService.rejectRequest(id, reason, user);
+            
+            // Log the status change with rejection reason
+            requestStatusLogService.logStatusChange(
+                    req,
+                    BloodBagRequest.RequestStatus.PENDING,
+                    BloodBagRequest.RequestStatus.REJECTED,
+                    user,
+                    "Request rejected. Reason: " + reason
+            );
+ 
             return ResponseEntity.ok(Map.of(
                     "message",         "Request rejected.",
                     "referenceNumber", req.getReferenceNumber(),
                     "status",          req.getStatus()
             ));
         } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -229,9 +269,29 @@ public class AdminController {
     public ResponseEntity<?> allocateRequest(
             @PathVariable Long id,
             @RequestBody AllocateRequestDTO dto,
-            @AuthenticationPrincipal AppUser currentUser) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            BloodBagRequest req = bloodBagRequestService.allocateRequest(id, dto.getBagIds(), currentUser);
+            // Extract user with consistent logic
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            BloodBagRequest req = bloodBagRequestService.allocateRequest(id, dto.getBagIds(), user);
+            
+            // Fetch blood types for allocated bags
+            String bloodTypes = dto.getBagIds().stream()
+                    .map((Long bagId) -> bloodBagService.getBagById(bagId).getBloodType().getDisplayName())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+            
+            // Log the status change
+            requestStatusLogService.logStatusChange(
+                    req,
+                    BloodBagRequest.RequestStatus.APPROVED,
+                    BloodBagRequest.RequestStatus.ALLOCATED,
+                    user,
+                    "Blood bags allocated. Blood Types: " + bloodTypes
+            );
+
             return ResponseEntity.ok(Map.of(
                     "message",         "Blood bag(s) allocated successfully.",
                     "referenceNumber", req.getReferenceNumber(),
@@ -253,9 +313,32 @@ public class AdminController {
     public ResponseEntity<?> reallocateRequest(
             @PathVariable Long id,
             @RequestBody AllocateRequestDTO dto,
-            @AuthenticationPrincipal AppUser currentUser) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            BloodBagRequest req = bloodBagRequestService.reallocateRequest(id, dto.getBagIds(), currentUser);
+            // Extract user with consistent logic
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
+            BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
+            
+            BloodBagRequest req = bloodBagRequestService.reallocateRequest(id, dto.getBagIds(), user);
+            
+            // Fetch blood types for reallocated bags
+            String bloodTypes = dto.getBagIds().stream()
+                    .map((Long bagId) -> bloodBagService.getBagById(bagId).getBloodType().getDisplayName())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+            
+            // Log the reallocation with status change (status remains the same)
+            requestStatusLogService.logStatusChange(
+                    req,
+                    statusBefore,
+                    statusBefore,  // Status doesn't change, but we log the action
+                    user,
+                    "Blood bag selection updated. Blood Types: " + bloodTypes
+            );
+
             return ResponseEntity.ok(Map.of(
                     "message",         "Blood bag selection updated.",
                     "referenceNumber", req.getReferenceNumber(),
@@ -276,9 +359,23 @@ public class AdminController {
     @PutMapping("/blood-requests/{id}/ready")
     public ResponseEntity<?> markReadyRequest(
             @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            BloodBagRequest req = bloodBagRequestService.markReadyRequest(id, currentUser);
+            // Extract user with consistent logic
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+ 
+            BloodBagRequest req = bloodBagRequestService.markReadyRequest(id, user);
+            
+            // Log the status change
+            requestStatusLogService.logStatusChange(
+                    req,
+                    BloodBagRequest.RequestStatus.ALLOCATED,
+                    BloodBagRequest.RequestStatus.READY_FOR_RELEASE,
+                    user,
+                    "Request marked as ready for release"
+            );
+ 
             return ResponseEntity.ok(Map.of(
                     "message",         "Request marked as ready for release.",
                     "referenceNumber", req.getReferenceNumber(),
@@ -294,9 +391,23 @@ public class AdminController {
     @PutMapping("/blood-requests/{id}/release")
     public ResponseEntity<?> releaseRequest(
             @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            BloodBagRequest req = bloodBagRequestService.releaseRequest(id, currentUser);
+            // Extract user with consistent logic
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+ 
+            BloodBagRequest req = bloodBagRequestService.releaseRequest(id, user);
+            
+            // Log the status change
+            requestStatusLogService.logStatusChange(
+                    req,
+                    BloodBagRequest.RequestStatus.READY_FOR_RELEASE,
+                    BloodBagRequest.RequestStatus.RELEASED,
+                    user,
+                    "Request marked as released"
+            );
+ 
             return ResponseEntity.ok(Map.of(
                     "message",         "Request marked as released.",
                     "referenceNumber", req.getReferenceNumber(),
@@ -307,12 +418,31 @@ public class AdminController {
         }
     }
 
-    // Any non-RELEASED → CANCELLED
+
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/cancel")
-    public ResponseEntity<?> cancelRequest(@PathVariable Long id) {
+    public ResponseEntity<?> cancelRequest(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
+            // Extract user with consistent logic
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+ 
+            BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
+            BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
+            
             BloodBagRequest req = bloodBagRequestService.cancelRequest(id);
+            
+            // Log the status change
+            requestStatusLogService.logStatusChange(
+                    req,
+                    statusBefore,
+                    BloodBagRequest.RequestStatus.CANCELLED,
+                    user,
+                    "Request cancelled"
+            );
+ 
             return ResponseEntity.ok(Map.of(
                     "message",         "Request cancelled.",
                     "referenceNumber", req.getReferenceNumber(),
@@ -322,6 +452,8 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    
 
     //// ANALYTICS //////
     /**
@@ -669,4 +801,25 @@ public class AdminController {
         return ResponseEntity.ok(new MessageResponse("Password updated successfully"));
     }
 
+
+    // ─────────────────────────────────────
+    // Helper Methods
+    // ─────────────────────────────────────
+ 
+    /**
+     * Maps a RequestStatusLog entity to RequestStatusLogDTO.
+     */
+    private RequestStatusLogDTO mapToDTO(RequestStatusLog log) {
+        RequestStatusLogDTO dto = new RequestStatusLogDTO();
+        dto.setId(log.getId());
+        dto.setRequestId(log.getRequest().getId());
+        dto.setReferenceNumber(log.getRequest().getReferenceNumber());
+        dto.setOldStatus(log.getOldStatus());
+        dto.setNewStatus(log.getNewStatus());
+        dto.setChangedByEmail(log.getChangedBy().getEmail());
+        dto.setChangedByFullName(log.getChangedBy().getUsername());
+        dto.setChangedAt(log.getChangedAt());
+        dto.setNotes(log.getNotes());
+        return dto;
+    }
 }
