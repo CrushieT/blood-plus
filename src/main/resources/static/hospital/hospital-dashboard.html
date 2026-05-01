@@ -946,7 +946,7 @@
         </div>
 
         <!-- ════════════════════════════
-            PANEL: MY REQUESTS
+            PANEL: MY BLOOD REQUESTS
         ════════════════════════════ -->
         <div class="panel" id="panel-myrequests">
             <div class="topbar">
@@ -1319,78 +1319,321 @@
 
         </main>
 
-        <!-- ══════════════════════════════════
-            MODAL: REQUEST DETAIL
-        ══════════════════════════════════ -->
+        <!-- ══════════════════════════════════════════════════════════════
+            MODAL: REQUEST DETAIL (EXPANDED WITH ALL SECTIONS)
+            ══════════════════════════════════════════════════════════════ -->
         <div class="modal-overlay" id="requestDetailModal">
-        <div class="modal" style="max-width:560px">
-            <div class="modal-header">
-            <div>
-                <div class="modal-title">Request Details</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace" id="rd-ref"></div>
-            </div>
-            <button class="modal-close" onclick="closeModal('requestDetailModal')">✕</button>
-            </div>
-            <div class="modal-body">
-
-            <!-- Status strip -->
-            <div id="rd-status-strip" style="border-radius:11px;padding:14px 16px;margin-bottom:16px;
-                display:flex;align-items:center;gap:12px">
-                <div id="rd-status-icon" style="font-size:22px;flex-shrink:0"></div>
-                <div style="flex:1">
-                <div id="rd-status-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;opacity:0.65;margin-bottom:3px"></div>
-                <div id="rd-status-text" style="font-size:16px;font-weight:700"></div>
-                <div id="rd-status-sub" style="font-size:12px;margin-top:2px;opacity:0.7"></div>
+            <div class="modal" style="max-width:720px;max-height:90vh;display:flex;flex-direction:column">
+                
+                <!-- MODAL HEADER -->
+                <div class="modal-header">
+                    <div>
+                        <div class="modal-title">Request Details</div>
+                        <div style="font-size:12px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace" id="rd-ref"></div>
+                    </div>
+                    <button class="modal-close" onclick="closeModal('requestDetailModal')">✕</button>
                 </div>
-                <div id="rd-blood-ghost" style="font-family:'Playfair Display',serif;font-size:44px;font-weight:900;opacity:0.1;line-height:1"></div>
-            </div>
 
-            <!-- Info grid -->
-            <div class="detail-grid" style="margin-bottom:12px">
-                <div class="detail-box"><div class="detail-label">Blood Type</div><div class="detail-val" id="rd-blood" style="font-family:'Playfair Display',serif;color:var(--red);font-size:18px"></div></div>
-                <div class="detail-box"><div class="detail-label">Component</div><div class="detail-val" id="rd-comp"></div></div>
-                <div class="detail-box"><div class="detail-label">Units</div><div class="detail-val" id="rd-units"></div></div>
-                <div class="detail-box"><div class="detail-label">Urgency</div><div class="detail-val" id="rd-urgency"></div></div>
-                <div class="detail-box"><div class="detail-label">Patient</div><div class="detail-val" id="rd-patient"></div></div>
-                <div class="detail-box"><div class="detail-label">Category</div><div class="detail-val" id="rd-cat"></div></div>
-                <div class="detail-box"><div class="detail-label">Physician</div><div class="detail-val" id="rd-physician"></div></div>
-                <div class="detail-box"><div class="detail-label">Required By</div><div class="detail-val" id="rd-required"></div></div>
-            </div>
+                <!-- MODAL BODY — SCROLLABLE CONTENT -->
+                <div class="modal-body" style="flex:1;overflow-y:auto;padding:0">
 
-            <!-- Rejection reason -->
-            <div id="rd-rejection-box" style="display:none;background:var(--red-soft);border:1px solid #F5B7B1;
-                border-radius:10px;padding:12px 14px;margin-bottom:12px">
-                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:5px">Rejection Reason</div>
-                <div id="rd-rejection-text" style="font-size:13px;color:var(--navy);line-height:1.6"></div>
-            </div>
+                    <!-- STATUS STRIP (STICKY AT TOP) -->
+                    <div style="position:sticky;top:0;z-index:10;padding:16px;border-bottom:1px solid var(--border);background:var(--modal-bg)">
+                        <div id="rd-status-strip" style="border-radius:11px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+                            <div id="rd-status-icon" style="font-size:22px;flex-shrink:0"></div>
+                            <div style="flex:1">
+                                <div id="rd-status-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;opacity:0.65;margin-bottom:3px"></div>
+                                <div id="rd-status-text" style="font-size:16px;font-weight:700"></div>
+                                <div id="rd-status-sub" style="font-size:12px;margin-top:2px;opacity:0.7"></div>
+                            </div>
+                            <div id="rd-blood-ghost" style="font-family:'Playfair Display',serif;font-size:44px;font-weight:900;opacity:0.1;line-height:1"></div>
+                        </div>
+                    </div>
 
-            <!-- Fulfilled bag -->
-            <div id="rd-fulfilled-box" style="display:none;background:var(--green-soft);border:1px solid #A9DFBF;
-                border-radius:10px;padding:12px 14px;margin-bottom:12px">
-                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:8px">Fulfilled By</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Bag ID</div><div id="rd-bag-id" style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace"></div></div>
-                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Released</div><div id="rd-released-at" style="font-size:13px;font-weight:600"></div></div>
+                    <!-- SCROLLABLE CONTENT AREA -->
+                    <div style="padding:16px">
+
+                        <!-- SECTION: Request Status -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Request Status</div>
+                            <div class="detail-grid-2">
+                                <div class="detail-box">
+                                    <div class="detail-label">Blood Type</div>
+                                    <div class="detail-val" id="rd-blood" style="font-family:'Playfair Display',serif;color:var(--red);font-size:18px;font-weight:900"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Urgency</div>
+                                    <div class="detail-val" id="rd-urgency"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Status</div>
+                                    <div class="detail-val" id="rd-status-badge"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Request Type</div>
+                                    <div class="detail-val" id="rd-request-type"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Submitted</div>
+                                    <div class="detail-val" id="rd-submitted-date"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Required By</div>
+                                    <div class="detail-val" id="rd-required"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Patient Information -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Patient Information</div>
+                            <div class="detail-grid-2">
+                                <div class="detail-box">
+                                    <div class="detail-label">Patient Name</div>
+                                    <div class="detail-val" id="rd-patient"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Age / Age Group</div>
+                                    <div class="detail-val" id="rd-patient-age"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Sex</div>
+                                    <div class="detail-val" id="rd-patient-sex"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Ward / Room</div>
+                                    <div class="detail-val" id="rd-ward-room"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Category</div>
+                                    <div class="detail-val" id="rd-cat"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Requesting Physician</div>
+                                    <div class="detail-val" id="rd-physician"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Blood Requirements -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Blood Requirements</div>
+                            <div class="detail-grid-2">
+                                <div class="detail-box">
+                                    <div class="detail-label">Component</div>
+                                    <div class="detail-val" id="rd-comp"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Units Needed</div>
+                                    <div class="detail-val" id="rd-units"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Volume (mL)</div>
+                                    <div class="detail-val" id="rd-volume"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Special Notes</div>
+                                    <div class="detail-val" id="rd-notes"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Transfusion Indications -->
+                        <div class="detail-section" id="rd-indications-section" style="display:none">
+                            <div class="detail-section-title">Transfusion Indications</div>
+                            <div id="rd-indication-details" style="font-size:13px;color:var(--charcoal);line-height:1.8"></div>
+                        </div>
+
+                        <!-- SECTION: Clinical Information -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Clinical Information</div>
+                            <div class="detail-grid-2">
+                                <div class="detail-box">
+                                    <div class="detail-label">Clinical Impression</div>
+                                    <div class="detail-val" id="rd-clinical-impression"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Attending Physician</div>
+                                    <div class="detail-val" id="rd-attending-physician"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Contact Number</div>
+                                    <div class="detail-val" id="rd-contact-number"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Hemoglobin (g/L)</div>
+                                    <div class="detail-val" id="rd-hemoglobin"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Hematocrit (%)</div>
+                                    <div class="detail-val" id="rd-hematocrit"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Transfusion History -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Transfusion History</div>
+                            <div class="detail-grid-2">
+                                <div class="detail-box">
+                                    <div class="detail-label">Previous Transfusion</div>
+                                    <div class="detail-val" id="rd-previous-transfusion"></div>
+                                </div>
+                                <div class="detail-box" id="rd-transfusion-date-box" style="display:none">
+                                    <div class="detail-label">Last Transfusion Date</div>
+                                    <div class="detail-val" id="rd-transfusion-date"></div>
+                                </div>
+                                <div class="detail-box" id="rd-transfusion-units-box" style="display:none">
+                                    <div class="detail-label">Units Transfused</div>
+                                    <div class="detail-val" id="rd-transfusion-units"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Reaction History -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Reaction History</div>
+                            <div class="detail-grid-2">
+                                <div class="detail-box">
+                                    <div class="detail-label">Previous Reaction</div>
+                                    <div class="detail-val" id="rd-previous-reaction"></div>
+                                </div>
+                                <div class="detail-box" id="rd-reaction-date-box" style="display:none">
+                                    <div class="detail-label">Reaction Date</div>
+                                    <div class="detail-val" id="rd-reaction-date"></div>
+                                </div>
+                                <div class="detail-box" id="rd-reaction-details-box" style="display:none">
+                                    <div class="detail-label">Reaction Details</div>
+                                    <div class="detail-val" id="rd-reaction-details"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Requester Information -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Requester Information</div>
+                            <div class="detail-grid-2">
+                                <div class="detail-box">
+                                    <div class="detail-label">Requester Name</div>
+                                    <div class="detail-val" id="rd-requester-name"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Relationship</div>
+                                    <div class="detail-val" id="rd-requester-relationship"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Contact</div>
+                                    <div class="detail-val" id="rd-requester-contact"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Email</div>
+                                    <div class="detail-val" id="rd-requester-email"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Requester Type</div>
+                                    <div class="detail-val" id="rd-requester-type"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Rejection Reason (if applicable) -->
+                        <div id="rd-rejection-box" style="display:none;background:var(--red-soft);border:1px solid #F5B7B1;
+                            border-radius:10px;padding:12px 14px;margin-top:12px">
+                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:5px">Rejection Reason</div>
+                            <div id="rd-rejection-text" style="font-size:13px;color:var(--navy);line-height:1.6"></div>
+                        </div>
+
+                        <!-- SECTION: Fulfilled By Bag (if applicable) -->
+                        <div id="rd-fulfilled-box" style="display:none;background:var(--green-soft);border:1px solid #A9DFBF;
+                            border-radius:10px;padding:12px 14px;margin-top:12px">
+                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:8px">Fulfilled By</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Bag ID</div><div id="rd-bag-id" style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace"></div></div>
+                                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Released</div><div id="rd-released-at" style="font-size:13px;font-weight:600"></div></div>
+                            </div>
+                        </div>
+
+                        <!-- SECTION: Request Document -->
+                        <div id="rd-doc-box" style="display:none;margin-top:20px;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:10px">
+                            <div style="font-weight:600;margin-bottom:10px">Request Form</div>
+                            <button id="rd-view-doc-btn" class="btn-primary" style="font-size:12px;padding:8px 14px">
+                                📄 View Document
+                            </button>
+                        </div>
+
+                    </div>
+
                 </div>
-            </div>
 
-            <!-- Doctor's Note Box -->
-            <div id="rd-doc-box" style="display:none;margin-top:20px;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:10px">
-                <div style="font-weight:600;margin-bottom:10px">Request Form</div>
-                <button id="rd-view-doc-btn" class="btn-primary" style="font-size:12px;padding:8px 14px">
-                    📄 View Document
-                </button>
-            </div>
+                <!-- MODAL FOOTER — ACTION BUTTONS -->
+                <div style="border-top:1px solid var(--border);padding:16px;background:var(--modal-bg)">
+                    <div id="rd-cancel-row" style="display:none">
+                        <button class="btn-secondary" style="width:100%;justify-content:center;color:var(--red);border-color:rgba(192,57,43,0.3)"
+                            id="rd-cancel-btn">Cancel Request</button>
+                        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">Only requests pending review can be cancelled.</div>
+                    </div>
+                </div>
 
-            <!-- Cancel -->
-            <div id="rd-cancel-row" style="display:none">
-                <button class="btn-secondary" style="width:100%;justify-content:center;color:var(--red);border-color:rgba(192,57,43,0.3)"
-                id="rd-cancel-btn">Cancel Request</button>
-                <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">Only requests pending review can be cancelled.</div>
-            </div>
             </div>
         </div>
-        </div>
+
+        <!-- CSS FOR DETAIL SECTIONS -->
+        <style>
+        .detail-section {
+            margin-bottom: 24px;
+        }
+
+        .detail-section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--muted);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .detail-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .detail-box {
+            padding: 10px;
+            background: var(--bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .detail-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .detail-val {
+            font-size: 13px;
+            color: var(--charcoal);
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        @media (max-width: 640px) {
+            .detail-grid-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal {
+                max-width: calc(100% - 20px) !important;
+                max-height: calc(100vh - 20px) !important;
+            }
+        }
+        </style>
 
         <!-- ══════════════════════════════════
             MODAL: DOCUMENT VIEWER (Standalone)
