@@ -26,6 +26,8 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\AdminDashboardResponse.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\BloodBagAvailableDTO.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\BloodBagResponse.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\LogsSummaryResponse.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\dto\response\PaginatedResponse.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\AppUser.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\BloodBag.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\model\BloodBagDispatch.java
@@ -38,6 +40,7 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\BloodBagRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\BloodBagRequestRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\HospitalProfileRepository.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\RequestFulfillmentRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\RequestStatusLogRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\StaffProfileRepository.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\repository\UserRepository.java
@@ -52,6 +55,7 @@ C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plu
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\EmailService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\HospitalProfileService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\HospitalService.java
+C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\RequestLogsService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\RequestStatusLogService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\StaffService.java
 C:\Users\Aundray\Desktop\Project\blood-plus\src\main\java\com\hospital\blood_plus\service\UserService.java

@@ -1026,14 +1026,14 @@ async function submitAddBloodStock() {
 
     // Map API blood type names to DOM element keys
     const bloodTypeMap = {
-      'O Positive': 'o-pos',
-      'O Negative': 'o-neg',
-      'A Positive': 'a-pos',
-      'A Negative': 'a-neg',
-      'B Positive': 'b-pos',
-      'B Negative': 'b-neg',
-      'AB Positive': 'ab-pos',
-      'AB Negative': 'ab-neg'
+      'O+': 'o-pos',
+      'O-': 'o-neg',
+      'A+': 'a-pos',
+      'A-': 'a-neg',
+      'B+': 'b-pos',
+      'B-': 'b-neg',
+      'AB+': 'ab-pos',
+      'AB-': 'ab-neg'
     };
 
     Object.entries(bloodTypeMap).forEach(([apiKey, domKey]) => {
@@ -1271,13 +1271,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Expose for external access/debugging
 window.AnalyticsDashboard = AnalyticsDashboard;
-
 // ═══════════════════════════════════════════════════════
 // BLOOD REQUESTS — COMPLETE WITH DETAILS MODAL & ADVANCED INDICATION MAPPING
-// Supports indications like: F-1,F-2,F-5,F-5a,F-5b with hierarchical display
 // ═══════════════════════════════════════════════════════
 
 (function () {
+  /* ─────────────────────────────────────────────────────────
+     BLOOD TYPE MAPPING — Maps enum values to display format
+     Preserves original enum for backend while displaying user-friendly text
+  ───────────────────────────────────────────────────────── */
+  const BLOOD_TYPE_MAP = {
+    'A_POS': 'A+',
+    'A_NEG': 'A-',
+    'B_POS': 'B+',
+    'B_NEG': 'B-',
+    'AB_POS': 'AB+',
+    'AB_NEG': 'AB-',
+    'O_POS': 'O+',
+    'O_NEG': 'O-',
+  };
+
+  /**
+   * Convert blood type enum to display format
+   * @param {string} bloodTypeEnum - The blood type enum (e.g., 'A_POS')
+   * @returns {string} The display format (e.g., 'A positive')
+   */
+  function formatBloodType(bloodTypeEnum) {
+    if (!bloodTypeEnum) return '—';
+    return BLOOD_TYPE_MAP[bloodTypeEnum] || bloodTypeEnum;
+  }
+
   /* ─────────────────────────────────────────────────────────
      INDICATION MAPPING — Maps indication codes to descriptions
      Supports both main codes (R-1, F-5) and sub-codes (F-5a, F-5b)
@@ -1578,6 +1601,11 @@ window.AnalyticsDashboard = AnalyticsDashboard;
  
     const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
  
+    // Store the original blood type enum for backend purposes
+    const bloodTypeEnum = r.bloodType ?? '—';
+    // Format blood type for display
+    const displayBloodType = formatBloodType(bloodTypeEnum);
+ 
     return {
       id:             r.id,
       name,
@@ -1590,7 +1618,8 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       requestingPhysician: r.requestingPhysician ?? null,
       ageGroup:       r.ageGroup         ?? null,
       requestCategory: r.requestCategory ?? null,
-      bloodType:      r.bloodType        ?? '—',
+      bloodTypeEnum:  bloodTypeEnum,           // Original enum (for backend/API)
+      bloodType:      displayBloodType,        // Display format (for UI)
       component:      COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '—',
       bloodComponent: r.bloodComponent   ?? null,
       units:          r.numberOfUnits    ?? r.volumeMl ?? 1,
@@ -1675,7 +1704,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
  
     try {
       const params = new URLSearchParams({
-        bloodType: req.bloodType.replace(/[^A-Za-z0-9_]/g, '_'),
+        bloodType: req.bloodTypeEnum.replace(/[^A-Za-z0-9_]/g, '_'),
         component: req.bloodComponent ?? '',
         units:     req.units,
       });
@@ -1736,7 +1765,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
         <div style="flex:1;min-width:0">
           <span class="req-bag-id">${b.serialNumber ?? b.id}</span>
           <span class="req-bag-info" style="margin-left:8px">
-            ${b.bloodType ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
+            ${formatBloodType(b.bloodType) ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
             · Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
             ${warn ? `<span style="color:var(--amber);font-size:10px"> ⚠ ${daysLeft}d</span>` : ''}
           </span>
@@ -1796,7 +1825,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
  
     try {
       const params = new URLSearchParams({
-        bloodType: req.bloodType.replace(/[^A-Za-z0-9_]/g, '_'),
+        bloodType: req.bloodTypeEnum.replace(/[^A-Za-z0-9_]/g, '_'),
         component: req.bloodComponent ?? '',
         units:     req.units,
       });
@@ -1850,7 +1879,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
               <div style="flex:1;min-width:0">
                 <div class="req-bag-id">${b.serialNumber ?? b.id}</div>
                 <div class="req-bag-info">
-                  ${b.bloodType ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
+                  ${formatBloodType(b.bloodType) ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
                   · Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
                   ${warn ? `<span style="color:var(--amber);font-size:11px"> ⚠ ${daysLeft}d left</span>` : ''}
                   ${!isCompatible ? `<span style="color:var(--crimson)"> · not compatible</span>` : ''}
@@ -2008,12 +2037,12 @@ window.AnalyticsDashboard = AnalyticsDashboard;
 
   function openReleaseReceipt(req, data) {
     const payload = {
-      referenceNumber: req.referenceNumber ?? data.referenceNumber,
+      referenceNumber: req.id ?? data.referenceNumber,
       releasedAt:      new Date().toISOString(),
       patientName:     req.patient,
-      bloodType:       req.bloodType,
+      bloodType:       req.bloodTypeEnum,  // Use enum for receipt
       wardRoom:        req.wardRoom ?? null,
-      physician:       req.physician ?? null,
+      physician:       req.requestingPhysician ?? null,
       hospitalName:    req.name,
       urgency:         req.urgency,
       releasedBy:      data.releasedBy ?? null,
@@ -2162,10 +2191,10 @@ window.AnalyticsDashboard = AnalyticsDashboard;
             <div style="flex:1;min-width:0">
               <span class="req-bag-id">${b.serialNumber ?? b.id}</span>
               <span class="req-bag-info" style="margin-left:8px">
-                ${b.bloodType ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL · Exp ${expDate}
+                ${formatBloodType(b.bloodType) ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL · Exp ${expDate}
               </span>
             </div>
-            <span class="req-rec-badge" style="background:var(--green)">Allocated</span>
+            <span class="req-rec-badge" >Allocated</span>
           </div>`;
         }).join('')}
       </div>
@@ -4265,270 +4294,13 @@ function initializeProfileListeners() {
 }
 
 
-//////// LOGS PANEL //////
-// ═══════════════════════════════════════════════════════════════
-// LOGGING PANEL — COMPLETE JAVASCRIPT (FIXED)
-// ═══════════════════════════════════════════════════════════════
-
+//////// LOGS PANEL - API INTEGRATION //////
 
 // ═══════════════════════════════════════════════════════════════
-// SAMPLE DATA
+// CONFIGURATION
 // ═══════════════════════════════════════════════════════════════
 
-const SAMPLE_STATUS_LOGS = [
-  {
-    id: 1,
-    request: { id: 101, referenceNumber: "REF-2024-0001" },
-    oldStatus: null,
-    newStatus: "PENDING",
-    changedBy: { id: 201, fullName: "Hospital Admin" },
-    changedAt: "2024-01-10T08:15:00",
-    notes: "Request created from anonymous form"
-  },
-  {
-    id: 2,
-    request: { id: 101, referenceNumber: "REF-2024-0001" },
-    oldStatus: "PENDING",
-    newStatus: "APPROVED",
-    changedBy: { id: 202, fullName: "Dr. Smith" },
-    changedAt: "2024-01-10T09:30:00",
-    notes: "Approved - patient hemoglobin level critical, units available"
-  },
-  {
-    id: 3,
-    request: { id: 101, referenceNumber: "REF-2024-0001" },
-    oldStatus: "APPROVED",
-    newStatus: "ALLOCATED",
-    changedBy: { id: 203, fullName: "Blood Bank Staff" },
-    changedAt: "2024-01-10T10:15:00",
-    notes: "Allocated 2 units of O+ blood from inventory BAG-2024-001, BAG-2024-002"
-  },
-  {
-    id: 4,
-    request: { id: 101, referenceNumber: "REF-2024-0001" },
-    oldStatus: "ALLOCATED",
-    newStatus: "READY_FOR_RELEASE",
-    changedBy: { id: 204, fullName: "Lab Technician" },
-    changedAt: "2024-01-10T11:00:00",
-    notes: "Blood bags passed quality checks and cross-match testing"
-  },
-  {
-    id: 5,
-    request: { id: 101, referenceNumber: "REF-2024-0001" },
-    oldStatus: "READY_FOR_RELEASE",
-    newStatus: "RELEASED",
-    changedBy: { id: 205, fullName: "Nurse Johnson" },
-    changedAt: "2024-01-10T11:45:00",
-    notes: "Released to Ward 3 - received by Nurse Johnson"
-  },
-  {
-    id: 6,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    oldStatus: null,
-    newStatus: "PENDING",
-    changedBy: { id: 201, fullName: "Hospital Admin" },
-    changedAt: "2024-01-11T07:45:00",
-    notes: "Emergency request - STAT units needed"
-  },
-  {
-    id: 7,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    oldStatus: "PENDING",
-    newStatus: "APPROVED",
-    changedBy: { id: 202, fullName: "Dr. Smith" },
-    changedAt: "2024-01-11T08:00:00",
-    notes: "STAT approval - emergency surgery scheduled"
-  },
-  {
-    id: 8,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    oldStatus: "APPROVED",
-    newStatus: "ALLOCATED",
-    changedBy: { id: 203, fullName: "Blood Bank Staff" },
-    changedAt: "2024-01-11T08:10:00",
-    notes: "Emergency allocation: 4 units O+, 2 units A+, 2 units AB+"
-  },
-  {
-    id: 9,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    oldStatus: "ALLOCATED",
-    newStatus: "READY_FOR_RELEASE",
-    changedBy: { id: 204, fullName: "Lab Technician" },
-    changedAt: "2024-01-11T08:25:00",
-    notes: "Expedited quality checks completed - ready for OR"
-  },
-  {
-    id: 10,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    oldStatus: "READY_FOR_RELEASE",
-    newStatus: "RELEASED",
-    changedBy: { id: 206, fullName: "Dr. Anderson" },
-    changedAt: "2024-01-11T08:35:00",
-    notes: "Released to OR - emergency surgery in progress"
-  },
-  {
-    id: 11,
-    request: { id: 103, referenceNumber: "REF-2024-0003" },
-    oldStatus: null,
-    newStatus: "PENDING",
-    changedBy: { id: 201, fullName: "Hospital Admin" },
-    changedAt: "2024-01-12T06:30:00",
-    notes: "Routine transfusion request for outpatient"
-  },
-  {
-    id: 12,
-    request: { id: 103, referenceNumber: "REF-2024-0003" },
-    oldStatus: "PENDING",
-    newStatus: "REJECTED",
-    changedBy: { id: 202, fullName: "Dr. Smith" },
-    changedAt: "2024-01-12T07:15:00",
-    notes: "Insufficient clinical justification - patient hemoglobin level adequate for treatment"
-  },
-  {
-    id: 13,
-    request: { id: 104, referenceNumber: "REF-2024-0004" },
-    oldStatus: null,
-    newStatus: "PENDING",
-    changedBy: { id: 201, fullName: "Hospital Admin" },
-    changedAt: "2024-01-13T10:00:00",
-    notes: "Routine inpatient request - pediatric patient"
-  },
-  {
-    id: 14,
-    request: { id: 104, referenceNumber: "REF-2024-0004" },
-    oldStatus: "PENDING",
-    newStatus: "APPROVED",
-    changedBy: { id: 202, fullName: "Dr. Smith" },
-    changedAt: "2024-01-13T10:45:00",
-    notes: "Approved - pediatric transfusion for anemia management"
-  },
-  {
-    id: 15,
-    request: { id: 104, referenceNumber: "REF-2024-0004" },
-    oldStatus: "APPROVED",
-    newStatus: "ALLOCATED",
-    changedBy: { id: 203, fullName: "Blood Bank Staff" },
-    changedAt: "2024-01-13T11:20:00",
-    notes: "Allocated 1 unit O+ PRBCs for pediatric use"
-  },
-  {
-    id: 16,
-    request: { id: 105, referenceNumber: "REF-2024-0005" },
-    oldStatus: null,
-    newStatus: "PENDING",
-    changedBy: { id: 201, fullName: "Hospital Admin" },
-    changedAt: "2024-01-14T14:20:00",
-    notes: "Platelets request for chemotherapy patient"
-  },
-  {
-    id: 17,
-    request: { id: 105, referenceNumber: "REF-2024-0005" },
-    oldStatus: "PENDING",
-    newStatus: "APPROVED",
-    changedBy: { id: 202, fullName: "Dr. Smith" },
-    changedAt: "2024-01-14T14:50:00",
-    notes: "Approved - platelet count critical, units available"
-  }
-];
-
-const SAMPLE_FULFILLMENTS = [
-  {
-    id: 1,
-    request: { id: 101, referenceNumber: "REF-2024-0001" },
-    bloodBag: { id: 1001, bagNumber: "BAG-2024-001", bloodType: "O+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 205, fullName: "Nurse Johnson" },
-    fulfilledAt: "2024-01-10T11:45:00",
-    notes: "Released to Ward 3 - received by Nurse Johnson"
-  },
-  {
-    id: 2,
-    request: { id: 101, referenceNumber: "REF-2024-0001" },
-    bloodBag: { id: 1002, bagNumber: "BAG-2024-002", bloodType: "O+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 205, fullName: "Nurse Johnson" },
-    fulfilledAt: "2024-01-10T11:45:00",
-    notes: "Released to Ward 3 - received by Nurse Johnson"
-  },
-  {
-    id: 3,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    bloodBag: { id: 1003, bagNumber: "BAG-2024-003", bloodType: "O+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
-    fulfilledAt: "2024-01-11T08:35:00",
-    notes: "Released to OR - emergency surgery in progress"
-  },
-  {
-    id: 4,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    bloodBag: { id: 1004, bagNumber: "BAG-2024-004", bloodType: "O+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
-    fulfilledAt: "2024-01-11T08:35:00",
-    notes: "Released to OR - emergency surgery in progress"
-  },
-  {
-    id: 5,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    bloodBag: { id: 1005, bagNumber: "BAG-2024-005", bloodType: "A+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
-    fulfilledAt: "2024-01-11T08:35:00",
-    notes: "Released to OR - emergency surgery in progress"
-  },
-  {
-    id: 6,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    bloodBag: { id: 1006, bagNumber: "BAG-2024-006", bloodType: "A+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
-    fulfilledAt: "2024-01-11T08:35:00",
-    notes: "Released to OR - emergency surgery in progress"
-  },
-  {
-    id: 7,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    bloodBag: { id: 1007, bagNumber: "BAG-2024-007", bloodType: "AB+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
-    fulfilledAt: "2024-01-11T08:35:00",
-    notes: "Released to OR - emergency surgery in progress"
-  },
-  {
-    id: 8,
-    request: { id: 102, referenceNumber: "REF-2024-0002" },
-    bloodBag: { id: 1008, bagNumber: "BAG-2024-008", bloodType: "AB+", componentType: "WHOLE_BLOOD" },
-    fulfilledBy: { id: 206, fullName: "Dr. Anderson" },
-    fulfilledAt: "2024-01-11T08:35:00",
-    notes: "Released to OR - emergency surgery in progress"
-  },
-  {
-    id: 9,
-    request: { id: 104, referenceNumber: "REF-2024-0004" },
-    bloodBag: { id: 1009, bagNumber: "BAG-2024-009", bloodType: "O+", componentType: "PRBCs" },
-    fulfilledBy: { id: 207, fullName: "Pediatric Nurse Lee" },
-    fulfilledAt: "2024-01-13T12:00:00",
-    notes: "Released to Pediatric Ward - received by Nurse Lee"
-  },
-  {
-    id: 10,
-    request: { id: 105, referenceNumber: "REF-2024-0005" },
-    bloodBag: { id: 1010, bagNumber: "BAG-2024-010", bloodType: "A+", componentType: "PLATELETS" },
-    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
-    fulfilledAt: "2024-01-14T15:30:00",
-    notes: "Released to Oncology Ward - chemotherapy patient"
-  },
-  {
-    id: 11,
-    request: { id: 105, referenceNumber: "REF-2024-0005" },
-    bloodBag: { id: 1011, bagNumber: "BAG-2024-011", bloodType: "A+", componentType: "PLATELETS" },
-    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
-    fulfilledAt: "2024-01-14T15:30:00",
-    notes: "Released to Oncology Ward - chemotherapy patient"
-  },
-  {
-    id: 12,
-    request: { id: 105, referenceNumber: "REF-2024-0005" },
-    bloodBag: { id: 1012, bagNumber: "BAG-2024-012", bloodType: "A+", componentType: "PLATELETS" },
-    fulfilledBy: { id: 208, fullName: "Oncology Staff" },
-    fulfilledAt: "2024-01-14T15:30:00",
-    notes: "Released to Oncology Ward - chemotherapy patient"
-  }
-];
+const API_BASE_URL = '/api/admin/logs'; // Change to your backend URL if different
 
 // ═══════════════════════════════════════════════════════════════
 // STATE MANAGEMENT
@@ -4540,7 +4312,8 @@ const loggingState = {
   statusLogsPage: 1,
   fulfillmentsPage: 1,
   itemsPerPage: 10,
-  currentTab: 'status-logs'
+  currentTab: 'status-logs',
+  loading: false
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -4548,7 +4321,7 @@ const loggingState = {
 // ═══════════════════════════════════════════════════════════════
 
 function initializeLoggingPanel() {
-  // console.log('📊 Initializing Logging Panel...');
+  
   
   // Check if elements exist
   const requiredElements = [
@@ -4564,58 +4337,63 @@ function initializeLoggingPanel() {
   
   if (missingElements.length > 0) {
     console.error('❌ Missing HTML elements:', missingElements);
-    console.error('Make sure logging-panel.html is included in your page');
     return;
   }
   
-  // Load sample data
-  loggingState.statusLogs = JSON.parse(JSON.stringify(SAMPLE_STATUS_LOGS));
-  loggingState.fulfillments = JSON.parse(JSON.stringify(SAMPLE_FULFILLMENTS));
+  // Load data from API
+  loadLoggingData();
+}
+
+function loadLoggingData() {
+  loggingState.loading = true;
   
+  // Load summary
+  loadSummary();
   
-  
-  // Reset pagination
-  loggingState.statusLogsPage = 1;
-  loggingState.fulfillmentsPage = 1;
-  
-  // Update UI
-  loggingUpdateSummary();
+  // Load initial status logs
   loggingStatusRender();
-  
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SUMMARY STATS
+// SUMMARY STATS - API CALL
 // ═══════════════════════════════════════════════════════════════
 
-function loggingUpdateSummary() {
+function loadSummary() {
+  fetch(`${API_BASE_URL}/summary`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      loggingUpdateSummary(data);
+    })
+    .catch(error => {
+      console.error('Error loading summary:', error);
+    });
+}
+
+function loggingUpdateSummary(summaryData) {
   try {
-    // Total fulfillments
-    const totalFulfillments = loggingState.fulfillments.length;
     const fulfillmentsEl = document.getElementById('logging-fulfillments-count');
     if (fulfillmentsEl) {
-      fulfillmentsEl.textContent = totalFulfillments;
+      fulfillmentsEl.textContent = summaryData.totalFulfillments || 0;
     }
 
-    // Total status changes
-    const totalStatusChanges = loggingState.statusLogs.length;
     const statusChangesEl = document.getElementById('logging-status-changes-count');
     if (statusChangesEl) {
-      statusChangesEl.textContent = totalStatusChanges;
+      statusChangesEl.textContent = summaryData.totalStatusChanges || 0;
     }
 
-    // Pending requests
-    const pendingCount = loggingState.statusLogs.filter(log => log.newStatus === 'PENDING').length;
     const pendingEl = document.getElementById('logging-pending-requests-count');
     if (pendingEl) {
-      pendingEl.textContent = pendingCount;
+      pendingEl.textContent = summaryData.pendingRequestsCount || 0;
     }
 
-    // Released requests
-    const releasedCount = loggingState.statusLogs.filter(log => log.newStatus === 'RELEASED').length;
     const releasedEl = document.getElementById('logging-released-count');
     if (releasedEl) {
-      releasedEl.textContent = releasedCount;
+      releasedEl.textContent = summaryData.releasedCount || 0;
     }
   } catch (error) {
     console.error('Error updating summary:', error);
@@ -4658,48 +4436,54 @@ function switchLoggingTab(tabName, element) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STATUS LOGS — FILTERING & RENDERING
+// STATUS LOGS — API INTEGRATION
 // ═══════════════════════════════════════════════════════════════
-
-function getFilteredStatusLogs() {
-  const searchEl = document.getElementById('logging-status-search');
-  const statusFilterEl = document.getElementById('logging-status-filter-status');
-  const sortEl = document.getElementById('logging-status-sort');
-
-  const search = searchEl ? searchEl.value.toLowerCase() : '';
-  const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
-  const sort = sortEl ? sortEl.value : 'date_desc';
-  let filtered = loggingState.statusLogs.filter(log => {
-    const matchSearch = !search || 
-      String(log.request?.id || '').includes(search) ||
-      (log.request?.referenceNumber || '').toLowerCase().includes(search);
-
-    const matchStatus = statusFilter === 'ALL' || log.newStatus === statusFilter;
-
-    return matchSearch && matchStatus;
-  });
-
-  // Sort
-  if (sort === 'date_desc') {
-    filtered.sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt));
-  } else if (sort === 'date_asc') {
-    filtered.sort((a, b) => new Date(a.changedAt) - new Date(b.changedAt));
-  } else if (sort === 'request_id') {
-    filtered.sort((a, b) => (a.request?.id || 0) - (b.request?.id || 0));
-  }
-
-  return filtered;
-}
 
 function loggingStatusRender() {
   try {
-    const filtered = getFilteredStatusLogs();
-    const pageSize = loggingState.itemsPerPage;
-    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-    const startIdx = (loggingState.statusLogsPage - 1) * pageSize;
-    const endIdx = startIdx + pageSize;
-    const pageData = filtered.slice(startIdx, endIdx);
+    const searchEl = document.getElementById('logging-status-search');
+    const statusFilterEl = document.getElementById('logging-status-filter-status');
+    const sortEl = document.getElementById('logging-status-sort');
 
+    const search = searchEl ? searchEl.value : '';
+    const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
+    const sort = sortEl ? sortEl.value : 'date_desc';
+    const page = loggingState.statusLogsPage;
+    const size = loggingState.itemsPerPage;
+
+    // Build query string
+    let queryParams = new URLSearchParams();
+    if (search) queryParams.append('search', search);
+    if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
+    queryParams.append('sort', sort);
+    queryParams.append('page', page);
+    queryParams.append('size', size);
+
+    const url = `${API_BASE_URL}/status-logs?${queryParams.toString()}`;
+
+    showLoadingInTable('logging-status-tbody', 'status');
+
+    fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        renderStatusLogsTable(data);
+      })
+      .catch(error => {
+        console.error('Error fetching status logs:', error);
+        showErrorInTable('logging-status-tbody', 'Failed to load status logs');
+      });
+  } catch (error) {
+    console.error('Error in loggingStatusRender:', error);
+  }
+}
+
+function renderStatusLogsTable(response) {
+  try {
     const tbody = document.getElementById('logging-status-tbody');
     const empty = document.getElementById('logging-status-empty');
 
@@ -4710,43 +4494,35 @@ function loggingStatusRender() {
 
     tbody.innerHTML = '';
 
-    if (pageData.length === 0) {
+    if (!response.data || response.data.length === 0) {
       if (empty) empty.style.display = 'block';
-      console.log('No status logs to display');
-    } else {
-      if (empty) empty.style.display = 'none';
-      pageData.forEach(log => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td><strong>#${log.request?.id || 'N/A'}</strong></td>
-          <td>${log.request?.referenceNumber || '—'}</td>
-          <td><span class="status-badge" style="background:#E8F0FF;color:#0066CC">${log.oldStatus || '—'}</span></td>
-          <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus}</span></td>
-          <td>${log.changedBy?.fullName || 'System'}</td>
-          <td>${formatDateTime(log.changedAt)}</td>
-          <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '—'}</td>
-          <td>
-            <button class="btn-ghost" onclick="viewStatusLogDetail(${log.id})" style="padding:4px 8px;font-size:11px">View</button>
-          </td>
-        `;
-        tbody.appendChild(row);
-      });
+      return;
     }
 
-    // Update pagination
-    const showingEl = document.getElementById('logging-status-showing');
-    const pageLabelEl = document.getElementById('logging-status-page-label');
-    const prevEl = document.getElementById('logging-status-prev');
-    const nextEl = document.getElementById('logging-status-next');
-    const resultsEl = document.getElementById('logging-status-results-info');
+    if (empty) empty.style.display = 'none';
 
-    if (showingEl) showingEl.textContent = `Showing ${startIdx + 1}–${Math.min(endIdx, filtered.length)} of ${filtered.length}`;
-    if (pageLabelEl) pageLabelEl.textContent = `${loggingState.statusLogsPage} / ${totalPages}`;
-    if (prevEl) prevEl.disabled = loggingState.statusLogsPage === 1;
-    if (nextEl) nextEl.disabled = loggingState.statusLogsPage >= totalPages;
-    if (resultsEl) resultsEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+    response.data.forEach(log => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><strong>#${log.request?.id || 'N/A'}</strong></td>
+        <td>${log.request?.referenceNumber || '—'}</td>
+        <td><span class="status-badge" style="background:#E8F0FF;color:#0066CC">${log.oldStatus || '—'}</span></td>
+        <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus}</span></td>
+        <td>${log.changedBy?.username || 'System'}</td>
+        <td>${formatDateTime(log.changedAt)}</td>
+        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '—'}</td>
+        <td>
+          <button class="btn-ghost" onclick="viewStatusLogDetail(${log.id})" style="padding:4px 8px;font-size:11px">View</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    // Update pagination
+    updatePaginationControls('status', response.currentPage, response.totalPages, response.totalElements);
+
   } catch (error) {
-    console.error('Error rendering status logs:', error);
+    console.error('Error rendering status logs table:', error);
   }
 }
 
@@ -4758,62 +4534,86 @@ function loggingStatusPrevPage() {
 }
 
 function loggingStatusNextPage() {
-  const filtered = getFilteredStatusLogs();
-  const totalPages = Math.ceil(filtered.length / loggingState.itemsPerPage) || 1;
-  if (loggingState.statusLogsPage < totalPages) {
-    loggingState.statusLogsPage++;
-    loggingStatusRender();
-  }
-}
+  const searchEl = document.getElementById('logging-status-search');
+  const statusFilterEl = document.getElementById('logging-status-filter-status');
+  const sortEl = document.getElementById('logging-status-sort');
 
-// ═══════════════════════════════════════════════════════════════
-// FULFILLMENTS — FILTERING & RENDERING
-// ═══════════════════════════════════════════════════════════════
-
-function getFilteredFulfillments() {
-  const searchEl = document.getElementById('logging-fulfillment-search');
-  const dateFromEl = document.getElementById('logging-fulfillment-date-from');
-  const dateToEl = document.getElementById('logging-fulfillment-date-to');
-  const sortEl = document.getElementById('logging-fulfillment-sort');
-
-  const search = searchEl ? searchEl.value.toLowerCase() : '';
-  const dateFrom = dateFromEl ? dateFromEl.value : '';
-  const dateTo = dateToEl ? dateToEl.value : '';
+  const search = searchEl ? searchEl.value : '';
+  const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
   const sort = sortEl ? sortEl.value : 'date_desc';
+  const page = loggingState.statusLogsPage + 1;
+  const size = loggingState.itemsPerPage;
 
-  let filtered = loggingState.fulfillments.filter(fulfillment => {
-    const matchSearch = !search || 
-      String(fulfillment.request?.id || '').includes(search) ||
-      String(fulfillment.bloodBag?.bagNumber || '').includes(search);
+  let queryParams = new URLSearchParams();
+  if (search) queryParams.append('search', search);
+  if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
+  queryParams.append('sort', sort);
+  queryParams.append('page', page);
+  queryParams.append('size', size);
 
-    const fulfilledDate = new Date(fulfillment.fulfilledAt);
-    const matchDateFrom = !dateFrom || fulfilledDate >= new Date(dateFrom);
-    const matchDateTo = !dateTo || fulfilledDate <= new Date(dateTo);
-
-    return matchSearch && matchDateFrom && matchDateTo;
-  });
-
-  // Sort
-  if (sort === 'date_desc') {
-    filtered.sort((a, b) => new Date(b.fulfilledAt) - new Date(a.fulfilledAt));
-  } else if (sort === 'date_asc') {
-    filtered.sort((a, b) => new Date(a.fulfilledAt) - new Date(b.fulfilledAt));
-  } else if (sort === 'request_id') {
-    filtered.sort((a, b) => (a.request?.id || 0) - (b.request?.id || 0));
-  }
-
-  return filtered;
+  fetch(`${API_BASE_URL}/status-logs?${queryParams.toString()}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.data && data.data.length > 0) {
+        loggingState.statusLogsPage++;
+        renderStatusLogsTable(data);
+      }
+    })
+    .catch(error => console.error('Error:', error));
 }
+
+// ═══════════════════════════════════════════════════════════════
+// FULFILLMENTS — API INTEGRATION
+// ═══════════════════════════════════════════════════════════════
 
 function loggingFulfillmentRender() {
   try {
-    const filtered = getFilteredFulfillments();
-    const pageSize = loggingState.itemsPerPage;
-    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-    const startIdx = (loggingState.fulfillmentsPage - 1) * pageSize;
-    const endIdx = startIdx + pageSize;
-    const pageData = filtered.slice(startIdx, endIdx);
+    const searchEl = document.getElementById('logging-fulfillment-search');
+    const dateFromEl = document.getElementById('logging-fulfillment-date-from');
+    const dateToEl = document.getElementById('logging-fulfillment-date-to');
+    const sortEl = document.getElementById('logging-fulfillment-sort');
 
+    const search = searchEl ? searchEl.value : '';
+    const dateFrom = dateFromEl ? dateFromEl.value : '';
+    const dateTo = dateToEl ? dateToEl.value : '';
+    const sort = sortEl ? sortEl.value : 'date_desc';
+    const page = loggingState.fulfillmentsPage;
+    const size = loggingState.itemsPerPage;
+
+    // Build query string
+    let queryParams = new URLSearchParams();
+    if (search) queryParams.append('search', search);
+    if (dateFrom) queryParams.append('dateFrom', dateFrom);
+    if (dateTo) queryParams.append('dateTo', dateTo);
+    queryParams.append('sort', sort);
+    queryParams.append('page', page);
+    queryParams.append('size', size);
+
+    const url = `${API_BASE_URL}/fulfillments?${queryParams.toString()}`;
+
+    showLoadingInTable('logging-fulfillment-tbody', 'fulfillment');
+
+    fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        renderFulfillmentsTable(data);
+      })
+      .catch(error => {
+        console.error('Error fetching fulfillments:', error);
+        showErrorInTable('logging-fulfillment-tbody', 'Failed to load fulfillments');
+      });
+  } catch (error) {
+    console.error('Error in loggingFulfillmentRender:', error);
+  }
+}
+
+function renderFulfillmentsTable(response) {
+  try {
     const tbody = document.getElementById('logging-fulfillment-tbody');
     const empty = document.getElementById('logging-fulfillment-empty');
 
@@ -4824,43 +4624,35 @@ function loggingFulfillmentRender() {
 
     tbody.innerHTML = '';
 
-    if (pageData.length === 0) {
+    if (!response.data || response.data.length === 0) {
       if (empty) empty.style.display = 'block';
-      console.log('No fulfillments to display');
-    } else {
-      if (empty) empty.style.display = 'none';
-      pageData.forEach(fulfillment => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td><strong>#${fulfillment.request?.id || 'N/A'}</strong></td>
-          <td><strong>${fulfillment.bloodBag?.bagNumber || 'N/A'}</strong></td>
-          <td>${fulfillment.bloodBag?.bloodType || '—'}</td>
-          <td>${fulfillment.bloodBag?.componentType || '—'}</td>
-          <td>${fulfillment.fulfilledBy?.fullName || 'System'}</td>
-          <td>${formatDateTime(fulfillment.fulfilledAt)}</td>
-          <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${fulfillment.notes || '—'}</td>
-          <td>
-            <button class="btn-ghost" onclick="viewFulfillmentDetail(${fulfillment.id})" style="padding:4px 8px;font-size:11px">View</button>
-          </td>
-        `;
-        tbody.appendChild(row);
-      });
+      return;
     }
 
-    // Update pagination
-    const showingEl = document.getElementById('logging-fulfillment-showing');
-    const pageLabelEl = document.getElementById('logging-fulfillment-page-label');
-    const prevEl = document.getElementById('logging-fulfillment-prev');
-    const nextEl = document.getElementById('logging-fulfillment-next');
-    const resultsEl = document.getElementById('logging-fulfillment-results-info');
+    if (empty) empty.style.display = 'none';
 
-    if (showingEl) showingEl.textContent = `Showing ${startIdx + 1}–${Math.min(endIdx, filtered.length)} of ${filtered.length}`;
-    if (pageLabelEl) pageLabelEl.textContent = `${loggingState.fulfillmentsPage} / ${totalPages}`;
-    if (prevEl) prevEl.disabled = loggingState.fulfillmentsPage === 1;
-    if (nextEl) nextEl.disabled = loggingState.fulfillmentsPage >= totalPages;
-    if (resultsEl) resultsEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+    response.data.forEach(fulfillment => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><strong>#${fulfillment.request?.id || 'N/A'}</strong></td>
+        <td><strong>${fulfillment.bloodBag?.serialNumber || 'N/A'}</strong></td>
+        <td>${fulfillment.bloodBag?.bloodType || '—'}</td>
+        <td>${fulfillment.bloodBag?.componentType || '—'}</td>
+        <td>${fulfillment.fulfilledBy?.username || 'System'}</td>
+        <td>${formatDateTime(fulfillment.fulfilledAt)}</td>
+        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${fulfillment.notes || '—'}</td>
+        <td>
+          <button class="btn-ghost" onclick="viewFulfillmentDetail(${fulfillment.id})" style="padding:4px 8px;font-size:11px">View</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    // Update pagination
+    updatePaginationControls('fulfillment', response.currentPage, response.totalPages, response.totalElements);
+
   } catch (error) {
-    console.error('Error rendering fulfillments:', error);
+    console.error('Error rendering fulfillments table:', error);
   }
 }
 
@@ -4872,213 +4664,262 @@ function loggingFulfillmentPrevPage() {
 }
 
 function loggingFulfillmentNextPage() {
-  const filtered = getFilteredFulfillments();
-  const totalPages = Math.ceil(filtered.length / loggingState.itemsPerPage) || 1;
-  if (loggingState.fulfillmentsPage < totalPages) {
-    loggingState.fulfillmentsPage++;
-    loggingFulfillmentRender();
-  }
+  const searchEl = document.getElementById('logging-fulfillment-search');
+  const dateFromEl = document.getElementById('logging-fulfillment-date-from');
+  const dateToEl = document.getElementById('logging-fulfillment-date-to');
+  const sortEl = document.getElementById('logging-fulfillment-sort');
+
+  const search = searchEl ? searchEl.value : '';
+  const dateFrom = dateFromEl ? dateFromEl.value : '';
+  const dateTo = dateToEl ? dateToEl.value : '';
+  const sort = sortEl ? sortEl.value : 'date_desc';
+  const page = loggingState.fulfillmentsPage + 1;
+  const size = loggingState.itemsPerPage;
+
+  let queryParams = new URLSearchParams();
+  if (search) queryParams.append('search', search);
+  if (dateFrom) queryParams.append('dateFrom', dateFrom);
+  if (dateTo) queryParams.append('dateTo', dateTo);
+  queryParams.append('sort', sort);
+  queryParams.append('page', page);
+  queryParams.append('size', size);
+
+  fetch(`${API_BASE_URL}/fulfillments?${queryParams.toString()}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.data && data.data.length > 0) {
+        loggingState.fulfillmentsPage++;
+        renderFulfillmentsTable(data);
+      }
+    })
+    .catch(error => console.error('Error:', error));
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DETAIL VIEWS & ACTIONS
+// STATUS LOG DETAIL VIEW — MODAL
 // ═══════════════════════════════════════════════════════════════
 
 function viewStatusLogDetail(logId) {
-  const log = loggingState.statusLogs.find(l => l.id === logId);
-  if (!log) {
-    console.error('Log not found:', logId);
-    return;
-  }
-
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.innerHTML = `
-    <div class="modal-content" style="width:90%;max-width:500px">
-      <div class="modal-header">
-        <h3>Status Change Details</h3>
-        <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
-      </div>
-      <div class="modal-body" style="padding:20px">
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Request ID</label>
-          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">#${log.request?.id || 'N/A'}</div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Reference Number</label>
-          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">${log.request?.referenceNumber || '—'}</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px">
-          <div>
-            <label style="font-weight:600;color:var(--muted);font-size:12px">Old Status</label>
-            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.oldStatus || '—'}</div>
-          </div>
-          <div>
-            <label style="font-weight:600;color:var(--muted);font-size:12px">New Status</label>
-            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.newStatus}</div>
-          </div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Changed By</label>
-          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${log.changedBy?.fullName || 'System'}</div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Changed At</label>
-          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${formatDateTime(log.changedAt)}</div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Notes</label>
-          <div style="font-size:14px;color:var(--charcoal);margin-top:4px;background:var(--bg-light);padding:12px;border-radius:4px;min-height:80px">${log.notes || '—'}</div>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
+  fetch(`${API_BASE_URL}/status-logs/${logId}`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to fetch status log detail');
+      }
+      return response.json();
+    })
+    .then(log => {
+      populateLoggingStatusModal(log);
+    })
+    .catch(error => {
+      console.error('Error fetching status log detail:', error);
+      alert('Failed to load status log details');
+    });
 }
+
+/**
+ * Populate the status log modal with data
+ * @param {Object} log - The status log data from the API
+ */
+function populateLoggingStatusModal(log) {
+  try {
+    document.getElementById('logging-status-modal-request-id').textContent = `#${log.request?.id || 'N/A'}`;
+    document.getElementById('logging-status-modal-ref-num').textContent = log.request?.referenceNumber || '—';
+    document.getElementById('logging-status-modal-old-status').textContent = log.oldStatus || '—';
+    document.getElementById('logging-status-modal-new-status').textContent = log.newStatus || '—';
+    document.getElementById('logging-status-modal-changed-by').textContent = log.changedBy?.fullName || 'System';
+    document.getElementById('logging-status-modal-changed-at').textContent = formatDateTime(log.changedAt);
+    document.getElementById('logging-status-modal-notes').textContent = log.notes || '—';
+
+    // Show the modal
+    document.getElementById('logging-status-modal').style.display = 'flex';
+  } catch (error) {
+    console.error('Error populating status log modal:', error);
+  }
+}
+
+/**
+ * Close the status log modal
+ */
+function closeLoggingStatusModal() {
+  const modal = document.getElementById('logging-status-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FULFILLMENT DETAIL VIEW — MODAL
+// ═══════════════════════════════════════════════════════════════
 
 function viewFulfillmentDetail(fulfillmentId) {
-  const fulfillment = loggingState.fulfillments.find(f => f.id === fulfillmentId);
-  if (!fulfillment) {
-    console.error('Fulfillment not found:', fulfillmentId);
-    return;
-  }
+  fetch(`${API_BASE_URL}/fulfillments/${fulfillmentId}`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to fetch fulfillment detail');
+      }
+      return response.json();
+    })
+    .then(fulfillment => {
+      populateLoggingFulfillmentModal(fulfillment);
+    })
+    .catch(error => {
+      console.error('Error fetching fulfillment detail:', error);
+      alert('Failed to load fulfillment details');
+    });
+}
 
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.innerHTML = `
-    <div class="modal-content" style="width:90%;max-width:550px">
-      <div class="modal-header">
-        <h3>Fulfillment Details</h3>
-        <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
-      </div>
-      <div class="modal-body" style="padding:20px">
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Request ID</label>
-          <div style="font-size:16px;color:var(--charcoal);margin-top:4px">#${fulfillment.request?.id || 'N/A'}</div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Blood Bag Number</label>
-          <div style="font-size:16px;color:var(--charcoal);margin-top:4px;font-family:monospace">${fulfillment.bloodBag?.bagNumber || 'N/A'}</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px">
-          <div>
-            <label style="font-weight:600;color:var(--muted);font-size:12px">Blood Type</label>
-            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.bloodBag?.bloodType || '—'}</div>
-          </div>
-          <div>
-            <label style="font-weight:600;color:var(--muted);font-size:12px">Component</label>
-            <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.bloodBag?.componentType || '—'}</div>
-          </div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Fulfilled By</label>
-          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${fulfillment.fulfilledBy?.fullName || 'System'}</div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Fulfilled At</label>
-          <div style="font-size:14px;color:var(--charcoal);margin-top:4px">${formatDateTime(fulfillment.fulfilledAt)}</div>
-        </div>
-        <div style="margin-bottom:15px">
-          <label style="font-weight:600;color:var(--muted);font-size:12px">Notes</label>
-          <div style="font-size:14px;color:var(--charcoal);margin-top:4px;background:var(--bg-light);padding:12px;border-radius:4px;min-height:80px">${fulfillment.notes || '—'}</div>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
+/**
+ * Populate the fulfillment modal with data
+ * @param {Object} fulfillment - The fulfillment data from the API
+ */
+function populateLoggingFulfillmentModal(fulfillment) {
+  try {
+    document.getElementById('logging-fulfillment-modal-request-id').textContent = `#${fulfillment.request?.id || 'N/A'}`;
+    document.getElementById('logging-fulfillment-modal-blood-bag-num').textContent = fulfillment.bloodBag?.serialNumber || 'N/A';
+    document.getElementById('logging-fulfillment-modal-blood-type').textContent = fulfillment.bloodBag?.bloodType || '—';
+    document.getElementById('logging-fulfillment-modal-component').textContent = fulfillment.bloodBag?.componentType || '—';
+    document.getElementById('logging-fulfillment-modal-fulfilled-by').textContent = fulfillment.fulfilledBy?.username || 'System';
+    document.getElementById('logging-fulfillment-modal-fulfilled-at').textContent = formatDateTime(fulfillment.fulfilledAt);
+    document.getElementById('logging-fulfillment-modal-notes').textContent = fulfillment.notes || '—';
+
+    // Show the modal
+    document.getElementById('logging-fulfillment-modal').style.display = 'flex';
+  } catch (error) {
+    console.error('Error populating fulfillment modal:', error);
+  }
+}
+
+/**
+ * Close the fulfillment modal
+ */
+function closeLoggingFulfillmentModal() {
+  const modal = document.getElementById('logging-fulfillment-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// EXPORT
+// EXPORT — API INTEGRATION
 // ═══════════════════════════════════════════════════════════════
+
 function exportStatusLogsExcel() {
-  const statusLogs = getFilteredStatusLogs();
+  const searchEl = document.getElementById('logging-status-search');
+  const statusFilterEl = document.getElementById('logging-status-filter-status');
 
-  if (!statusLogs.length) {
-    alert('No status log data to export.');
-    return;
-  }
+  const search = searchEl ? searchEl.value : '';
+  const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
 
-  const rows = statusLogs.map(log => ({
-    'Request ID':    log.request?.id             || '',
-    'Reference #':   log.request?.referenceNumber || '',
-    'Old Status':    log.oldStatus               || '',
-    'New Status':    log.newStatus               || '',
-    'Changed By':    log.changedBy?.fullName      || 'System',
-    'Changed At':    formatExcelDate(log.changedAt),
-    'Notes':         log.notes                   || '',
-  }));
+  let queryParams = new URLSearchParams();
+  if (search) queryParams.append('search', search);
+  if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const url = `${API_BASE_URL}/export/status-logs?${queryParams.toString()}`;
 
-  // Column widths
-  ws['!cols'] = [
-    { wch: 12 }, // Request ID
-    { wch: 18 }, // Reference #
-    { wch: 18 }, // Old Status
-    { wch: 22 }, // New Status
-    { wch: 20 }, // Changed By
-    { wch: 22 }, // Changed At
-    { wch: 40 }, // Notes
-  ];
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to export data');
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (!data || data.length === 0) {
+        alert('No status log data to export.');
+        return;
+      }
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Status Logs');
+      const rows = data.map(log => ({
+        'Request ID': log.request?.id || '',
+        'Reference #': log.request?.referenceNumber || '',
+        'Old Status': log.oldStatus || '',
+        'New Status': log.newStatus || '',
+        'Changed By': log.changedBy?.fullName || 'System',
+        'Changed At': formatExcelDate(log.changedAt),
+        'Notes': log.notes || '',
+      }));
 
-  XLSX.writeFile(wb, `status-logs-${today()}.xlsx`);
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 22 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 40 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Status Logs');
+      XLSX.writeFile(wb, `status-logs-${today()}.xlsx`);
+    })
+    .catch(error => {
+      console.error('Error exporting status logs:', error);
+      alert('Failed to export status logs');
+    });
 }
 
 function exportFulfillmentsExcel() {
-  const fulfillments = getFilteredFulfillments();
+  const searchEl = document.getElementById('logging-fulfillment-search');
+  const dateFromEl = document.getElementById('logging-fulfillment-date-from');
+  const dateToEl = document.getElementById('logging-fulfillment-date-to');
 
-  if (!fulfillments.length) {
-    alert('No fulfillment data to export.');
-    return;
-  }
+  const search = searchEl ? searchEl.value : '';
+  const dateFrom = dateFromEl ? dateFromEl.value : '';
+  const dateTo = dateToEl ? dateToEl.value : '';
 
-  const rows = fulfillments.map(f => ({
-    'Request ID':   f.request?.id              || '',
-    'Blood Bag ID': f.bloodBag?.bagNumber       || '',
-    'Blood Type':   f.bloodBag?.bloodType       || '',
-    'Component':    f.bloodBag?.componentType   || '',
-    'Fulfilled By': f.fulfilledBy?.fullName     || 'System',
-    'Fulfilled At': formatExcelDate(f.fulfilledAt),
-    'Notes':        f.notes                    || '',
-  }));
+  let queryParams = new URLSearchParams();
+  if (search) queryParams.append('search', search);
+  if (dateFrom) queryParams.append('dateFrom', dateFrom);
+  if (dateTo) queryParams.append('dateTo', dateTo);
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const url = `${API_BASE_URL}/export/fulfillments?${queryParams.toString()}`;
 
-  // Column widths
-  ws['!cols'] = [
-    { wch: 12 }, // Request ID
-    { wch: 18 }, // Blood Bag ID
-    { wch: 12 }, // Blood Type
-    { wch: 16 }, // Component
-    { wch: 20 }, // Fulfilled By
-    { wch: 22 }, // Fulfilled At
-    { wch: 40 }, // Notes
-  ];
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to export data');
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (!data || data.length === 0) {
+        alert('No fulfillment data to export.');
+        return;
+      }
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Fulfillments');
+      const rows = data.map(f => ({
+        'Request ID': f.request?.id || '',
+        'Blood Bag ID': f.bloodBag?.bagNumber || '',
+        'Blood Type': f.bloodBag?.bloodType || '',
+        'Component': f.bloodBag?.componentType || '',
+        'Fulfilled By': f.fulfilledBy?.fullName || 'System',
+        'Fulfilled At': formatExcelDate(f.fulfilledAt),
+        'Notes': f.notes || '',
+      }));
 
-  XLSX.writeFile(wb, `fulfillments-${today()}.xlsx`);
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 12 },
+        { wch: 16 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 40 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Fulfillments');
+      XLSX.writeFile(wb, `fulfillments-${today()}.xlsx`);
+    })
+    .catch(error => {
+      console.error('Error exporting fulfillments:', error);
+      alert('Failed to export fulfillments');
+    });
 }
 
-// ── Helpers ──────────────────────────────────────────────
-function formatExcelDate(raw) {
-  if (!raw) return '';
-  const d = new Date(raw);
-  if (isNaN(d)) return raw; // fallback: return as-is if unparseable
-  return d.toLocaleString('en-US', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: true
-  });
-}
-
-function today() {
-  return new Date().toISOString().split('T')[0];
-}
 // ═══════════════════════════════════════════════════════════════
 // UTILITY FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
@@ -5095,14 +4936,74 @@ function formatDateTime(isoString) {
   });
 }
 
-function formatDate(isoString) {
-  if (!isoString) return '—';
-  const date = new Date(isoString);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
+function formatExcelDate(raw) {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d)) return raw;
+  return d.toLocaleString('en-US', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true
   });
 }
 
-initializeLoggingPanel()
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function updatePaginationControls(type, currentPage, totalPages, totalElements) {
+  const prefix = type === 'status' ? 'logging-status' : 'logging-fulfillment';
+  
+  const showingEl = document.getElementById(`${prefix}-showing`);
+  const pageLabelEl = document.getElementById(`${prefix}-page-label`);
+  const prevEl = document.getElementById(`${prefix}-prev`);
+  const nextEl = document.getElementById(`${prefix}-next`);
+  const resultsEl = document.getElementById(`${prefix}-results-info`);
+
+  const startIdx = (currentPage - 1) * loggingState.itemsPerPage + 1;
+  const endIdx = Math.min(currentPage * loggingState.itemsPerPage, totalElements);
+
+  if (showingEl) showingEl.textContent = `Showing ${startIdx}–${endIdx} of ${totalElements}`;
+  if (pageLabelEl) pageLabelEl.textContent = `${currentPage} / ${totalPages}`;
+  if (prevEl) prevEl.disabled = currentPage === 1;
+  if (nextEl) nextEl.disabled = currentPage >= totalPages;
+  if (resultsEl) resultsEl.textContent = `${totalElements} result${totalElements !== 1 ? 's' : ''}`;
+}
+
+function showLoadingInTable(tbodyId, type) {
+  const tbody = document.getElementById(tbodyId);
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">⏳ Loading...</td></tr>';
+  }
+}
+
+function showErrorInTable(tbodyId, message) {
+  const tbody = document.getElementById(tbodyId);
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#E74C3C">${message}</td></tr>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL BACKDROP CLICK HANDLERS
+// ═══════════════════════════════════════════════════════════════
+
+document.addEventListener('click', function(event) {
+  const statusModal = document.getElementById('logging-status-modal');
+  const fulfillmentModal = document.getElementById('logging-fulfillment-modal');
+
+  // Close status modal if clicking on backdrop
+  if (statusModal && event.target.classList.contains('logging-modal-backdrop') && event.target.parentElement === statusModal) {
+    closeLoggingStatusModal();
+  }
+
+  // Close fulfillment modal if clicking on backdrop
+  if (fulfillmentModal && event.target.classList.contains('logging-modal-backdrop') && event.target.parentElement === fulfillmentModal) {
+    closeLoggingFulfillmentModal();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// INITIALIZE ON PAGE LOAD
+// ═══════════════════════════════════════════════════════════════
+
+initializeLoggingPanel();

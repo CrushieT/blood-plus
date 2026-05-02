@@ -34,6 +34,7 @@ com\hospital\blood_plus\dto\request\RegisterRequest.class
 com\hospital\blood_plus\service\HospitalService.class
 com\hospital\blood_plus\dto\response\BloodBagAvailableDTO.class
 com\hospital\blood_plus\repository\StaffProfileRepository.class
+com\hospital\blood_plus\dto\request\RequestStatusLogDTO.class
 com\hospital\blood_plus\config\DotenvConfig.class
 com\hospital\blood_plus\model\StaffProfile.class
 com\hospital\blood_plus\dto\request\StaffDTOs$UpdateStaffRequest.class
@@ -43,10 +44,13 @@ com\hospital\blood_plus\controller\BloodRequestController.class
 com\hospital\blood_plus\dto\request\AnalyticsDTO$HospitalMetric.class
 com\hospital\blood_plus\model\BloodBagDispatch.class
 com\hospital\blood_plus\service\CloudinaryService.class
+com\hospital\blood_plus\dto\response\PaginatedResponse.class
 com\hospital\blood_plus\service\AnalyticsService.class
+com\hospital\blood_plus\dto\response\LogsSummaryResponse.class
 com\hospital\blood_plus\service\BloodBagService$1.class
 com\hospital\blood_plus\dto\request\ChangePasswordRequestDTO.class
 com\hospital\blood_plus\dto\request\ProfileDTO$AdminProfileDTO.class
+com\hospital\blood_plus\service\RequestStatusLogService.class
 com\hospital\blood_plus\dto\request\AnalyticsDTO$FulfillmentMetrics.class
 com\hospital\blood_plus\service\UserService.class
 com\hospital\blood_plus\service\AdminProfileService.class
@@ -58,7 +62,9 @@ com\hospital\blood_plus\repository\BloodBagRepository.class
 com\hospital\blood_plus\dto\request\ApproveRequestDTO.class
 com\hospital\blood_plus\dto\response\BloodBagResponse.class
 com\hospital\blood_plus\model\BloodBag$BloodType.class
+com\hospital\blood_plus\controller\HospitalController.class
 com\hospital\blood_plus\model\HospitalProfile.class
+com\hospital\blood_plus\repository\RequestFulfillmentRepository.class
 com\hospital\blood_plus\repository\UserRepository.class
 com\hospital\blood_plus\dto\request\VerifyEmailRequest.class
 com\hospital\blood_plus\config\RedirectIfLoggedInFilter.class
@@ -69,12 +75,12 @@ com\hospital\blood_plus\model\AppUser$Role.class
 com\hospital\blood_plus\dto\request\HospitalDTOs$UpdateHospitalRequest.class
 com\hospital\blood_plus\model\BloodBagDispatch$DispatchType.class
 com\hospital\blood_plus\model\BloodBagRequest$UrgencyLevel.class
+com\hospital\blood_plus\repository\RequestStatusLogRepository.class
 com\hospital\blood_plus\BloodPlusApplication.class
 com\hospital\blood_plus\dto\request\ProfileDTO$UserProfileDTO.class
 com\hospital\blood_plus\dto\response\AdminDashboardResponse.class
 com\hospital\blood_plus\model\BloodBagRequest$AgeGroup.class
 com\hospital\blood_plus\model\BloodBag$ComponentType.class
-com\hospital\blood_plus\controller\AdminController.class
 com\hospital\blood_plus\dto\request\StaffDTOs.class
 com\hospital\blood_plus\service\BloodBagRequestService.class
 com\hospital\blood_plus\model\BloodBagRequest.class

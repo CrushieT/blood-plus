@@ -14,15 +14,19 @@ import com.hospital.blood_plus.dto.request.ProfileDTO.UpdateAdminProfileRequest;
 import com.hospital.blood_plus.dto.request.ProfileDTO.UpdateStaffProfileRequest;
 import com.hospital.blood_plus.dto.request.RequestStatusLogDTO;
 import com.hospital.blood_plus.service.HospitalService;
+import com.hospital.blood_plus.service.RequestLogsService;
 import com.hospital.blood_plus.service.RequestStatusLogService;
 import com.hospital.blood_plus.dto.request.StaffDTOs.CreateStaffRequest;
 import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
 import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
+import com.hospital.blood_plus.dto.response.LogsSummaryResponse;
+import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.repository.UserRepository;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
+import com.hospital.blood_plus.model.RequestFulfillment;
 import com.hospital.blood_plus.model.RequestStatusLog;
 import com.hospital.blood_plus.service.AdminProfileService;
 import com.hospital.blood_plus.service.AnalyticsService;
@@ -31,10 +35,13 @@ import com.hospital.blood_plus.service.BloodBagService;
 import com.hospital.blood_plus.service.DashboardService;
 import com.hospital.blood_plus.service.StaffService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -55,6 +62,7 @@ public class AdminController {
     private final AdminProfileService     adminProfileService;
     private AnalyticsService              analyticsService;
     private RequestStatusLogService requestStatusLogService;
+    private RequestLogsService requestLogsService;
 
     public AdminController(BloodBagService bloodBagService,
                            UserRepository userRepository,
@@ -64,7 +72,8 @@ public class AdminController {
                            DashboardService dashboardService,
                            AdminProfileService adminProfileService,
                            AnalyticsService analyticsService,
-                           RequestStatusLogService requestStatusLogService) {
+                           RequestStatusLogService requestStatusLogService,
+                           RequestLogsService requestLogsService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
@@ -74,6 +83,7 @@ public class AdminController {
         this.adminProfileService = adminProfileService;
         this.analyticsService = analyticsService;
         this.requestStatusLogService = requestStatusLogService;
+        this.requestLogsService = requestLogsService;
     }
 
 
@@ -785,6 +795,162 @@ public class AdminController {
         return ResponseEntity.ok(new MessageResponse("Password updated successfully"));
     }
  
+    /////////// LOGS API ///////////
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @GetMapping("/logs/summary")
+    public ResponseEntity<LogsSummaryResponse> getSummary() {
+        LogsSummaryResponse summary = requestLogsService.getSummary();
+        return ResponseEntity.ok(summary);
+    }
+ 
+    /**
+     * GET /api/logs/status-logs
+     * Fetch status logs with pagination, filtering, and sorting
+     * 
+     * Query Parameters:
+     * - search: Search by request ID or reference number (optional)
+     * - status: Filter by status (PENDING, APPROVED, etc.) - "ALL" for all (optional)
+     * - sort: Sorting option (date_desc, date_asc, request_id) (optional, default: date_desc)
+     * - page: Page number (1-based) (default: 1)
+     * - size: Items per page (default: 10)
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @GetMapping("/logs/status-logs")
+    public ResponseEntity<PaginatedResponse<RequestStatusLog>> getStatusLogs(
+            @RequestParam(required = false) String search,
+            @RequestParam(name = "status", defaultValue = "ALL") String statusFilter,
+            @RequestParam(defaultValue = "date_desc") String sort,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+ 
+        Page<RequestStatusLog> logsPage = requestLogsService.getStatusLogs(
+                search,
+                statusFilter,
+                sort,
+                page,
+                size
+        );
+ 
+        PaginatedResponse<RequestStatusLog> response = new PaginatedResponse<>(
+                logsPage.getContent(),
+                logsPage.getNumber() + 1, // Convert to 1-based page number
+                logsPage.getTotalPages(),
+                logsPage.getTotalElements(),
+                logsPage.getSize()
+        );
+ 
+        return ResponseEntity.ok(response);
+    }
+ 
+    /**
+     * GET /api/logs/status-logs/{id}
+     * Get details of a specific status log
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @GetMapping("/logs/status-logs/{id}")
+    public ResponseEntity<RequestStatusLog> getStatusLogDetail(@PathVariable Long id) {
+        RequestStatusLog log = requestLogsService.getStatusLogDetail(id);
+        if (log == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(log);
+    }
+ 
+    /**
+     * GET /api/logs/fulfillments
+     * Fetch fulfillment logs with pagination, filtering, and sorting
+     * 
+     * Query Parameters:
+     * - search: Search by request ID or blood bag number (optional)
+     * - dateFrom: Filter from date (ISO format: 2024-01-10) (optional)
+     * - dateTo: Filter to date (ISO format: 2024-01-10) (optional)
+     * - sort: Sorting option (date_desc, date_asc, request_id) (optional, default: date_desc)
+     * - page: Page number (1-based) (default: 1)
+     * - size: Items per page (default: 10)
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @GetMapping("/logs/fulfillments")
+    public ResponseEntity<PaginatedResponse<RequestFulfillment>> getFulfillments(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime dateTo,
+            @RequestParam(defaultValue = "date_desc") String sort,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+ 
+        Page<RequestFulfillment> fulfillmentsPage = requestLogsService.getFulfillments(
+                search,
+                dateFrom,
+                dateTo,
+                sort,
+                page,
+                size
+        );
+ 
+        PaginatedResponse<RequestFulfillment> response = new PaginatedResponse<>(
+                fulfillmentsPage.getContent(),
+                fulfillmentsPage.getNumber() + 1, // Convert to 1-based page number
+                fulfillmentsPage.getTotalPages(),
+                fulfillmentsPage.getTotalElements(),
+                fulfillmentsPage.getSize()
+        );
+ 
+        return ResponseEntity.ok(response);
+    }
+ 
+    /**
+     * GET /api/logs/fulfillments/{id}
+     * Get details of a specific fulfillment
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @GetMapping("/logs/fulfillments/{id}")
+    public ResponseEntity<RequestFulfillment> getFulfillmentDetail(@PathVariable Long id) {
+        RequestFulfillment fulfillment = requestLogsService.getFulfillmentDetail(id);
+        if (fulfillment == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(fulfillment);
+    }
+ 
+    /**
+     * GET /api/logs/export/status-logs
+     * Export status logs as JSON (for Excel export on frontend)
+     * 
+     * Query Parameters:
+     * - search: Search filter (optional)
+     * - status: Status filter (optional)
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @GetMapping("/logs/export/status-logs")
+    public ResponseEntity<List<RequestStatusLog>> exportStatusLogs(
+            @RequestParam(required = false) String search,
+            @RequestParam(name = "status", defaultValue = "ALL") String statusFilter) {
+ 
+        List<RequestStatusLog> logs = requestLogsService.exportStatusLogs(search, statusFilter);
+        return ResponseEntity.ok(logs);
+    }
+ 
+    /**
+     * GET /api/logs/export/fulfillments
+     * Export fulfillments as JSON (for Excel export on frontend)
+     * 
+     * Query Parameters:
+     * - search: Search filter (optional)
+     * - dateFrom: Date from filter (optional)
+     * - dateTo: Date to filter (optional)
+     */
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @GetMapping("/logs/export/fulfillments")
+    public ResponseEntity<List<RequestFulfillment>> exportFulfillments(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime dateTo) {
+ 
+        List<RequestFulfillment> fulfillments = requestLogsService.exportFulfillments(search, dateFrom, dateTo);
+        return ResponseEntity.ok(fulfillments);
+    }
+
+
     // ═════════════════════════════════════════════════════════════════
     // UNIVERSAL ENDPOINT (for /api/auth/change-password)
     // ═════════════════════════════════════════════════════════════════
