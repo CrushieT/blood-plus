@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -147,4 +148,12 @@ public interface RequestStatusLogRepository extends JpaRepository<RequestStatusL
     @Query("SELECT COUNT(l) FROM RequestStatusLog l WHERE l.request.id = :requestId")
     long countByRequestId(@Param("requestId") Long requestId);
 
+    @Query("SELECT rsl FROM RequestStatusLog rsl ORDER BY rsl.changedAt DESC")
+    List<RequestStatusLog> findRecentStatusLogs(Pageable pageable);
+ 
+    @Query("SELECT rsl FROM RequestStatusLog rsl WHERE rsl.changedAt >= :since ORDER BY rsl.changedAt DESC")
+    List<RequestStatusLog> findStatusLogsSince(LocalDateTime since, Pageable pageable);
+ 
+    @Query("SELECT rsl FROM RequestStatusLog rsl WHERE rsl.request.id = :requestId ORDER BY rsl.changedAt DESC")
+    List<RequestStatusLog> findByRequestId(Long requestId);
 }

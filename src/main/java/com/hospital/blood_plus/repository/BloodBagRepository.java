@@ -6,6 +6,7 @@ import com.hospital.blood_plus.model.BloodBag.RhType;
 import com.hospital.blood_plus.model.BloodBag.BloodType;
 import com.hospital.blood_plus.model.BloodBag.ComponentType;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -180,4 +181,38 @@ Long countExpired();
     List<BloodBag> findAllAvailableBags();
  
     boolean existsByBloodTypeAndStatus(BloodType bloodType, BagStatus status);
+
+    @Query("SELECT bb FROM BloodBag bb ORDER BY bb.createdAt DESC")
+    List<BloodBag> findRecentBloodBags(Pageable pageable);
+ 
+    @Query("SELECT bb FROM BloodBag bb WHERE bb.createdAt >= :since ORDER BY bb.createdAt DESC")
+    List<BloodBag> findBloodBagsSince(LocalDateTime since, Pageable pageable);
+ 
+    @Query("SELECT bb FROM BloodBag bb WHERE bb.bloodType = :bloodType AND bb.status = 'AVAILABLE'")
+    List<BloodBag> findAvailableByBloodType(BloodType bloodType);
+ 
+    @Query("SELECT COUNT(bb) FROM BloodBag bb WHERE bb.bloodType = :bloodType AND bb.status = 'AVAILABLE'")
+    Long countAvailableByBloodType(BloodType bloodType);
+
+  
+    /**
+     * Find AVAILABLE OPEN_SYSTEM bags that were opened more than 24 hours ago
+     */
+    List<BloodBag> findByStatusAndOpenSystemAndOpenSystemAtBefore(
+        BloodBag.BagStatus status,
+        boolean openSystem,
+        LocalDateTime twentyFourHoursAgo
+    );
+ 
+    /**
+     * Count expired bags (for dashboard alerts)
+     */
+    long countByStatusAndExpiresAtBefore(BloodBag.BagStatus status, LocalDateTime now);
+ 
+    /**
+     * Find bags expiring soon (within X days)
+     */
+    @Query("SELECT b FROM BloodBag b WHERE b.status = :status " +
+           "AND b.expiresAt > :now AND b.expiresAt <= :soon")
+    List<BloodBag> findExpiringBags(BloodBag.BagStatus status, LocalDateTime now, LocalDateTime soon);
 }

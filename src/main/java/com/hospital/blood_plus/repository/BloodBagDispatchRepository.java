@@ -4,6 +4,7 @@ import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagDispatch;
 import com.hospital.blood_plus.model.BloodBagDispatch.DispatchType;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -24,4 +25,12 @@ public interface BloodBagDispatchRepository extends JpaRepository<BloodBagDispat
     @Query("SELECT d FROM BloodBagDispatch d WHERE d.dispatchedAt BETWEEN :startDate AND :endDate " +
            "ORDER BY d.dispatchedAt DESC")
     List<BloodBagDispatch> findDispatchesBetweenDates(LocalDateTime startDate, LocalDateTime endDate);
+    @Query("SELECT bbd FROM BloodBagDispatch bbd ORDER BY bbd.dispatchedAt DESC")
+    List<BloodBagDispatch> findRecentDispatches(Pageable pageable);
+ 
+    @Query("SELECT bbd FROM BloodBagDispatch bbd WHERE bbd.dispatchedAt >= :since ORDER BY bbd.dispatchedAt DESC")
+    List<BloodBagDispatch> findDispatchesSince(LocalDateTime since, Pageable pageable);
+ 
+    @Query("SELECT bbd FROM BloodBagDispatch bbd WHERE bbd.bloodBag.id = :bloodBagId ORDER BY bbd.dispatchedAt DESC")
+    List<BloodBagDispatch> findByBloodBagId(Long bloodBagId);
 }

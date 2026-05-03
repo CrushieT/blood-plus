@@ -1,6 +1,7 @@
 package com.hospital.blood_plus.service;
 
 import com.hospital.blood_plus.dto.response.AdminDashboardDTO;
+import com.hospital.blood_plus.dto.request.RecentActivityDTO;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.repository.BloodBagRepository;
@@ -17,17 +18,21 @@ public class DashboardService {
     private final BloodBagRepository bloodBagRepository;
     private final BloodBagRequestRepository bloodBagRequestRepository;
     private final HospitalProfileRepository hospitalProfileRepository;
+    private final RecentActivityService recentActivityService;  // NEW: Inject activity service
 
     public DashboardService(BloodBagRepository bloodBagRepository,
                             BloodBagRequestRepository bloodBagRequestRepository,
-                            HospitalProfileRepository hospitalProfileRepository) {
+                            HospitalProfileRepository hospitalProfileRepository,
+                            RecentActivityService recentActivityService) {  // NEW: Add to constructor
         this.bloodBagRepository = bloodBagRepository;
         this.bloodBagRequestRepository = bloodBagRequestRepository;
         this.hospitalProfileRepository = hospitalProfileRepository;
+        this.recentActivityService = recentActivityService;
     }
 
     /**
-     * Get comprehensive dashboard summary for admin panel
+     * Get comprehensive dashboard summary with integrated recent activities
+     * Single API call replaces /api/dashboard + /api/activities/recent
      */
     public AdminDashboardDTO getDashboardSummary() {
         // 1. Count critical blood types (≤5 units)
@@ -54,6 +59,10 @@ public class DashboardService {
         // 8. Count bags expiring within 7 days
         int expiringSoon = countExpiringBags();
 
+        // NEW: 9. Get recent activities (limit to 10 for dashboard)
+        List<RecentActivityDTO> recentActivities = recentActivityService.getRecentActivities(5);
+        int totalActivitiesCount = recentActivities.size();
+
         return new AdminDashboardDTO(
                 criticalCount,
                 (int) totalHospitals,
@@ -62,7 +71,9 @@ public class DashboardService {
                 bloodBankSummary,
                 bloodBankVolume,
                 openSystemCount,
-                expiringSoon
+                expiringSoon,
+                recentActivities,           // NEW
+                totalActivitiesCount        // NEW
         );
     }
 

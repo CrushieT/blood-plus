@@ -88,4 +88,12 @@ public interface RequestFulfillmentRepository extends JpaRepository<RequestFulfi
             @Param("dateTo") LocalDateTime dateTo
     );
 
+    @Query("SELECT rf FROM RequestFulfillment rf ORDER BY rf.fulfilledAt DESC")
+    List<RequestFulfillment> findRecentFulfillments(Pageable pageable);
+ 
+    @Query("SELECT rf FROM RequestFulfillment rf WHERE rf.fulfilledAt >= :since ORDER BY rf.fulfilledAt DESC")
+    List<RequestFulfillment> findFulfillmentsSince(LocalDateTime since, Pageable pageable);
+ 
+    @Query("SELECT rf FROM RequestFulfillment rf WHERE rf.request.id = :requestId")
+    List<RequestFulfillment> findByRequestId(Long requestId);
 }

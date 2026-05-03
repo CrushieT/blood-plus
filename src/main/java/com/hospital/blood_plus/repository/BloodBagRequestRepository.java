@@ -9,9 +9,11 @@ import com.hospital.blood_plus.model.BloodBagRequest.RequesterType;
 import com.hospital.blood_plus.model.BloodBagRequest.UrgencyLevel;
 import com.hospital.blood_plus.model.HospitalProfile;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,4 +78,13 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         GROUP BY requester_type
         """, nativeQuery = true)
     List<Object[]> countByRequesterTypeGrouped();
+
+    @Query("SELECT bbr FROM BloodBagRequest bbr ORDER BY bbr.requestedAt DESC")
+    List<BloodBagRequest> findRecentRequests(Pageable pageable);
+ 
+    @Query("SELECT bbr FROM BloodBagRequest bbr WHERE bbr.requestedAt >= :since ORDER BY bbr.requestedAt DESC")
+    List<BloodBagRequest> findRequestsSince(LocalDateTime since, Pageable pageable);
+ 
+    @Query("SELECT bbr FROM BloodBagRequest bbr WHERE bbr.status = :status AND bbr.requestedAt >= :since ORDER BY bbr.requestedAt DESC")
+    List<BloodBagRequest> findRequestsByStatusSince(RequestStatus status, LocalDateTime since, Pageable pageable);
 }
