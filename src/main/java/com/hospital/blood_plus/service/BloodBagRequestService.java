@@ -523,6 +523,12 @@ public class BloodBagRequestService {
         if (dto.getIndication() == null || dto.getIndication().trim().isEmpty())
             throw new IllegalArgumentException("At least one indication for transfusion must be selected.");
     }
+
+    public BloodBagRequest getRequestById(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Blood request not found with id: " + id));
+    }
+    
  
     // ─────────────────────────────────────────────
     // REFERENCE NUMBER

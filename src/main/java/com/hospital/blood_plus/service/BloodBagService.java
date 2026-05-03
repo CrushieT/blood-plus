@@ -446,6 +446,12 @@ public class BloodBagService {
             return Map.of("status", "INVALID", "count", 0);
         }
     }
+
+    public BloodBag getBagById(Long bagId) {
+        return bloodBagRepository.findById(bagId)
+                .orElseThrow(() -> new RuntimeException("Blood bag not found with ID: " + bagId));
+    }
+    
  
     /**
      * Build component-specific availability map
