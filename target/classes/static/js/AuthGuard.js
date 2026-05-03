@@ -3,7 +3,8 @@
         const path        = window.location.pathname;
         const isSetupPage = path === "/admin-setup.html";
         const isPublicPage = path === "/admin-login.html" ||
-                             path === "/";
+                             path === "/" ||
+                             path === "/blood-request.html";
 
         // ── System status check first ────────────────────────────────────────
         const statusRes  = await fetch("/api/auth/system-status");
@@ -31,23 +32,21 @@
         const response = await fetch("/api/auth/me", { credentials: "include" });
 
         // ── Public page ──────────────────────────────────────────────────────
+                // 🟢 PUBLIC PAGE → NEVER REDIRECT
         if (isPublicPage) {
             document.body.style.visibility = "visible";
-            if (!response.ok) return;
 
-            const data = await response.json();
-            if (!data.role) return;
-
-            if (data.role === "DONOR") {
-                window.location.href = data.hasProfile
-                    ? "/donor/donor_dashboard.html"
-                    : "/donor/donor_registration.html";
-            } else if (data.role === "HOSPITAL") {
-                window.location.href = "/hospital/hospital.html";
-            } else if (data.role === "ADMIN") {
-                window.location.href = "/admin/ADMIN.html";
+            // Optional: redirect if already logged in
+            if (response.ok) {
+                const data = await response.json();
+                if (data.role === "HOSPITAL") {
+                    window.location.href = "/hospital/hospital_dashboard.html";
+                } else if (data.role === "ADMIN") {
+                    window.location.href = "/admin/admin_dashboard.html";
+                }
             }
-            return;
+
+            return; // 🚨 IMPORTANT: STOP HERE
         }
 
         // ── Protected pages ──────────────────────────────────────────────────
