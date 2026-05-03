@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BloodPlus — Give Blood. Save Lives.</title>
+  <title>CNPH Blood Bank — Request Portal</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
   <script src="js/AuthGuard.js"></script>
@@ -23,12 +23,12 @@
 
   <!-- NAV -->
   <nav>
-    <a class="nav-logo" href="#"><span>Blood</span>Plus</a>
+    <a class="nav-logo" href="#"><span>CNPH</span> Blood Bank</a>
     <ul class="nav-links">
       <li><a href="#">Home</a></li>
       <li><a href="#">About</a></li>
-      <li><a href="#">Events</a></li>
-      <li><a href="#" class="nav-cta">Donate Now</a></li>
+      <li><a href="#">Contact</a></li>
+      <li><a href="blood-request.html" class="nav-cta">Submit Request</a></li>
     </ul>
   </nav>
 
@@ -37,40 +37,40 @@
 
     <!-- LEFT: copy -->
     <div class="hero-left">
-      <div class="hero-eyebrow">Blood Donation Management System</div>
+      <div class="hero-eyebrow">CNPH Blood Bank Request System</div>
 
       <h1 class="hero-title">
-        Give Blood.<br>
+        Request Blood.<br>
         <em>Save Lives.</em><br>
-        Make History.
+        Secure & Fast.
       </h1>
 
       <p class="hero-desc">
-        BloodPlus connects willing donors with patients who need blood the most.
-        Register, find events near you, and track the impact of every donation you make.
+        Submit blood unit requests directly to Camarines Norte Provincial Hospital blood bank.
+        Fast approval, real-time status tracking, and secure digital documentation for all your blood supply needs.
       </p>
 
       <div class="hero-stats">
         <div class="stat-item">
-          <div class="stat-val red">3</div>
-          <div class="stat-label">Lives per donation</div>
+          <div class="stat-val red">24/7</div>
+          <div class="stat-label">Request Processing</div>
         </div>
         <div class="stat-item">
-          <div class="stat-val">56</div>
-          <div class="stat-label">Day recovery cycle</div>
+          <div class="stat-val">2-4 Hrs</div>
+          <div class="stat-label">Approval Response</div>
         </div>
         <div class="stat-item">
-          <div class="stat-val gold">4.5M</div>
-          <div class="stat-label">Filipinos need blood/yr</div>
+          <div class="stat-val gold">100%</div>
+          <div class="stat-label">Documented Trail</div>
         </div>
       </div>
 
       <div class="hero-actions">
         <a href="#login-section" class="btn-hero-primary">
-          🩸 Get Started
+          🩸 Sign In
         </a>
-        <a href="about.html" class="btn-hero-secondary">
-          Learn more →
+        <a href="blood-request.html" class="btn-hero-secondary">
+          Submit Request →
         </a>
       </div>
     </div>
@@ -87,44 +87,33 @@
       <div class="login-br">
         <div class="cont">
 
-          <!-- Tab switcher -->
-          <div class="auth-tabs">
-            <button class="auth-tab active" onclick="switchTab('signin', this)">Sign In</button>
-            <button class="auth-tab" onclick="switchTab('signup', this)">Sign Up</button>
-          </div>
-
-          <!-- SIGN IN PANEL -->
+          <!-- Sign In Panel Only -->
           <div class="auth-panel active" id="auth-signin">
-            <h2>Welcome Back</h2>
+            <h2>Request Portal Login</h2>
+            <p class="auth-intro">Hospital or Institution Credentials</p>
+            
             <label>
-              <span>Email</span>
-              <input type="email" id="login-email" placeholder="you@email.com" />
+              <span>Institution Email</span>
+              <input type="email" id="login-email" placeholder="hospital@email.com" />
             </label>
             <label>
               <span>Password</span>
               <input type="password" id="login-password" placeholder="••••••••" />
             </label>
-            <p class="forgot-pass">Forgot password?</p>
+            
+            <div class="form-options">
+              <label class="remember-me">
+                <input type="checkbox" />
+                <span>Remember me</span>
+              </label>
+              <a href="#" class="forgot-pass">Forgot password?</a>
+            </div>
+            
             <button type="button" class="submit" onclick="login()">Sign In</button>
-          </div>
-
-          <!-- SIGN UP PANEL -->
-          <div class="auth-panel" id="auth-signup">
-            <h2>Create Account</h2>
-            <label>
-              <span>Name</span>
-              <input type="text" id="username" placeholder="Juan Dela Cruz" />
-            </label>
-            <label>
-              <span>Email</span>
-              <input type="email" id="email" placeholder="you@email.com" />
-            </label>
-            <label>
-              <span>Password</span>
-              <input type="password" id="password" placeholder="••••••••" />
-            </label>
-            <button type="button" class="submit" onclick="registerUser()">Sign Up</button>
-            <p id="responseMessage"></p>
+            
+            <p class="auth-footer">
+              First time requesting? <a href="#">Contact CNPH Blood Bank</a>
+            </p>
           </div>
 
           <!-- Keep original hidden structure so login.js selectors still work -->
@@ -174,72 +163,80 @@
   <!-- FEATURES -->
   <section class="features">
     <div class="features-header">
-      <div class="features-eyebrow">Why BloodPlus</div>
-      <h2 class="features-title">Everything a donor needs,<br>in one place.</h2>
+      <div class="features-eyebrow">Why Use This Portal</div>
+      <h2 class="features-title">Streamlined blood request<br>management for hospitals.</h2>
     </div>
     <div class="features-grid">
       <div class="feature-card">
-        <div class="feature-icon">📅</div>
-        <div class="feature-title">Find Donation Events</div>
-        <div class="feature-desc">Browse upcoming blood drives near you, check slot availability, and register in seconds. Urgent events are always highlighted.</div>
+        <div class="feature-icon">📋</div>
+        <div class="feature-title">Digital Request Forms</div>
+        <div class="feature-desc">Submit standardized request forms digitally with required physician signatures and patient details. No more paper or messaging.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🏥</div>
-        <div class="feature-title">Live Blood Bank Status</div>
-        <div class="feature-desc">See real-time inventory levels across registered hospitals and blood banks. Know where your blood type is needed most right now.</div>
+        <div class="feature-icon">✓</div>
+        <div class="feature-title">Real-Time Approval Status</div>
+        <div class="feature-desc">Track your request status instantly. Get notified when approved and ready for pickup or delivery to your facility.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🩸</div>
-        <div class="feature-title">Track Your Impact</div>
-        <div class="feature-desc">Every donation is logged to your profile. See your total volume donated, lives impacted, and when you're next eligible to give.</div>
+        <div class="feature-icon">📦</div>
+        <div class="feature-title">Inventory Visibility</div>
+        <div class="feature-desc">View current blood type availability and component status. Know what's in stock before you request.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">📱</div>
-        <div class="feature-title">QR Walk-In Donations</div>
-        <div class="feature-desc">Scan a QR code at any event to register on the spot — no account needed in advance. Get set up in under two minutes.</div>
+        <div class="feature-icon">🔐</div>
+        <div class="feature-title">Secure & Verified</div>
+        <div class="feature-desc">All requests are verified against physician credentials and institutional registration. Multi-factor authentication ensures security.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🔔</div>
-        <div class="feature-title">Urgent Alerts</div>
-        <div class="feature-desc">Get notified when your blood type is critically low. Be the first to respond when hospitals need you most.</div>
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Compliance Reporting</div>
+        <div class="feature-desc">Automatic audit trails and documented request history for DOH compliance and institutional record-keeping.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🛡️</div>
-        <div class="feature-title">Safe & Verified</div>
-        <div class="feature-desc">Your health profile, donation history, and comorbidities are securely stored — ensuring every donation is screened safely and responsibly.</div>
+        <div class="feature-icon">🚚</div>
+        <div class="feature-title">Pickup & Delivery Tracking</div>
+        <div class="feature-desc">Track tracer documents and blood unit transport. Confirm receipt with digital signatures for accountability.</div>
       </div>
     </div>
   </section>
 
-  <!-- BLOOD TYPE STRIP -->
-   <!-- Add urgent to highlight -->
+  <!-- BLOOD TYPE AVAILABILITY STRIP -->
   <section class="blood-strip">
-    <div class="strip-label">Current blood type urgency — Daet, Camarines Norte facilities</div>
+    <div class="strip-label">Current Blood Type Availability — CNPH Blood Bank</div>
     <div class="blood-types-row">
       <div class="bt-chip urgent">O−</div>
-      <div class="bt-chip">O+</div>
-      <div class="bt-chip">A+</div>
+      <div class="bt-chip available">O+</div>
+      <div class="bt-chip available">A+</div>
       <div class="bt-chip">A−</div>
-      <div class="bt-chip">B+</div>
+      <div class="bt-chip available">B+</div>
       <div class="bt-chip">B−</div>
       <div class="bt-chip urgent">AB−</div>
-      <div class="bt-chip">AB+</div>
+      <div class="bt-chip available">AB+</div>
+    </div>
+  </section>
+
+  <!-- INFO BANNER -->
+  <section class="info-banner">
+    <div class="banner-content">
+      <div class="banner-icon">ℹ️</div>
+      <div class="banner-text">
+        <h3>About Blood Unit Requests</h3>
+        <p>CNPH Blood Bank accepts requests from in-patient wards, external hospitals, and registered medical institutions. All requests must be accompanied by licensed physician authorization and originating from registered health facilities. For questions about institutional registration or credential verification, contact CNPH Blood Bank administration.</p>
+      </div>
     </div>
   </section>
 
   <!-- FOOTER -->
   <footer>
-    <div class="footer-logo"><span>Blood</span>Plus</div>
+    <div class="footer-logo"><span>CNPH</span> Blood Bank</div>
     <ul class="footer-links">
       <li><a href="#">Home</a></li>
-      <li><a href="about.html">About</a></li>
-      <li><a href="#">Events</a></li>
+      <li><a href="#">About</a></li>
+      <li><a href="#">Contact</a></li>
       <li><a href="#">Privacy</a></li>
     </ul>
-    <div class="footer-copy">© BloodPlus 2026. All rights reserved.</div>
+    <div class="footer-copy">© CNPH Blood Bank 2026. All rights reserved.</div>
   </footer>
-
-  
 
   <script src="js/scripts.js"></script>
 </body>

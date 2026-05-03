@@ -31,9 +31,10 @@ async function initializeNav() {
 
 // Update your DOMContentLoaded to call this
 document.addEventListener('DOMContentLoaded', () => {
-  initializeNav();  
-  loadBloodBank();
-  loadDashboard();
+  initializeNav();
+  initializeAutoRefresh();  // ← This replaces the loadBloodBank() and loadDashboard() calls
+  initStaffPanel();
+  initializeLoggingPanel();
 });
 
 // ── Panel navigation ───────────────────────────────────────
@@ -5050,8 +5051,96 @@ document.addEventListener('click', function(event) {
   }
 });
 
+
+
 // ═══════════════════════════════════════════════════════════════
-// INITIALIZE ON PAGE LOAD
+// AUTO-REFRESH DASHBOARD, BLOOD BANK & REQUESTS
 // ═══════════════════════════════════════════════════════════════
 
-initializeLoggingPanel();
+let autoRefreshIntervals = {};
+
+/**
+ * Initialize auto-refresh for dashboard, blood bank, and requests
+ * Refreshes every 60 seconds (1 minute)
+ */
+function initializeAutoRefresh() {
+  // Load initial data
+  loadDashboard();
+  loadBloodBank();
+  reqFetchAll();
+
+  // Set up auto-refresh intervals (60 seconds = 60000 ms)
+  const REFRESH_INTERVAL = 60000; // 1 minute
+
+  // Auto-refresh dashboard
+  autoRefreshIntervals.dashboard = setInterval(() => {
+    console.log('[Auto-Refresh] Updating dashboard...');
+    loadDashboard();
+  }, REFRESH_INTERVAL);
+
+  // Auto-refresh blood bank
+  autoRefreshIntervals.bloodBank = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood bank...');
+    loadBloodBank();
+  }, REFRESH_INTERVAL);
+
+  // Auto-refresh blood requests
+  autoRefreshIntervals.requests = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood requests...');
+    reqFetchAll();
+  }, REFRESH_INTERVAL);
+
+  console.log('[Auto-Refresh] Initialized - refreshing every 1 minute');
+}
+
+/**
+ * Stop auto-refresh (useful if user navigates away or wants to pause)
+ */
+function stopAutoRefresh() {
+  if (autoRefreshIntervals.dashboard) clearInterval(autoRefreshIntervals.dashboard);
+  if (autoRefreshIntervals.bloodBank) clearInterval(autoRefreshIntervals.bloodBank);
+  if (autoRefreshIntervals.requests) clearInterval(autoRefreshIntervals.requests);
+  console.log('[Auto-Refresh] Stopped');
+}
+
+/**
+ * Pause auto-refresh temporarily
+ */
+function pauseAutoRefresh() {
+  stopAutoRefresh();
+  console.log('[Auto-Refresh] Paused');
+}
+
+/**
+ * Resume auto-refresh
+ */
+function resumeAutoRefresh() {
+  initializeAutoRefresh();
+  console.log('[Auto-Refresh] Resumed');
+}
+
+/**
+ * Change refresh interval (in seconds)
+ * Example: changeRefreshInterval(30) for 30 seconds
+ */
+function changeRefreshInterval(seconds) {
+  stopAutoRefresh();
+  const REFRESH_INTERVAL = seconds * 1000;
+
+  autoRefreshIntervals.dashboard = setInterval(() => {
+    console.log('[Auto-Refresh] Updating dashboard...');
+    loadDashboard();
+  }, REFRESH_INTERVAL);
+
+  autoRefreshIntervals.bloodBank = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood bank...');
+    loadBloodBank();
+  }, REFRESH_INTERVAL);
+
+  autoRefreshIntervals.requests = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood requests...');
+    reqFetchAll();
+  }, REFRESH_INTERVAL);
+
+  console.log(`[Auto-Refresh] Interval changed to ${seconds} seconds`);
+}
