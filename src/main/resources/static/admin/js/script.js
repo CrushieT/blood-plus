@@ -31,9 +31,10 @@ async function initializeNav() {
 
 // Update your DOMContentLoaded to call this
 document.addEventListener('DOMContentLoaded', () => {
-  initializeNav();  
-  loadBloodBank();
-  loadDashboard();
+  initializeNav();
+  initializeAutoRefresh();  // ← This replaces the loadBloodBank() and loadDashboard() calls
+  initStaffPanel();
+  initializeLoggingPanel();
 });
 
 // ── Panel navigation ───────────────────────────────────────
@@ -84,27 +85,28 @@ async function logout() {
 
 
 // ═══════════════════════════════════════════════════════
-// ADMIN DASHBOARD
+// ADMIN DASHBOARD - FRONTEND (UPDATED)
 // ═══════════════════════════════════════════════════════
 
 async function loadDashboard() {
   try {
     const [dashRes, reqRes] = await Promise.all([
-      fetch('/api/admin/dashboard',       { credentials: 'include' }),
-      fetch('/api/admin/blood-requests',  { credentials: 'include' }),
+      fetch('/api/admin/dashboard', { credentials: 'include' }),
+      fetch('/api/admin/blood-requests', { credentials: 'include' }),
     ]);
-
+    
     if (dashRes.ok) {
       const data = await dashRes.json();
       renderDashboardStats(data);
       renderBloodBankQuickView(data.bloodBankSummary);
+      renderRecentActivities(data.recentActivities);  // ← ADD THIS LINE
     }
-
+ 
     if (reqRes.ok) {
       const requests = await reqRes.json();
       renderPendingRequestsQuickView(requests);
     }
-
+ 
   } catch (err) {
     console.error('Failed to load dashboard:', err);
   }
@@ -170,6 +172,74 @@ function renderBloodBankQuickView(countByType) {
   }).join('');
 }
 
+/**
+ * NEW: Render recent activities from the API
+ * Converts activity data to UI with proper color-coding and relative timestamps
+ */
+function renderRecentActivities(activities) {
+  const container = document.getElementById('dash-recent-activities');
+  if (!container) return;
+
+  // Fallback if no activities
+  if (!activities || activities.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">
+        No recent activities.
+      </div>`;
+    return;
+  }
+
+  // Map category to dot color CSS class
+  const dotColorMap = {
+    'CRITICAL': 'dot-red',
+    'HIGH': 'dot-gold',
+    'MEDIUM': 'dot-blue',
+    'LOW': 'dot-green'
+  };
+
+  // Render each activity
+  container.innerHTML = activities.map(activity => {
+    const dotClass = dotColorMap[activity.category] || 'dot-blue';
+    const relativeTime = getRelativeTime(activity.timestamp);
+
+    return `
+      <div class="activity-item">
+        <div class="activity-dot ${dotClass}"></div>
+        <div>
+          <div class="activity-desc">${activity.message}</div>
+          <div class="activity-time">${relativeTime}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/**
+ * Convert ISO timestamp to relative time format
+ * Examples: "2 hours ago", "Yesterday", "3 days ago"
+ */
+function getRelativeTime(timestamp) {
+  if (!timestamp) return 'Unknown';
+
+  const now = new Date();
+  const activityDate = new Date(timestamp);
+  const diffMs = now - activityDate;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  
+  // For older dates, show the date
+  return activityDate.toLocaleDateString('en-PH', { 
+    month: 'short', 
+    day: 'numeric' 
+  });
+}
+
 function renderPendingRequestsQuickView(requests) {
   const raw     = Array.isArray(requests) ? requests : (requests.data ?? requests.content ?? []);
   const pending = raw.filter(r => r.status === 'PENDING').slice(0, 5);
@@ -205,6 +275,73 @@ function renderPendingRequestsQuickView(requests) {
   }).join('');
 }
 
+function renderRecentActivities(activities) {
+  const container = document.getElementById('dash-recent-activities');
+  if (!container) return;
+ 
+  // Fallback if no activities
+  if (!activities || activities.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">
+        No recent activities.
+      </div>`;
+    return;
+  }
+ 
+  // Map severity to dot color CSS class
+  const severityDotMap = {
+    'CRITICAL': 'dot-red',
+    'WARNING': 'dot-gold',
+    'INFO': 'dot-blue',
+    'SUCCESS': 'dot-green'
+  };
+ 
+  // Render each activity
+  container.innerHTML = activities.map(activity => {
+    const dotClass = severityDotMap[activity.severity] || 'dot-blue';
+    const relativeTime = getRelativeTime(activity.timestamp);
+ 
+    return `
+      <div class="activity-item">
+        <div class="activity-dot ${dotClass}"></div>
+        <div>
+          <div class="activity-desc">${activity.description}</div>
+          <div class="activity-time">${relativeTime}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+ 
+/**
+ * Convert ISO timestamp to relative time format
+ * Examples: "2 hours ago", "Yesterday", "3 days ago"
+ */
+function getRelativeTime(timestamp) {
+  if (!timestamp) return 'Unknown';
+ 
+  const now = new Date();
+  const activityDate = new Date(timestamp);
+  const diffMs = now - activityDate;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+ 
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  
+  // For older dates, show the date
+  return activityDate.toLocaleDateString('en-PH', { 
+    month: 'short', 
+    day: 'numeric' 
+  });
+}
+ 
+/**
+ * Navigation helper for "View all" link
+ */
 
 // ═══════════════════════════════════════════════════════
 // BLOOD BANK
@@ -4914,8 +5051,96 @@ document.addEventListener('click', function(event) {
   }
 });
 
+
+
 // ═══════════════════════════════════════════════════════════════
-// INITIALIZE ON PAGE LOAD
+// AUTO-REFRESH DASHBOARD, BLOOD BANK & REQUESTS
 // ═══════════════════════════════════════════════════════════════
 
-initializeLoggingPanel();
+let autoRefreshIntervals = {};
+
+/**
+ * Initialize auto-refresh for dashboard, blood bank, and requests
+ * Refreshes every 60 seconds (1 minute)
+ */
+function initializeAutoRefresh() {
+  // Load initial data
+  loadDashboard();
+  loadBloodBank();
+  reqFetchAll();
+
+  // Set up auto-refresh intervals (60 seconds = 60000 ms)
+  const REFRESH_INTERVAL = 60000; // 1 minute
+
+  // Auto-refresh dashboard
+  autoRefreshIntervals.dashboard = setInterval(() => {
+    console.log('[Auto-Refresh] Updating dashboard...');
+    loadDashboard();
+  }, REFRESH_INTERVAL);
+
+  // Auto-refresh blood bank
+  autoRefreshIntervals.bloodBank = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood bank...');
+    loadBloodBank();
+  }, REFRESH_INTERVAL);
+
+  // Auto-refresh blood requests
+  autoRefreshIntervals.requests = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood requests...');
+    reqFetchAll();
+  }, REFRESH_INTERVAL);
+
+  console.log('[Auto-Refresh] Initialized - refreshing every 1 minute');
+}
+
+/**
+ * Stop auto-refresh (useful if user navigates away or wants to pause)
+ */
+function stopAutoRefresh() {
+  if (autoRefreshIntervals.dashboard) clearInterval(autoRefreshIntervals.dashboard);
+  if (autoRefreshIntervals.bloodBank) clearInterval(autoRefreshIntervals.bloodBank);
+  if (autoRefreshIntervals.requests) clearInterval(autoRefreshIntervals.requests);
+  console.log('[Auto-Refresh] Stopped');
+}
+
+/**
+ * Pause auto-refresh temporarily
+ */
+function pauseAutoRefresh() {
+  stopAutoRefresh();
+  console.log('[Auto-Refresh] Paused');
+}
+
+/**
+ * Resume auto-refresh
+ */
+function resumeAutoRefresh() {
+  initializeAutoRefresh();
+  console.log('[Auto-Refresh] Resumed');
+}
+
+/**
+ * Change refresh interval (in seconds)
+ * Example: changeRefreshInterval(30) for 30 seconds
+ */
+function changeRefreshInterval(seconds) {
+  stopAutoRefresh();
+  const REFRESH_INTERVAL = seconds * 1000;
+
+  autoRefreshIntervals.dashboard = setInterval(() => {
+    console.log('[Auto-Refresh] Updating dashboard...');
+    loadDashboard();
+  }, REFRESH_INTERVAL);
+
+  autoRefreshIntervals.bloodBank = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood bank...');
+    loadBloodBank();
+  }, REFRESH_INTERVAL);
+
+  autoRefreshIntervals.requests = setInterval(() => {
+    console.log('[Auto-Refresh] Updating blood requests...');
+    reqFetchAll();
+  }, REFRESH_INTERVAL);
+
+  console.log(`[Auto-Refresh] Interval changed to ${seconds} seconds`);
+}

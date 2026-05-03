@@ -50,6 +50,7 @@ com\hospital\blood_plus\dto\response\LogsSummaryResponse.class
 com\hospital\blood_plus\service\BloodBagService$1.class
 com\hospital\blood_plus\dto\request\ChangePasswordRequestDTO.class
 com\hospital\blood_plus\dto\request\ProfileDTO$AdminProfileDTO.class
+com\hospital\blood_plus\service\RecentActivityService$1.class
 com\hospital\blood_plus\service\RequestStatusLogService.class
 com\hospital\blood_plus\dto\request\AnalyticsDTO$FulfillmentMetrics.class
 com\hospital\blood_plus\service\UserService.class

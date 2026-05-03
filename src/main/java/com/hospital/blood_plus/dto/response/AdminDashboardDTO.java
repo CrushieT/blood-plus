@@ -1,9 +1,20 @@
 package com.hospital.blood_plus.dto.response;
 
+import com.hospital.blood_plus.dto.request.RecentActivityDTO;
+
+import java.util.List;
 import java.util.Map;
 
+/**
+ * Comprehensive admin dashboard response combining all dashboard data + recent activities
+ * Single API call replaces multiple endpoints
+ */
 public class AdminDashboardDTO {
 
+    // ─────────────────────────────────────────────
+    // Dashboard Statistics
+    // ─────────────────────────────────────────────
+    
     private int criticalBloodTypes;
     private int totalHospitals;
     private int totalUnits;
@@ -13,9 +24,30 @@ public class AdminDashboardDTO {
     private int openSystemCount;
     private int expiringSoon;
 
+    // ─────────────────────────────────────────────
+    // NEW: Recent Activities (integrated)
+    // ─────────────────────────────────────────────
+    
+    private List<RecentActivityDTO> recentActivities;
+    private int totalActivitiesCount;
+
+    // ─────────────────────────────────────────────
+    // Additional Dashboard Stats (from AdminDashboardResponse)
+    // ─────────────────────────────────────────────
+    
+    private int activeDrives;
+    private Map<String, Long> bloodBankSummaryAlt; // alternative format if needed
+    private int openSystemUrgent;
+
+    // ─────────────────────────────────────────────
     // Constructors
+    // ─────────────────────────────────────────────
+
     public AdminDashboardDTO() {}
 
+    /**
+     * Original constructor (backward compatible)
+     */
     public AdminDashboardDTO(int criticalBloodTypes, int totalHospitals, int totalUnits,
                              int pendingRequests, Map<String, Integer> bloodBankSummary,
                              Map<String, Integer> bloodBankVolume, int openSystemCount, int expiringSoon) {
@@ -29,7 +61,52 @@ public class AdminDashboardDTO {
         this.expiringSoon = expiringSoon;
     }
 
-    // Getters & Setters
+    /**
+     * Extended constructor with recent activities
+     */
+    public AdminDashboardDTO(int criticalBloodTypes, int totalHospitals, int totalUnits,
+                             int pendingRequests, Map<String, Integer> bloodBankSummary,
+                             Map<String, Integer> bloodBankVolume, int openSystemCount, int expiringSoon,
+                             List<RecentActivityDTO> recentActivities, int totalActivitiesCount) {
+        this.criticalBloodTypes = criticalBloodTypes;
+        this.totalHospitals = totalHospitals;
+        this.totalUnits = totalUnits;
+        this.pendingRequests = pendingRequests;
+        this.bloodBankSummary = bloodBankSummary;
+        this.bloodBankVolume = bloodBankVolume;
+        this.openSystemCount = openSystemCount;
+        this.expiringSoon = expiringSoon;
+        this.recentActivities = recentActivities;
+        this.totalActivitiesCount = totalActivitiesCount;
+    }
+
+    /**
+     * Full constructor with all fields
+     */
+    public AdminDashboardDTO(int criticalBloodTypes, int totalHospitals, int totalUnits,
+                             int pendingRequests, Map<String, Integer> bloodBankSummary,
+                             Map<String, Integer> bloodBankVolume, int openSystemCount, int expiringSoon,
+                             List<RecentActivityDTO> recentActivities, int totalActivitiesCount,
+                             int activeDrives, Map<String, Long> bloodBankSummaryAlt, int openSystemUrgent) {
+        this.criticalBloodTypes = criticalBloodTypes;
+        this.totalHospitals = totalHospitals;
+        this.totalUnits = totalUnits;
+        this.pendingRequests = pendingRequests;
+        this.bloodBankSummary = bloodBankSummary;
+        this.bloodBankVolume = bloodBankVolume;
+        this.openSystemCount = openSystemCount;
+        this.expiringSoon = expiringSoon;
+        this.recentActivities = recentActivities;
+        this.totalActivitiesCount = totalActivitiesCount;
+        this.activeDrives = activeDrives;
+        this.bloodBankSummaryAlt = bloodBankSummaryAlt;
+        this.openSystemUrgent = openSystemUrgent;
+    }
+
+    // ─────────────────────────────────────────────
+    // Getters & Setters - Dashboard Stats
+    // ─────────────────────────────────────────────
+
     public int getCriticalBloodTypes() {
         return criticalBloodTypes;
     }
@@ -92,5 +169,53 @@ public class AdminDashboardDTO {
 
     public void setExpiringSoon(int expiringSoon) {
         this.expiringSoon = expiringSoon;
+    }
+
+    // ─────────────────────────────────────────────
+    // Getters & Setters - Recent Activities (NEW)
+    // ─────────────────────────────────────────────
+
+    public List<RecentActivityDTO> getRecentActivities() {
+        return recentActivities;
+    }
+
+    public void setRecentActivities(List<RecentActivityDTO> recentActivities) {
+        this.recentActivities = recentActivities;
+    }
+
+    public int getTotalActivitiesCount() {
+        return totalActivitiesCount;
+    }
+
+    public void setTotalActivitiesCount(int totalActivitiesCount) {
+        this.totalActivitiesCount = totalActivitiesCount;
+    }
+
+    // ─────────────────────────────────────────────
+    // Getters & Setters - Additional Stats
+    // ─────────────────────────────────────────────
+
+    public int getActiveDrives() {
+        return activeDrives;
+    }
+
+    public void setActiveDrives(int activeDrives) {
+        this.activeDrives = activeDrives;
+    }
+
+    public Map<String, Long> getBloodBankSummaryAlt() {
+        return bloodBankSummaryAlt;
+    }
+
+    public void setBloodBankSummaryAlt(Map<String, Long> bloodBankSummaryAlt) {
+        this.bloodBankSummaryAlt = bloodBankSummaryAlt;
+    }
+
+    public int getOpenSystemUrgent() {
+        return openSystemUrgent;
+    }
+
+    public void setOpenSystemUrgent(int openSystemUrgent) {
+        this.openSystemUrgent = openSystemUrgent;
     }
 }

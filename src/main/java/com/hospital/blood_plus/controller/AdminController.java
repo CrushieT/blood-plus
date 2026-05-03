@@ -19,6 +19,7 @@ import com.hospital.blood_plus.service.RequestStatusLogService;
 import com.hospital.blood_plus.dto.request.StaffDTOs.CreateStaffRequest;
 import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
 import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
+import com.hospital.blood_plus.dto.response.AdminDashboardDTO;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.dto.response.LogsSummaryResponse;
 import com.hospital.blood_plus.dto.response.PaginatedResponse;
@@ -91,11 +92,15 @@ public class AdminController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/dashboard")
-    public ResponseEntity<?> getDashboard() {
+    public ResponseEntity<?> getAdminDashboard() {
         try {
-            return ResponseEntity.ok(dashboardService.getDashboardSummary());
+            AdminDashboardDTO dashboard = dashboardService.getDashboardSummary();
+            return ResponseEntity.ok(dashboard);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", "Failed to load dashboard",
+                    "error", e.getMessage()
+            ));
         }
     }
 
@@ -472,7 +477,7 @@ public class AdminController {
      * @return AnalyticsDTO containing all dashboard metrics
      */
     @GetMapping("/analytics")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<AnalyticsDTO> getDashboardMetrics() {
         try {
             AnalyticsDTO metrics = analyticsService.getDashboardMetrics();
@@ -500,7 +505,7 @@ public class AdminController {
      * @return Refreshed AnalyticsDTO
      */
     @PostMapping("/refresh")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN', 'STAFF')")
     public ResponseEntity<AnalyticsDTO> refreshMetrics() {
         try {
             AnalyticsDTO metrics = analyticsService.getDashboardMetrics();
@@ -613,7 +618,7 @@ public class AdminController {
     
     //////// HOSPITAL MANAGEMENT////////////////
     // GET /api/admin/hospitals
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/hospitals")
     public ResponseEntity<?> listHospitals() {
         try {
@@ -625,7 +630,7 @@ public class AdminController {
     }
     
     // GET /api/admin/hospitals/search?q=query
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/hospitals/search")
     public ResponseEntity<?> searchHospitals(@RequestParam String q) {
         try {
@@ -640,7 +645,7 @@ public class AdminController {
     }
     
     // GET /api/admin/hospitals/{id}
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/hospitals/{id}")
     public ResponseEntity<?> getHospital(@PathVariable Long id) {
         try {
@@ -652,7 +657,7 @@ public class AdminController {
     }
     
     // POST /api/admin/hospitals
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PostMapping("/hospitals")
     public ResponseEntity<?> createHospital(@RequestBody CreateHospitalRequest req) {
         try {
@@ -676,7 +681,7 @@ public class AdminController {
     }
     
     // PUT /api/admin/hospitals/{id}
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/hospitals/{id}")
     public ResponseEntity<?> updateHospital(@PathVariable Long id,
                                             @RequestBody UpdateHospitalRequest req) {
@@ -692,7 +697,7 @@ public class AdminController {
     }
     
     // DELETE /api/admin/hospitals/{id}
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @DeleteMapping("/hospitals/{id}")
     public ResponseEntity<?> deleteHospital(@PathVariable Long id) {
         try {
@@ -796,7 +801,7 @@ public class AdminController {
     }
  
     /////////// LOGS API ///////////
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/summary")
     public ResponseEntity<LogsSummaryResponse> getSummary() {
         LogsSummaryResponse summary = requestLogsService.getSummary();
@@ -814,7 +819,7 @@ public class AdminController {
      * - page: Page number (1-based) (default: 1)
      * - size: Items per page (default: 10)
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/status-logs")
     public ResponseEntity<PaginatedResponse<RequestStatusLog>> getStatusLogs(
             @RequestParam(required = false) String search,
@@ -846,7 +851,7 @@ public class AdminController {
      * GET /api/logs/status-logs/{id}
      * Get details of a specific status log
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/status-logs/{id}")
     public ResponseEntity<RequestStatusLog> getStatusLogDetail(@PathVariable Long id) {
         RequestStatusLog log = requestLogsService.getStatusLogDetail(id);
@@ -868,7 +873,7 @@ public class AdminController {
      * - page: Page number (1-based) (default: 1)
      * - size: Items per page (default: 10)
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/fulfillments")
     public ResponseEntity<PaginatedResponse<RequestFulfillment>> getFulfillments(
             @RequestParam(required = false) String search,
@@ -902,7 +907,7 @@ public class AdminController {
      * GET /api/logs/fulfillments/{id}
      * Get details of a specific fulfillment
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/fulfillments/{id}")
     public ResponseEntity<RequestFulfillment> getFulfillmentDetail(@PathVariable Long id) {
         RequestFulfillment fulfillment = requestLogsService.getFulfillmentDetail(id);
@@ -920,7 +925,7 @@ public class AdminController {
      * - search: Search filter (optional)
      * - status: Status filter (optional)
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/export/status-logs")
     public ResponseEntity<List<RequestStatusLog>> exportStatusLogs(
             @RequestParam(required = false) String search,
@@ -939,7 +944,7 @@ public class AdminController {
      * - dateFrom: Date from filter (optional)
      * - dateTo: Date to filter (optional)
      */
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOSPITAL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/export/fulfillments")
     public ResponseEntity<List<RequestFulfillment>> exportFulfillments(
             @RequestParam(required = false) String search,
