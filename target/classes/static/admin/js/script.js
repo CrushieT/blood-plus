@@ -293,6 +293,9 @@ async function loadBloodBags() {
     }));
 
     renderBagsTable();
+    
+    // Trigger blood request compatible bags cache invalidation
+    invalidateBagCache();
   } catch (err) {
     console.error('Failed to load blood bags:', err);
   }
@@ -560,23 +563,14 @@ function renderBagsPage() {
     const statusBadgeMap = {
       AVAILABLE:    `<span class="bag-status bag-status-available">● Available</span>`,
       EXPIRING:     `<span class="bag-status bag-status-expiring">⚠ Expiring</span>`,
-      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">🔒 Crossmatched</span>`,
+      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">🔒 Reserved for patient </span>`,
       DISPENSED:    `<span class="bag-status bag-status-dispensed">→ Dispensed</span>`,
       EXPIRED:      `<span class="bag-status bag-status-expired">✕ Expired</span>`,
       DISCARDED:    `<span class="bag-status bag-status-discarded">✕ Discarded</span>`,
     };
     const statusBadge = statusBadgeMap[bag.computedStatus] || '';
 
-    let sourceInfo;
-    if (bag.computedStatus === 'DISPENSED') {
-      sourceInfo = `<span style="color:var(--blue,#1A4FA0);font-size:12px">→ ${bag.dispensedTo || '—'}</span>`;
-    } else if (bag.computedStatus === 'CROSSMATCHED') {
-      sourceInfo = `<span style="color:#534AB7;font-size:12px">🔒 Reserved for patient</span>`;
-    } else if (bag.computedStatus === 'DISCARDED') {
-      sourceInfo = `<span style="font-size:12px;color:#999">✕ ${bag.discardReason || 'Discarded'}</span>`;
-    } else {
-      sourceInfo = `<span style="font-size:12px;color:var(--muted)">${sourceLabel(bag)}</span>`;
-    }
+    let sourceInfo = `<span style="font-size:12px;color:var(--muted)">${sourceLabel(bag)}</span>`;;
 
     let actions = `
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px"
@@ -750,6 +744,7 @@ async function confirmOpenSystem(id, bagLabel) {
     }
     renderBagsTable();
     await loadInventory();
+    invalidateBagCache();
   } catch (err) {
     console.error('Open system conversion error:', err);
     alert('Network error. Please try again.');
@@ -799,6 +794,7 @@ async function confirmDiscard() {
     closeModal('discardBagModal');
     renderBagsTable();
     await loadInventory();
+    invalidateBagCache();
   } catch (err) {
     console.error('Discard error:', err);
     alert('Network error. Please try again.');
@@ -888,38 +884,35 @@ async function submitAddBloodStock() {
   }
 }
 
+// ── Sync Helper: Invalidate Blood Request Bag Cache ────
+function invalidateBagCache() {
+  // Call the blood request bag cache invalidation function if it exists
+  if (typeof reqInvalidateBagCache === 'function') {
+    reqInvalidateBagCache();
+  }
+}
+
 // ANALYTICS
-  const AnalyticsDashboard = {
-  // API configuration
+const AnalyticsDashboard = {
   apiConfig: {
     baseUrl: window.location.origin,
     endpoint: '/api/admin/analytics',
-    refreshInterval: 30000 // 30 seconds
+    refreshInterval: 30000
   },
 
-  // Current data
   data: null,
   isLoading: false,
   lastUpdate: null,
 
-  /**
-   * Initialize dashboard - fetch data and render
-   */
   init: function() {
     this.loadMetrics();
-    
-    // Setup auto-refresh
     setInterval(() => {
       this.loadMetrics();
     }, this.apiConfig.refreshInterval);
   },
 
-  /**
-   * Fetch metrics from backend API
-   */
   loadMetrics: function() {
     const self = this;
-    
     if (this.isLoading) return;
     this.isLoading = true;
 
@@ -935,19 +928,14 @@ async function submitAddBloodStock() {
         self.lastUpdate = new Date();
         self.render();
         self.isLoading = false;
-        // console.log('Analytics dashboard updated at:', self.lastUpdate);
       })
       .catch(error => {
         console.error('Error fetching analytics data:', error);
         self.isLoading = false;
-        // Show error state in UI
         self.showErrorState();
       });
   },
 
-  /**
-   * Render all metrics to DOM
-   */
   render: function() {
     if (!this.data) return;
 
@@ -963,9 +951,6 @@ async function submitAddBloodStock() {
     this.renderFulfillmentMetrics();
   },
 
-  /**
-   * Render request status metrics
-   */
   renderRequestStatus: function() {
     const statuses = ['pending', 'approved', 'allocated', 'released', 'rejected'];
     statuses.forEach(status => {
@@ -976,9 +961,6 @@ async function submitAddBloodStock() {
     });
   },
 
-  /**
-   * Render urgency breakdown with percentage bars
-   */
   renderUrgency: function() {
     if (!this.data.urgency) return;
 
@@ -997,9 +979,6 @@ async function submitAddBloodStock() {
     });
   },
 
-  /**
-   * Render category breakdown with percentage bars
-   */
   renderCategory: function() {
     if (!this.data.category) return;
 
@@ -1017,14 +996,9 @@ async function submitAddBloodStock() {
     });
   },
 
-  /**
-   * Render blood type inventory with smart status indicators
-   * Maps API keys (e.g., "O Positive") to DOM keys (e.g., "blood-o-pos")
-   */
   renderBloodTypes: function() {
     if (!this.data.bloodTypes) return;
 
-    // Map API blood type names to DOM element keys
     const bloodTypeMap = {
       'O+': 'o-pos',
       'O-': 'o-neg',
@@ -1043,7 +1017,6 @@ async function submitAddBloodStock() {
         el.textContent = count;
       }
 
-      // Determine status based on count
       let status = 'Healthy';
       let statusColor = 'var(--green)';
       
@@ -1063,9 +1036,6 @@ async function submitAddBloodStock() {
     });
   },
 
-  /**
-   * Render dispatch metrics
-   */
   renderDispatch: function() {
     if (!this.data.dispatch) return;
 
@@ -1076,9 +1046,6 @@ async function submitAddBloodStock() {
     });
   },
 
-  /**
-   * Render expiry and quality alerts
-   */
   renderAlerts: function() {
     if (!this.data.alerts) return;
 
@@ -1092,9 +1059,6 @@ async function submitAddBloodStock() {
     if (alertEl3) alertEl3.textContent = this.data.alerts.qualityIssues || 0;
   },
 
-  /**
-   * Render requester type breakdown
-   */
   renderRequesterType: function() {
     if (!this.data.requesterType) return;
 
@@ -1121,14 +1085,9 @@ async function submitAddBloodStock() {
     }
   },
 
-  /**
-   * Render blood component breakdown
-   * Maps API component names to DOM element keys
-   */
   renderBloodComponents: function() {
     if (!this.data.bloodComponent) return;
 
-    // Map API blood component names to DOM element keys
     const componentMap = {
       'WHOLE_BLOOD': 'whole-blood',
       'PRBC': 'red-cells',
@@ -1140,7 +1099,6 @@ async function submitAddBloodStock() {
       'CRYOSUPERNATANT': 'plasma'
     };
 
-    // Aggregate components by category
     const aggregated = {
       'whole-blood': 0,
       'red-cells': 0,
@@ -1168,9 +1126,6 @@ async function submitAddBloodStock() {
     });
   },
 
-  /**
-   * Render top requesting hospitals
-   */
   renderHospitals: function() {
     if (!this.data.hospitals || this.data.hospitals.length === 0) {
       return;
@@ -1209,43 +1164,32 @@ async function submitAddBloodStock() {
     }).join('');
   },
 
-  /**
-   * Render fulfillment metrics
-   * Now shows average DAYS to release instead of hours
-   */
   renderFulfillmentMetrics: function() {
     if (!this.data.fulfillmentMetrics) return;
 
     const metrics = this.data.fulfillmentMetrics;
 
-    // Fulfillment rate
     const rateEl = document.querySelector('[data-metric="fulfillment-rate"]');
     if (rateEl) {
       rateEl.textContent = metrics.rate.toFixed(1) + '%';
     }
 
-    // Progress bar
     const barEl = document.querySelector('[data-metric-bar="fulfillment-rate"]');
     if (barEl) {
       barEl.style.width = metrics.rate + '%';
     }
 
-    // Total released
     const releasedEl = document.querySelector('[data-metric="total-released"]');
     if (releasedEl) {
       releasedEl.textContent = metrics.totalReleased;
     }
 
-    // Average days to release (changed from hours)
     const daysEl = document.querySelector('[data-metric="avg-fulfillment-days"]');
     if (daysEl) {
       daysEl.textContent = metrics.avgDaysToRelease.toFixed(1) + ' days';
     }
   },
 
-  /**
-   * Show error state when API fails
-   */
   showErrorState: function() {
     const elements = document.querySelectorAll('[data-metric]');
     elements.forEach(el => {
@@ -1254,9 +1198,6 @@ async function submitAddBloodStock() {
     });
   },
 
-  /**
-   * Escape HTML to prevent XSS
-   */
   escapeHtml: function(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -1264,13 +1205,12 @@ async function submitAddBloodStock() {
   }
 };
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
   AnalyticsDashboard.init();
 });
 
-// Expose for external access/debugging
 window.AnalyticsDashboard = AnalyticsDashboard;
+
 // ═══════════════════════════════════════════════════════
 // BLOOD REQUESTS — COMPLETE WITH DETAILS MODAL & ADVANCED INDICATION MAPPING
 // ═══════════════════════════════════════════════════════
@@ -1291,11 +1231,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     'O_NEG': 'O-',
   };
 
-  /**
-   * Convert blood type enum to display format
-   * @param {string} bloodTypeEnum - The blood type enum (e.g., 'A_POS')
-   * @returns {string} The display format (e.g., 'A positive')
-   */
   function formatBloodType(bloodTypeEnum) {
     if (!bloodTypeEnum) return '—';
     return BLOOD_TYPE_MAP[bloodTypeEnum] || bloodTypeEnum;
@@ -1303,14 +1238,10 @@ window.AnalyticsDashboard = AnalyticsDashboard;
 
   /* ─────────────────────────────────────────────────────────
      INDICATION MAPPING — Maps indication codes to descriptions
-     Supports both main codes (R-1, F-5) and sub-codes (F-5a, F-5b)
   ───────────────────────────────────────────────────────── */
   const INDICATION_MAP = {
-    // WHOLE BLOOD (Adult)
     'WB-1': 'Active bleeding with at least 15% blood volume loss, Hb<90 g/L, or BP drop >20%',
     'WB-2': 'Other whole blood indications (requires review)',
-
-    // PACKED RED BLOOD CELLS (Adult)
     'R-1': 'Hemoglobin < 80 g/L or Hematocrit < 0.24',
     'R-2': 'Preoperative with Hb < 80 g/L or Hct < 0.24-0.30, or major surgery with high bleeding risk',
     'R-2a': 'Preoperative hemoglobin of less than 80 g/L or Hematocrit less than 0.24 (24%) or Hematocrit less than 0.30 (30%)',
@@ -1319,28 +1250,20 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     'R-3': 'Symptomatic anemia (dyspnea, syncope, tachycardia, chest pain, etc.)',
     'R-4': 'Hb < 80 g/L with concomitant COPD, CAD, hemoglobinopathy, or sepsis',
     'R-5': 'Other PRBC indications (requires review)',
-
-    // WHOLE RED BLOOD CELLS (Adult)
     'W-1': 'History of allergic/anaphylactic reactions in immunocompromised patients',
     'W-2': 'Group O blood transfusion in emergency when specific blood unavailable',
     'W-3': 'Paroxysmal Nocturnal Hemoglobinuria (PNH)',
     'W-4': 'Other WRBC indications (requires review)',
-
-    // PLATELET CONCENTRATE (Adult)
     'P-1': 'Prophylactic for count < 20,000 (not TTP/ITP/HUS)',
     'P-2': 'Active bleeding with platelet count < 50,000',
     'P-3': 'Platelet count < 50,000 and invasive procedure within 8 hours',
     'P-4': 'Platelet count < 100,000 and surgery in critical areas (eyes, brain, etc.)',
     'P-5': 'Massive transfusion with diffuse microvascular bleeding',
     'P-6': 'Other platelet indications (requires review)',
-
-    // CRYOPRECIPITATE (Adult)
     'C-1': 'Significant Hypofibrinogenemia (< 100 mg/dL)',
     'C-2': 'Hemophilia A',
     'C-3': 'Von Willebrand\'s Disease or Uremic Bleeding with prolonged BT',
     'C-4': 'Other cryoprecipitate indications (requires review)',
-
-    // FRESH FROZEN PLASMA (Adult) — with sub-codes
     'F-1': 'PT or PTT > 1.5x normal within 8 hours (PT>17 sec or PTT>47 sec)',
     'F-2': 'Specific factor deficiencies not treatable with cryoprecipitate',
     'F-3': 'Coumadin reversal in bleeding patients (Vitamin K ineffective)',
@@ -1349,13 +1272,9 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     'F-5a': 'Massive Transfusion (>20 units of blood in 24 hours)',
     'F-5b': 'Late pregnancy termination or Abruptio Placentae',
     'F-6': 'Other FFP indications (requires review)',
-
-    // WHOLE BLOOD (Pediatric)
     'PW-1': 'Exchange transfusion in infant with indirect bilirubin ≥20 mg/dL in first week',
     'PW-2': 'Hyperbilirubinemia with prematurity/illness (asphyxia, acidosis, sepsis, hemolysis)',
     'PW-3': 'Other whole blood indications (requires review)',
-
-    // PACKED RED BLOOD CELLS (Pediatric)
     'PR-1': 'Signs/symptoms of anemia (pallor, etc.)',
     'PR-2': 'Hypovolemia from acute blood loss with shock signs or >10% loss',
     'PR-3': 'Major surgery candidate with Hematocrit < 0.30 or <0.35 (nocturnal)',
@@ -1365,25 +1284,17 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     'PR-7': 'Blood volume reduction 10 mL/kg with Hct < 0.45 in newborn <4 months',
     'PR-8': 'Pulmonary disease or CHD with Hct 0.40-0.45',
     'PR-9': 'Other PRBC indications (requires review)',
-
-    // WHOLE RED BLOOD CELLS (Pediatric)
     'PWR': 'Other WRBC indications (requires review)',
-
-    // PLATELET CONCENTRATE (Pediatric)
     'PP-1': 'Active bleeding with thrombocytopenia < 50,000 or ICH risk',
     'PP-2': 'Active bleeding with qualitative defect',
     'PP-3': 'Prophylaxis for severe thrombocytopenia < 20,000 or qualitative defect',
     'PP-4': 'Invasive procedure with thrombocytopenia < 70,000 or qualitative defect',
     'PP-5': 'Other platelet indications (requires review)',
-
-    // FRESH FROZEN PLASMA (Pediatric)
     'PF-1': 'Multiple coagulation factor deficiency (e.g., dengue shock syndrome)',
     'PF-2': 'Congenital factor deficiency',
     'PF-3': 'Anti-Thrombin III Deficiency',
     'PF-4': 'Bleeding in exchange transfusion or massive transfusion (>1 blood volume)',
     'PF-5': 'Other FFP indications (requires review)',
-
-    // CRYOPRECIPITATE (Pediatric)
     'PC-1': 'Factor VIII Deficiency (Hemophilia A)',
     'PC-2': 'Von Willebrand\'s Disease',
     'PC-3': 'Disseminated Intravascular Coagulation (DIC)',
@@ -1391,34 +1302,24 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     'PC-5': 'Other cryoprecipitate indications (requires review)',
   };
 
-  /* ─────────────────────────────────────────────────────────
-     UTILITY — Format indications with support for sub-codes
-  ───────────────────────────────────────────────────────── */
   function formatIndications(indicationString) {
     if (!indicationString) return 'Not specified';
-    
     const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
     const descriptions = codes.map(code => {
       const description = INDICATION_MAP[code];
       return description || code;
     }).filter(Boolean);
-    
     return descriptions.length > 0 ? descriptions : ['Not specified'];
   }
 
   function getIndicationBadges(indicationString) {
     if (!indicationString) return '';
-    
     const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
     return codes.map(code => {
       return `<span class="req-indication-badge">${code}</span>`;
     }).join('');
   }
 
-  /**
-   * Render indication details with parent/sub-code hierarchy
-   * Groups parent codes with their sub-codes (e.g., F-5, F-5a, F-5b)
-   */
   function renderIndicationDetails(indicationString) {
     if (!indicationString) {
       return '<span class="req-details-value">Not specified</span>';
@@ -1426,7 +1327,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
 
     const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
     
-    // Group parent codes with their sub-codes
     const grouped = {};
     codes.forEach(code => {
       const parentMatch = code.match(/^([A-Z]+-\d+)/);
@@ -1440,7 +1340,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
         };
       }
       
-      // Separate main code from sub-codes
       if (code === parentCode) {
         grouped[parentCode].main = code;
       } else {
@@ -1448,7 +1347,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       }
     });
 
-    // Render grouped indications
     let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
     
     Object.keys(grouped).sort().forEach(parentCode => {
@@ -1456,7 +1354,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       const mainDescription = INDICATION_MAP[group.main] || '';
       const subCodes = group.subs;
       
-      // If there are sub-codes, render parent with sub-codes as children
       if (subCodes.length > 0) {
         html += `
           <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
@@ -1489,7 +1386,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
           </div>
         `;
       } else {
-        // No sub-codes, just render the main code
         html += `
           <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
             <div style="font-weight:600;color:var(--blue,#0066cc);margin-bottom:4px;font-size:13px">
@@ -1601,9 +1497,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
  
     const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
  
-    // Store the original blood type enum for backend purposes
     const bloodTypeEnum = r.bloodType ?? '—';
-    // Format blood type for display
     const displayBloodType = formatBloodType(bloodTypeEnum);
  
     return {
@@ -1618,8 +1512,8 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       requestingPhysician: r.requestingPhysician ?? null,
       ageGroup:       r.ageGroup         ?? null,
       requestCategory: r.requestCategory ?? null,
-      bloodTypeEnum:  bloodTypeEnum,           // Original enum (for backend/API)
-      bloodType:      displayBloodType,        // Display format (for UI)
+      bloodTypeEnum:  bloodTypeEnum,
+      bloodType:      displayBloodType,
       component:      COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '—',
       bloodComponent: r.bloodComponent   ?? null,
       units:          r.numberOfUnits    ?? r.volumeMl ?? 1,
@@ -2040,7 +1934,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       referenceNumber: req.id ?? data.referenceNumber,
       releasedAt:      new Date().toISOString(),
       patientName:     req.patient,
-      bloodType:       req.bloodTypeEnum,  // Use enum for receipt
+      bloodType:       req.bloodTypeEnum,
       wardRoom:        req.wardRoom ?? null,
       physician:       req.requestingPhysician ?? null,
       hospitalName:    req.name,
@@ -2331,6 +2225,24 @@ window.AnalyticsDashboard = AnalyticsDashboard;
  
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
+
+  // ── Blood Bank Sync: Invalidate Cache ────────────────────
+  window.reqInvalidateBagCache = function() {
+    // Clear the entire bag cache to force reload from blood bank
+    for (const key in reqBagCache) {
+      delete reqBagCache[key];
+    }
+    
+    // Re-render compatible bags previews for expanded cards
+    Object.keys(reqExpanded).forEach(reqId => {
+      if (reqExpanded[reqId]) {
+        const req = reqData.find(r => r.id == reqId);
+        if (req && ['PENDING', 'APPROVED'].includes(req.status)) {
+          setTimeout(() => reqFetchCompatibleBags(req), 0);
+        }
+      }
+    });
+  };
  
   ['req-reject-modal', 'req-doc-modal', 'req-confirm-modal', 'req-bag-picker-modal'].forEach(modalId => {
     const el = document.getElementById(modalId);
