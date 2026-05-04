@@ -2362,8 +2362,12 @@ window.AnalyticsDashboard = AnalyticsDashboard;
  
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
-
-  // ── Blood Bank Sync: Invalidate Cache ────────────────────
+// ─────────────────────────────────────────────────────────────────
+  // EXPORT TO WINDOW SCOPE (for auto-refresh)
+  // ─────────────────────────────────────────────────────────────────
+  window.reqFetchAll = reqFetchAll;
+  window.reqFetchByStatus = reqFetchByStatus;
+  window.reqFetchCompatibleBags = reqFetchCompatibleBags;
   window.reqInvalidateBagCache = function() {
     // Clear the entire bag cache to force reload from blood bank
     for (const key in reqBagCache) {
@@ -2380,6 +2384,23 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       }
     });
   };
+  // ── Blood Bank Sync: Invalidate Cache ────────────────────
+  // window.reqInvalidateBagCache = function() {
+  //   // Clear the entire bag cache to force reload from blood bank
+  //   for (const key in reqBagCache) {
+  //     delete reqBagCache[key];
+  //   }
+    
+  //   // Re-render compatible bags previews for expanded cards
+  //   Object.keys(reqExpanded).forEach(reqId => {
+  //     if (reqExpanded[reqId]) {
+  //       const req = reqData.find(r => r.id == reqId);
+  //       if (req && ['PENDING', 'APPROVED'].includes(req.status)) {
+  //         setTimeout(() => reqFetchCompatibleBags(req), 0);
+  //       }
+  //     }
+  //   });
+  // };
  
   ['req-reject-modal', 'req-doc-modal', 'req-confirm-modal', 'req-bag-picker-modal'].forEach(modalId => {
     const el = document.getElementById(modalId);
@@ -4883,7 +4904,7 @@ function exportStatusLogsExcel() {
         'Reference #': log.request?.referenceNumber || '',
         'Old Status': log.oldStatus || '',
         'New Status': log.newStatus || '',
-        'Changed By': log.changedBy?.fullName || 'System',
+        'Changed By': log.changedBy?.username || 'System',
         'Changed At': formatExcelDate(log.changedAt),
         'Notes': log.notes || '',
       }));
