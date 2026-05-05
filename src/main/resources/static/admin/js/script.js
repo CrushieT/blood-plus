@@ -1134,37 +1134,42 @@ const AnalyticsDashboard = {
   },
 
   renderBloodTypes: function() {
-    if (!this.data.bloodTypes) return;
-
-    const bloodTypeMap = {
-      'O+': 'o-pos',
-      'O-': 'o-neg',
-      'A+': 'a-pos',
-      'A-': 'a-neg',
-      'B+': 'b-pos',
-      'B-': 'b-neg',
-      'AB+': 'ab-pos',
-      'AB-': 'ab-neg'
+    // Use local INVENTORY data instead of API (INVENTORY is populated by loadInventory)
+    const inventoryMap = {
+      'O_POS_POSITIVE':  'o-pos',
+      'O_NEG_NEGATIVE':  'o-neg',
+      'A_POS_POSITIVE':  'a-pos',
+      'A_NEG_NEGATIVE':  'a-neg',
+      'B_POS_POSITIVE':  'b-pos',
+      'B_NEG_NEGATIVE':  'b-neg',
+      'AB_POS_POSITIVE': 'ab-pos',
+      'AB_NEG_NEGATIVE': 'ab-neg'
     };
-
-    Object.entries(bloodTypeMap).forEach(([apiKey, domKey]) => {
-      const count = this.data.bloodTypes[apiKey] || 0;
+ 
+    Object.entries(inventoryMap).forEach(([inventoryKey, domKey]) => {
+      // Find matching inventory item
+      const invItem = INVENTORY.find(item => item.key === inventoryKey);
+      const count = invItem ? invItem.units : 0;
+      
       const el = document.querySelector(`[data-metric="blood-${domKey}"]`);
       if (el) {
         el.textContent = count;
       }
-
+ 
       let status = 'Healthy';
       let statusColor = 'var(--green)';
       
-      if (count < 5) {
+      if (count === 0) {
+        status = 'Empty';
+        statusColor = 'var(--crimson)';
+      } else if (count < 5) {
         status = 'Critical';
         statusColor = 'var(--crimson)';
       } else if (count < 10) {
         status = 'Low Stock';
         statusColor = 'var(--amber)';
       }
-
+ 
       const statusEl = document.querySelector(`[data-status="blood-${domKey}-status"]`);
       if (statusEl) {
         statusEl.textContent = status;
@@ -1348,8 +1353,533 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.AnalyticsDashboard = AnalyticsDashboard;
 
+// ═══════════════════════════════════════════════════════════════
+// PRINTING FUNCTIONS - PDF & EXCEL EXPORTS (UPDATED)
+// ═══════════════════════════════════════════════════════════════
+/**
+ * Print Analytics Report (PDF) - Compact Professional Design
+ */
+/**
+ * Print Analytics Report (PDF) - Minimalist Design
+ * Reads directly from displayed metrics in analytics panel
+ */
+window.printAnalytics = function() {
+  // Helper function to read metric values from DOM
+  const readMetric = (selector) => {
+    const el = document.querySelector(selector);
+    return el ? el.textContent.trim() : '—';
+  };
+
+  // Read all metrics from the displayed analytics panel
+  const metrics = {
+    // Request Status
+    pending: readMetric('[data-metric="request-pending"]'),
+    approved: readMetric('[data-metric="request-approved"]'),
+    allocated: readMetric('[data-metric="request-allocated"]'),
+    released: readMetric('[data-metric="request-released"]'),
+    rejected: readMetric('[data-metric="request-rejected"]'),
+    
+    // Urgency
+    critical: parseInt(readMetric('[data-metric="urgency-critical"]')) || 0,
+    high: parseInt(readMetric('[data-metric="urgency-high"]')) || 0,
+    medium: parseInt(readMetric('[data-metric="urgency-medium"]')) || 0,
+    low: parseInt(readMetric('[data-metric="urgency-low"]')) || 0,
+    
+    // Category
+    emergency: parseInt(readMetric('[data-metric="category-emergency"]')) || 0,
+    inpatient: parseInt(readMetric('[data-metric="category-inpatient"]')) || 0,
+    outpatient: parseInt(readMetric('[data-metric="category-outpatient"]')) || 0,
+    hospital: parseInt(readMetric('[data-metric="category-hospital"]')) || 0,
+    
+    // Blood Types
+    o_neg: readMetric('[data-metric="blood-o-neg"]'),
+    o_pos: readMetric('[data-metric="blood-o-pos"]'),
+    a_neg: readMetric('[data-metric="blood-a-neg"]'),
+    a_pos: readMetric('[data-metric="blood-a-pos"]'),
+    b_neg: readMetric('[data-metric="blood-b-neg"]'),
+    b_pos: readMetric('[data-metric="blood-b-pos"]'),
+    ab_neg: readMetric('[data-metric="blood-ab-neg"]'),
+    ab_pos: readMetric('[data-metric="blood-ab-pos"]'),
+    
+    // Dispatch
+    used: readMetric('[data-metric="dispatch-used"]'),
+    discarded: readMetric('[data-metric="dispatch-discarded"]'),
+    transferred: readMetric('[data-metric="dispatch-transferred"]'),
+    
+    // Alerts
+    expiringSoon: readMetric('[data-metric="alert-expiring-soon"]'),
+    expired: readMetric('[data-metric="alert-expired"]'),
+    qualityIssues: readMetric('[data-metric="alert-quality-issues"]'),
+    
+    // Fulfillment
+    fulfillmentRate: readMetric('[data-metric="fulfillment-rate"]'),
+    totalReleased: readMetric('[data-metric="total-released"]'),
+    avgDays: readMetric('[data-metric="avg-fulfillment-days"]'),
+    
+    // Requester Type
+    hospital: readMetric('[data-metric="requester-hospital"]'),
+    hospitalPct: readMetric('[data-metric="requester-hospital-pct"]'),
+    anonymous: readMetric('[data-metric="requester-anonymous"]'),
+    anonymousPct: readMetric('[data-metric="requester-anonymous-pct"]'),
+    
+    // Components
+    wholeBlood: readMetric('[data-metric="component-whole-blood"]'),
+    wholeBloodPct: readMetric('[data-metric="component-whole-blood-pct"]'),
+    redCells: readMetric('[data-metric="component-red-cells"]'),
+    redCellsPct: readMetric('[data-metric="component-red-cells-pct"]'),
+    plasma: readMetric('[data-metric="component-plasma"]'),
+    plasmaPct: readMetric('[data-metric="component-plasma-pct"]'),
+    platelets: readMetric('[data-metric="component-platelets"]'),
+    plateletsPct: readMetric('[data-metric="component-platelets-pct"]'),
+  };
+
+  // Helper to draw horizontal bar
+  function getBar(value, max) {
+    const maxVal = 10;
+    const percentage = Math.min((parseInt(value) || 0) / (max || maxVal), 1);
+    const filledWidth = Math.round(percentage * 40);
+    const emptyWidth = 40 - filledWidth;
+    return `<span style="display:inline-flex;gap:2px;align-items:center"><span style="background:#666;height:8px;width:${filledWidth}px;border-radius:2px"></span><span style="background:#e8e8e8;height:8px;width:${emptyWidth}px;border-radius:2px"></span></span>`;
+  }
+
+  const totalUrgency = metrics.critical + metrics.high + metrics.medium + metrics.low;
+  const totalCategory = metrics.emergency + metrics.inpatient + metrics.outpatient + metrics.hospital;
+
+  const html = `
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Blood Bank Analytics Report</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          font-size: 10pt;
+          line-height: 1.35;
+          color: #1a1a1a;
+          background: white;
+          padding: 16px 20px;
+        }
+        
+        .header {
+          margin-bottom: 12px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 6px;
+        }
+        
+        h1 { font-size: 16pt; font-weight: 700; margin: 0; }
+        .subtitle { font-size: 8pt; color: #666; margin-top: 2px; }
+        
+        h2 { 
+          font-size: 9pt; 
+          font-weight: 700; 
+          margin: 10px 0 6px 0;
+          color: #000;
+        }
+        
+        .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 6px 0; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 6px 0; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0; }
+        
+        .metric-box { 
+          border: 1px solid #ddd; 
+          padding: 8px 6px; 
+          text-align: center; 
+          background: #fafafa;
+          border-left: 4px solid #999;
+        }
+        
+        .metric-box.pending { border-left-color: #d4a574; background: #fefaf5; }
+        .metric-box.approved { border-left-color: #27ae60; background: #f0fdf4; }
+        .metric-box.allocated { border-left-color: #0066cc; background: #f0f8ff; }
+        .metric-box.released { border-left-color: #8b5cf6; background: #faf5ff; }
+        .metric-box.rejected { border-left-color: #c41e3a; background: #fef5f5; }
+        
+        .metric-val { font-size: 14pt; font-weight: 700; color: #000; margin: 3px 0; }
+        .metric-label { font-size: 7pt; color: #666; text-transform: uppercase; font-weight: 600; }
+        
+        .mini-table { width: 100%; font-size: 8.5pt; border-collapse: collapse; margin: 4px 0; }
+        .mini-table th, .mini-table td { padding: 4px 5px; border: 1px solid #e0e0e0; text-align: left; }
+        .mini-table th { background: #f5f5f5; font-weight: 700; }
+        .mini-table td { font-size: 8.5pt; }
+        .mini-table .num { text-align: right; }
+        
+        .urgency-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 4px 0;
+          border-bottom: 1px solid #eee;
+          font-size: 8.5pt;
+        }
+        
+        .urgency-row:last-child { border-bottom: none; }
+        .urgency-label { width: 50px; font-weight: 600; text-transform: uppercase; }
+        .urgency-bar { flex: 1; }
+        .urgency-count { width: 20px; text-align: right; font-weight: 700; }
+        
+        .stat-line { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 8.5pt; }
+        .stat-line:last-child { border-bottom: none; }
+        
+        .col { padding: 0; }
+        
+        .footer { font-size: 7pt; color: #999; margin-top: 8px; text-align: right; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Blood Bank Analytics</h1>
+        <div class="subtitle">Generated ${new Date().toLocaleString()}</div>
+      </div>
+      
+      <!-- REQUEST STATUS -->
+      <h2>Request Status Overview</h2>
+      <div class="grid-5">
+        <div class="metric-box pending">
+          <div class="metric-label">Pending</div>
+          <div class="metric-val">${metrics.pending}</div>
+          <div style="font-size:7pt;color:#666">Awaiting review</div>
+        </div>
+        <div class="metric-box approved">
+          <div class="metric-label">Approved</div>
+          <div class="metric-val">${metrics.approved}</div>
+          <div style="font-size:7pt;color:#666">Ready to allocate</div>
+        </div>
+        <div class="metric-box allocated">
+          <div class="metric-label">Allocated</div>
+          <div class="metric-val">${metrics.allocated}</div>
+          <div style="font-size:7pt;color:#666">Bags assigned</div>
+        </div>
+        <div class="metric-box released">
+          <div class="metric-label">Released</div>
+          <div class="metric-val">${metrics.released}</div>
+          <div style="font-size:7pt;color:#666">Delivered</div>
+        </div>
+        <div class="metric-box rejected">
+          <div class="metric-label">Rejected</div>
+          <div class="metric-val">${metrics.rejected}</div>
+          <div style="font-size:7pt;color:#666">Not approved</div>
+        </div>
+      </div>
+      
+      <!-- URGENCY & CATEGORY -->
+      <div class="grid-2">
+        <div class="col">
+          <h2>Requests by Urgency</h2>
+          <div class="urgency-row">
+            <div class="urgency-label">CRITICAL</div>
+            <div class="urgency-bar">${getBar(metrics.critical, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.critical}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">HIGH</div>
+            <div class="urgency-bar">${getBar(metrics.high, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.high}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">MEDIUM</div>
+            <div class="urgency-bar">${getBar(metrics.medium, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.medium}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">LOW</div>
+            <div class="urgency-bar">${getBar(metrics.low, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.low}</div>
+          </div>
+        </div>
+        <div class="col">
+          <h2>Requests by Category</h2>
+          <div class="urgency-row">
+            <div class="urgency-label">EMERGENCY</div>
+            <div class="urgency-bar">${getBar(metrics.emergency, totalCategory)}</div>
+            <div class="urgency-count">${metrics.emergency}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">INPATIENT</div>
+            <div class="urgency-bar">${getBar(metrics.inpatient, totalCategory)}</div>
+            <div class="urgency-count">${metrics.inpatient}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">OUTPATIENT</div>
+            <div class="urgency-bar">${getBar(metrics.outpatient, totalCategory)}</div>
+            <div class="urgency-count">${metrics.outpatient}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">HOSPITAL</div>
+            <div class="urgency-bar">${getBar(metrics.hospital, totalCategory)}</div>
+            <div class="urgency-count">${metrics.hospital}</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- BLOOD INVENTORY -->
+      <h2>Current Blood Type Inventory</h2>
+      <div class="grid-4">
+        <div class="metric-box">
+          <div class="metric-label">O−</div>
+          <div class="metric-val">${metrics.o_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">O+</div>
+          <div class="metric-val">${metrics.o_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">A−</div>
+          <div class="metric-val">${metrics.a_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">A+</div>
+          <div class="metric-val">${metrics.a_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">B−</div>
+          <div class="metric-val">${metrics.b_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">B+</div>
+          <div class="metric-val">${metrics.b_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">AB−</div>
+          <div class="metric-val">${metrics.ab_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">AB+</div>
+          <div class="metric-val">${metrics.ab_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+      </div>
+      
+      <!-- DISPATCH & ALERTS -->
+      <div class="grid-2">
+        <div class="col">
+          <h2>Bag Dispatch Summary</h2>
+          <div class="stat-line"><span>Used</span><span style="font-weight:700">${metrics.used}</span></div>
+          <div class="stat-line"><span>Discarded</span><span style="font-weight:700">${metrics.discarded}</span></div>
+          <div class="stat-line"><span>Transferred</span><span style="font-weight:700">${metrics.transferred}</span></div>
+        </div>
+        <div class="col">
+          <h2>Expiry & Quality Alerts</h2>
+          <div class="stat-line"><span>Expiring Soon (≤7 days)</span><span style="font-weight:700">${metrics.expiringSoon}</span></div>
+          <div class="stat-line"><span>Expired</span><span style="font-weight:700">${metrics.expired}</span></div>
+          <div class="stat-line"><span>Quality Issues</span><span style="font-weight:700">${metrics.qualityIssues}</span></div>
+        </div>
+      </div>
+      
+      <!-- PERFORMANCE & REQUESTER -->
+      <div class="grid-2">
+        <div class="col">
+          <h2>Request Fulfillment Performance</h2>
+          <div class="stat-line"><span>Fulfillment Rate</span><span style="font-weight:700">${metrics.fulfillmentRate}</span></div>
+          <div class="stat-line"><span>Total Released</span><span style="font-weight:700">${metrics.totalReleased}</span></div>
+          <div class="stat-line"><span>Avg Days to Release</span><span style="font-weight:700">${metrics.avgDays}</span></div>
+        </div>
+        <div class="col">
+          <h2>Requests by Requester Type</h2>
+          <div class="stat-line"><span>Hospital Requests</span><span style="font-weight:700">${metrics.hospital} (${metrics.hospitalPct})</span></div>
+          <div class="stat-line"><span>Anonymous Requests</span><span style="font-weight:700">${metrics.anonymous} (${metrics.anonymousPct})</span></div>
+        </div>
+      </div>
+      
+      <!-- COMPONENTS -->
+      <h2>Requests by Blood Component</h2>
+      <div class="grid-4">
+        <div class="metric-box">
+          <div class="metric-label">Whole Blood</div>
+          <div class="metric-val">${metrics.wholeBlood}</div>
+          <div style="font-size:7pt;color:#666">${metrics.wholeBloodPct}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Red Cells</div>
+          <div class="metric-val">${metrics.redCells}</div>
+          <div style="font-size:7pt;color:#666">${metrics.redCellsPct}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Plasma</div>
+          <div class="metric-val">${metrics.plasma}</div>
+          <div style="font-size:7pt;color:#666">${metrics.plasmaPct}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Platelets</div>
+          <div class="metric-val">${metrics.platelets}</div>
+          <div style="font-size:7pt;color:#666">${metrics.plateletsPct}</div>
+        </div>
+      </div>
+      
+      <div class="footer">End of Report</div>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(html);
+  printWindow.document.close();
+  setTimeout(() => printWindow.print(), 250);
+};
+
+/**
+ * Export Blood Bags to Excel - Enhanced with complete BloodBag model data
+ */
+/**
+ * Export Blood Bags to Excel/CSV - Complete bag details
+ * Exports from BLOOD_BAGS array with all available information
+ */
+window.exportBloodBagsToExcel = function() {
+  // Build comprehensive data for export from BLOOD_BAGS
+  const rows = [
+    [
+      'Serial Number',
+      'Blood Type',
+      'RH Type',
+      'Component Type',
+      'Volume (mL)',
+      'Collected Date',
+      'Expiration Date',
+      'Status',
+      'Source',
+      'Transaction #',
+      'Remarks',
+      'Received By',
+      'Discard Reason',
+      'Open System',
+      'Open System At'
+    ]
+  ];
+
+  const now = new Date();
+  const soon = new Date(); soon.setDate(soon.getDate() + 7);
+
+  // Helper function to get status label (no emojis)
+  function getStatusLabel(status) {
+    const statusMap = {
+      'AVAILABLE': 'Available',
+      'EXPIRING': 'Expiring',
+      'CROSSMATCHED': 'Crossmatched',
+      'DISPENSED': 'Dispensed',
+      'EXPIRED': 'Expired',
+      'DISCARDED': 'Discarded'
+    };
+    return statusMap[status] || status || '';
+  }
+
+  // Helper function to compute bag status
+  function computeStatus(bag) {
+    const exp = new Date(bag.expiresAt);
+    if (bag.status === 'DISCARDED') return 'DISCARDED';
+    if (bag.status === 'DISPENSED') return 'DISPENSED';
+    if (bag.status === 'CROSSMATCHED') return 'CROSSMATCHED';
+    if (bag.status === 'EXPIRED' || (bag.status === 'AVAILABLE' && exp < now)) return 'EXPIRED';
+    if (bag.status === 'AVAILABLE' && exp <= soon) return 'EXPIRING';
+    return 'AVAILABLE';
+  }
+
+  // Helper function to format dates - long format to prevent ###
+  function formatDate(d) {
+    if (!d) return '';
+    const str = d.includes('T') ? d : d + 'T00:00:00';
+    return new Date(str).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: '2-digit'
+    });
+  }
+
+  // Helper function to format blood type
+  function fullBloodLabel(bloodType, rhType) {
+    const aboMap = {
+      O_NEG:'O', O_POS:'O', A_POS:'A', A_NEG:'A',
+      B_POS:'B', B_NEG:'B', AB_POS:'AB', AB_NEG:'AB'
+    };
+    const abo = aboMap[bloodType] ?? bloodType ?? '';
+    const rh = rhType === 'POSITIVE' ? '+' : rhType === 'NEGATIVE' ? '-' : '';
+    return abo + rh;
+  }
+
+  // Helper function to get component label
+  function componentLabel(ct) {
+    const map = {
+      WHOLE_BLOOD: 'Whole Blood',
+      PRBC: 'PRBC',
+      LEUKOREDUCED_PRBC: 'Leukoreduced PRBC',
+      ALIQUOTED_PRBC: 'Aliquoted PRBC',
+      PLATELET_CONCENTRATE: 'Platelet',
+      FRESH_FROZEN_PLASMA: 'FFP',
+      CRYOPRECIPITATE: 'Cryoprecipitate',
+      CRYOSUPERNATANT: 'Cryosupernatant',
+    };
+    return map[ct] ?? ct ?? '';
+  }
+
+  // Helper function to get source label (no emojis)
+  function sourceLabel(bag) {
+    if (bag.eventName) return bag.eventName;
+    const map = {
+      DONATION: 'Blood Drive',
+      WALK_IN: 'Walk-in Donor',
+      TRANSFER: 'BMC Transfer',
+      EXTERNAL_SUPPLY: 'External Supply',
+    };
+    return map[bag.source] ?? bag.source ?? '';
+  }
+
+  // Export all BLOOD_BAGS
+  BLOOD_BAGS.forEach(bag => {
+    const computedStatus = computeStatus(bag);
+
+    rows.push([
+      bag.serialNumber || '',
+      fullBloodLabel(bag.bloodType, bag.rhType),
+      bag.rhType || '',
+      componentLabel(bag.componentType),
+      bag.volumeMl || '',
+      formatDate(bag.collectedAt),
+      formatDate(bag.expiresAt),
+      getStatusLabel(computedStatus),
+      sourceLabel(bag),
+      bag.transactionNumber || '',
+      bag.remarks || '',
+      bag.receivedBy || '',
+      bag.discardReason || '',
+      bag.openSystem ? 'Yes' : 'No',
+      formatDate(bag.openSystemAt)
+    ]);
+  });
+
+  // If no bags, add message row
+  if (rows.length === 1) {
+    rows.push(['No blood bags in the system']);
+  }
+
+  // Convert to CSV with proper escaping
+  const csv = rows.map(row => 
+    row.map(cell => {
+      const escaped = String(cell).replace(/"/g, '""');
+      return escaped.includes(',') || escaped.includes('"') || escaped.includes('\n') 
+        ? `"${escaped}"` 
+        : escaped;
+    }).join(',')
+  ).join('\n');
+
+  // Download as CSV file
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `blood-bags-${new Date().toISOString().slice(0, 10)}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 // ═══════════════════════════════════════════════════════
-// BLOOD REQUESTS — COMPLETE WITH DETAILS MODAL & ADVANCED INDICATION MAPPING
+// BLOOD REQUESTS — WITH PRINTING (PDF/EXCEL) FUNCTIONALITY
 // ═══════════════════════════════════════════════════════
 
 (function () {
@@ -1646,6 +2176,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       patientAge:     r.patientAge       ?? null,
       patientSex:     r.patientSex       ?? null,
       wardRoom:       r.wardRoom         ?? null,
+      referenceNumber:       r.referenceNumber         ?? null,
       requestingPhysician: r.requestingPhysician ?? null,
       ageGroup:       r.ageGroup         ?? null,
       requestCategory: r.requestCategory ?? null,
@@ -1704,6 +2235,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
       reqRender();
+      reqUpdateCounts();  
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests — ${err.message}`);
@@ -1721,6 +2253,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
       reqRender();
+      reqUpdateCounts();
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests — ${err.message}`);
@@ -2067,8 +2600,11 @@ window.AnalyticsDashboard = AnalyticsDashboard;
   };
 
   function openReleaseReceipt(req, data) {
+    console.log(req);
+    console.log(data);
+
     const payload = {
-      referenceNumber: req.id ?? data.referenceNumber,
+      referenceNumber: req.referenceNumber ?? data.referenceNumber,
       releasedAt:      new Date().toISOString(),
       patientName:     req.patient,
       bloodType:       req.bloodTypeEnum,
@@ -2180,7 +2716,7 @@ window.AnalyticsDashboard = AnalyticsDashboard;
     reqCurrentFilter = status;
     document.querySelectorAll('#req-filters .req-filter-chip').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    reqFetchByStatus(status);
+    reqRender();
   };
  
   function reqRenderFlow(status) {
@@ -2354,27 +2890,51 @@ window.AnalyticsDashboard = AnalyticsDashboard;
   }
  
   function reqUpdateCounts() {
-    const allEl  = document.getElementById('req-cnt-all');
+    // Count each status separately
+    const counts = {
+      'ALL': reqData.length,
+      'PENDING': reqData.filter(r => r.status === 'PENDING').length,
+      'APPROVED': reqData.filter(r => r.status === 'APPROVED').length,
+      'ALLOCATED': reqData.filter(r => r.status === 'ALLOCATED').length,
+      'READY_FOR_RELEASE': reqData.filter(r => r.status === 'READY_FOR_RELEASE').length,
+      'RELEASED': reqData.filter(r => r.status === 'RELEASED').length,
+      'REJECTED': reqData.filter(r => r.status === 'REJECTED').length,
+    };
+
+    // Update the ALL and PENDING with IDs (they exist in HTML)
+    const allEl = document.getElementById('req-cnt-all');
     const pendEl = document.getElementById('req-cnt-pending');
-    if (allEl)  allEl.textContent  = reqData.length;
-    if (pendEl) pendEl.textContent = reqData.filter(r => r.status === 'PENDING').length;
+    if (allEl) allEl.textContent = counts['ALL'];
+    if (pendEl) pendEl.textContent = counts['PENDING'];
+
+    // Update all other filter chips by looking for their onclick attribute
+    ['APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED', 'REJECTED'].forEach(status => {
+      // Find the button with this status filter
+      const buttons = document.querySelectorAll('#req-filters button');
+      buttons.forEach(btn => {
+        if (btn.getAttribute('onclick')?.includes(`reqFilterBy('${status}'`)) {
+          const badge = btn.querySelector('.chip-cnt');
+          if (badge) {
+            badge.textContent = counts[status];
+          }
+        }
+      });
+    });
   }
  
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
-// ─────────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────────
   // EXPORT TO WINDOW SCOPE (for auto-refresh)
   // ─────────────────────────────────────────────────────────────────
   window.reqFetchAll = reqFetchAll;
   window.reqFetchByStatus = reqFetchByStatus;
   window.reqFetchCompatibleBags = reqFetchCompatibleBags;
   window.reqInvalidateBagCache = function() {
-    // Clear the entire bag cache to force reload from blood bank
     for (const key in reqBagCache) {
       delete reqBagCache[key];
     }
-    
-    // Re-render compatible bags previews for expanded cards
     Object.keys(reqExpanded).forEach(reqId => {
       if (reqExpanded[reqId]) {
         const req = reqData.find(r => r.id == reqId);
@@ -2384,23 +2944,6 @@ window.AnalyticsDashboard = AnalyticsDashboard;
       }
     });
   };
-  // ── Blood Bank Sync: Invalidate Cache ────────────────────
-  // window.reqInvalidateBagCache = function() {
-  //   // Clear the entire bag cache to force reload from blood bank
-  //   for (const key in reqBagCache) {
-  //     delete reqBagCache[key];
-  //   }
-    
-  //   // Re-render compatible bags previews for expanded cards
-  //   Object.keys(reqExpanded).forEach(reqId => {
-  //     if (reqExpanded[reqId]) {
-  //       const req = reqData.find(r => r.id == reqId);
-  //       if (req && ['PENDING', 'APPROVED'].includes(req.status)) {
-  //         setTimeout(() => reqFetchCompatibleBags(req), 0);
-  //       }
-  //     }
-  //   });
-  // };
  
   ['req-reject-modal', 'req-doc-modal', 'req-confirm-modal', 'req-bag-picker-modal'].forEach(modalId => {
     const el = document.getElementById(modalId);
@@ -2762,7 +3305,6 @@ function staffUpdateStrip() {
   document.getElementById('staff-active-count').textContent   = active;
   document.getElementById('staff-inactive-count').textContent = inactive;
   document.getElementById('staff-total-count').textContent    = staffList.length;
-  document.getElementById('staff-dept-count').textContent     = depts;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2922,7 +3464,7 @@ async function submitAddStaff() {
   const phone    = document.getElementById('add-staff-phone').value.trim();
   const hireDate = document.getElementById('add-staff-hiredate').value || null;
   const staffId  = document.getElementById('add-staff-id').value.trim();
-  const dept     = document.getElementById('add-staff-dept').value.trim();
+  const dept     = "Blood bank";
   const position = document.getElementById('add-staff-position').value.trim();
   const status   = document.getElementById('add-staff-status').value;
 
@@ -3548,6 +4090,8 @@ function hospConfirmDelete(id) {
 let currentUserRole = 'STAFF'; // Set from backend
 let currentUserId = null;
 let currentUserData = {};
+let activePanel = 'dashboard';
+let reqData          = [];
  
 // ── INITIALIZATION ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -4205,23 +4749,25 @@ function switchStaffProfileTab(tabName, element) {
 // ══════════════════════════════════════════════════════════════
 
 function showPanel(panelName, element) {
+  activePanel = panelName; // 👈 ADD THIS
+
   document.querySelectorAll('.panel').forEach(panel => {
     panel.classList.remove('active');
   });
-  
+
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.remove('active');
   });
-  
+
   const panelElement = document.getElementById('panel-' + panelName);
   if (panelElement) {
     panelElement.classList.add('active');
   }
-  
+
   if (element) {
     element.classList.add('active');
   }
-  
+
   window.scrollTo(0, 0);
 }
 
@@ -5072,55 +5618,126 @@ document.addEventListener('click', function(event) {
   }
 });
 
-
-
 // ═══════════════════════════════════════════════════════════════
-// AUTO-REFRESH DASHBOARD, BLOOD BANK & REQUESTS
+// ENHANCED AUTO-REFRESH WITH CHANGE DETECTION (SILENT UPDATES)
 // ═══════════════════════════════════════════════════════════════
 
 let autoRefreshIntervals = {};
+let dataSnapshots = {
+  dashboard: null,
+  bloodBank: null,
+  requests: null,
+};
 
 /**
- * Initialize auto-refresh for dashboard, blood bank, and requests
- * Refreshes every 60 seconds (1 minute)
+ * Creates a snapshot of data for change detection
+ */
+function createSnapshot(data) {
+  if (!data) return null;
+  return JSON.stringify(data);
+}
+
+/**
+ * Detects if data has changed by comparing snapshots
+ */
+function hasDataChanged(oldSnapshot, newSnapshot) {
+  if (oldSnapshot === null || newSnapshot === null) return true;
+  return oldSnapshot !== newSnapshot;
+}
+
+/**
+ * Fetches and compares dashboard data
+ */
+async function checkDashboardUpdates() {
+  try {
+    const res = await fetch('/api/admin/dashboard', { headers: { Accept: 'application/json' } });
+    if (!res.ok) return;
+    const json = await res.json();
+    
+    const newSnapshot = createSnapshot(json);
+    
+    if (hasDataChanged(dataSnapshots.dashboard, newSnapshot)) {
+      dataSnapshots.dashboard = newSnapshot;
+      loadDashboard();
+    }
+  } catch (err) {
+    console.error('[Auto-Refresh] Dashboard check failed:', err);
+  }
+}
+
+/**
+ * Fetches and compares blood bank data
+ */
+async function checkBloodBankUpdates() {
+  try {
+    const res = await fetch('/api/admin/blood-bank/bags', { headers: { Accept: 'application/json' } });
+    if (!res.ok) return;
+    const json = await res.json();
+    
+    const newSnapshot = createSnapshot(json);
+    
+    if (hasDataChanged(dataSnapshots.bloodBank, newSnapshot)) {
+      dataSnapshots.bloodBank = newSnapshot;
+      loadBloodBank();
+    }
+  } catch (err) {
+    console.error('[Auto-Refresh] Blood Bank check failed:', err);
+  }
+}
+
+/**
+ * Fetches and compares blood requests data
+ */
+async function checkBloodRequestsUpdates() {
+  try {
+    const res = await fetch('/api/admin/blood-requests', { headers: { Accept: 'application/json' } });
+    if (!res.ok) return;
+    const json = await res.json();
+    
+    const newSnapshot = createSnapshot(json);
+    
+    if (hasDataChanged(dataSnapshots.requests, newSnapshot)) {
+      dataSnapshots.requests = newSnapshot;
+      reqFetchAll();
+    }
+  } catch (err) {
+    console.error('[Auto-Refresh] Blood Requests check failed:', err);
+  }
+}
+
+/**
+ * Initialize auto-refresh with change detection
+ * Checks every 30 seconds for changes, silently updates if data has changed
  */
 function initializeAutoRefresh() {
-  // Load initial data
+  // Load initial data and create snapshots
   loadDashboard();
   loadBloodBank();
   reqFetchAll();
 
-  // Set up auto-refresh intervals (60 seconds = 60000 ms)
-  const REFRESH_INTERVAL = 60000; // 1 minute
+  // Small delay to ensure initial data is loaded
+  setTimeout(() => {
+    dataSnapshots.dashboard = createSnapshot(window.dashboardData || {});
+    dataSnapshots.bloodBank = createSnapshot(window.bankData || []);
+    dataSnapshots.requests = createSnapshot(reqData || []);
+  }, 500);
 
-  // Auto-refresh dashboard
-  autoRefreshIntervals.dashboard = setInterval(() => {
-    console.log('[Auto-Refresh] Updating dashboard...');
-    loadDashboard();
+  console.log('[Auto-Refresh] Initialized - checking for changes every 30 seconds');
+
+  const REFRESH_INTERVAL = 1000; // 30 seconds for checking
+
+  autoRefreshIntervals.combined = setInterval(() => {
+    checkDashboardUpdates();
+    checkBloodBankUpdates();
+    checkBloodRequestsUpdates();
   }, REFRESH_INTERVAL);
-
-  // Auto-refresh blood bank
-  autoRefreshIntervals.bloodBank = setInterval(() => {
-    console.log('[Auto-Refresh] Updating blood bank...');
-    loadBloodBank();
-  }, REFRESH_INTERVAL);
-
-  // Auto-refresh blood requests
-  autoRefreshIntervals.requests = setInterval(() => {
-    console.log('[Auto-Refresh] Updating blood requests...');
-    reqFetchAll();
-  }, REFRESH_INTERVAL);
-
-  console.log('[Auto-Refresh] Initialized - refreshing every 1 minute');
 }
 
 /**
- * Stop auto-refresh (useful if user navigates away or wants to pause)
+ * Stop auto-refresh
  */
 function stopAutoRefresh() {
-  if (autoRefreshIntervals.dashboard) clearInterval(autoRefreshIntervals.dashboard);
-  if (autoRefreshIntervals.bloodBank) clearInterval(autoRefreshIntervals.bloodBank);
-  if (autoRefreshIntervals.requests) clearInterval(autoRefreshIntervals.requests);
+  if (autoRefreshIntervals.combined) clearInterval(autoRefreshIntervals.combined);
   console.log('[Auto-Refresh] Stopped');
 }
 
@@ -5141,27 +5758,36 @@ function resumeAutoRefresh() {
 }
 
 /**
- * Change refresh interval (in seconds)
- * Example: changeRefreshInterval(30) for 30 seconds
+ * Change refresh check interval (in seconds)
  */
 function changeRefreshInterval(seconds) {
   stopAutoRefresh();
   const REFRESH_INTERVAL = seconds * 1000;
 
-  autoRefreshIntervals.dashboard = setInterval(() => {
-    console.log('[Auto-Refresh] Updating dashboard...');
-    loadDashboard();
+  autoRefreshIntervals.combined = setInterval(() => {
+    console.log(`[Auto-Refresh] Checking for changes (${seconds}s interval)...`);
+    
+    checkDashboardUpdates();
+    checkBloodBankUpdates();
+    checkBloodRequestsUpdates();
+
   }, REFRESH_INTERVAL);
 
-  autoRefreshIntervals.bloodBank = setInterval(() => {
-    console.log('[Auto-Refresh] Updating blood bank...');
-    loadBloodBank();
-  }, REFRESH_INTERVAL);
+  console.log(`[Auto-Refresh] Check interval changed to ${seconds} seconds`);
+}
 
-  autoRefreshIntervals.requests = setInterval(() => {
-    console.log('[Auto-Refresh] Updating blood requests...');
-    reqFetchAll();
-  }, REFRESH_INTERVAL);
-
-  console.log(`[Auto-Refresh] Interval changed to ${seconds} seconds`);
+/**
+ * Force invalidate all snapshots and refresh
+ * Useful when user manually triggers refresh
+ */
+function forceRefreshAll() {
+  dataSnapshots.dashboard = null;
+  dataSnapshots.bloodBank = null;
+  dataSnapshots.requests = null;
+  
+  loadDashboard();
+  loadBloodBank();
+  reqFetchAll();
+  
+  console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }

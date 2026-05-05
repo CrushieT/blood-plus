@@ -411,7 +411,7 @@ public class AdminController {
             // Extract user with consistent logic
             AppUser user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
- 
+
             BloodBagRequest req = bloodBagRequestService.releaseRequest(id, user);
             
             // Log the status change
@@ -422,7 +422,7 @@ public class AdminController {
                     user,
                     "Request marked as released"
             );
- 
+
             return ResponseEntity.ok(Map.of(
                     "message",         "Request marked as released.",
                     "referenceNumber", req.getReferenceNumber(),
