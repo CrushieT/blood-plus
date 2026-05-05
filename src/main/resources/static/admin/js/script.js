@@ -1380,16 +1380,16 @@ window.printAnalytics = function() {
     rejected: readMetric('[data-metric="request-rejected"]'),
     
     // Urgency
-    critical: readMetric('[data-metric="urgency-critical"]'),
-    high: readMetric('[data-metric="urgency-high"]'),
-    medium: readMetric('[data-metric="urgency-medium"]'),
-    low: readMetric('[data-metric="urgency-low"]'),
+    critical: parseInt(readMetric('[data-metric="urgency-critical"]')) || 0,
+    high: parseInt(readMetric('[data-metric="urgency-high"]')) || 0,
+    medium: parseInt(readMetric('[data-metric="urgency-medium"]')) || 0,
+    low: parseInt(readMetric('[data-metric="urgency-low"]')) || 0,
     
     // Category
-    emergency: readMetric('[data-metric="category-emergency"]'),
-    inpatient: readMetric('[data-metric="category-inpatient"]'),
-    outpatient: readMetric('[data-metric="category-outpatient"]'),
-    hospital: readMetric('[data-metric="category-hospital"]'),
+    emergency: parseInt(readMetric('[data-metric="category-emergency"]')) || 0,
+    inpatient: parseInt(readMetric('[data-metric="category-inpatient"]')) || 0,
+    outpatient: parseInt(readMetric('[data-metric="category-outpatient"]')) || 0,
+    hospital: parseInt(readMetric('[data-metric="category-hospital"]')) || 0,
     
     // Blood Types
     o_neg: readMetric('[data-metric="blood-o-neg"]'),
@@ -1433,6 +1433,18 @@ window.printAnalytics = function() {
     plateletsPct: readMetric('[data-metric="component-platelets-pct"]'),
   };
 
+  // Helper to draw horizontal bar
+  function getBar(value, max) {
+    const maxVal = 10;
+    const percentage = Math.min((parseInt(value) || 0) / (max || maxVal), 1);
+    const filledWidth = Math.round(percentage * 40);
+    const emptyWidth = 40 - filledWidth;
+    return `<span style="display:inline-flex;gap:2px;align-items:center"><span style="background:#666;height:8px;width:${filledWidth}px;border-radius:2px"></span><span style="background:#e8e8e8;height:8px;width:${emptyWidth}px;border-radius:2px"></span></span>`;
+  }
+
+  const totalUrgency = metrics.critical + metrics.high + metrics.medium + metrics.low;
+  const totalCategory = metrics.emergency + metrics.inpatient + metrics.outpatient + metrics.hospital;
+
   const html = `
     <html>
     <head>
@@ -1469,8 +1481,21 @@ window.printAnalytics = function() {
         .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 6px 0; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0; }
         
-        .metric-box { border: 1px solid #ddd; padding: 6px 4px; text-align: center; background: #fafafa; }
-        .metric-val { font-size: 13pt; font-weight: 700; color: #000; margin: 2px 0; }
+        .metric-box { 
+          border: 1px solid #ddd; 
+          padding: 8px 6px; 
+          text-align: center; 
+          background: #fafafa;
+          border-left: 4px solid #999;
+        }
+        
+        .metric-box.pending { border-left-color: #d4a574; background: #fefaf5; }
+        .metric-box.approved { border-left-color: #27ae60; background: #f0fdf4; }
+        .metric-box.allocated { border-left-color: #0066cc; background: #f0f8ff; }
+        .metric-box.released { border-left-color: #8b5cf6; background: #faf5ff; }
+        .metric-box.rejected { border-left-color: #c41e3a; background: #fef5f5; }
+        
+        .metric-val { font-size: 14pt; font-weight: 700; color: #000; margin: 3px 0; }
         .metric-label { font-size: 7pt; color: #666; text-transform: uppercase; font-weight: 600; }
         
         .mini-table { width: 100%; font-size: 8.5pt; border-collapse: collapse; margin: 4px 0; }
@@ -1478,6 +1503,20 @@ window.printAnalytics = function() {
         .mini-table th { background: #f5f5f5; font-weight: 700; }
         .mini-table td { font-size: 8.5pt; }
         .mini-table .num { text-align: right; }
+        
+        .urgency-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 4px 0;
+          border-bottom: 1px solid #eee;
+          font-size: 8.5pt;
+        }
+        
+        .urgency-row:last-child { border-bottom: none; }
+        .urgency-label { width: 50px; font-weight: 600; text-transform: uppercase; }
+        .urgency-bar { flex: 1; }
+        .urgency-count { width: 20px; text-align: right; font-weight: 700; }
         
         .stat-line { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 8.5pt; }
         .stat-line:last-child { border-bottom: none; }
@@ -1494,76 +1533,141 @@ window.printAnalytics = function() {
       </div>
       
       <!-- REQUEST STATUS -->
-      <h2>Request Status</h2>
+      <h2>Request Status Overview</h2>
       <div class="grid-5">
-        <div class="metric-box">
+        <div class="metric-box pending">
           <div class="metric-label">Pending</div>
           <div class="metric-val">${metrics.pending}</div>
+          <div style="font-size:7pt;color:#666">Awaiting review</div>
         </div>
-        <div class="metric-box">
+        <div class="metric-box approved">
           <div class="metric-label">Approved</div>
           <div class="metric-val">${metrics.approved}</div>
+          <div style="font-size:7pt;color:#666">Ready to allocate</div>
         </div>
-        <div class="metric-box">
+        <div class="metric-box allocated">
           <div class="metric-label">Allocated</div>
           <div class="metric-val">${metrics.allocated}</div>
+          <div style="font-size:7pt;color:#666">Bags assigned</div>
         </div>
-        <div class="metric-box">
+        <div class="metric-box released">
           <div class="metric-label">Released</div>
           <div class="metric-val">${metrics.released}</div>
+          <div style="font-size:7pt;color:#666">Delivered</div>
         </div>
-        <div class="metric-box">
+        <div class="metric-box rejected">
           <div class="metric-label">Rejected</div>
           <div class="metric-val">${metrics.rejected}</div>
+          <div style="font-size:7pt;color:#666">Not approved</div>
         </div>
       </div>
       
       <!-- URGENCY & CATEGORY -->
       <div class="grid-2">
         <div class="col">
-          <h2 style="margin-bottom: 4px;">Urgency</h2>
-          <table class="mini-table">
-            <tr><td>Critical</td><td class="num">${metrics.critical}</td></tr>
-            <tr><td>High</td><td class="num">${metrics.high}</td></tr>
-            <tr><td>Medium</td><td class="num">${metrics.medium}</td></tr>
-            <tr><td>Low</td><td class="num">${metrics.low}</td></tr>
-          </table>
+          <h2>Requests by Urgency</h2>
+          <div class="urgency-row">
+            <div class="urgency-label">CRITICAL</div>
+            <div class="urgency-bar">${getBar(metrics.critical, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.critical}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">HIGH</div>
+            <div class="urgency-bar">${getBar(metrics.high, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.high}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">MEDIUM</div>
+            <div class="urgency-bar">${getBar(metrics.medium, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.medium}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">LOW</div>
+            <div class="urgency-bar">${getBar(metrics.low, totalUrgency)}</div>
+            <div class="urgency-count">${metrics.low}</div>
+          </div>
         </div>
         <div class="col">
-          <h2 style="margin-bottom: 4px;">Category</h2>
-          <table class="mini-table">
-            <tr><td>Emergency</td><td class="num">${metrics.emergency}</td></tr>
-            <tr><td>Inpatient</td><td class="num">${metrics.inpatient}</td></tr>
-            <tr><td>Outpatient</td><td class="num">${metrics.outpatient}</td></tr>
-            <tr><td>Hospital</td><td class="num">${metrics.hospital}</td></tr>
-          </table>
+          <h2>Requests by Category</h2>
+          <div class="urgency-row">
+            <div class="urgency-label">EMERGENCY</div>
+            <div class="urgency-bar">${getBar(metrics.emergency, totalCategory)}</div>
+            <div class="urgency-count">${metrics.emergency}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">INPATIENT</div>
+            <div class="urgency-bar">${getBar(metrics.inpatient, totalCategory)}</div>
+            <div class="urgency-count">${metrics.inpatient}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">OUTPATIENT</div>
+            <div class="urgency-bar">${getBar(metrics.outpatient, totalCategory)}</div>
+            <div class="urgency-count">${metrics.outpatient}</div>
+          </div>
+          <div class="urgency-row">
+            <div class="urgency-label">HOSPITAL</div>
+            <div class="urgency-bar">${getBar(metrics.hospital, totalCategory)}</div>
+            <div class="urgency-count">${metrics.hospital}</div>
+          </div>
         </div>
       </div>
       
       <!-- BLOOD INVENTORY -->
-      <h2>Blood Type Inventory</h2>
+      <h2>Current Blood Type Inventory</h2>
       <div class="grid-4">
-        <div class="metric-box"><div class="metric-label">O−</div><div class="metric-val">${metrics.o_neg}</div></div>
-        <div class="metric-box"><div class="metric-label">O+</div><div class="metric-val">${metrics.o_pos}</div></div>
-        <div class="metric-box"><div class="metric-label">A−</div><div class="metric-val">${metrics.a_neg}</div></div>
-        <div class="metric-box"><div class="metric-label">A+</div><div class="metric-val">${metrics.a_pos}</div></div>
-        <div class="metric-box"><div class="metric-label">B−</div><div class="metric-val">${metrics.b_neg}</div></div>
-        <div class="metric-box"><div class="metric-label">B+</div><div class="metric-val">${metrics.b_pos}</div></div>
-        <div class="metric-box"><div class="metric-label">AB−</div><div class="metric-val">${metrics.ab_neg}</div></div>
-        <div class="metric-box"><div class="metric-label">AB+</div><div class="metric-val">${metrics.ab_pos}</div></div>
+        <div class="metric-box">
+          <div class="metric-label">O−</div>
+          <div class="metric-val">${metrics.o_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">O+</div>
+          <div class="metric-val">${metrics.o_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">A−</div>
+          <div class="metric-val">${metrics.a_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">A+</div>
+          <div class="metric-val">${metrics.a_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">B−</div>
+          <div class="metric-val">${metrics.b_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">B+</div>
+          <div class="metric-val">${metrics.b_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">AB−</div>
+          <div class="metric-val">${metrics.ab_neg}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">AB+</div>
+          <div class="metric-val">${metrics.ab_pos}</div>
+          <div style="font-size:7pt;color:#666">units</div>
+        </div>
       </div>
       
       <!-- DISPATCH & ALERTS -->
       <div class="grid-2">
         <div class="col">
-          <h2 style="margin-bottom: 4px;">Bag Dispatch</h2>
+          <h2>Bag Dispatch Summary</h2>
           <div class="stat-line"><span>Used</span><span style="font-weight:700">${metrics.used}</span></div>
           <div class="stat-line"><span>Discarded</span><span style="font-weight:700">${metrics.discarded}</span></div>
           <div class="stat-line"><span>Transferred</span><span style="font-weight:700">${metrics.transferred}</span></div>
         </div>
         <div class="col">
-          <h2 style="margin-bottom: 4px;">Alerts</h2>
-          <div class="stat-line"><span>Expiring Soon</span><span style="font-weight:700">${metrics.expiringSoon}</span></div>
+          <h2>Expiry & Quality Alerts</h2>
+          <div class="stat-line"><span>Expiring Soon (≤7 days)</span><span style="font-weight:700">${metrics.expiringSoon}</span></div>
           <div class="stat-line"><span>Expired</span><span style="font-weight:700">${metrics.expired}</span></div>
           <div class="stat-line"><span>Quality Issues</span><span style="font-weight:700">${metrics.qualityIssues}</span></div>
         </div>
@@ -1572,40 +1676,40 @@ window.printAnalytics = function() {
       <!-- PERFORMANCE & REQUESTER -->
       <div class="grid-2">
         <div class="col">
-          <h2 style="margin-bottom: 4px;">Fulfillment</h2>
-          <div class="stat-line"><span>Rate</span><span style="font-weight:700">${metrics.fulfillmentRate}</span></div>
+          <h2>Request Fulfillment Performance</h2>
+          <div class="stat-line"><span>Fulfillment Rate</span><span style="font-weight:700">${metrics.fulfillmentRate}</span></div>
           <div class="stat-line"><span>Total Released</span><span style="font-weight:700">${metrics.totalReleased}</span></div>
-          <div class="stat-line"><span>Avg Days</span><span style="font-weight:700">${metrics.avgDays}</span></div>
+          <div class="stat-line"><span>Avg Days to Release</span><span style="font-weight:700">${metrics.avgDays}</span></div>
         </div>
         <div class="col">
-          <h2 style="margin-bottom: 4px;">Requester Type</h2>
-          <div class="stat-line"><span>Hospital</span><span style="font-weight:700">${metrics.hospital} (${metrics.hospitalPct})</span></div>
-          <div class="stat-line"><span>Anonymous</span><span style="font-weight:700">${metrics.anonymous} (${metrics.anonymousPct})</span></div>
+          <h2>Requests by Requester Type</h2>
+          <div class="stat-line"><span>Hospital Requests</span><span style="font-weight:700">${metrics.hospital} (${metrics.hospitalPct})</span></div>
+          <div class="stat-line"><span>Anonymous Requests</span><span style="font-weight:700">${metrics.anonymous} (${metrics.anonymousPct})</span></div>
         </div>
       </div>
       
       <!-- COMPONENTS -->
-      <h2>Blood Components</h2>
+      <h2>Requests by Blood Component</h2>
       <div class="grid-4">
         <div class="metric-box">
           <div class="metric-label">Whole Blood</div>
           <div class="metric-val">${metrics.wholeBlood}</div>
-          <div style="font-size: 7pt; color: #999;">${metrics.wholeBloodPct}</div>
+          <div style="font-size:7pt;color:#666">${metrics.wholeBloodPct}</div>
         </div>
         <div class="metric-box">
           <div class="metric-label">Red Cells</div>
           <div class="metric-val">${metrics.redCells}</div>
-          <div style="font-size: 7pt; color: #999;">${metrics.redCellsPct}</div>
+          <div style="font-size:7pt;color:#666">${metrics.redCellsPct}</div>
         </div>
         <div class="metric-box">
           <div class="metric-label">Plasma</div>
           <div class="metric-val">${metrics.plasma}</div>
-          <div style="font-size: 7pt; color: #999;">${metrics.plasmaPct}</div>
+          <div style="font-size:7pt;color:#666">${metrics.plasmaPct}</div>
         </div>
         <div class="metric-box">
           <div class="metric-label">Platelets</div>
           <div class="metric-val">${metrics.platelets}</div>
-          <div style="font-size: 7pt; color: #999;">${metrics.plateletsPct}</div>
+          <div style="font-size:7pt;color:#666">${metrics.plateletsPct}</div>
         </div>
       </div>
       
@@ -2131,6 +2235,7 @@ window.exportBloodBagsToExcel = function() {
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
       reqRender();
+      reqUpdateCounts();  
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests — ${err.message}`);
@@ -2148,6 +2253,7 @@ window.exportBloodBagsToExcel = function() {
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
       reqRender();
+      reqUpdateCounts();
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests — ${err.message}`);
@@ -2610,7 +2716,7 @@ window.exportBloodBagsToExcel = function() {
     reqCurrentFilter = status;
     document.querySelectorAll('#req-filters .req-filter-chip').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    reqFetchByStatus(status);
+    reqRender();
   };
  
   function reqRenderFlow(status) {
@@ -2784,10 +2890,36 @@ window.exportBloodBagsToExcel = function() {
   }
  
   function reqUpdateCounts() {
-    const allEl  = document.getElementById('req-cnt-all');
+    // Count each status separately
+    const counts = {
+      'ALL': reqData.length,
+      'PENDING': reqData.filter(r => r.status === 'PENDING').length,
+      'APPROVED': reqData.filter(r => r.status === 'APPROVED').length,
+      'ALLOCATED': reqData.filter(r => r.status === 'ALLOCATED').length,
+      'READY_FOR_RELEASE': reqData.filter(r => r.status === 'READY_FOR_RELEASE').length,
+      'RELEASED': reqData.filter(r => r.status === 'RELEASED').length,
+      'REJECTED': reqData.filter(r => r.status === 'REJECTED').length,
+    };
+
+    // Update the ALL and PENDING with IDs (they exist in HTML)
+    const allEl = document.getElementById('req-cnt-all');
     const pendEl = document.getElementById('req-cnt-pending');
-    if (allEl)  allEl.textContent  = reqData.length;
-    if (pendEl) pendEl.textContent = reqData.filter(r => r.status === 'PENDING').length;
+    if (allEl) allEl.textContent = counts['ALL'];
+    if (pendEl) pendEl.textContent = counts['PENDING'];
+
+    // Update all other filter chips by looking for their onclick attribute
+    ['APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED', 'REJECTED'].forEach(status => {
+      // Find the button with this status filter
+      const buttons = document.querySelectorAll('#req-filters button');
+      buttons.forEach(btn => {
+        if (btn.getAttribute('onclick')?.includes(`reqFilterBy('${status}'`)) {
+          const badge = btn.querySelector('.chip-cnt');
+          if (badge) {
+            badge.textContent = counts[status];
+          }
+        }
+      });
+    });
   }
  
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };

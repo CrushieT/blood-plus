@@ -6,9 +6,13 @@ import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.model.BloodBagRequest.RequestStatus;
 import com.hospital.blood_plus.model.HospitalProfile;
+import com.hospital.blood_plus.model.RequestFulfillment;
 import com.hospital.blood_plus.repository.BloodBagRepository;
 import com.hospital.blood_plus.repository.BloodBagRequestRepository;
+import com.hospital.blood_plus.repository.RequestFulfillmentRepository;
+
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -22,13 +26,16 @@ public class BloodBagRequestService {
     private final BloodBagRequestRepository repository;
     private final CloudinaryService         cloudinaryService;
     private final BloodBagRepository        bloodBagRepository;
+    private final RequestFulfillmentRepository        requestFulfillmentRepository;
 
     public BloodBagRequestService(BloodBagRequestRepository repository,
                                   CloudinaryService cloudinaryService,
-                                  BloodBagRepository bloodBagRepository) {
+                                  BloodBagRepository bloodBagRepository,
+                                  RequestFulfillmentRepository requestFulfillmentRepository) {
         this.repository          = repository;
         this.cloudinaryService   = cloudinaryService;
         this.bloodBagRepository  = bloodBagRepository;
+        this.requestFulfillmentRepository  = requestFulfillmentRepository;
     }
 
     // ─────────────────────────────────────────────
@@ -212,14 +219,31 @@ public class BloodBagRequestService {
     }
 
     /** READY_FOR_RELEASE → RELEASED  (marks bag as DISPENSED) */
+    @Transactional
     public BloodBagRequest releaseRequest(Long id, AppUser reviewer) {
         BloodBagRequest req = ensureStatus(id, BloodBagRequest.RequestStatus.READY_FOR_RELEASE);
         req.setStatus(BloodBagRequest.RequestStatus.RELEASED);
         applyReview(req, reviewer);
 
         if (req.getFulfilledByBag() != null) {
-            req.getFulfilledByBag().setStatus(BloodBag.BagStatus.DISPENSED);
-            bloodBagRepository.save(req.getFulfilledByBag());
+            BloodBag bag = req.getFulfilledByBag();
+            bag.setStatus(BloodBag.BagStatus.DISPENSED);
+            bloodBagRepository.save(bag);
+            
+            String notes = String.format(
+                "Blood request released. Bag Serial Number: %s, Blood Type: %s, Component: %s, Units: %d",
+                bag.getSerialNumber(),
+                bag.getBloodType().getDisplayName(),
+                bag.getComponentType(),
+                (req.getNumberOfUnits() != null) ? req.getNumberOfUnits() : 1
+            );
+            
+            RequestFulfillment fulfillment = new RequestFulfillment();
+            fulfillment.setRequest(req);
+            fulfillment.setBloodBag(bag);
+            fulfillment.setFulfilledBy(reviewer);
+            fulfillment.setNotes(notes);
+            requestFulfillmentRepository.save(fulfillment);
         }
 
         return repository.save(req);
