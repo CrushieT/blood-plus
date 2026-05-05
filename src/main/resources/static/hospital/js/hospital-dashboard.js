@@ -267,19 +267,19 @@ function updateComponentDisplay() {
   }
 
   // Update last updated timestamp
-  const lastUpdatedEl = document.getElementById('bloodbank-last-updated');
-  if (lastUpdatedEl && bloodBankAvailability.lastUpdated) {
-    const timestamp = new Date(bloodBankAvailability.lastUpdated);
-    const now = new Date();
-    const diffMs = now - timestamp;
-    const diffMins = Math.floor(diffMs / 60000);
+  // const lastUpdatedEl = document.getElementById('bloodbank-last-updated');
+  // if (lastUpdatedEl && bloodBankAvailability.lastUpdated) {
+  //   const timestamp = new Date(bloodBankAvailability.lastUpdated);
+  //   const now = new Date();
+  //   const diffMs = now - timestamp;
+  //   const diffMins = Math.floor(diffMs / 60000);
 
-    let timeStr = 'Just now';
-    if (diffMins > 0) {
-      timeStr = diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
-    }
-    lastUpdatedEl.textContent = timeStr;
-  }
+  //   let timeStr = 'Just now';
+  //   if (diffMins > 0) {
+  //     timeStr = diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
+  //   }
+  //   lastUpdatedEl.textContent = timeStr;
+  // }
 }
 
 /**
@@ -1400,7 +1400,7 @@ async function loadHospitalRequests() {
             reviewedAt: req.reviewedAt || null,
             fulfilledByBag: req.fulfilledByBag || null
         }));
-        console.log(requests);
+        // console.log(requests);
         // Re-render with fetched data
         renderDashboard();
         filterRequests(currentFilter, document.querySelector('.active-filter'));
@@ -2382,4 +2382,60 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', () => {
     if (window.innerWidth > 768) closeSidebar();
   });
+
+  // Start auto-refresh
+  startAutoRefresh();
+  
+  // Stop auto-refresh when user leaves (optional)
+  window.addEventListener('beforeunload', stopAutoRefresh);
 });
+
+// ═══════════════════════════════════════════════════════════════
+// ░░░ AUTO-REFRESH ░░░
+// ═══════════════════════════════════════════════════════════════
+
+let autoRefreshInterval = null;
+
+/**
+ * Start auto-refresh of blood requests and dashboard
+ * Refreshes every 30 seconds
+ */
+function startAutoRefresh() {
+  autoRefreshInterval = setInterval(() => {
+    loadHospitalRequests();
+    loadBloodBankAvailability();
+  }, 5000); // 30 seconds
+}
+
+/**
+ * Stop auto-refresh
+ */
+function stopAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
+}
+
+/**
+ * Manual refresh trigger with visual feedback
+ */
+function refreshDashboard() {
+  const btn = document.querySelector('[onclick="refreshDashboard()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    btn.style.animation = 'spin 1s linear';
+  }
+  
+  Promise.all([
+    loadHospitalRequests(),
+    loadBloodBankAvailability()
+  ]).then(() => {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.animation = 'none';
+    }
+  });
+}
