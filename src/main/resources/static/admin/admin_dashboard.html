@@ -203,9 +203,17 @@
           <div class="page-title">Blood Bank</div>
           <div class="page-sub">Inventory, bag tracking and donation analytics</div>
         </div>
+        
         <div class="topbar-right">
           <button class="btn-primary" onclick="openAddBloodModal()">＋ Add Stock</button>
         </div>
+        
+      </div>
+      
+      <div style="display:flex;gap:10px;margin-bottom:16px;padding:12px;background:var(--subtle,#f9f9f9);border-radius:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;font-weight:600;color:var(--muted)">🖨 Reports & Exports</span>
+        <button onclick="printAnalytics()" style="background:var(--blue);color:white;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">📈 Analytics Report</button>
+        <button onclick="exportBloodBagsToExcel()" style="background:var(--amber);color:white;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">📥 Export Blood Bags</button>
       </div>
 
       <!-- Tab Bar -->
@@ -757,7 +765,6 @@
           <div class="page-sub">Review, approve, and release blood bags to requesters</div>
         </div>
       </div>
-
       <div class="req-filter-bar">
         <div class="req-search-wrap">
           <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
@@ -974,10 +981,6 @@
       <div class="bb-strip-item" style="background:#E8F0FF">
         <div class="bb-strip-val" style="color:var(--blue)" id="staff-total-count">0</div>
         <div class="bb-strip-label">Total Staff</div>
-      </div>
-      <div class="bb-strip-item" style="background:var(--amber-light)">
-        <div class="bb-strip-val" style="color:var(--amber)" id="staff-dept-count">0</div>
-        <div class="bb-strip-label">Departments</div>
       </div>
     </div>
   
@@ -1894,9 +1897,6 @@
           <input type="text" id="add-staff-id" placeholder="e.g. STF-001" maxlength="20">
         </div>
         <div class="form-group-m">
-          <label>Department</label>
-          <input type="text" id="add-staff-dept" placeholder="e.g. Blood Bank, Lab" list="staff-dept-list">
-          <datalist id="staff-dept-list"></datalist>
         </div>
       </div>
       <div class="form-row">
@@ -2266,6 +2266,7 @@
     if (window.innerWidth > 768) closeSidebar();
   });
   </script>
+  <!-- <script src="js/auto-refresh-optimization.js"></script> -->
   <script src="js/script.js"></script>
 </body>
 </html>

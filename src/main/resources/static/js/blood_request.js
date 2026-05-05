@@ -452,9 +452,12 @@ function handleDrop(e) {
 
 function handleFile(file) {
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { showError("File exceeds 5MB limit."); return; }
-  if (!['application/pdf','image/jpeg','image/png'].includes(file.type)) {
-    showError("Only PDF, JPG, or PNG files are accepted."); return;
+  if (file.size > 10 * 1024 * 1024) {  //  10 mb limit
+    showError("File exceeds 10MB limit."); 
+    return; 
+  }
+  if (!['image/jpeg','image/png'].includes(file.type)) {
+    showError("Only JPG or PNG image files are accepted.");
   }
   selectedFile = file;
   document.getElementById('upload-placeholder').style.display = 'none';
