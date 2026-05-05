@@ -61,9 +61,11 @@ public class BloodBagRequestService {
         // PATIENT INFORMATION (EXISTING)
         // ─────────────────────────────────────────────
         request.setPatientName(dto.getPatientName().trim());
+        request.setPatientBirthdate(dto.getPatientBirthdate());
         request.setPatientAge(dto.getPatientAge()); 
         request.setPatientSex(dto.getPatientSex());
         request.setWardRoom(dto.getWardRoom());
+        request.setRoomNo(dto.getRoomNo());
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());
  
         request.setAgeGroup(dto.getAgeGroup() != null
@@ -512,8 +514,8 @@ public class BloodBagRequestService {
         // Required patient fields
         if (dto.getPatientName() == null || dto.getPatientName().trim().isEmpty())
             throw new IllegalArgumentException("Patient name is required.");
-        if (dto.getPatientAge() == null || dto.getPatientAge() <= 0)
-            throw new IllegalArgumentException("Valid patient age is required.");
+        if (dto.getPatientAge() == null || dto.getPatientAge() < 0) 
+            throw new IllegalArgumentException("Valid patient age is required."); 
         if (dto.getPatientSex() == null || dto.getPatientSex().trim().isEmpty())
             throw new IllegalArgumentException("Patient sex is required.");
         if (dto.getRequestingPhysician() == null || dto.getRequestingPhysician().trim().isEmpty())

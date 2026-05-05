@@ -115,8 +115,14 @@ public class BloodBagRequest {
     @Column(length = 10)
     private String patientSex;
 
+    @Column
+    private LocalDate patientBirthdate;
+
     @Column(length = 100)
     private String wardRoom;
+
+    @Column(length = 100)
+    private String roomNo;
 
     @Column(length = 100)
     private String requestingPhysician;
@@ -306,8 +312,15 @@ public class BloodBagRequest {
     public String getPatientSex() { return patientSex; }
     public void setPatientSex(String patientSex) { this.patientSex = patientSex; }
 
+    // Getters/Setters
+    public LocalDate getPatientBirthdate() { return patientBirthdate; }
+    public void setPatientBirthdate(LocalDate patientBirthdate) { this.patientBirthdate = patientBirthdate; }
+
     public String getWardRoom() { return wardRoom; }
     public void setWardRoom(String wardRoom) { this.wardRoom = wardRoom; }
+
+    public String getRoomNo() { return roomNo; }
+    public void setRoomNo(String roomNo) { this.roomNo = roomNo; }
 
     public String getRequestingPhysician() { return requestingPhysician; }
     public void setRequestingPhysician(String requestingPhysician) { this.requestingPhysician = requestingPhysician; }

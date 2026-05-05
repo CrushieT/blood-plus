@@ -40,6 +40,83 @@ function goTo(n) {
   hideError();
 }
 
+// ── Calculate age from birthdate ───────────────────────────────
+function calculateAge(birthdate) {
+  if (!birthdate) return null;
+  const today = new Date();
+  const birth = new Date(birthdate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+// ── Update patient type and form based on birthdate ─────────────
+function updatePatientTypeAndForms() {
+  const birthdateInput = document.getElementById('f-birthdate');
+  if (!birthdateInput.value) {
+    document.getElementById('patient-type-display').textContent = 'Enter date of birth to determine patient type';
+    return;
+  }
+
+  const age = calculateAge(birthdateInput.value);
+  const patientTypeEl = document.getElementById('patient-type-display');
+  const formDownloadButtons = document.getElementById('form-download-buttons');
+
+  let patientType = '';
+  let formHtml = '';
+
+  if (age < 13) {
+    patientType = 'PEDIATRIC';
+    formHtml = `
+      <button class="dl-card-btn" onclick="downloadForm('pedia')"
+        style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.06);
+              border:1.5px solid rgba(255,255,255,0.12);border-radius:11px;padding:13px 16px;
+              cursor:pointer;text-align:left;width:100%;font-family:'DM Sans',sans-serif"
+        onmouseover="this.style.background='rgba(196,30,58,0.25)';this.style.borderColor='rgba(196,30,58,0.5)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.borderColor='rgba(255,255,255,0.12)'">
+        
+        <div style="width:36px;height:36px;background:rgba(196,30,58,0.3);border-radius:8px;
+                    display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📄</div>
+        
+        <div>
+          <div style="font-size:13px;font-weight:700;color:white">Pediatric Form</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px">
+            Blood Request Form (Pedia) · PDF ↓
+          </div>
+        </div>
+      </button>
+    `;
+  } else {
+    patientType = 'ADULT';
+    formHtml = `
+      <button class="dl-card-btn" onclick="downloadForm('adult')"
+        style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.06);
+              border:1.5px solid rgba(255,255,255,0.12);border-radius:11px;padding:13px 16px;
+              cursor:pointer;text-align:left;width:100%;font-family:'DM Sans',sans-serif"
+        onmouseover="this.style.background='rgba(196,30,58,0.25)';this.style.borderColor='rgba(196,30,58,0.5)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.borderColor='rgba(255,255,255,0.12)'">
+        
+        <div style="width:36px;height:36px;background:rgba(196,30,58,0.3);border-radius:8px;
+                    display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📄</div>
+        
+        <div>
+          <div style="font-size:13px;font-weight:700;color:white">Adult Form</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px">
+            Blood Request Form (Adult) · PDF ↓
+          </div>
+        </div>
+      </button>
+    `;
+  }
+
+  patientTypeEl.textContent = patientType + ' (' + age + ' years old)';
+  formDownloadButtons.innerHTML = formHtml;
+}
+
+
 // ── Validation ─────────────────────────────────────────────────
 function validate(page) {
   hideError();
@@ -47,8 +124,15 @@ function validate(page) {
   if (page === 1) {
     if (!document.getElementById('f-patientName').value.trim())
       return showError('Please enter the patient\'s full name.'), false;
-    if (!document.getElementById('f-age').value)
-      return showError('Please enter the patient\'s age.'), false;
+    if (!document.getElementById('f-birthdate').value)
+      return showError('Please enter the patient\'s date of birth.'), false;
+    
+    const age = calculateAge(document.getElementById('f-birthdate').value);
+    if (age < 0)
+      return showError('Patient age cannot be negative. Please check the date of birth.'), false;
+    if (age > 120)
+      return showError('Please enter a valid date of birth.'), false;
+    
     if (!document.getElementById('f-sex').value)
       return showError('Please select the patient\'s sex.'), false;
     if (!document.getElementById('f-physician').value.trim())
@@ -64,7 +148,6 @@ function validate(page) {
       return showError('Please select the number of units needed.'), false;
     if (!getRadioVal('urgency'))
       return showError('Please select an urgency level.'), false;
-    // Validate at least one indication is selected
     if (!hasSelectedIndications())
       return showError('Please select at least one indication for transfusion.'), false;
   }
@@ -118,11 +201,12 @@ function toggleReactionFields() {
 // ── Indication Management ──────────────────────────────────────
 function initIndicationHandlers() {
   const componentSelect = document.getElementById('f-component');
-  const ageGroupRadios = document.querySelectorAll('input[name="ageGroup"]');
   const indicationContainer = document.getElementById('indication-container');
 
   function updateIndications() {
-    const ageGroup = getRadioVal('ageGroup');
+    const birthdate = document.getElementById('f-birthdate').value;
+    const age = calculateAge(birthdate);
+    const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
     const component = componentSelect.value;
 
     // Hide all groups
@@ -149,7 +233,7 @@ function initIndicationHandlers() {
       indicationContainer.style.display = 'none';
     }
 
-    // Clear all checkboxes when component or age group changes
+    // Clear all checkboxes when component changes
     document.querySelectorAll('.indication-checkbox').forEach(cb => {
       cb.checked = false;
     });
@@ -157,9 +241,7 @@ function initIndicationHandlers() {
   }
 
   componentSelect.addEventListener('change', updateIndications);
-  ageGroupRadios.forEach(radio => {
-    radio.addEventListener('change', updateIndications);
-  });
+  document.getElementById('f-birthdate').addEventListener('change', updateIndications);
 
   // Handle parent checkbox expansion (for sub-items)
   document.querySelectorAll('.indication-checkbox:not(.sub)').forEach(checkbox => {
@@ -172,7 +254,8 @@ function initIndicationHandlers() {
           subGroup.classList.add('active');
         } else {
           subGroup.classList.remove('active');
-          // Uncheck all sub-items
+
+          // Uncheck sub-items
           subGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.checked = false;
           });
@@ -312,6 +395,63 @@ function injectIndicationStyles() {
       height: auto !important;
       border: 1px solid #DDD !important;
     }
+
+    .ward-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #E4E4E7;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 100;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .ward-dropdown-list {
+      padding: 4px 0;
+    }
+
+    .ward-dropdown-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--charcoal);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .ward-dropdown-item:hover:not(.disabled) {
+      background: #F0F0F0;
+    }
+
+    .ward-dropdown-item.disabled {
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    .ward-search-container {
+      position: relative;
+    }
+
+    .btn-form-download {
+      background: #C41E3A;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .btn-form-download:hover {
+      background: #A01830;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -352,20 +492,27 @@ function reviewRow(l, v) {
 
 function buildReview() {
   var catEl  = document.querySelector('input[name="category"]:checked');
-  var agEl   = document.querySelector('input[name="ageGroup"]:checked');
   var urgEl  = document.querySelector('input[name="urgency"]:checked');
   var reqTypeEl = document.querySelector('input[name="requestType"]:checked');
   var hospEl = document.getElementById('contact-hospital');
   var isHosp = hospEl && hospEl.style.display !== 'none' && hospEl.style.display !== '';
 
+  // Calculate age from birthdate
+  const birthdate = document.getElementById('f-birthdate').value;
+  const age = calculateAge(birthdate);
+  const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
+
   // ── Patient section ──
   document.getElementById('review-patient').innerHTML =
     '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Patient</div>' +
     reviewRow('Name',        document.getElementById('f-patientName').value.trim()) +
-    reviewRow('Age / Sex',   document.getElementById('f-age').value + ' / ' + document.getElementById('f-sex').value) +
+    reviewRow('Date of Birth', birthdate) +
+    reviewRow('Age', age + ' years') +
+    reviewRow('Sex',         document.getElementById('f-sex').value) +
     reviewRow('Ward',        document.getElementById('f-ward').value.trim() || '—') +
+    reviewRow('Room',        document.getElementById('f-room').value.trim() || '—') +
     reviewRow('Physician',   document.getElementById('f-physician').value.trim()) +
-    reviewRow('Patient Type', agEl  ? agEl.value  : '—') +
+    reviewRow('Patient Type', ageGroup) +
     reviewRow('Category',    catEl ? (CATEGORY_LABELS_R[catEl.value] || catEl.value) : '—');
 
   // ── Blood details section ──
@@ -452,12 +599,13 @@ function handleDrop(e) {
 
 function handleFile(file) {
   if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {  //  10 mb limit
+  if (file.size > 10 * 1024 * 1024) {
     showError("File exceeds 10MB limit."); 
     return; 
   }
-  if (!['image/jpeg','image/png'].includes(file.type)) {
-    showError("Only JPG or PNG image files are accepted.");
+  if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+    showError("Only PDF, JPG or PNG files are accepted.");
+    return;
   }
   selectedFile = file;
   document.getElementById('upload-placeholder').style.display = 'none';
@@ -493,8 +641,7 @@ function getRadioVal(name) {
   return checked ? checked.value : '';
 }
 
-// ── Submit with COMPLETE STRUCTURED DATA (MATCHING JAVA DTO/MODEL) ────────────
-// ── Submit with ONLY EXISTING FORM FIELDS ────────────────────
+// ── Submit with CALCULATED AGE FROM BIRTHDATE ─────────────────
 async function submitRequest() {
   hideError();
 
@@ -502,15 +649,17 @@ async function submitRequest() {
   // PATIENT INFORMATION (PAGE 1)
   // ──────────────────────────────────────────────
   const patientName   = document.getElementById('f-patientName').value.trim();
-  const patientAge    = document.getElementById('f-age').value;
+  const patientBirthdate = document.getElementById('f-birthdate').value;
+  const patientAge = calculateAge(patientBirthdate);
   const patientSex    = document.getElementById('f-sex').value;
-  const wardRoom      = document.getElementById('f-ward').value.trim();
+  const ward     = document.getElementById('f-ward').value.trim();
+  const room      = document.getElementById('f-room').value.trim();
   const requestingPhysician = document.getElementById('f-physician').value.trim();
 
   // ──────────────────────────────────────────────
   // PATIENT TYPE & CATEGORY (PAGE 1)
   // ──────────────────────────────────────────────
-  const ageGroup      = getRadioVal('ageGroup');
+  const ageGroup      = patientAge !== null && patientAge < 13 ? 'PEDIA' : 'ADULT';
   const requestCategory = getRadioVal('category');
 
   // ──────────────────────────────────────────────
@@ -569,13 +718,16 @@ async function submitRequest() {
 
   // ══════════════════════════════════════════════════════════════
   // BUILD COMPLETE DATA OBJECT (MATCHING BloodBagRequestDTO)
+  // AGE IS CALCULATED FROM BIRTHDATE
   // ══════════════════════════════════════════════════════════════
   const requestData = {
     // PATIENT INFO
     patientName: patientName,
-    patientAge: patientAge ? parseInt(patientAge) : null,
+    patientBirthdate: patientBirthdate ? patientBirthdate : null,
+    patientAge: patientAge,
     patientSex: patientSex || null,
-    wardRoom: wardRoom || null,
+    ward: ward || null,
+    room: room || null,
     requestingPhysician: requestingPhysician,
 
     // PATIENT TYPE & CATEGORY
@@ -630,7 +782,7 @@ async function submitRequest() {
   // Disable button during submission
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
-  btn.textContent = 'Submitting…';
+  btn.textContent = 'Submitting...';
 
   try {
     // Build FormData with JSON data and file
@@ -703,7 +855,7 @@ async function submitRequest() {
     console.error(err);
   } finally {
     btn.disabled = false;
-    btn.textContent = '🩸 Submit Blood Request';
+    btn.textContent = 'Submit Blood Request';
   }
 }
 
@@ -712,7 +864,7 @@ function resetForm() {
   document.getElementById('success-screen').style.display = 'none';
   clearFile();
   [
-    'f-patientName','f-age','f-ward','f-physician',
+    'f-patientName','f-birthdate','f-ward', 'f-room','f-physician',
     'f-diagnosis','f-hemoglobin','f-hematocrit',
     'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
     'f-requiredBy','f-notes','f-requesterName','f-contact','f-email'
@@ -726,7 +878,6 @@ function resetForm() {
       if (el) el.value = '';
     });
   // Reset radios
-  document.getElementById('ag-adult').checked = true;
   document.getElementById('cat-inpatient').checked = true;
   document.getElementById('urg-med').checked = true;
   document.getElementById('rt-routine').checked = true;
@@ -736,6 +887,7 @@ function resetForm() {
   // Hide/reset conditional fields
   togglePrevTransFields();
   toggleReactionFields();
+  updatePatientTypeAndForms();
   
   hideError();
   goTo(1);
@@ -1002,8 +1154,13 @@ function downloadForm(type) {
 document.addEventListener('DOMContentLoaded', function() {
   injectIndicationStyles();
   initIndicationHandlers();
+  
+  // Set minimum date to today for required by field
   const requiredByInput = document.getElementById('f-requiredBy');
   if (requiredByInput) {
     requiredByInput.min = new Date().toISOString().split('T')[0];
   }
+
+  // Listen to birthdate changes to update patient type and forms
+  document.getElementById('f-birthdate').addEventListener('change', updatePatientTypeAndForms);
 });
