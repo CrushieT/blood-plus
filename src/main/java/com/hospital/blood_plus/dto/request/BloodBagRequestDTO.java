@@ -20,6 +20,7 @@ public class BloodBagRequestDTO {
     private String patientName;          // "Smith, John"
     private Integer patientAge;
     private String patientSex;           // "M" or "F"
+    private LocalDate patientBirthdate;
     private String requestingPhysician;
     private BloodBag.BloodType bloodType;
     private ComponentType bloodComponent;
@@ -32,6 +33,7 @@ public class BloodBagRequestDTO {
 
     // Patient context
     private String wardRoom;
+    private String roomNo;
     private BloodBagRequest.AgeGroup ageGroup;
     private BloodBagRequest.RequestCategory requestCategory;
 
@@ -94,6 +96,9 @@ public class BloodBagRequestDTO {
 
     public String getPatientSex() { return patientSex; }
     public void setPatientSex(String patientSex) { this.patientSex = patientSex; }
+    
+    public LocalDate getPatientBirthdate() { return patientBirthdate; }
+    public void setPatientBirthdate(LocalDate patientBirthdate) { this.patientBirthdate = patientBirthdate; }
 
     public String getRequestingPhysician() { return requestingPhysician; }
     public void setRequestingPhysician(String requestingPhysician) { this.requestingPhysician = requestingPhysician; }
@@ -113,6 +118,9 @@ public class BloodBagRequestDTO {
     // Optional fields
     public String getWardRoom() { return wardRoom; }
     public void setWardRoom(String wardRoom) { this.wardRoom = wardRoom; }
+
+    public String getRoomNo() { return roomNo; }
+    public void setRoomNo(String roomNo) { this.roomNo = roomNo; }
 
     public BloodBagRequest.AgeGroup getAgeGroup() { return ageGroup; }
     public void setAgeGroup(BloodBagRequest.AgeGroup ageGroup) { this.ageGroup = ageGroup; }
