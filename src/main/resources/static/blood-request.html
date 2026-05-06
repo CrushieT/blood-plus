@@ -330,7 +330,7 @@
           </div>
           <div class="form-field">
             <label class="form-label">No. of Units <span>*</span></label>
-            <input class="form-input" id="f-units" type="number" min="1" placeholder="e.g. 2" />
+            <input class="form-input" id="f-units" type="number" min="1" max="99" placeholder="e.g. 2" />
           </div>
         </div>
 
@@ -364,6 +364,32 @@
           </div>
         </div>
 
+        <!-- URGENCY LEVEL (dependent on Request Type) -->
+        <div class="form-field" style="margin-top:14px">
+          <label class="form-label">Urgency Level <span>*</span></label>
+          <div id="urgency-display" style="display:none;background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:12px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
+            <span id="urgency-stat-badge" style="background:rgba(196,30,58,0.15);color:#C41E3A;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700">AUTO: HIGH</span>
+          </div>
+          <div id="urgency-group" class="urgency-group" style="display:none">
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-low" value="LOW">
+              <label class="urgency-label" for="urg-low">Low<br><span style="font-weight:400;font-size:10px">Scheduled</span></label>
+            </div>
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-med" value="MEDIUM" checked>
+              <label class="urgency-label" for="urg-med">Medium<br><span style="font-weight:400;font-size:10px">Within a week</span></label>
+            </div>
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-high" value="HIGH">
+              <label class="urgency-label" for="urg-high">High<br><span style="font-weight:400;font-size:10px">2-3 days</span></label>
+            </div>
+            <!-- <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-crit" value="CRITICAL">
+              <label class="urgency-label" for="urg-crit">Critical<br><span style="font-weight:400;font-size:10px">Immediately</span></label>
+            </div> -->
+          </div>
+        </div>
+        
         <!-- TRANSFUSION HISTORY -->
         <div class="form-section-title">Transfusion History</div>
         <div class="form-grid cols-2">
@@ -476,7 +502,7 @@
                 <strong>R-1:</strong> Hemoglobin less than 80 g/L or Hematocrit of less than 0.24 (if not due to treatable cause)
               </label>
             </div>
-
+ 
             <div class="indication-item">
               <input type="checkbox" id="ind-R-2" value="R-2" class="indication-checkbox" data-component="PRBC">
               <label for="ind-R-2">

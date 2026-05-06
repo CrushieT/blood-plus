@@ -13,7 +13,9 @@ public class BloodBagRequest {
     // ─────────────────────────────────────────────
     // Enums
     // ─────────────────────────────────────────────
-
+    public enum UrgencyLevel {
+        LOW, MEDIUM, HIGH, CRITICAL
+    }
     public enum RequestStatus {
         PENDING, APPROVED, ALLOCATED, READY_FOR_RELEASE, RELEASED, REJECTED, CANCELLED
     }
@@ -60,6 +62,10 @@ public class BloodBagRequest {
 
     @Column
     private Integer volumeMl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UrgencyLevel urgencyLevel;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -145,7 +151,7 @@ public class BloodBagRequest {
     // ─────────────────────────────────────────────
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column
     private ComponentType bloodComponent;
 
     @Column
@@ -243,6 +249,24 @@ public class BloodBagRequest {
     private String indication;  // Comma-separated codes: "F-1,F-2,F-3"
 
     // ─────────────────────────────────────────────
+    // INDICATIONS "OTHER (SPECIFY)" TRACKING
+    // ─────────────────────────────────────────────
+    // Store the specify text for each "Other" indication
+    // Format: "WB-2:reason1,R-5:reason2,P-6:reason3" (code:text pairs)
+    @Column(length = 1000)
+    private String indicationOtherSpecify;
+
+    // ─────────────────────────────────────────────
+    // OTHER BLOOD COMPONENT (if component = OTHER)
+    // ─────────────────────────────────────────────
+
+    @Column(length = 200)
+    private String otherComponentName;  // e.g., "Albumin", "Immunoglobulin"
+
+    @Column(length = 500)
+    private String otherComponentIndication;  // Indication text for OTHER component
+
+    // ─────────────────────────────────────────────
     // Lifecycle
     // ─────────────────────────────────────────────
 
@@ -271,6 +295,9 @@ public class BloodBagRequest {
 
     public Integer getVolumeMl() { return volumeMl; }
     public void setVolumeMl(Integer volumeMl) { this.volumeMl = volumeMl; }
+
+    public UrgencyLevel getUrgencyLevel() { return urgencyLevel; }
+    public void setUrgencyLevel(UrgencyLevel urgencyLevel) { this.urgencyLevel = urgencyLevel; }
 
     public RequestStatus getStatus() { return status; }
     public void setStatus(RequestStatus status) { this.status = status; }
@@ -319,7 +346,6 @@ public class BloodBagRequest {
     public String getPatientSex() { return patientSex; }
     public void setPatientSex(String patientSex) { this.patientSex = patientSex; }
 
-    // Getters/Setters
     public LocalDate getPatientBirthdate() { return patientBirthdate; }
     public void setPatientBirthdate(LocalDate patientBirthdate) { this.patientBirthdate = patientBirthdate; }
 
@@ -421,6 +447,23 @@ public class BloodBagRequest {
     public void setIndication(String indication) { this.indication = indication; }
 
     // ─────────────────────────────────────────────
+    // INDICATIONS "OTHER (SPECIFY)" 
+    // ─────────────────────────────────────────────
+
+    public String getIndicationOtherSpecify() { return indicationOtherSpecify; }
+    public void setIndicationOtherSpecify(String indicationOtherSpecify) { this.indicationOtherSpecify = indicationOtherSpecify; }
+
+    // ─────────────────────────────────────────────
+    // OTHER BLOOD COMPONENT 
+    // ─────────────────────────────────────────────
+
+    public String getOtherComponentName() { return otherComponentName; }
+    public void setOtherComponentName(String otherComponentName) { this.otherComponentName = otherComponentName; }
+
+    public String getOtherComponentIndication() { return otherComponentIndication; }
+    public void setOtherComponentIndication(String otherComponentIndication) { this.otherComponentIndication = otherComponentIndication; }
+
+    // ─────────────────────────────────────────────
     // HELPER METHOD — Format transfusion history for display
     // ─────────────────────────────────────────────
 
@@ -450,5 +493,44 @@ public class BloodBagRequest {
             return String.format("YES on %s: %s", previousReactionDate, detail);
         }
         return "YES (details not specified)";
+    }
+
+    // ─────────────────────────────────────────────
+    // HELPER METHOD — Parse indication other specify
+    // ─────────────────────────────────────────────
+    /**
+     * Parse the indicationOtherSpecify field into a map of code -> specification.
+     * Format stored: "WB-2:reason1,R-5:reason2,P-6:reason3"
+     * Returns map like: {WB-2 -> "reason1", R-5 -> "reason2", ...}
+     */
+    public java.util.Map<String, String> getIndicationOtherSpecifyMap() {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        if (indicationOtherSpecify == null || indicationOtherSpecify.isEmpty()) {
+            return map;
+        }
+        for (String pair : indicationOtherSpecify.split(",")) {
+            if (pair.contains(":")) {
+                String[] parts = pair.split(":", 2);
+                map.put(parts[0].trim(), parts[1].trim());
+            }
+        }
+        return map;
+    }
+
+    /**
+     * Format indication other specify for display.
+     * Takes the stored format and returns human-readable text.
+     */
+    public String formatIndicationOtherSpecify() {
+        java.util.Map<String, String> map = getIndicationOtherSpecifyMap();
+        if (map.isEmpty()) {
+            return "None";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, String> entry : map.entrySet()) {
+            if (sb.length() > 0) sb.append("; ");
+            sb.append(entry.getKey()).append(": ").append(entry.getValue());
+        }
+        return sb.toString();
     }
 }

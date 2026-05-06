@@ -40,7 +40,7 @@ public class AnalyticsService {
      */
     public AnalyticsDTO getDashboardMetrics() {
         RequestMetrics requests = calculateRequestMetrics();
-        // Map<String, Long> urgency = calculateUrgencyBreakdown();
+        Map<String, Long> urgency = calculateUrgencyBreakdown();
         Map<String, Long> category = calculateCategoryBreakdown();
         Map<String, Long> bloodTypes = calculateBloodTypeInventory();
         Map<String, Long> dispatch = calculateDispatchMetrics();
@@ -52,7 +52,7 @@ public class AnalyticsService {
 
         return new AnalyticsDTO(
             requests,
-            // urgency,
+            urgency,
             category,
             bloodTypes,
             dispatch,
@@ -82,16 +82,16 @@ public class AnalyticsService {
     // /**
     //  * Calculate urgency level breakdown
     //  */
-    // private Map<String, Long> calculateUrgencyBreakdown() {
-    //     Map<String, Long> urgencyMap = new LinkedHashMap<>();
+    private Map<String, Long> calculateUrgencyBreakdown() {
+        Map<String, Long> urgencyMap = new LinkedHashMap<>();
 
-    //     for (UrgencyLevel level : UrgencyLevel.values()) {
-    //         Long count = bloodBagRequestRepository.countByUrgencyLevel(level);
-    //         urgencyMap.put(level.name(), count);
-    //     }
+        for (UrgencyLevel level : UrgencyLevel.values()) {
+            Long count = bloodBagRequestRepository.countByUrgencyLevel(level);
+            urgencyMap.put(level.name(), count);
+        }
 
-    //     return urgencyMap;
-    // }
+        return urgencyMap;
+    }
 
     /**
      * Calculate request category breakdown

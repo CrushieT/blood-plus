@@ -28,7 +28,7 @@ public class BloodBagRequestDTO {
     private BloodBag.BloodType bloodType;
     private ComponentType bloodComponent;
     private Integer numberOfUnits;
-    // private BloodBagRequest.UrgencyLevel urgencyLevel;
+    private BloodBagRequest.UrgencyLevel urgencyLevel;
 
     // ─────────────────────────────────────────────────────────────
     // OPTIONAL FIELDS (May be populated depending on request type)
@@ -76,6 +76,7 @@ public class BloodBagRequestDTO {
     // ─────────────────────────────────────────────────────────────
 
     private String indication;  // Comma-separated codes: "F-1,F-2,F-3" or with sub-codes "F-5,F-5a,F-5b"
+    private String indicationOtherSpecify;
 
     // ─────────────────────────────────────────────────────────────
     // REQUESTER FIELDS (For ANONYMOUS requests)
@@ -124,8 +125,8 @@ public class BloodBagRequestDTO {
     public Integer getNumberOfUnits() { return numberOfUnits; }
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }
 
-    // public BloodBagRequest.UrgencyLevel getUrgencyLevel() { return urgencyLevel; }
-    // public void setUrgencyLevel(BloodBagRequest.UrgencyLevel urgencyLevel) { this.urgencyLevel = urgencyLevel; }
+    public BloodBagRequest.UrgencyLevel getUrgencyLevel() { return urgencyLevel; }
+    public void setUrgencyLevel(BloodBagRequest.UrgencyLevel urgencyLevel) { this.urgencyLevel = urgencyLevel; }
 
     // Optional fields
     public String getWardRoom() { return wardRoom; }
@@ -188,6 +189,9 @@ public class BloodBagRequestDTO {
     // Indications
     public String getIndication() { return indication; }
     public void setIndication(String indication) { this.indication = indication; }
+
+    public String getIndicationOtherSpecify() { return indicationOtherSpecify; }
+    public void setIndicationOtherSpecify(String indicationOtherSpecify) { this.indicationOtherSpecify = indicationOtherSpecify; }
 
     // Requester fields (for anonymous requests)
     public String getRequesterName() { return requesterName; }

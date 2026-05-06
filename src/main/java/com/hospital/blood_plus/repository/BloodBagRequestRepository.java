@@ -6,7 +6,7 @@ import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.model.BloodBagRequest.RequestCategory;
 import com.hospital.blood_plus.model.BloodBagRequest.RequestStatus;
 import com.hospital.blood_plus.model.BloodBagRequest.RequesterType;
-// import com.hospital.blood_plus.model.BloodBagRequest.UrgencyLevel;
+import com.hospital.blood_plus.model.BloodBagRequest.UrgencyLevel;
 import com.hospital.blood_plus.model.HospitalProfile;
 
 import org.springframework.data.domain.Pageable;
@@ -49,7 +49,7 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     long countByStatus(BloodBagRequest.RequestStatus status);
     
  
-    // Long countByUrgencyLevel(UrgencyLevel urgencyLevel);
+    Long countByUrgencyLevel(UrgencyLevel urgencyLevel);
  
     Long countByRequestCategory(RequestCategory requestCategory);
  
