@@ -407,7 +407,7 @@ public class HospitalController {
         res.put("referenceNumber", req.getReferenceNumber());
         res.put("status", req.getStatus());
         res.put("requestType", req.getRequestType());
-        res.put("urgencyLevel", req.getUrgencyLevel());
+        // res.put("urgencyLevel", req.getUrgencyLevel());
  
         // ─────────────────────────────────────────────
         // PATIENT INFORMATION

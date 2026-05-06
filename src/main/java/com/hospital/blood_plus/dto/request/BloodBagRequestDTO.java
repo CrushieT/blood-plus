@@ -18,6 +18,9 @@ public class BloodBagRequestDTO {
     // ─────────────────────────────────────────────────────────────
 
     private String patientName;          // "Smith, John"
+    private String patientMiddle;          // "Smith, John"
+    private String patientLast;          // "Smith, John"
+    private String patientSuffix;          // "Smith, John"
     private Integer patientAge;
     private String patientSex;           // "M" or "F"
     private LocalDate patientBirthdate;
@@ -25,7 +28,7 @@ public class BloodBagRequestDTO {
     private BloodBag.BloodType bloodType;
     private ComponentType bloodComponent;
     private Integer numberOfUnits;
-    private BloodBagRequest.UrgencyLevel urgencyLevel;
+    // private BloodBagRequest.UrgencyLevel urgencyLevel;
 
     // ─────────────────────────────────────────────────────────────
     // OPTIONAL FIELDS (May be populated depending on request type)
@@ -91,6 +94,15 @@ public class BloodBagRequestDTO {
     public String getPatientName() { return patientName; }
     public void setPatientName(String patientName) { this.patientName = patientName; }
 
+    public String getPatientMiddle() { return patientMiddle; }
+    public void setPatientMiddle(String patientMiddle) { this.patientMiddle = patientMiddle; }
+
+    public String getPatientLast() { return patientLast; }
+    public void setPatientLast(String patientLast) { this.patientLast = patientLast; }
+    
+    public String getPatientSuffix() { return patientSuffix; }
+    public void setPatientSuffix(String patientSuffix) { this.patientSuffix = patientSuffix; }
+
     public Integer getPatientAge() { return patientAge; }
     public void setPatientAge(Integer patientAge) { this.patientAge = patientAge; }
 
@@ -112,8 +124,8 @@ public class BloodBagRequestDTO {
     public Integer getNumberOfUnits() { return numberOfUnits; }
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }
 
-    public BloodBagRequest.UrgencyLevel getUrgencyLevel() { return urgencyLevel; }
-    public void setUrgencyLevel(BloodBagRequest.UrgencyLevel urgencyLevel) { this.urgencyLevel = urgencyLevel; }
+    // public BloodBagRequest.UrgencyLevel getUrgencyLevel() { return urgencyLevel; }
+    // public void setUrgencyLevel(BloodBagRequest.UrgencyLevel urgencyLevel) { this.urgencyLevel = urgencyLevel; }
 
     // Optional fields
     public String getWardRoom() { return wardRoom; }

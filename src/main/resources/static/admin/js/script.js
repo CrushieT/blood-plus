@@ -5714,6 +5714,8 @@ function initializeAutoRefresh() {
   loadDashboard();
   loadBloodBank();
   reqFetchAll();
+  loggingStatusRender()
+  loggingFulfillmentRender()
 
   // Small delay to ensure initial data is loaded
   setTimeout(() => {

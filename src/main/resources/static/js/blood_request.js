@@ -123,7 +123,13 @@ function validate(page) {
 
   if (page === 1) {
     if (!document.getElementById('f-patientName').value.trim())
-      return showError('Please enter the patient\'s full name.'), false;
+      return showError('Please enter the patient\'s first name.'), false;
+    if (!document.getElementById('f-patientMiddle').value.trim())
+      return showError('Please enter the patient\'s middle name.'), false;
+    if (!document.getElementById('f-patientLast').value.trim())
+      return showError('Please enter the patient\'s last name.'), false;
+    if (!document.getElementById('f-patientSuffix').value.trim())
+      return showError('Please enter the patient\'s Suffix.'), false;
     if (!document.getElementById('f-birthdate').value)
       return showError('Please enter the patient\'s date of birth.'), false;
     
@@ -146,10 +152,6 @@ function validate(page) {
       return showError('Please select the blood component needed.'), false;
     if (!document.getElementById('f-units').value)
       return showError('Please select the number of units needed.'), false;
-    if (!getRadioVal('urgency'))
-      return showError('Please select an urgency level.'), false;
-    if (!hasSelectedIndications())
-      return showError('Please select at least one indication for transfusion.'), false;
   }
 
   if (page === 3) {
@@ -649,6 +651,9 @@ async function submitRequest() {
   // PATIENT INFORMATION (PAGE 1)
   // ──────────────────────────────────────────────
   const patientName   = document.getElementById('f-patientName').value.trim();
+  const patientMiddle   = document.getElementById('f-patientMiddle').value.trim();
+  const patientLast   = document.getElementById('f-patientLast').value.trim();
+  const patientSuffix   = document.getElementById('f-patientSuffix').value.trim();
   const patientBirthdate = document.getElementById('f-birthdate').value;
   const patientAge = calculateAge(patientBirthdate);
   const patientSex    = document.getElementById('f-sex').value;
@@ -700,7 +705,7 @@ async function submitRequest() {
   // ──────────────────────────────────────────────
   // URGENCY & TIMING (PAGE 2)
   // ──────────────────────────────────────────────
-  const urgencyLevel  = getRadioVal('urgency');
+  // const urgencyLevel  = getRadioVal('urgency');
   const requiredBy    = document.getElementById('f-requiredBy').value;
 
   // ──────────────────────────────────────────────
@@ -740,7 +745,7 @@ async function submitRequest() {
     numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : null,
 
     // URGENCY & TIMING
-    urgencyLevel: urgencyLevel,
+    // urgencyLevel: urgencyLevel,
     requiredBy: requiredBy || null,
 
     // CONTACT / REQUESTER
@@ -828,7 +833,7 @@ async function submitRequest() {
       bloodType: bloodType,
       bloodComponent: bloodComponent,
       numberOfUnits: numberOfUnits,
-      urgencyLevel: urgencyLevel,
+      // urgencyLevel: urgencyLevel,
       requiredBy: requiredBy,
       requesterName: requesterName,
       requesterRelationship: requesterRelationship,
@@ -1067,7 +1072,7 @@ async function trackRequest() {
           <div class="tl-label">${step.label}</div>
           ${step.time
             ? `<div class="tl-time">${step.time}</div>`
-            : (isCurrent ? '<div class="tl-time">In progress...</div>' : '')}
+            : (isCurrent ? '<div class="tl-time">Done...</div>' : '')}
         </div>
       </div>`;
   }

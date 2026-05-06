@@ -208,7 +208,6 @@ public class RecentActivityService {
     private RecentActivityDTO createRequestCreatedActivity(BloodBagRequest request) {
         RecentActivityDTO activity = new RecentActivityDTO();
         activity.setActivityType(ActivityType.REQUEST_CREATED);
-        activity.setSeverity(mapUrgencyToSeverity(request.getUrgencyLevel()));
         
         String bloodTypeDisplay = request.getBloodType().getDisplayName();
         String requesterName = null;
@@ -225,7 +224,7 @@ public class RecentActivityService {
                 request.getNumberOfUnits() != null ? request.getNumberOfUnits() : 1,
                 request.getNumberOfUnits() != null && request.getNumberOfUnits() > 1 ? "s" : "",
                 bloodTypeDisplay,
-                request.getUrgencyLevel().toString()));
+                request.getRequestType() != null ? request.getRequestType().toString() : "ROUTINE"));
         
         activity.setTimestamp(request.getRequestedAt());
         activity.setBloodType(bloodTypeDisplay);
@@ -236,7 +235,7 @@ public class RecentActivityService {
         if (request.getRequestedBy() != null) {
             activity.setActorName(request.getRequestedBy().getUsername());
         }
-        activity.setMetadata("urgency:" + request.getUrgencyLevel().toString() + 
+        activity.setMetadata("requestType:" + (request.getRequestType() != null ? request.getRequestType().toString() : "ROUTINE") + 
                             "|status:" + request.getStatus().toString());
 
         return activity;
@@ -345,18 +344,18 @@ public class RecentActivityService {
     // HELPER METHODS
     // ─────────────────────────────────────────────
 
-    private ActivitySeverity mapUrgencyToSeverity(BloodBagRequest.UrgencyLevel urgency) {
-        switch (urgency) {
-            case CRITICAL:
-                return ActivitySeverity.CRITICAL;
-            case HIGH:
-                return ActivitySeverity.WARNING;
-            case MEDIUM:
-            case LOW:
-            default:
-                return ActivitySeverity.INFO;
-        }
-    }
+    // private ActivitySeverity mapUrgencyToSeverity(BloodBagRequest.UrgencyLevel urgency) {
+    //     switch (urgency) {
+    //         case CRITICAL:
+    //             return ActivitySeverity.CRITICAL;
+    //         case HIGH:
+    //             return ActivitySeverity.WARNING;
+    //         case MEDIUM:
+    //         case LOW:
+    //         default:
+    //             return ActivitySeverity.INFO;
+    //     }
+    // }
 
     private ActivityType mapStatusToActivityType(BloodBagRequest.RequestStatus status) {
         switch (status) {

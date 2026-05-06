@@ -85,7 +85,7 @@ public class BloodBagRequestService {
         // ─────────────────────────────────────────────
         // URGENCY & DATES (EXISTING)
         // ─────────────────────────────────────────────
-        request.setUrgencyLevel(dto.getUrgencyLevel());
+        // request.setUrgencyLevel(dto.getUrgencyLevel());
         request.setRequiredBy(dto.getRequiredBy());
  
         // ─────────────────────────────────────────────
@@ -372,7 +372,7 @@ public class BloodBagRequestService {
         request.setBloodType(dto.getBloodType());
         request.setBloodComponent(dto.getBloodComponent());
         request.setNumberOfUnits(dto.getNumberOfUnits());
-        request.setUrgencyLevel(dto.getUrgencyLevel());
+        // request.setUrgencyLevel(dto.getUrgencyLevel());
         request.setRequiredBy(dto.getRequiredBy());
         request.setNotes(dto.getNotes() != null ? dto.getNotes() : "");
     
@@ -487,8 +487,8 @@ public class BloodBagRequestService {
             throw new IllegalArgumentException("Blood component is required.");
         if (dto.getNumberOfUnits() == null || dto.getNumberOfUnits() < 1)
             throw new IllegalArgumentException("Number of units is required (minimum 1).");
-        if (dto.getUrgencyLevel() == null)
-            throw new IllegalArgumentException("Urgency level is required.");
+        // if (dto.getUrgencyLevel() == null)
+        //     throw new IllegalArgumentException("Urgency level is required.");
         
         // NEW: Validate indication is provided
         if (dto.getIndication() == null || dto.getIndication().isBlank())
@@ -530,8 +530,8 @@ public class BloodBagRequestService {
             throw new IllegalArgumentException("Number of units must be greater than 0.");
  
         // Required urgency
-        if (dto.getUrgencyLevel() == null)
-            throw new IllegalArgumentException("Urgency level is required.");
+        // if (dto.getUrgencyLevel() == null)
+        //     throw new IllegalArgumentException("Urgency level is required.");
  
         // Required contact fields (for walk-in/anonymous)
         if (dto.getRequesterName() == null || dto.getRequesterName().trim().isEmpty())

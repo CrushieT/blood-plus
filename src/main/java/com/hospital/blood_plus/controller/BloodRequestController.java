@@ -73,7 +73,7 @@ public class BloodRequestController {
         res.put("bloodType", req.getBloodType());
         res.put("bloodComponent", req.getBloodComponent());
         res.put("numberOfUnits", req.getNumberOfUnits());
-        res.put("urgencyLevel", req.getUrgencyLevel());
+        // res.put("urgencyLevel", req.getUrgencyLevel());
         res.put("status", req.getStatus());
         res.put("submittedAt", req.getRequestedAt());
         res.put("reviewedAt", req.getReviewedAt());

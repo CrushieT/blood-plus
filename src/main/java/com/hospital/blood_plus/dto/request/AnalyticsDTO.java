@@ -13,8 +13,8 @@ public class AnalyticsDTO {
     @JsonProperty("requests")
     private RequestMetrics requests;
 
-    @JsonProperty("urgency")
-    private Map<String, Long> urgency;
+    // @JsonProperty("urgency")
+    // private Map<String, Long> urgency;
 
     @JsonProperty("category")
     private Map<String, Long> category;
@@ -147,13 +147,13 @@ public class AnalyticsDTO {
 
     public AnalyticsDTO() {}
 
-    public AnalyticsDTO(RequestMetrics requests, Map<String, Long> urgency,
+    public AnalyticsDTO(RequestMetrics requests,
                        Map<String, Long> category, Map<String, Long> bloodTypes,
                        Map<String, Long> dispatch, AlertMetrics alerts,
                        Map<String, Long> requesterType, Map<String, Long> bloodComponent,
                        List<HospitalMetric> hospitals, FulfillmentMetrics fulfillmentMetrics) {
         this.requests = requests;
-        this.urgency = urgency;
+        // this.urgency = urgency;
         this.category = category;
         this.bloodTypes = bloodTypes;
         this.dispatch = dispatch;
@@ -169,8 +169,8 @@ public class AnalyticsDTO {
     public RequestMetrics getRequests() { return requests; }
     public void setRequests(RequestMetrics requests) { this.requests = requests; }
 
-    public Map<String, Long> getUrgency() { return urgency; }
-    public void setUrgency(Map<String, Long> urgency) { this.urgency = urgency; }
+    // public Map<String, Long> getUrgency() { return urgency; }
+    // public void setUrgency(Map<String, Long> urgency) { this.urgency = urgency; }
 
     public Map<String, Long> getCategory() { return category; }
     public void setCategory(Map<String, Long> category) { this.category = category; }

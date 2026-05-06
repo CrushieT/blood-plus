@@ -223,9 +223,21 @@
         <!-- Patient Information -->
         <div class="form-section-title">Patient Information</div>
         <div class="form-grid cols-2">
-          <div class="form-field" style="grid-column: span 2">
-            <label class="form-label">Full Name (Surname, Given, Middle) <span>*</span></label>
-            <input class="form-input" id="f-patientName" placeholder="e.g. Dela Cruz, Juan Santos" />
+          <div class="form-field">
+            <label class="form-label">First Name <span>*</span></label>
+            <input class="form-input" id="f-patientName" placeholder="e.g. Juan" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Middle Name</label>
+            <input class="form-input" id="f-patientMiddle" placeholder="e.g. Santos" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Last Name <span>*</span></label>
+            <input class="form-input" id="f-patientLast" placeholder="e.g. Dela Cruz" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Suffix</label>
+            <input class="form-input" id="f-patientSuffix" placeholder="e.g. Jr., Sr." />
           </div>
           <div class="form-field">
             <label class="form-label">Date of Birth <span>*</span></label>
@@ -318,14 +330,7 @@
           </div>
           <div class="form-field">
             <label class="form-label">No. of Units <span>*</span></label>
-            <select class="form-select" id="f-units">
-              <option value="">Select...</option>
-              <option value="1">1 unit</option>
-              <option value="2">2 units</option>
-              <option value="3">3 units</option>
-              <option value="4">4 units</option>
-              <option value="5">5+ units</option>
-            </select>
+            <input class="form-input" id="f-units" type="number" min="1" placeholder="e.g. 2" />
           </div>
         </div>
 
@@ -938,27 +943,7 @@
           </div>
         </div>
 
-        <div class="form-field" style="margin-top:14px">
-          <label class="form-label">Urgency Level <span>*</span></label>
-          <div class="urgency-group">
-            <div class="urgency-opt">
-              <input type="radio" name="urgency" id="urg-low" value="LOW">
-              <label class="urgency-label" for="urg-low">Low<br><span style="font-weight:400;font-size:10px">Scheduled</span></label>
-            </div>
-            <div class="urgency-opt">
-              <input type="radio" name="urgency" id="urg-med" value="MEDIUM" checked>
-              <label class="urgency-label" for="urg-med">Medium<br><span style="font-weight:400;font-size:10px">Within a week</span></label>
-            </div>
-            <div class="urgency-opt">
-              <input type="radio" name="urgency" id="urg-high" value="HIGH">
-              <label class="urgency-label" for="urg-high">High<br><span style="font-weight:400;font-size:10px">2-3 days</span></label>
-            </div>
-            <div class="urgency-opt">
-              <input type="radio" name="urgency" id="urg-crit" value="CRITICAL">
-              <label class="urgency-label" for="urg-crit">Critical<br><span style="font-weight:400;font-size:10px">Immediately</span></label>
-            </div>
-          </div>
-        </div>
+        
 
         <div class="form-field" style="margin-top:14px">
           <label class="form-label">Required By Date</label>
@@ -999,7 +984,7 @@
           <div id="upload-placeholder">
             <div style="font-size:32px;opacity:0.3;margin-bottom:8px">F</div>
             <div style="font-size:14px;font-weight:600;color:var(--charcoal);margin-bottom:4px">Click to upload Doctor's Note</div>
-            <div style="font-size:12px;color:var(--muted)">PDF, JPG or PNG - Max 5MB</div>
+            <div style="font-size:12px;color:var(--muted)">PDF, JPG or PNG - Max 10MB</div>
           </div>
           <div id="upload-preview" style="display:none;text-align:left">
             <div style="display:flex;align-items:center;gap:12px">

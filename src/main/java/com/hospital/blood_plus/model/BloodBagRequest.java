@@ -14,10 +14,6 @@ public class BloodBagRequest {
     // Enums
     // ─────────────────────────────────────────────
 
-    public enum UrgencyLevel {
-        LOW, MEDIUM, HIGH, CRITICAL
-    }
-
     public enum RequestStatus {
         PENDING, APPROVED, ALLOCATED, READY_FOR_RELEASE, RELEASED, REJECTED, CANCELLED
     }
@@ -67,10 +63,6 @@ public class BloodBagRequest {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UrgencyLevel urgencyLevel;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private RequestStatus status = RequestStatus.PENDING;
 
     @Column(nullable = false, updatable = false)
@@ -108,6 +100,15 @@ public class BloodBagRequest {
 
     @Column(length = 200)
     private String patientName;
+
+    @Column(length = 200)
+    private String patientMiddle;
+
+    @Column(length = 200)
+    private String patientLast;
+
+    @Column(length = 20)
+    private String patientSuffix;
 
     @Column
     private Integer patientAge;
@@ -198,7 +199,7 @@ public class BloodBagRequest {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private RequestType requestType;  // STAT or ROUTINE
+    private RequestType requestType;  // STAT or ROUTINE — PRIMARY URGENCY INDICATOR
 
     // ─────────────────────────────────────────────
     // TRANSFUSION HISTORY (STRUCTURED)
@@ -271,9 +272,6 @@ public class BloodBagRequest {
     public Integer getVolumeMl() { return volumeMl; }
     public void setVolumeMl(Integer volumeMl) { this.volumeMl = volumeMl; }
 
-    public UrgencyLevel getUrgencyLevel() { return urgencyLevel; }
-    public void setUrgencyLevel(UrgencyLevel urgencyLevel) { this.urgencyLevel = urgencyLevel; }
-
     public RequestStatus getStatus() { return status; }
     public void setStatus(RequestStatus status) { this.status = status; }
 
@@ -305,6 +303,15 @@ public class BloodBagRequest {
 
     public String getPatientName() { return patientName; }
     public void setPatientName(String patientName) { this.patientName = patientName; }
+
+    public String getPatientMiddle() { return patientMiddle; }
+    public void setPatientMiddle(String patientMiddle) { this.patientMiddle = patientMiddle; }
+
+    public String getPatientLast() { return patientLast; }
+    public void setPatientLast(String patientLast) { this.patientLast = patientLast; }
+    
+    public String getPatientSuffix() { return patientSuffix; }
+    public void setPatientSuffix(String patientSuffix) { this.patientSuffix = patientSuffix; }
 
     public Integer getPatientAge() { return patientAge; }
     public void setPatientAge(Integer patientAge) { this.patientAge = patientAge; }
