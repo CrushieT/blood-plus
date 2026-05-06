@@ -17,10 +17,10 @@ public class BloodBagRequestDTO {
     // CORE FIELDS (Required for all request types)
     // ─────────────────────────────────────────────────────────────
 
-    private String patientName;          // "Smith, John"
-    private String patientMiddle;          // "Smith, John"
-    private String patientLast;          // "Smith, John"
-    private String patientSuffix;          // "Smith, John"
+    private String patientName;         
+    private String patientMiddle;       
+    private String patientLast;          
+    private String patientSuffix;          
     private Integer patientAge;
     private String patientSex;           // "M" or "F"
     private LocalDate patientBirthdate;

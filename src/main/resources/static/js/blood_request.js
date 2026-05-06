@@ -127,8 +127,6 @@ function validate(page) {
       return showError('Please enter the patient\'s middle name.'), false;
     if (!document.getElementById('f-patientLast').value.trim())
       return showError('Please enter the patient\'s last name.'), false;
-    if (!document.getElementById('f-patientSuffix').value.trim())
-      return showError('Please enter the patient\'s Suffix.'), false;
     if (!document.getElementById('f-birthdate').value)
       return showError('Please enter the patient\'s date of birth.'), false;
     
@@ -811,6 +809,9 @@ async function submitRequest() {
   const requestData = {
     // PATIENT INFO
     patientName: patientName,
+    patientMiddle: patientMiddle,
+    patientLast: patientLast,
+    patientSuffix: patientSuffix,
     patientBirthdate: patientBirthdate ? patientBirthdate : null,
     patientAge: patientAge,
     patientSex: patientSex || null,

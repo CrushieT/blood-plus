@@ -2071,6 +2071,49 @@ window.exportBloodBagsToExcel = function() {
   }
 
   /* ─────────────────────────────────────────────────────────
+     PATIENT NAME FORMATTING — Format name parts as: Last, First Middle Suffix
+  ───────────────────────────────────────────────────────── */
+  function formatPatientName(req) {
+    const first = req.patientName || '';
+    const middle = req.patientMiddle || '';
+    const last = req.patientLast || '';
+    const suffix = req.patientSuffix || '';
+
+    if (!first && !last) return '—';
+
+    let formatted = '';
+    // Last, First Middle Suffix format
+    if (last) {
+      formatted = last;
+      if (first) formatted += ', ' + first;
+      if (middle) formatted += ' ' + middle;
+      if (suffix) formatted += ' ' + suffix;
+    } else {
+      // Fallback if only first name exists
+      formatted = first;
+      if (middle) formatted += ' ' + middle;
+      if (suffix) formatted += ' ' + suffix;
+    }
+
+    return formatted.trim();
+  }
+
+
+  
+  /* ─────────────────────────────────────────────────────────
+     BIRTHDATE FORMATTING
+  ───────────────────────────────────────────────────────── */
+  function formatBirthdate(birthdateStr) {
+    if (!birthdateStr) return '—';
+    try {
+      const date = new Date(birthdateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return birthdateStr;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────
      CONSTANTS
   ───────────────────────────────────────────────────────── */
   const REQ_STATUSES = ['PENDING', 'APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
@@ -2166,16 +2209,20 @@ window.exportBloodBagsToExcel = function() {
  
     const bloodTypeEnum = r.bloodType ?? '—';
     const displayBloodType = formatBloodType(bloodTypeEnum);
- 
     return {
       id:             r.id,
       name,
       type:           r.requesterType    ?? 'ANONYMOUS',
-      patient:        r.patientName      ?? '—',
+      patient:        formatPatientName(r) ?? '—',
       patientName:    r.patientName      ?? '—',
+      patientMiddle:  r.patientMiddle    ?? null,
+      patientLast:    r.patientLast      ?? null,
+      patientSuffix:  r.patientSuffix    ?? null,
       patientAge:     r.patientAge       ?? null,
       patientSex:     r.patientSex       ?? null,
+      patientBirthdate: r.patientBirthdate ?? null,
       wardRoom:       r.wardRoom         ?? null,
+      roomNo:         r.roomNo           ?? null,
       referenceNumber:       r.referenceNumber         ?? null,
       requestingPhysician: r.requestingPhysician ?? null,
       ageGroup:       r.ageGroup         ?? null,
@@ -2199,6 +2246,7 @@ window.exportBloodBagsToExcel = function() {
       requesterEmail: r.requesterEmail   ?? null,
       notes:          r.notes            ?? null,
       indication:     r.indication       ?? null,
+      indicationOtherSpecify:     r.indicationOtherSpecify       ?? null,
       clinicalImpression: r.clinicalImpression ?? null,
       attendingPhysician: r.attendingPhysician ?? null,
       contactNumber:  r.contactNumber    ?? null,
@@ -2791,6 +2839,7 @@ window.exportBloodBagsToExcel = function() {
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
+    const typeLabel = req.type === 'ANONYMOUS' ? '' : `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${req.type})</span>`;
  
     if (isExp && ['PENDING', 'APPROVED'].includes(req.status)) {
       setTimeout(() => reqFetchCompatibleBags(req), 0);
@@ -2803,9 +2852,9 @@ window.exportBloodBagsToExcel = function() {
              style="background:${urgColor};margin-right:0;flex-shrink:0;border-radius:12px 0 0 ${isExp ? '0' : '12px'}"></div>
         <div style="flex:1;display:grid;grid-template-columns:1fr auto auto auto auto;align-items:center;gap:12px;padding:15px 18px">
           <div>
-            <div class="req-name">${req.name}${req.type === 'ANONYMOUS'
-              ? ` <span style="font-size:11px;font-weight:400;color:var(--muted)">(anonymous)</span>` : ''}</div>
+            <div class="req-name">${req.referenceNumber} ${typeLabel}</div>
             <div class="req-meta">
+              <span>${req.referenceNumber ? `Ref: ${req.name}` : 'N/A'}</span><span class="req-meta-dot"></span>
               <span>${req.patient}</span><span class="req-meta-dot"></span>
               <span>${req.component}</span><span class="req-meta-dot"></span>
               <span style="font-weight:600;color:var(--charcoal)">${req.units} unit${req.units > 1 ? 's' : ''}</span>
@@ -2978,7 +3027,7 @@ window.exportBloodBagsToExcel = function() {
     const title = document.getElementById('req-details-title');
     const body = document.getElementById('req-details-body');
     
-    title.textContent = `Request #${req.id} — ${req.name}`;
+    title.textContent = `Request #${req.referenceNumber ?? req.id} — ${req.name}`;
     body.innerHTML = renderReqDetailsContent(req);
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -2994,6 +3043,8 @@ window.exportBloodBagsToExcel = function() {
     const indicationCodes = req.indication ? req.indication.split(',').map(s => s.trim()).filter(Boolean) : [];
     const indicationBadges = getIndicationBadges(req.indication);
     const indicationDetailsHtml = renderIndicationDetails(req.indication);
+    const formattedPatientName = formatPatientName(req);
+    const formattedBirthdate = formatBirthdate(req.patientBirthdate);
 
     return `
       <div class="req-details-sections">
@@ -3003,7 +3054,7 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Reference #</span>
-              <span class="req-details-value">${req.id ?? '—'}</span>
+              <span class="req-details-value">${req.referenceNumber ?? req.id ?? '—'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Status</span>
@@ -3037,7 +3088,7 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Patient Name</span>
-              <span class="req-details-value">${req.patientName ?? req.patient ?? '—'}</span>
+              <span class="req-details-value">${formattedPatientName}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Age / Age Group</span>
@@ -3048,8 +3099,15 @@ window.exportBloodBagsToExcel = function() {
               <span class="req-details-value">${req.patientSex ?? '—'}</span>
             </div>
             <div class="req-details-field">
-              <span class="req-details-label">Ward / Room</span>
+              <span class="req-details-label">Date of Birth</span>
+              <span class="req-details-value">${formattedBirthdate}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Location (Ward)</span>
               <span class="req-details-value">${req.wardRoom ?? '—'}</span>
+            </div><div class="req-details-field">
+              <span class="req-details-label">Location (Room)</span>
+              <span class="req-details-value">${req.roomNo ?? '—'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Category</span>
@@ -3076,10 +3134,6 @@ window.exportBloodBagsToExcel = function() {
             <div class="req-details-field">
               <span class="req-details-label">Units Needed</span>
               <span class="req-details-value req-details-highlight">${req.units ?? '—'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Volume (mL)</span>
-              <span class="req-details-value">${req.volumeMl ?? '—'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Notes</span>
@@ -5627,8 +5681,8 @@ let dataSnapshots = {
   dashboard: null,
   bloodBank: null,
   requests: null,
+  logging: null,  
 };
-
 /**
  * Creates a snapshot of data for change detection
  */
@@ -5732,6 +5786,7 @@ function initializeAutoRefresh() {
     checkDashboardUpdates();
     checkBloodBankUpdates();
     checkBloodRequestsUpdates();
+    checkLoggingUpdates(); 
   }, REFRESH_INTERVAL);
 }
 
@@ -5776,6 +5831,28 @@ function changeRefreshInterval(seconds) {
   }, REFRESH_INTERVAL);
 
   console.log(`[Auto-Refresh] Check interval changed to ${seconds} seconds`);
+}
+
+async function checkLoggingUpdates() {
+  try {
+    const res = await fetch('/api/admin/logs/summary', { headers: { Accept: 'application/json' } });
+    if (!res.ok) return;
+    const json = await res.json();
+    
+    const newSnapshot = createSnapshot(json);
+    
+    if (hasDataChanged(dataSnapshots.logging, newSnapshot)) {
+      dataSnapshots.logging = newSnapshot;
+      loadSummary();
+      if (loggingState.currentTab === 'status-logs') {
+        loggingStatusRender();
+      } else {
+        loggingFulfillmentRender();
+      }
+    }
+  } catch (err) {
+    console.error('[Auto-Refresh] Logging check failed:', err);
+  }
 }
 
 /**
