@@ -402,9 +402,14 @@ public class BloodBagRequestService {
         // ─────────────────────────────────────────────────────────────
         
         request.setPatientName(dto.getPatientName().trim());
+        request.setPatientMiddle(dto.getPatientMiddle().trim());
+        request.setPatientLast(dto.getPatientLast().trim());
+        request.setPatientSuffix(dto.getPatientSuffix().trim());
         request.setPatientAge(dto.getPatientAge());
+        request.setPatientBirthdate(dto.getPatientBirthdate());
         request.setPatientSex(dto.getPatientSex());
         request.setWardRoom(dto.getWardRoom() != null ? dto.getWardRoom() : "");
+        request.setRoomNo(dto.getRoomNo() != null ? dto.getRoomNo() : "");
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());
     
         // ─────────────────────────────────────────────────────────────
@@ -492,7 +497,10 @@ public class BloodBagRequestService {
         if (dto.getIndication() != null && !dto.getIndication().isBlank()) {
             request.setIndication(dto.getIndication());
         }
-    
+        
+        request.setIndicationOtherSpecify(dto.getIndicationOtherSpecify());
+        
+        request.setHospitalProfile(hospital);
         // ─────────────────────────────────────────────────────────────
         // HOSPITAL CONTEXT
         // ─────────────────────────────────────────────────────────────

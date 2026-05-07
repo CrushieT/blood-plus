@@ -57,9 +57,18 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
 
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) overlay.classList.remove('show');
+document.addEventListener('DOMContentLoaded', function() {
+  // Get all modal overlays
+  const modalOverlays = document.querySelectorAll('.modal-overlay');
+ 
+  modalOverlays.forEach(overlay => {
+    overlay.addEventListener('click', function(event) {
+      // Only close if clicking directly on the overlay background, NOT on the modal
+      if (event.target === this) {
+        event.stopPropagation(); // Prevent the click from propagating
+        // Do NOT close the modal - removed closeModal() call
+      }
+    });
   });
 });
 
@@ -3261,7 +3270,6 @@ window.exportBloodBagsToExcel = function() {
 
   reqFetchAll();
 })();
-
 /////// STAFF MANAGEMENT ////////
 
 const STAFF_API = '/api/admin/staff';
@@ -3516,7 +3524,14 @@ async function submitAddStaff() {
   const first    = document.getElementById('add-staff-first').value.trim();
   const last     = document.getElementById('add-staff-last').value.trim();
   const phone    = document.getElementById('add-staff-phone').value.trim();
-  const hireDate = document.getElementById('add-staff-hiredate').value || null;
+  
+  // Use current date if hire date not provided
+  let hireDate;
+  if (!hireDate) {
+    const today = new Date();
+    hireDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+  }
+  
   const staffId  = document.getElementById('add-staff-id').value.trim();
   const dept     = "Blood bank";
   const position = document.getElementById('add-staff-position').value.trim();
@@ -3538,14 +3553,19 @@ async function submitAddStaff() {
     const created = await staffApiFetch('', {
       method: 'POST',
       body: JSON.stringify({ email, firstName: first, lastName: last, phoneNumber: phone,
-                             hireDate: hireDate || null, staffId: staffId || null,
+                             hireDate: hireDate, staffId: staffId || null,
                              department: dept, position, status }),
     });
 
     staffList.unshift(created);   // optimistic: prepend to local list
     closeModal('addStaffModal');
     staffRender();
-    staffShowToast(`Staff account created for ${first} ${last}. Credentials emailed.`, 'success');
+    
+    // Show success modal
+    showSysSuccessModal(
+      'Staff Account Created',
+      `Account created for ${first} ${last}. Credentials have been emailed.`
+    );
   } catch (err) {
     staffShowError('add-staff-error', err.message);
   } finally {
@@ -3600,7 +3620,6 @@ function staffOpenEdit(id) {
   document.getElementById('edit-staff-first').value          = s.firstName;
   document.getElementById('edit-staff-last').value           = s.lastName;
   document.getElementById('edit-staff-phone').value          = s.phoneNumber || '';
-  document.getElementById('edit-staff-hiredate').value       = s.hireDate    || '';
   document.getElementById('edit-staff-id').value             = s.staffId     || '';
   document.getElementById('edit-staff-dept').value           = s.department  || '';
   document.getElementById('edit-staff-position').value       = s.position    || '';
@@ -3618,7 +3637,6 @@ async function submitEditStaff() {
   const first    = document.getElementById('edit-staff-first').value.trim();
   const last     = document.getElementById('edit-staff-last').value.trim();
   const phone    = document.getElementById('edit-staff-phone').value.trim();
-  const hireDate = document.getElementById('edit-staff-hiredate').value || null;
   const staffId  = document.getElementById('edit-staff-id').value.trim();
   const dept     = document.getElementById('edit-staff-dept').value.trim();
   const position = document.getElementById('edit-staff-position').value.trim();
@@ -3652,7 +3670,12 @@ async function submitEditStaff() {
 
     closeModal('editStaffModal');
     staffRender();
-    staffShowToast(`${first} ${last}'s profile updated.`, 'success');
+    
+    // Show success modal
+    showSysSuccessModal(
+      'Profile Updated',
+      `${first} ${last}'s profile has been successfully updated.`
+    );
   } catch (err) {
     staffShowError('edit-staff-error', err.message);
   } finally {
@@ -3668,9 +3691,14 @@ function staffOpenDelete(id) {
   const s = staffList.find(x => x.id === id);
   if (!s) return;
   staffCurrentViewId = id;
-  document.getElementById('delete-staff-name-label').textContent =
-    `${s.firstName} ${s.lastName} (${s.staffId || s.email})`;
-  openModal('deleteStaffModal');
+  
+  // Show delete confirmation modal using the reusable system modal
+  showSysDeleteConfirmModal(
+    'Staff Account',
+    `${s.firstName} ${s.lastName}`,
+    `${s.staffId || s.email}`,
+    staffConfirmDelete
+  );
 }
 
 function staffOpenDeleteConfirm() {
@@ -3683,19 +3711,18 @@ async function staffConfirmDelete() {
   const s   = staffList.find(x => x.id === id);
   const name = s ? `${s.firstName} ${s.lastName}` : 'Staff member';
 
-  const btn = document.getElementById('delete-staff-confirm-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
-
   try {
     await staffApiFetch(`/${id}`, { method: 'DELETE' });
     staffList = staffList.filter(x => x.id !== id);
-    closeModal('deleteStaffModal');
     staffRender();
-    staffShowToast(`${name}'s account has been deleted.`, 'danger');
+    
+    // Show success modal for delete
+    showSysSuccessModal(
+      'Account Deleted',
+      `${name}'s account has been permanently deleted.`
+    );
   } catch (err) {
     staffShowToast(`Delete failed: ${err.message}`, 'danger');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Yes, Delete'; }
   }
 }
 
@@ -3791,7 +3818,6 @@ function initStaffPanel() {
 }
 
 document.addEventListener('DOMContentLoaded', initStaffPanel);
-
 
 ///////// HOSPITAL PANEL/////////////
 
@@ -3989,7 +4015,6 @@ async function hospCreate() {
         const created = await res.json();
         hospData.unshift(created);
         hospPage = 1;
-        hospRender();
         
         // Clear form
         ['hosp-add-email','hosp-add-name','hosp-add-address','hosp-add-city','hosp-add-province',
@@ -3999,7 +4024,14 @@ async function hospCreate() {
         });
         
         closeModal('addHospitalModal');
-        alert('Hospital account created! Credentials sent to their email.');
+        
+        // Show success modal with callback to re-render
+        showSysSuccessModal(
+            'Hospital Created!',
+            `${name} has been added to the system. Credentials sent to ${email}.`,
+            () => hospRender()
+        );
+        
     } catch (err) {
         alert('Error: ' + err.message);
         console.error('[Hospital] Create error:', err);
@@ -4077,9 +4109,15 @@ async function hospSaveEdit() {
         const idx = hospData.findIndex(x => x.id === parseInt(id));
         if (idx >= 0) hospData[idx] = updated;
         
-        hospRender();
         closeModal('editHospitalModal');
-        alert('Hospital updated successfully!');
+        
+        // Show success modal with callback to re-render
+        showSysSuccessModal(
+            'Hospital Updated!',
+            `${name} has been successfully updated.`,
+            () => hospRender()
+        );
+        
     } catch (err) {
         alert('Error: ' + err.message);
         console.error('[Hospital] Edit error:', err);
@@ -4109,9 +4147,15 @@ async function hospDelete(id) {
         }
 
         hospData = hospData.filter(x => x.id !== parseInt(id));
-        hospRender();
         closeModal('editHospitalModal');
-        alert('Hospital deleted successfully!');
+        
+        // Show success modal with callback to re-render
+        showSysSuccessModal(
+            'Hospital Deleted!',
+            `${h.hospitalName} has been permanently removed from the system.`,
+            () => hospRender()
+        );
+        
     } catch (err) {
         alert('Error: ' + err.message);
         console.error('[Hospital] Delete error:', err);
@@ -4119,7 +4163,7 @@ async function hospDelete(id) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// CONFIRM DELETE (from table row)
+// CONFIRM DELETE (from table row) — Uses reusable modal
 // ──────────────────────────────────────────────────────────────
 function hospConfirmDelete(id) {
     const h = hospData.find(x => x.id === id);
@@ -4128,13 +4172,14 @@ function hospConfirmDelete(id) {
         return;
     }
 
-    if (!confirm(`Delete "${h.hospitalName}"? This cannot be undone.`)) {
-        return;
-    }
-
-    hospDelete(id); // ✅ PASS ID HERE
+    // Show delete confirmation modal
+    showSysDeleteConfirmModal(
+        'hospital',                          // resourceType
+        h.hospitalName,                      // resourceName (what's being deleted)
+        `Email: ${h.email}`,                 // details
+        () => hospDelete(id)                 // onConfirmCallback
+    );
 }
-
 
 
 // ══════════════════════════════════════════════════════════════
@@ -5672,6 +5717,188 @@ document.addEventListener('click', function(event) {
   }
 });
 
+/**
+ * REUSABLE MODAL SYSTEM
+ * Functions for success and delete confirmation modals
+ * Used across the entire system for consistency
+ */
+
+// ═══════════════════════════════════════════════════════════════
+// SUCCESS MODAL FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+let sysSuccessCallback = null;
+
+function showSysSuccessModal(title = 'Success!', message = 'Operation completed successfully.', callback = null) {
+    const titleEl = document.getElementById('sysSuccessTitle');
+    const messageEl = document.getElementById('sysSuccessMessage');
+    const iconEl = document.getElementById('sysSuccessIcon');
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+    
+    // Reset animation
+    if (iconEl) {
+        iconEl.style.animation = 'none';
+        setTimeout(() => {
+            if (iconEl) iconEl.style.animation = 'successPulse 0.6s ease';
+        }, 10);
+    }
+
+    sysSuccessCallback = callback;
+    openModal('sysSuccessModal');
+}
+
+function closeSysSuccessModal() {
+    closeModal('sysSuccessModal');
+    if (sysSuccessCallback && typeof sysSuccessCallback === 'function') {
+        sysSuccessCallback();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DELETE CONFIRMATION MODAL FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+let sysDeleteAction = null;
+
+function showSysDeleteConfirmModal(resourceType = 'Item', resourceName = '', details = '', onConfirmCallback) {
+    const messageEl = document.getElementById('sysDeleteConfirmMessage');
+    const detailsEl = document.getElementById('sysDeleteConfirmDetails');
+    const btn = document.getElementById('sysDeleteConfirmBtn');
+
+    // Set message
+    if (messageEl) {
+        messageEl.textContent = `Are you sure you want to delete this ${resourceType}?`;
+    }
+
+    // Set details (what's being deleted)
+    if (detailsEl) {
+        detailsEl.textContent = resourceName || details || 'This item will be permanently removed.';
+    }
+
+    // Store callback
+    sysDeleteAction = onConfirmCallback;
+
+    // Update button text if needed
+    if (btn) {
+        btn.textContent = 'Yes, Delete';
+    }
+
+    openModal('sysDeleteConfirmModal');
+}
+
+function closeSysDeleteConfirmModal() {
+    closeModal('sysDeleteConfirmModal');
+    sysDeleteAction = null;
+}
+
+function sysConfirmDeleteAction() {
+    if (sysDeleteAction && typeof sysDeleteAction === 'function') {
+        const btn = document.getElementById('sysDeleteConfirmBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Deleting…';
+        }
+
+        Promise.resolve(sysDeleteAction()).then(() => {
+            closeSysDeleteConfirmModal();
+        }).catch(err => {
+            console.error('Delete action error:', err);
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Yes, Delete';
+            }
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER: Show toast notification (alternative to modal)
+// ═══════════════════════════════════════════════════════════════
+
+function showToast(message, type = 'info', duration = 3000) {
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        `;
+        document.body.appendChild(toastContainer);
+    }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? 'var(--soft-green, #E8F5E9)' : 
+                    type === 'error' ? 'var(--soft-red, #FFEBEE)' : 
+                    'var(--blue-light, #E8F0FF)';
+    const textColor = type === 'success' ? 'var(--green, #2E7D32)' : 
+                      type === 'error' ? 'var(--crimson, #C41E3A)' : 
+                      'var(--blue, #1E40AF)';
+    const icon = type === 'success' ? '✓' : 
+                 type === 'error' ? '✕' : 'ℹ';
+
+    toast.style.cssText = `
+        background: ${bgColor};
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        color: ${textColor};
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.3s ease;
+    `;
+    toast.innerHTML = `<span style="font-size: 16px;">${icon}</span><span>${message}</span>`;
+
+    toastContainer.appendChild(toast);
+
+    // Auto remove after duration
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// Add toast animations
+if (!document.getElementById('toast-styles')) {
+    const style = document.createElement('style');
+    style.id = 'toast-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // ENHANCED AUTO-REFRESH WITH CHANGE DETECTION (SILENT UPDATES)
 // ═══════════════════════════════════════════════════════════════
@@ -5870,3 +6097,4 @@ function forceRefreshAll() {
   
   console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }
+

@@ -256,11 +256,13 @@
         </div>
 
         
-       
+        <!-- HOSPITAL BLOOD REQUEST FORM (5 STEPS FORMAT)
+            Updated to include:
+            - Request categories: INTER_HOSPITAL or EMERGENCY only
+            - 5-step flow with Review & Submit page
+            - Patient Info → Blood Details → Clinical Data → Documents → Review & Submit
+        ==================================================================== -->
 
-        <!-- ════════════════════════════
-            PANEL: BLOOD REQUEST
-        ════════════════════════════ -->
         <div class="panel" id="panel-newrequest">
             <div class="topbar">
                 <div>
@@ -271,61 +273,63 @@
 
             <div style="max-width:720px; margin:0 auto">
 
-                <!-- Step Indicator -->
+                <!-- Step Indicator (5 dots style) -->
                 <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:32px;padding:0 20px">
                     <div style="display:flex;align-items:center;gap:10px">
-                        <div class="step-dot active" id="step-dot-1">1</div>
-                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-1"></div>
-                        <div class="step-dot" id="step-dot-2">2</div>
-                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-2"></div>
-                        <div class="step-dot" id="step-dot-3">3</div>
-                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-3"></div>
-                        <div class="step-dot" id="step-dot-4">4</div>
-                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-4"></div>
-                        <div class="step-dot" id="step-dot-5">5</div>
+                        <div class="step-dot active" id="step-dot-hosp-1">1</div>
+                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-hosp-1"></div>
+                        <div class="step-dot" id="step-dot-hosp-2">2</div>
+                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-hosp-2"></div>
+                        <div class="step-dot" id="step-dot-hosp-3">3</div>
+                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-hosp-3"></div>
+                        <div class="step-dot" id="step-dot-hosp-4">4</div>
+                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-hosp-4"></div>
+                        <div class="step-dot" id="step-dot-hosp-5">5</div>
                     </div>
                     <div style="font-size:12px;font-weight:600;color:#666;white-space:nowrap">
-                        <span id="current-step-num">1</span> / 5
+                        <span id="current-step-num-hosp">1</span> / 5
                     </div>
                 </div>
 
                 <div class="notice notice-warning" style="margin-bottom:20px">
                     <span>📋</span>
-                    <span>Per CNPH blood bank procedure, ensure the <strong>Blood Request Form</strong> is completely filled out and the requesting physician has signed. A <strong>Commitment Referral Letter</strong> may be required before release.</span>
+                    <span>Per CNPH blood bank procedure, ensure the <strong>Blood Request Form</strong> is completely filled out and the requesting physician has signed.</span>
+                </div>
+
+                <!-- Hospital Session Banner -->
+                <div id="hospital-session-banner"
+                    style="display:none;align-items:center;gap:14px;
+                            background:linear-gradient(135deg,rgba(196,30,58,0.10),rgba(196,30,58,0.04));
+                            border:1.5px solid rgba(196,30,58,0.25);border-radius:14px;
+                            padding:16px 18px;margin-bottom:20px">
+                    <div style="width:40px;height:40px;background:rgba(196,30,58,0.15);border-radius:10px;
+                                display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">H</div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:13px;font-weight:700;color:var(--charcoal)" id="banner-hospital-name"></div>
+                        <div style="font-size:12px;color:var(--muted);margin-top:2px">
+                        Submitting as <strong id="banner-staff-name"></strong> - Hospital account
+                        </div>
+                    </div>
+                    <div style="font-size:11px;background:rgba(196,30,58,0.12);color:#C41E3A;
+                                border-radius:7px;padding:4px 10px;font-weight:700;letter-spacing:0.04em;
+                                white-space:nowrap">
+                        HOSPITAL
+                    </div>
                 </div>
 
                 <!-- STEP 1: Patient Information -->
-                <div class="form-step active" id="form-step-1">
+                <div class="form-step active" id="form-step-hosp-1">
                     <div class="card" style="margin-bottom:16px">
                         <div class="card-header"><div class="card-title">Patient Information</div></div>
                         <div class="card-body">
 
-                            <!-- Request Category -->
+                            <!-- Request Category (UPDATED: Inter-hospital or Emergency only) -->
                             <div class="form-section" style="margin-bottom:16px">
                                 <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Request Category <span class="req">*</span></div>
                                 <div class="fg">
                                     <div class="chip-group">
-                                        <label class="chip-opt"><input type="radio" name="req-category" value="INPATIENT" onchange="syncForm()"><span class="chip">🏥 Inpatient</span></label>
-                                        <label class="chip-opt"><input type="radio" name="req-category" value="OUTPATIENT" onchange="syncForm()"><span class="chip">🚶 Outpatient</span></label>
-                                        <label class="chip-opt"><input type="radio" name="req-category" value="HOSPITAL" onchange="syncForm()"><span class="chip">🏨 Inter-hospital</span></label>
-                                        <label class="chip-opt"><input type="radio" name="req-category" value="EMERGENCY" onchange="syncForm()"><span class="chip">🚨 Emergency</span></label>
-                                    </div>
-                                    <div class="form-err-banner" id="err-category" style="margin-top:6px;margin-bottom:0">
-                                        <span>⚠</span><span>Please select a category.</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Age Group -->
-                            <div class="form-section" style="margin-bottom:16px">
-                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Age Group <span class="req">*</span></div>
-                                <div class="fg">
-                                    <div class="chip-group">
-                                        <label class="chip-opt"><input type="radio" name="req-agegroup" value="ADULT" onchange="syncForm()"><span class="chip">👤 Adult (≥13 yrs)</span></label>
-                                        <label class="chip-opt"><input type="radio" name="req-agegroup" value="PEDIA" onchange="syncForm()"><span class="chip">👶 Pedia (&lt;13 yrs)</span></label>
-                                    </div>
-                                    <div class="form-err-banner" id="err-agegroup" style="margin-top:6px;margin-bottom:0">
-                                        <span>⚠</span><span>Please select age group.</span>
+                                        <label class="chip-opt"><input type="radio" name="req-category-hosp" value="HOSPITAL" onchange="syncForm()"><span class="chip">🏨 Inter-hospital</span></label>
+                                        <label class="chip-opt"><input type="radio" name="req-category-hosp" value="EMERGENCY" onchange="syncForm()"><span class="chip">🚨 Emergency</span></label>
                                     </div>
                                 </div>
                             </div>
@@ -333,55 +337,75 @@
                             <!-- Patient Name Fields -->
                             <div class="form-grid-2">
                                 <div class="fg">
-                                    <label>Patient Last Name <span class="req">*</span></label>
-                                    <input type="text" id="pat-lastname" placeholder="Dela Cruz" oninput="syncForm()">
+                                    <label>Patient First Name <span class="req">*</span></label>
+                                    <input type="text" id="pat-firstname-hosp" placeholder="Juan" oninput="syncForm()">
                                 </div>
                                 <div class="fg">
-                                    <label>Patient First Name <span class="req">*</span></label>
-                                    <input type="text" id="pat-firstname" placeholder="Juan" oninput="syncForm()">
+                                    <label>Patient Middle Name</label>
+                                    <input type="text" id="pat-middlename-hosp" placeholder="Santos">
                                 </div>
                             </div>
 
-                            <!-- Age & Sex -->
                             <div class="form-grid-2">
                                 <div class="fg">
-                                    <label>Age <span class="req">*</span></label>
-                                    <input type="number" id="pat-age" placeholder="e.g. 42" min="0" max="130" oninput="syncForm()">
+                                    <label>Patient Last Name <span class="req">*</span></label>
+                                    <input type="text" id="pat-lastname-hosp" placeholder="Dela Cruz" oninput="syncForm()">
+                                </div>
+                                <div class="fg">
+                                    <label>Suffix</label>
+                                    <input type="text" id="pat-suffix-hosp" placeholder="Jr., Sr.">
+                                </div>
+                            </div>
+
+                            <!-- Date of Birth -->
+                            <div class="form-grid-2">
+                                <div class="fg">
+                                    <label>Date of Birth <span class="req">*</span></label>
+                                    <input type="date" id="pat-birthdate-hosp" onchange="calculateAgeHosp();syncForm()">
                                 </div>
                                 <div class="fg">
                                     <label>Sex <span class="req">*</span></label>
                                     <div class="chip-group" style="margin-top:4px">
-                                        <label class="chip-opt"><input type="radio" name="pat-sex" value="Male" onchange="syncForm()"><span class="chip">Male</span></label>
-                                        <label class="chip-opt"><input type="radio" name="pat-sex" value="Female" onchange="syncForm()"><span class="chip">Female</span></label>
+                                        <label class="chip-opt"><input type="radio" name="pat-sex-hosp" value="MALE" onchange="syncForm()"><span class="chip">Male</span></label>
+                                        <label class="chip-opt"><input type="radio" name="pat-sex-hosp" value="FEMALE" onchange="syncForm()"><span class="chip">Female</span></label>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Ward & Physician -->
+                            <!-- Patient Type Display -->
                             <div class="form-grid-2">
                                 <div class="fg">
-                                    <label>Ward / Room No.</label>
-                                    <input type="text" id="pat-ward" placeholder="Ward 4 / Room 210" oninput="syncForm()">
-                                </div>
-                                <div class="fg">
-                                    <label>Requesting Physician <span class="req">*</span></label>
-                                    <input type="text" id="pat-physician" placeholder="Dr. Maria Santos" oninput="syncForm()">
+                                    <label>Patient Type</label>
+                                    <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
+                                        <span id="patient-type-display-hosp">Select date of birth</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Diagnosis / Clinical Indication -->
+                            <!-- Ward and Room -->
+                            <div class="form-grid-2">
+                                <div class="fg">
+                                    <label>Ward</label>
+                                    <input type="text" id="pat-ward-hosp" placeholder="Ward A - Medical" oninput="syncForm()">
+                                </div>
+                                <div class="fg">
+                                    <label>Room No.</label>
+                                    <input type="text" id="pat-room-hosp" placeholder="e.g. 101, A-5" oninput="syncForm()">
+                                </div>
+                            </div>
+
+                            <!-- Requesting Physician & Clinical Impression -->
+                            <div class="form-grid-2">
+                                <div class="fg form-full">
+                                    <label>Requesting Physician <span class="req">*</span></label>
+                                    <input type="text" id="pat-physician-hosp" placeholder="Dr. Maria Santos" oninput="syncForm()">
+                                </div>
+                            </div>
+
                             <div class="form-grid-2">
                                 <div class="fg form-full">
                                     <label>Clinical Impression / Diagnosis</label>
-                                    <textarea id="pat-diagnosis" placeholder="Brief clinical reason for the blood request..." oninput="syncForm()"></textarea>
-                                </div>
-                            </div>
-
-                            <!-- Contact Number -->
-                            <div class="form-grid-2">
-                                <div class="fg">
-                                    <label>Contact Number</label>
-                                    <input type="tel" id="pat-contact" placeholder="+63 912 345 6789" oninput="syncForm()">
+                                    <textarea id="pat-diagnosis-hosp" placeholder="Brief clinical reason for the blood request..." oninput="syncForm()"></textarea>
                                 </div>
                             </div>
 
@@ -389,8 +413,8 @@
                     </div>
                 </div>
 
-                <!-- STEP 2: Blood Request Details -->
-                <div class="form-step" id="form-step-2">
+                <!-- STEP 2: Blood Request Details (with Indications) -->
+                <div class="form-step" id="form-step-hosp-2">
                     <div class="card" style="margin-bottom:16px">
                         <div class="card-header"><div class="card-title">Blood Request Details</div></div>
                         <div class="card-body">
@@ -399,17 +423,14 @@
                             <div class="fg" style="margin-bottom:16px">
                                 <label>Blood Type Needed <span class="req">*</span></label>
                                 <div class="blood-picker">
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="O_NEG" onchange="syncForm()"><div class="bt-chip">O−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="O_POS" onchange="syncForm()"><div class="bt-chip">O+</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="A_NEG" onchange="syncForm()"><div class="bt-chip">A−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="A_POS" onchange="syncForm()"><div class="bt-chip">A+</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="B_NEG" onchange="syncForm()"><div class="bt-chip">B−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="B_POS" onchange="syncForm()"><div class="bt-chip">B+</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="AB_NEG" onchange="syncForm()"><div class="bt-chip">AB−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt" value="AB_POS" onchange="syncForm()"><div class="bt-chip">AB+</div></label>
-                                </div>
-                                <div class="form-err-banner" id="err-bt" style="margin-top:6px;margin-bottom:0">
-                                    <span>⚠</span><span>Please select blood type.</span>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="O_NEG" onchange="syncForm()"><div class="bt-chip">O−</div></label>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="O_POS" onchange="syncForm()"><div class="bt-chip">O+</div></label>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="A_NEG" onchange="syncForm()"><div class="bt-chip">A−</div></label>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="A_POS" onchange="syncForm()"><div class="bt-chip">A+</div></label>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="B_NEG" onchange="syncForm()"><div class="bt-chip">B−</div></label>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="B_POS" onchange="syncForm()"><div class="bt-chip">B+</div></label>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="AB_NEG" onchange="syncForm()"><div class="bt-chip">AB−</div></label>
+                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="AB_POS" onchange="syncForm()"><div class="bt-chip">AB+</div></label>
                                 </div>
                             </div>
 
@@ -418,7 +439,7 @@
                             <label>Blood Component <span class="req">*</span></label>
                             <div class="comp-grid">
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="WHOLE_BLOOD" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="WHOLE_BLOOD" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Whole Blood</div>
                                     <div class="comp-abbr">WB</div>
@@ -426,7 +447,7 @@
                                 </label>
 
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="PRBC" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="PRBC" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Packed RBC</div>
                                     <div class="comp-abbr">PRBC</div>
@@ -434,7 +455,7 @@
                                 </label>
 
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="LEUKOREDUCED_PRBC" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="LEUKOREDUCED_PRBC" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Leukoreduced PRBC</div>
                                     <div class="comp-abbr">LR-PRBC</div>
@@ -442,7 +463,7 @@
                                 </label>
 
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="ALIQUOTED_PRBC" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="ALIQUOTED_PRBC" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Aliquoted PRBC</div>
                                     <div class="comp-abbr">ALQ-PRBC</div>
@@ -450,7 +471,7 @@
                                 </label>
 
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="PLATELET_CONCENTRATE" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="PLATELET_CONCENTRATE" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Platelet Concentrate</div>
                                     <div class="comp-abbr">PC</div>
@@ -458,7 +479,7 @@
                                 </label>
 
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="FRESH_FROZEN_PLASMA" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="FRESH_FROZEN_PLASMA" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Fresh Frozen Plasma</div>
                                     <div class="comp-abbr">FFP</div>
@@ -466,7 +487,7 @@
                                 </label>
 
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="CRYOPRECIPITATE" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="CRYOPRECIPITATE" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Cryoprecipitate</div>
                                     <div class="comp-abbr">CRYO</div>
@@ -474,15 +495,12 @@
                                 </label>
 
                                 <label class="comp-opt">
-                                <input type="radio" name="req-comp" value="CRYOSUPERNATANT" onchange="syncForm();updateIndicationGroups()">
+                                <input type="radio" name="req-comp-hosp" value="CRYOSUPERNATANT" onchange="syncForm();updateIndicationGroupsHosp()">
                                 <div class="comp-chip">
                                     <div class="comp-name">Cryosupernatant</div>
                                     <div class="comp-abbr">CRYO-SN</div>
                                 </div>
                                 </label>
-                            </div>
-                            <div class="form-err-banner" id="err-comp" style="margin-top:6px;margin-bottom:0">
-                                <span>⚠</span><span>Please select a component.</span>
                             </div>
                             </div>
 
@@ -490,22 +508,22 @@
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Number of Units <span class="req">*</span></label>
-                                    <input type="number" id="req-units" placeholder="e.g. 2" min="1" max="20" oninput="syncForm()">
+                                    <input type="number" id="req-units-hosp" placeholder="e.g. 2" min="1" max="20" oninput="syncForm()">
                                     <div class="hint">1 unit ≈ 450–500 mL</div>
                                 </div>
                                 <div class="fg">
                                     <label>Date Needed</label>
-                                    <input type="date" id="req-date-needed" oninput="syncForm()">
+                                    <input type="date" id="req-date-needed-hosp" oninput="syncForm()">
                                 </div>
                             </div>
 
-                            <!-- Request Type -->
+                            <!-- Request Type (STAT vs ROUTINE) -->
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Request Type <span class="req">*</span></label>
                                     <div class="chip-group" style="margin-top:4px">
-                                        <label class="chip-opt"><input type="radio" name="req-type" value="STAT" onchange="syncForm()"><span class="chip">⚡ STAT</span></label>
-                                        <label class="chip-opt"><input type="radio" name="req-type" value="ROUTINE" onchange="syncForm()"><span class="chip">📋 Routine</span></label>
+                                        <label class="chip-opt"><input type="radio" name="req-type-hosp" value="STAT" onchange="updateUrgencyLevelHosp();syncForm()"><span class="chip">⚡ STAT</span></label>
+                                        <label class="chip-opt"><input type="radio" name="req-type-hosp" value="ROUTINE" onchange="updateUrgencyLevelHosp();syncForm()"><span class="chip">📋 Routine</span></label>
                                     </div>
                                 </div>
                             </div>
@@ -513,14 +531,558 @@
                             <!-- Urgency Level -->
                             <div class="fg" style="margin-bottom:0">
                                 <label>Urgency Level <span class="req">*</span></label>
-                                <div class="urgency-grid">
-                                    <label class="urg-opt"><input type="radio" name="req-urgency" value="LOW" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟢 Low</div><div class="urg-desc">Scheduled, days to weeks ahead</div></div></label>
-                                    <label class="urg-opt"><input type="radio" name="req-urgency" value="MEDIUM" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟡 Medium</div><div class="urg-desc">Needed within the week</div></div></label>
-                                    <label class="urg-opt"><input type="radio" name="req-urgency" value="HIGH" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟠 High</div><div class="urg-desc">Needed within 48–72 hours</div></div></label>
-                                    <label class="urg-opt"><input type="radio" name="req-urgency" value="CRITICAL" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🔴 Critical / Emergency</div><div class="urg-desc">Needed immediately</div></div></label>
+                                
+                                <!-- STAT Auto-display -->
+                                <div id="urgency-auto-stat-hosp" style="display:none;background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
+                                    <span style="background:rgba(196,30,58,0.15);color:#C41E3A;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700">AUTO: HIGH</span>
                                 </div>
-                                <div class="form-err-banner" id="err-urgency" style="margin-top:6px;margin-bottom:0">
-                                    <span>⚠</span><span>Please select urgency.</span>
+                                
+                                <!-- ROUTINE Options -->
+                                <div id="urgency-routine-options-hosp" style="display:none;margin-top:8px">
+                                    <div class="urgency-grid">
+                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="LOW" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟢 Low</div><div class="urg-desc">Scheduled, days to weeks ahead</div></div></label>
+                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="MEDIUM" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟡 Medium</div><div class="urg-desc">Needed within the week</div></div></label>
+                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="HIGH" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟠 High</div><div class="urg-desc">Needed within 48–72 hours</div></div></label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Indication for Transfusion Section - COMPLETE WITH ALL GROUPS -->
+                            <div class="form-section" style="margin-top:20px;margin-bottom:0">
+                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Indication for Transfusion <span class="req">*</span></div>
+                                <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+                                Select the indication(s) that apply. Multiple selections are allowed.
+                                </p>
+                                
+                                <div id="indication-container-hosp" style="display:none">
+                                
+                                <!-- ADULT: WHOLE BLOOD INDICATIONS -->
+                                <div class="indication-group" id="group-WHOLE_BLOOD-hosp" style="display:none">
+                                    <div class="indication-header">Whole Blood - Approximate Volume: 500mL (More than 1 day old)</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-WB-1-hosp" value="WB-1" class="indication-checkbox" data-component="WHOLE_BLOOD" onchange="syncForm()">
+                                        <label for="ind-WB-1-hosp">
+                                            <strong>WB-1:</strong> Active bleeding with at least one of the following:
+                                        </label>
+                                    </div>
+                                    <div class="indication-sub-group" id="sub-WB-1-hosp" style="display:none;margin-left:20px;padding:10px;background:#F5F5F5;border-radius:4px;margin-bottom:12px">
+                                        <div class="indication-sub-item" style="margin-bottom:8px">
+                                            <input type="checkbox" id="ind-WB-1a-hosp" value="WB-1a" class="indication-checkbox sub" data-parent="WB-1" data-component="WHOLE_BLOOD" onchange="syncForm()">
+                                            <label for="ind-WB-1a-hosp">a. Loss of over 15% of blood volume</label>
+                                        </div>
+                                        <div class="indication-sub-item" style="margin-bottom:8px">
+                                            <input type="checkbox" id="ind-WB-1b-hosp" value="WB-1b" class="indication-checkbox sub" data-parent="WB-1" data-component="WHOLE_BLOOD" onchange="syncForm()">
+                                            <label for="ind-WB-1b-hosp">b. Hemoglobin less than 90 g/L</label>
+                                            <input type="number" class="form-input inline-input" placeholder="Present level (g/L)" data-ref="WB-1b" style="margin-left:12px;width:140px">
+                                        </div>
+                                        <div class="indication-sub-item">
+                                            <input type="checkbox" id="ind-WB-1c-hosp" value="WB-1c" class="indication-checkbox sub" data-parent="WB-1" data-component="WHOLE_BLOOD" onchange="syncForm()">
+                                            <label for="ind-WB-1c-hosp">c. Blood Pressure decrease >20% and <90 mmHg systolic</label>
+                                        </div>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-WB-2-hosp" value="WB-2" class="indication-checkbox" data-component="WHOLE_BLOOD" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-WB-2-hosp">
+                                            <strong>WB-2:</strong> Others (specify) - Will trigger review
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-WB-2-hosp" placeholder="Please specify..." data-ref="WB-2" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- ADULT: PACKED RED BLOOD CELLS (PRBC) -->
+                                <div class="indication-group" id="group-PRBC-hosp" style="display:none">
+                                    <div class="indication-header">🔴 Packed Red Blood Cells (PRBC)</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-R-1-hosp" value="R-1" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-R-1-hosp">
+                                            <strong>R-1:</strong> Hemoglobin less than 80 g/L or Hematocrit of less than 0.24 (if not due to treatable cause)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-R-2-hosp" value="R-2" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-R-2-hosp">
+                                            <strong>R-2:</strong> Patient for operation/general anesthesia with one of the following:
+                                        </label>
+                                    </div>
+                                    <div class="indication-sub-group" id="sub-R-2-hosp" style="display:none;margin-left:20px;padding:10px;background:#F5F5F5;border-radius:4px;margin-bottom:12px">
+                                        <div class="indication-sub-item" style="margin-bottom:8px">
+                                            <input type="checkbox" id="ind-R-2a-hosp" value="R-2a" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC" onchange="syncForm()">
+                                            <label for="ind-R-2a-hosp"><strong>a.</strong> Preop Hb <80 g/L or HCT <0.24 (24%) or <0.30 (30%)</label>
+                                        </div>
+                                        <div class="indication-sub-item" style="margin-bottom:8px">
+                                            <input type="checkbox" id="ind-R-2b-hosp" value="R-2b" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC" onchange="syncForm()">
+                                            <label for="ind-R-2b-hosp"><strong>b.</strong> Major operation with high bleeding probability, Hb <100 g/L or HCT <0.30 (30%)</label>
+                                        </div>
+                                        <div class="indication-sub-item">
+                                            <input type="checkbox" id="ind-R-2c-hosp" value="R-2c" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC" onchange="syncForm()">
+                                            <label for="ind-R-2c-hosp"><strong>c.</strong> Signs of hemodynamic instability or inadequate O2 carrying capacity (symptomatic anemia)</label>
+                                        </div>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-R-3-hosp" value="R-3" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-R-3-hosp">
+                                            <strong>R-3:</strong> Symptomatic anemia regardless of Hb level (dyspnea, syncope, postural hypotension, tachycardia, chest pain, TIA)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-R-4-hosp" value="R-4" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-R-4-hosp">
+                                            <strong>R-4:</strong> Hb <80 g/L or HCT <0.24 (24%) with concomitant hemorrhage, COPD, coronary artery disease, hemoglobinopathy, or sepsis
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-R-5-hosp" value="R-5" class="indication-checkbox" data-component="PRBC" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-R-5-hosp">
+                                            <strong>R-5:</strong> Others (specify) - Will trigger review
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-R-5-hosp" placeholder="Please specify..." data-ref="R-5" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- ADULT: WHOLE RED BLOOD CELLS (WRBC) -->
+                                <div class="indication-group" id="group-WRBC-hosp" style="display:none">
+                                    <div class="indication-header">Whole Red Blood Cells (WRBC)</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-W-1-hosp" value="W-1" class="indication-checkbox" data-component="WRBC" onchange="syncForm()">
+                                        <label for="ind-W-1-hosp">
+                                            <strong>W-1:</strong> History of previous allergic reaction or anaphylactic reactions in immunocompromised patients
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-W-2-hosp" value="W-2" class="indication-checkbox" data-component="WRBC" onchange="syncForm()">
+                                        <label for="ind-W-2-hosp">
+                                            <strong>W-2:</strong> Transfusion of group "O" blood during emergencies when specific blood not immediately available
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-W-3-hosp" value="W-3" class="indication-checkbox" data-component="WRBC" onchange="syncForm()">
+                                        <label for="ind-W-3-hosp">
+                                            <strong>W-3:</strong> Paroxysmal Nocturnal Hemoglobinuria (PCH)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-W-4-hosp" value="W-4" class="indication-checkbox" data-component="WRBC" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-W-4-hosp">
+                                            <strong>W-4:</strong> Others (specify) - Will trigger review
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-W-4-hosp" placeholder="Please specify..." data-ref="W-4" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- ADULT: PLATELET CONCENTRATE -->
+                                <div class="indication-group" id="group-PLATELET_CONCENTRATE-hosp" style="display:none">
+                                    <div class="indication-header">🩸 Platelet Concentrate</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-P-1-hosp" value="P-1" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-P-1-hosp">
+                                            <strong>P-1:</strong> Prophylactic administration with count <20,000 and not due to TTP, ITP, or HUS
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-P-2-hosp" value="P-2" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-P-2-hosp">
+                                            <strong>P-2:</strong> Active bleeding with platelet count <50,000
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-P-3-hosp" value="P-3" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-P-3-hosp">
+                                            <strong>P-3:</strong> Platelet count <50,000 and patient to undergo invasive procedure within 8 hours
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-P-4-hosp" value="P-4" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-P-4-hosp">
+                                            <strong>P-4:</strong> Platelet count <100,000 and patient to undergo surgery with critical areas (eyes, brain, etc.)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-P-5-hosp" value="P-5" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-P-5-hosp">
+                                            <strong>P-5:</strong> Massive transfusion with diffuse microvascular bleeding with no time to obtain platelet count
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-P-6-hosp" value="P-6" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-P-6-hosp">
+                                            <strong>P-6:</strong> Others (specify) - Will trigger review
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-P-6-hosp" placeholder="Please specify..." data-ref="P-6" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- ADULT: CRYOPRECIPITATE -->
+                                <div class="indication-group" id="group-CRYOPRECIPITATE-hosp" style="display:none">
+                                    <div class="indication-header">❄️ Cryoprecipitate</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-C-1-hosp" value="C-1" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
+                                        <label for="ind-C-1-hosp">
+                                            <strong>C-1:</strong> Significant Hypofibrinogenemia (less than 100 mg/dL)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-C-2-hosp" value="C-2" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
+                                        <label for="ind-C-2-hosp">
+                                            <strong>C-2:</strong> Hemophilia A
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-C-3-hosp" value="C-3" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
+                                        <label for="ind-C-3-hosp">
+                                            <strong>C-3:</strong> Von Willebrand's Disease or Uremic Bleeding with prolonged Bleeding Time
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-C-4-hosp" value="C-4" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-C-4-hosp">
+                                            <strong>C-4:</strong> Others (specify) - Will trigger review
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-C-4-hosp" placeholder="Please specify..." data-ref="C-4" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- ADULT: FRESH FROZEN PLASMA (FFP) -->
+                                <div class="indication-group" id="group-FRESH_FROZEN_PLASMA-hosp" style="display:none">
+                                    <div class="indication-header">❄️ Fresh Frozen Plasma (FFP)</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-F-1-hosp" value="F-1" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-F-1-hosp">
+                                            <strong>F-1:</strong> PT or PTT >1.5x normal range within 8 hours of transfusion (PT >17 sec / PTT >47 sec)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-F-2-hosp" value="F-2" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-F-2-hosp">
+                                            <strong>F-2:</strong> Specific factor deficiencies not treatable with cryoprecipitate
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-F-3-hosp" value="F-3" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-F-3-hosp">
+                                            <strong>F-3:</strong> Reversal of Coumadin anticoagulation in bleeding patients not transferrable with Vitamin K
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-F-4-hosp" value="F-4" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-F-4-hosp">
+                                            <strong>F-4:</strong> Treatment of Thrombotic Thrombocytopenic Purpura (TTP)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-F-5-hosp" value="F-5" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-F-5-hosp">
+                                            <strong>F-5:</strong> Clinical Coagulopathy associated with:
+                                        </label>
+                                    </div>
+                                    <div class="indication-sub-group" id="sub-F-5-hosp" style="display:none;margin-left:20px;padding:10px;background:#F5F5F5;border-radius:4px;margin-bottom:12px">
+                                        <div class="indication-sub-item" style="margin-bottom:8px">
+                                            <input type="checkbox" id="ind-F-5a-hosp" value="F-5a" class="indication-checkbox sub" data-parent="F-5" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                            <label for="ind-F-5a-hosp"><strong>a.</strong> Massive Transfusion (>20 units of blood in 24 hours)</label>
+                                        </div>
+                                        <div class="indication-sub-item">
+                                            <input type="checkbox" id="ind-F-5b-hosp" value="F-5b" class="indication-checkbox sub" data-parent="F-5" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                            <label for="ind-F-5b-hosp"><strong>b.</strong> Late pregnancy termination or Abruptio Placentae</label>
+                                        </div>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-F-6-hosp" value="F-6" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-F-6-hosp">
+                                            <strong>F-6:</strong> Others (specify) - Will trigger review
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-F-6-hosp" placeholder="Please specify..." data-ref="F-6" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- PEDIATRIC: WHOLE BLOOD - EXCHANGE TRANSFUSION -->
+                                <div class="indication-group" id="group-WHOLE_BLOOD-PEDIA-hosp" style="display:none">
+                                    <div class="indication-header">Whole Blood - Exchange Transfusion (More than 1 day old)</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PW-1-hosp" value="PW-1" class="indication-checkbox" data-component="WHOLE_BLOOD" onchange="syncForm()">
+                                        <label for="ind-PW-1-hosp">
+                                            <strong>PW-1:</strong> Infant with indirect bilirubin of 20 mg/dL in first week of life
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PW-2-hosp" value="PW-2" class="indication-checkbox" data-component="WHOLE_BLOOD" onchange="syncForm()">
+                                        <label for="ind-PW-2-hosp">
+                                            <strong>PW-2:</strong> Hyperbilirubinemia in infant with prematurity and/or other concomitant illness including one or more of: prenatal asphyxia, acidosis, prolonged hypoxemia, hypothermia, sepsis, hemolysis
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PW-3-hosp" value="PW-3" class="indication-checkbox" data-component="WHOLE_BLOOD" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-PW-3-hosp">
+                                            <strong>PW-3:</strong> Others (specify)
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-PW-3-hosp" placeholder="Please specify..." data-ref="PW-3" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- PEDIATRIC: PACKED RED BLOOD CELLS -->
+                                <div class="indication-group" id="group-PRBC-PEDIA-hosp" style="display:none">
+                                    <div class="indication-header">Packed Red Blood Cells (PRBC) - Pediatric</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-1-hosp" value="PR-1" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-1-hosp">
+                                            <strong>PR-1:</strong> Signs and symptoms of anemia (e.g., pallor, etc.)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-2-hosp" value="PR-2" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-2-hosp">
+                                            <strong>PR-2:</strong> Hypovolemia from acute blood loss with signs of shock or anticipated blood loss >10%
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-3-hosp" value="PR-3" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-3-hosp">
+                                            <strong>PR-3:</strong> Candidates for major surgery with HCT <0.30 (30%) or Nocturnal <0.35 (35%)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-4-hosp" value="PR-4" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-4-hosp">
+                                            <strong>PR-4:</strong> Hypertransfusion for chronic hemolytic anemia (Thalassemia)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-5-hosp" value="PR-5" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-5-hosp">
+                                            <strong>PR-5:</strong> Hemoglobin >=130 g/L (HCT >=0.40) and in assisted ventilation
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-6-hosp" value="PR-6" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-6-hosp">
+                                            <strong>PR-6:</strong> Anemia with Hb <80 g/L or HCT <0.25 (25%)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-7-hosp" value="PR-7" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-7-hosp">
+                                            <strong>PR-7:</strong> Blood volume reduction of 10 mL/kg with HCT <0.45 (45%) in newborn <4 months of age
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-8-hosp" value="PR-8" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
+                                        <label for="ind-PR-8-hosp">
+                                            <strong>PR-8:</strong> Pulmonary disease or congenital heart disease with HCT 0.40-0.45 (40%-45%)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PR-9-hosp" value="PR-9" class="indication-checkbox" data-component="PRBC" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-PR-9-hosp">
+                                            <strong>PR-9:</strong> Others (specify)
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-PR-9-hosp" placeholder="Please specify..." data-ref="PR-9" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- PEDIATRIC: WHOLE RED BLOOD CELLS -->
+                                <div class="indication-group" id="group-WRBC-PEDIA-hosp" style="display:none">
+                                    <div class="indication-header">Whole Red Blood Cells (WRBC) - Pediatric</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PWR-hosp" value="PWR" class="indication-checkbox" data-component="WRBC" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-PWR-hosp">
+                                            <strong>PWR:</strong> Others (specify)
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-PWR-hosp" placeholder="Please specify..." data-ref="PWR" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- PEDIATRIC: PLATELET CONCENTRATE -->
+                                <div class="indication-group" id="group-PLATELET_CONCENTRATE-PEDIA-hosp" style="display:none">
+                                    <div class="indication-header">Platelet Concentrate - Pediatric</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PP-1-hosp" value="PP-1" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-PP-1-hosp">
+                                            <strong>PP-1:</strong> Active bleeding and thrombocytopenia <50,000/L or at risk for intracranial hemorrhage
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PP-2-hosp" value="PP-2" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-PP-2-hosp">
+                                            <strong>PP-2:</strong> Active bleeding and qualitative defect
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PP-3-hosp" value="PP-3" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-PP-3-hosp">
+                                            <strong>PP-3:</strong> Prophylaxis for severe thrombocytopenia <20,000/L or associated qualitative defect
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PP-4-hosp" value="PP-4" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
+                                        <label for="ind-PP-4-hosp">
+                                            <strong>PP-4:</strong> Scheduled invasive procedure and thrombocytopenia <70,000/L or associated qualitative defect
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PP-5-hosp" value="PP-5" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-PP-5-hosp">
+                                            <strong>PP-5:</strong> Others (specify)
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-PP-5-hosp" placeholder="Please specify..." data-ref="PP-5" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- PEDIATRIC: FRESH FROZEN PLASMA -->
+                                <div class="indication-group" id="group-FRESH_FROZEN_PLASMA-PEDIA-hosp" style="display:none">
+                                    <div class="indication-header">Fresh Frozen Plasma (FFP) - Pediatric</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PF-1-hosp" value="PF-1" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-PF-1-hosp">
+                                            <strong>PF-1:</strong> Significant multiple coagulation factor deficiency or acquired factor deficiency (e.g., dengue shock syndrome)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PF-2-hosp" value="PF-2" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-PF-2-hosp">
+                                            <strong>PF-2:</strong> Significant congenital factor deficiency
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PF-3-hosp" value="PF-3" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-PF-3-hosp">
+                                            <strong>PF-3:</strong> Anti-Thrombin III Deficiency
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PF-4-hosp" value="PF-4" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
+                                        <label for="ind-PF-4-hosp">
+                                            <strong>PF-4:</strong> Bleeding in exchange transfusion or massive transfusion (>1 blood volume)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PF-5-hosp" value="PF-5" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-PF-5-hosp">
+                                            <strong>PF-5:</strong> Others (specify)
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-PF-5-hosp" placeholder="Please specify..." data-ref="PF-5" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- PEDIATRIC: CRYOPRECIPITATE -->
+                                <div class="indication-group" id="group-CRYOPRECIPITATE-PEDIA-hosp" style="display:none">
+                                    <div class="indication-header">Cryoprecipitate - Pediatric</div>
+                                    
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PC-1-hosp" value="PC-1" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
+                                        <label for="ind-PC-1-hosp">
+                                            <strong>PC-1:</strong> Factor VIII Deficiency (Hemophilia A)
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PC-2-hosp" value="PC-2" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
+                                        <label for="ind-PC-2-hosp">
+                                            <strong>PC-2:</strong> Von Willebrand's Disease
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PC-3-hosp" value="PC-3" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
+                                        <label for="ind-PC-3-hosp">
+                                            <strong>PC-3:</strong> Disseminated Intravascular Coagulation
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PC-4-hosp" value="PC-4" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
+                                        <label for="ind-PC-4-hosp">
+                                            <strong>PC-4:</strong> Uremia with active bleeding or scheduled invasive procedure
+                                        </label>
+                                    </div>
+                            
+                                    <div class="indication-item">
+                                        <input type="checkbox" id="ind-PC-5-hosp" value="PC-5" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="toggleOthersFieldHosp(this)">
+                                        <label for="ind-PC-5-hosp">
+                                            <strong>PC-5:</strong> Others (specify)
+                                        </label>
+                                        <input type="text" class="form-input inline-input others-input-field" id="others-input-PC-5-hosp" placeholder="Please specify..." data-ref="PC-5" style="margin-left:12px;flex:1;max-width:300px">
+                                    </div>
+                                </div>
+                            
+                                <!-- OTHER BLOOD COMPONENT -->
+                                <div class="indication-group" id="group-OTHER-hosp" style="display:none">
+                                    <div class="indication-header">Other Blood Component</div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">
+                                        <div class="form-field">
+                                            <label class="form-label">Component Name <span class="req">*</span></label>
+                                            <input type="text" class="form-input" id="f-otherComponentName-hosp" placeholder="e.g. Albumin, Immunoglobulin...">
+                                        </div>
+                                        <div class="form-field">
+                                            <label class="form-label">Indication(s) <span class="req">*</span></label>
+                                            <input type="text" class="form-input" id="f-otherComponentIndication-hosp" placeholder="Specify indication...">
+                                        </div>
+                                    </div>
+                                </div>
+                            
+                                </div>
+                            
+                                <div class="form-err-banner" id="err-indication-hosp" style="margin-top:12px;display:none">
+                                    <span>⚠</span><span>Please select at least one indication.</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Important Reminders -->
+                            <div style="background:#FFF8DC;border:1.5px solid #FFE4B5;border-radius:8px;padding:14px;margin-top:20px;margin-bottom:0">
+                                <div style="font-size:11px;font-weight:700;color:#8B7500;margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase">
+                                    📋 Important Reminder (CNPH Blood Bank):
+                                </div>
+                                <div style="font-size:12px;color:#333;line-height:1.5">
+                                    • One (1) unit of WB or PRBC will increase HCT by 0.03 (3%)<br>
+                                    • One (1) unit of Platelet Concentrate will increase Platelet Count by 5-12 x 10³/L<br>
+                                    • Codes marked with <strong>*Will trigger review*</strong> require physician justification
                                 </div>
                             </div>
 
@@ -528,8 +1090,8 @@
                     </div>
                 </div>
 
-                <!-- STEP 3: Clinical Data & History (UPDATED with previousReactionDetails) -->
-                <div class="form-step" id="form-step-3">
+                <!-- STEP 3: Clinical Data & History -->
+                <div class="form-step" id="form-step-hosp-3">
                     <div class="card" style="margin-bottom:16px">
                         <div class="card-header"><div class="card-title">Clinical Data & History</div></div>
                         <div class="card-body">
@@ -538,11 +1100,11 @@
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Hemoglobin (g/L)</label>
-                                    <input type="number" id="pat-hemoglobin" placeholder="e.g. 85" min="0" max="200" step="0.1" oninput="syncForm()">
+                                    <input type="number" id="pat-hemoglobin-hosp" placeholder="e.g. 85" min="0" max="200" step="0.1" oninput="syncForm()">
                                 </div>
                                 <div class="fg">
                                     <label>Hematocrit (as decimal, e.g. 0.25 for 25%)</label>
-                                    <input type="number" id="pat-hematocrit" placeholder="e.g. 0.25" min="0" max="1" step="0.01" oninput="syncForm()">
+                                    <input type="number" id="pat-hematocrit-hosp" placeholder="e.g. 0.25" min="0" max="1" step="0.01" oninput="syncForm()">
                                 </div>
                             </div>
                 
@@ -552,53 +1114,53 @@
                                 <div class="fg">
                                     <div style="display:flex;gap:16px;margin-bottom:12px">
                                         <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-transfusion" value="yes" onchange="togglePrevTransfusionFields()">
+                                            <input type="radio" name="prev-transfusion-hosp" value="yes" onchange="togglePrevTransfusionFieldsHosp()">
                                             <span>Yes</span>
                                         </label>
                                         <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-transfusion" value="no" onchange="togglePrevTransfusionFields()">
+                                            <input type="radio" name="prev-transfusion-hosp" value="no" onchange="togglePrevTransfusionFieldsHosp()">
                                             <span>No</span>
                                         </label>
                                     </div>
                                 </div>
-                                <div id="prev-transfusion-fields" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
+                                <div id="prev-transfusion-fields-hosp" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
                                     <div class="form-grid-2">
                                         <div class="fg">
                                             <label>Date of Previous Transfusion</label>
-                                            <input type="date" id="prev-transfusion-date" oninput="syncForm()">
+                                            <input type="date" id="prev-transfusion-date-hosp" oninput="syncForm()">
                                         </div>
                                         <div class="fg">
                                             <label>Number of Units</label>
-                                            <input type="number" id="prev-transfusion-units" placeholder="e.g. 2" min="0" max="50" oninput="syncForm()">
+                                            <input type="number" id="prev-transfusion-units-hosp" placeholder="e.g. 2" min="0" max="50" oninput="syncForm()">
                                         </div>
                                     </div>
                                 </div>
                             </div>
                 
-                            <!-- Previous Reaction History (UPDATED with details field) -->
+                            <!-- Previous Reaction History -->
                             <div class="form-section" style="margin-bottom:0">
                                 <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Previous Reaction to Transfusion</div>
                                 <div class="fg">
                                     <div style="display:flex;gap:16px;margin-bottom:12px">
                                         <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-reaction" value="yes" onchange="togglePrevReactionFields()">
+                                            <input type="radio" name="prev-reaction-hosp" value="yes" onchange="togglePrevReactionFieldsHosp()">
                                             <span>Yes</span>
                                         </label>
                                         <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-reaction" value="no" onchange="togglePrevReactionFields()">
+                                            <input type="radio" name="prev-reaction-hosp" value="no" onchange="togglePrevReactionFieldsHosp()">
                                             <span>No</span>
                                         </label>
                                     </div>
                                 </div>
-                                <div id="prev-reaction-fields" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
+                                <div id="prev-reaction-fields-hosp" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
                                     <div class="form-grid-2">
                                         <div class="fg">
                                             <label>Date of Previous Reaction</label>
-                                            <input type="date" id="prev-reaction-date" oninput="syncForm()">
+                                            <input type="date" id="prev-reaction-date-hosp" oninput="syncForm()">
                                         </div>
                                         <div class="fg form-full">
                                             <label>Type / Details of Reaction</label>
-                                            <textarea id="prev-reaction-details" placeholder="e.g. Fever, rash, anaphylaxis, chills, etc." oninput="syncForm()"></textarea>
+                                            <textarea id="prev-reaction-details-hosp" placeholder="e.g. Fever, rash, anaphylaxis, chills, etc." oninput="syncForm()"></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -607,244 +1169,9 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- STEP 4: Indication for Transfusion (UPDATED: Sub-groups only visible when parent is checked) -->
-                <div class="form-step" id="form-step-4">
-                    <div class="card" style="margin-bottom:16px">
-                        <div class="card-header"><div class="card-title">Indication for Transfusion</div></div>
-                        <div class="card-body">
-                
-                            <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Select Indication(s) <span class="req">*</span></div>
-                            <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
-                            Select the indication(s) that apply. Multiple selections are allowed. Sub-items (a, b, c, etc.) will appear when you check the parent indication.
-                            </p>
-                
-                            <div id="indication-container" style="display:none">
-                            
-                            <!-- ════════════════════════════════════════════════════════════
-                                ADULT: PACKED RED BLOOD CELLS (PRBC) 
-                                ════════════════════════════════════════════════════════════ -->
-                            <div class="indication-group" id="group-PRBC" style="display:none">
-                                <div class="indication-header">🔴 Packed Red Blood Cells (PRBC)</div>
-                                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-R-1" value="R-1" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
-                                <label for="ind-R-1">
-                                    <strong>R-1:</strong> Hemoglobin less than 80 g/L or Hematocrit of less than 0.24 (if not due to treatable cause)
-                                </label>
-                                </div>
-                
-                                <!-- R-2: Parent with sub-items (a, b, c) -->
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-R-2" value="R-2" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
-                                <label for="ind-R-2">
-                                    <strong>R-2:</strong> Patient for operation/general anesthesia with one of the following:
-                                </label>
-                                </div>
-                                <!-- Sub-group: Only visible when R-2 is checked -->
-                                <div class="indication-sub-group" id="sub-R-2" style="display:none;margin-left:20px;padding:10px;background:#F5F5F5;border-radius:4px;margin-bottom:12px">
-                                <div class="indication-sub-item" style="margin-bottom:8px">
-                                    <input type="checkbox" id="ind-R-2a" value="R-2a" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC" onchange="syncForm()">
-                                    <label for="ind-R-2a"><strong>a.</strong> Preop Hb <80 g/L or HCT <0.24 (24%) or <0.30 (30%)</label>
-                                </div>
-                                <div class="indication-sub-item" style="margin-bottom:8px">
-                                    <input type="checkbox" id="ind-R-2b" value="R-2b" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC" onchange="syncForm()">
-                                    <label for="ind-R-2b"><strong>b.</strong> Major operation with high bleeding probability, Hb <100 g/L or HCT <0.30 (30%)</label>
-                                </div>
-                                <div class="indication-sub-item">
-                                    <input type="checkbox" id="ind-R-2c" value="R-2c" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC" onchange="syncForm()">
-                                    <label for="ind-R-2c"><strong>c.</strong> Signs of hemodynamic instability or inadequate O₂ carrying capacity (symptomatic anemia)</label>
-                                </div>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-R-3" value="R-3" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
-                                <label for="ind-R-3">
-                                    <strong>R-3:</strong> Symptomatic anemia regardless of Hb level (dyspnea, syncope, postural hypotension, tachycardia, chest pain, TIA)
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-R-4" value="R-4" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
-                                <label for="ind-R-4">
-                                    <strong>R-4:</strong> Hb <80 g/L or HCT <0.24 (24%) with concomitant hemorrhage, COPD, coronary artery disease, hemoglobinopathy, or sepsis
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-R-5" value="R-5" class="indication-checkbox" data-component="PRBC" onchange="syncForm()">
-                                <label for="ind-R-5">
-                                    <strong>R-5:</strong> Others (specify) — *Will trigger review*
-                                </label>
-                                <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="R-5" style="margin-left:12px;flex:1;max-width:300px">
-                                </div>
-                            </div>
-                
-                            <!-- ════════════════════════════════════════════════════════════
-                                ADULT: FRESH FROZEN PLASMA (FFP)
-                                ════════════════════════════════════════════════════════════ -->
-                            <div class="indication-group" id="group-FRESH_FROZEN_PLASMA" style="display:none">
-                                <div class="indication-header">❄️ Fresh Frozen Plasma (FFP)</div>
-                                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-F-1" value="F-1" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                <label for="ind-F-1">
-                                    <strong>F-1:</strong> PT or PTT >1.5× normal range within 8 hours of transfusion (PT >17 sec / PTT >47 sec)
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-F-2" value="F-2" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                <label for="ind-F-2">
-                                    <strong>F-2:</strong> Specific factor deficiencies not treatable with cryoprecipitate
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-F-3" value="F-3" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                <label for="ind-F-3">
-                                    <strong>F-3:</strong> Reversal of Coumadin anticoagulation in bleeding patients not transferrable with Vitamin K
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-F-4" value="F-4" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                <label for="ind-F-4">
-                                    <strong>F-4:</strong> Treatment of Thrombotic Thrombocytopenic Purpura (TTP)
-                                </label>
-                                </div>
-                
-                                <!-- F-5: Parent with sub-items (a, b) -->
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-F-5" value="F-5" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                <label for="ind-F-5">
-                                    <strong>F-5:</strong> Clinical Coagulopathy associated with:
-                                </label>
-                                </div>
-                                <!-- Sub-group: Only visible when F-5 is checked -->
-                                <div class="indication-sub-group" id="sub-F-5" style="display:none;margin-left:20px;padding:10px;background:#F5F5F5;border-radius:4px;margin-bottom:12px">
-                                <div class="indication-sub-item" style="margin-bottom:8px">
-                                    <input type="checkbox" id="ind-F-5a" value="F-5a" class="indication-checkbox sub" data-parent="F-5" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                    <label for="ind-F-5a"><strong>a.</strong> Massive Transfusion (>20 units of blood in 24 hours)</label>
-                                </div>
-                                <div class="indication-sub-item">
-                                    <input type="checkbox" id="ind-F-5b" value="F-5b" class="indication-checkbox sub" data-parent="F-5" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                    <label for="ind-F-5b"><strong>b.</strong> Late pregnancy termination or Abruptio Placentae</label>
-                                </div>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-F-6" value="F-6" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA" onchange="syncForm()">
-                                <label for="ind-F-6">
-                                    <strong>F-6:</strong> Others (specify) — *Will trigger review*
-                                </label>
-                                <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="F-6" style="margin-left:12px;flex:1;max-width:300px">
-                                </div>
-                            </div>
-                
-                            <!-- ════════════════════════════════════════════════════════════
-                                ADULT: PLATELET CONCENTRATE
-                                ════════════════════════════════════════════════════════════ -->
-                            <div class="indication-group" id="group-PLATELET_CONCENTRATE" style="display:none">
-                                <div class="indication-header">🩸 Platelet Concentrate</div>
-                                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-P-1" value="P-1" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
-                                <label for="ind-P-1">
-                                    <strong>P-1:</strong> Prophylactic administration with count <20,000 and not due to TTP, ITP, or HUS
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-P-2" value="P-2" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
-                                <label for="ind-P-2">
-                                    <strong>P-2:</strong> Active bleeding with platelet count <50,000
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-P-3" value="P-3" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
-                                <label for="ind-P-3">
-                                    <strong>P-3:</strong> Platelet count <50,000 and patient to undergo invasive procedure within 8 hours
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-P-4" value="P-4" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
-                                <label for="ind-P-4">
-                                    <strong>P-4:</strong> Platelet count <100,000 and patient to undergo surgery with critical areas (eyes, brain, etc.)
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-P-5" value="P-5" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
-                                <label for="ind-P-5">
-                                    <strong>P-5:</strong> Massive transfusion with diffuse microvascular bleeding with no time to obtain platelet count
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-P-6" value="P-6" class="indication-checkbox" data-component="PLATELET_CONCENTRATE" onchange="syncForm()">
-                                <label for="ind-P-6">
-                                    <strong>P-6:</strong> Others (specify) — *Will trigger review*
-                                </label>
-                                <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="P-6" style="margin-left:12px;flex:1;max-width:300px">
-                                </div>
-                            </div>
-                
-                            <!-- ════════════════════════════════════════════════════════════
-                                ADULT: CRYOPRECIPITATE
-                                ════════════════════════════════════════════════════════════ -->
-                            <div class="indication-group" id="group-CRYOPRECIPITATE" style="display:none">
-                                <div class="indication-header">❄️ Cryoprecipitate</div>
-                                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-C-1" value="C-1" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
-                                <label for="ind-C-1">
-                                    <strong>C-1:</strong> Significant Hypofibrinogenemia (less than 100 mg/dL)
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-C-2" value="C-2" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
-                                <label for="ind-C-2">
-                                    <strong>C-2:</strong> Hemophilia A
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-C-3" value="C-3" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
-                                <label for="ind-C-3">
-                                    <strong>C-3:</strong> Von Willebrand's Disease or Uremic Bleeding with prolonged Bleeding Time
-                                </label>
-                                </div>
-                
-                                <div class="indication-item">
-                                <input type="checkbox" id="ind-C-4" value="C-4" class="indication-checkbox" data-component="CRYOPRECIPITATE" onchange="syncForm()">
-                                <label for="ind-C-4">
-                                    <strong>C-4:</strong> Others (specify) — *Will trigger review*
-                                </label>
-                                <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="C-4" style="margin-left:12px;flex:1;max-width:300px">
-                                </div>
-                            </div>
-                
-                            <!-- ════════════════════════════════════════════════════════════
-                                ADD MORE GROUPS (WHOLE_BLOOD, PEDIATRIC, etc.) FOLLOWING SAME PATTERN
-                                ════════════════════════════════════════════════════════════ -->
-                
-                            </div>
-                
-                            <div class="form-err-banner" id="err-indication" style="margin-top:12px;display:none">
-                                <span>⚠</span><span>Please select at least one indication.</span>
-                            </div>
-                
-                        </div>
-                    </div>
-                </div>
-                
 
-                <!-- STEP 5: Supporting Documents -->
-                <div class="form-step" id="form-step-5">
+                <!-- STEP 4: Supporting Documents -->
+                <div class="form-step" id="form-step-hosp-4">
                     <div class="card" style="margin-bottom:16px">
                         <div class="card-header">
                             <div class="card-title">Supporting Documents</div>
@@ -853,97 +1180,554 @@
                         <div class="card-body">
 
                             <!-- Doctor's Note Upload -->
-                            <div style="margin-bottom:16px">
+                            <div style="margin-bottom:24px">
                                 <div class="fg" style="margin-bottom:8px">
                                     <label>Doctor's Blood Request Form <span class="req">*</span></label>
                                 </div>
-                                <div class="upload-zone" id="doc-zone"
-                                    onclick="document.getElementById('doc-file').click()"
+
+                                <div class="upload-zone" id="doc-zone-hosp"
+                                    onclick="document.getElementById('doc-file-hosp').click()"
                                     ondragover="event.preventDefault();this.classList.add('drag-over')"
                                     ondragleave="this.classList.remove('drag-over')"
                                     ondrop="handleDrop(event,'doc')">
-                                    <input type="file" id="doc-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this,'doc')">
-                                    <div id="doc-placeholder">
+
+                                    <input type="file"
+                                        id="doc-file-hosp"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        style="display:none"
+                                        onchange="handleFile(this,'doc')">
+
+                                    <div id="doc-placeholder-hosp">
                                         <div class="upload-icon">📄</div>
                                         <div class="upload-label">Click to upload or drag &amp; drop</div>
                                         <div class="upload-sub">PDF, JPG, PNG · Max 5MB</div>
                                     </div>
-                                    <div id="doc-preview" class="upload-preview" style="display:none">
+
+                                    <div id="doc-preview-hosp" class="upload-preview" style="display:none">
                                         <div class="upload-file-icon">✓</div>
+
                                         <div style="flex:1;min-width:0">
-                                            <div class="upload-file-name" id="doc-name"></div>
-                                            <div class="upload-file-size" id="doc-size"></div>
+                                            <div class="upload-file-name" id="doc-name-hosp"></div>
+                                            <div class="upload-file-size" id="doc-size-hosp"></div>
                                         </div>
-                                        <button class="upload-remove" type="button" onclick="event.stopPropagation();clearFile('doc')">✕</button>
+
+                                        <button class="upload-remove"
+                                            type="button"
+                                            onclick="event.stopPropagation();clearFile('doc')">
+                                            ✕
+                                        </button>
                                     </div>
                                 </div>
-                                <div id="doc-err" style="display:none;font-size:11px;color:var(--red);margin-top:5px"></div>
+
+                                <div id="doc-err-hosp"
+                                    style="display:none;font-size:11px;color:var(--red);margin-top:5px">
+                                </div>
                             </div>
 
-                            <!-- Commitment Referral Upload (Optional) -->
-                            <div>
-                                <div class="fg" style="margin-bottom:8px">
-                                    <label>Commitment Referral Letter
-                                        <span style="margin-left:6px;background:var(--blue-soft);color:var(--blue);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase">Optional</span>
-                                    </label>
-                                    <div class="hint">May be submitted before blood release per CNPH policy</div>
-                                </div>
-                                <div class="upload-zone" id="ref-zone"
-                                    onclick="document.getElementById('ref-file').click()"
-                                    ondragover="event.preventDefault();this.classList.add('drag-over')"
-                                    ondragleave="this.classList.remove('drag-over')"
-                                    ondrop="handleDrop(event,'ref')">
-                                    <input type="file" id="ref-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this,'ref')">
-                                    <div id="ref-placeholder">
-                                        <div class="upload-icon">📋</div>
-                                        <div class="upload-label">Upload Commitment Referral (optional)</div>
-                                        <div class="upload-sub">PDF, JPG, PNG · Max 5MB</div>
-                                    </div>
-                                    <div id="ref-preview" class="upload-preview" style="display:none">
-                                        <div class="upload-file-icon">✓</div>
-                                        <div style="flex:1;min-width:0">
-                                            <div class="upload-file-name" id="ref-name"></div>
-                                            <div class="upload-file-size" id="ref-size"></div>
-                                        </div>
-                                        <button class="upload-remove" type="button" onclick="event.stopPropagation();clearFile('ref')">✕</button>
-                                    </div>
-                                </div>
+                            <!-- Additional Notes Input -->
+                            <div style="margin-top:24px">
+                            <label for="notes-input-hosp" style="font-size:13px;font-weight:600;color:var(--charcoal);display:block;margin-bottom:8px">
+                                Additional Notes
+                            </label>
+                            <textarea 
+                                id="notes-input-hosp" 
+                                placeholder="Enter any additional notes or comments (max 1000 characters)"
+                                style="width:100%;min-height:100px;padding:12px;font-size:13px;border:1.5px solid #E4E4E7;border-radius:6px;font-family:inherit;resize:vertical;box-sizing:border-box"
+                                maxlength="1000"
+                            ></textarea>
+                            <div style="font-size:11px;color:var(--muted);margin-top:6px">
+                                <span id="notes-char-count">0</span>/1000 characters
+                            </div>
                             </div>
 
                         </div>
                     </div>
                 </div>
 
-                <!-- STEP 6: Additional Notes & Review -->
-                <div class="form-step" id="form-step-6" style="display:none">
-                    <div class="card" style="margin-bottom:20px">
-                        <div class="card-header"><div class="card-title">Additional Notes</div></div>
+                <!-- STEP 5: Review & Submit (NEW) -->
+                <div class="form-step" id="form-step-hosp-5">
+                    <div class="card" style="margin-bottom:16px">
+                        <div class="card-header">
+                            <div class="card-title">Review Your Request</div>
+                            <span style="font-size:12px;color:var(--muted)">Please verify all information before submitting</span>
+                        </div>
                         <div class="card-body">
-                            <div class="fg">
-                                <label>Notes / Special Instructions</label>
-                                <textarea id="req-notes" placeholder="Any additional information for the blood bank team..." oninput="syncForm()"></textarea>
+
+                            <!-- Patient Information Review -->
+                            <div style="margin-bottom:20px">
+                                <div style="font-size:13px;font-weight:600;color:var(--charcoal);margin-bottom:12px">Patient Information</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:12px">
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Patient Name</div>
+                                        <div style="font-weight:600" id="review-pat-name">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Date of Birth</div>
+                                        <div style="font-weight:600" id="review-pat-dob">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Patient Type</div>
+                                        <div style="font-weight:600" id="review-pat-type">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Sex</div>
+                                        <div style="font-weight:600" id="review-pat-sex">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Requesting Physician</div>
+                                        <div style="font-weight:600" id="review-pat-physician">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Request Category</div>
+                                        <div style="font-weight:600" id="review-req-category">—</div>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- Blood Details Review -->
+                            <div style="margin-bottom:20px;padding-top:16px;border-top:1.5px solid #E4E4E7">
+                                <div style="font-size:13px;font-weight:600;color:var(--charcoal);margin-bottom:12px">Blood Request Details</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:12px">
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Blood Type</div>
+                                        <div style="font-weight:600" id="review-blood-type">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Component</div>
+                                        <div style="font-weight:600" id="review-blood-comp">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Number of Units</div>
+                                        <div style="font-weight:600" id="review-blood-units">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Request Type</div>
+                                        <div style="font-weight:600" id="review-req-type">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Urgency Level</div>
+                                        <div style="font-weight:600" id="review-urgency">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Date Needed</div>
+                                        <div style="font-weight:600" id="review-date-needed">—</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Clinical Data Review -->
+                            <div style="margin-bottom:20px;padding-top:16px;border-top:1.5px solid #E4E4E7">
+                                <div style="font-size:13px;font-weight:600;color:var(--charcoal);margin-bottom:12px">Clinical Data</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:12px">
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Hemoglobin (g/L)</div>
+                                        <div style="font-weight:600" id="review-hemoglobin">—</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Hematocrit</div>
+                                        <div style="font-weight:600" id="review-hematocrit">—</div>
+                                    </div>
+                                    <div style="grid-column: span 2">
+                                        <div style="color:var(--muted);margin-bottom:3px">Clinical Impression / Diagnosis</div>
+                                        <div style="font-weight:600" id="review-diagnosis">—</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Indications Review -->
+                            <div style="margin-bottom:20px;padding-top:16px;border-top:1.5px solid #E4E4E7">
+                                <div style="font-size:13px;font-weight:600;color:var(--charcoal);margin-bottom:12px">Selected Indications</div>
+                                <div style="font-size:12px" id="review-indications">
+                                    <div style="color:var(--muted)">—</div>
+                                </div>
+                            </div>
+
+                            <!-- Documents Review -->
+                            <div style="margin-bottom:20px;padding-top:16px;border-top:1.5px solid #E4E4E7">
+                                <div style="font-size:13px;font-weight:600;color:var(--charcoal);margin-bottom:12px">Documents</div>
+                                <div style="font-size:12px">
+                                    <div style="margin-bottom:8px">
+                                        <div style="color:var(--muted);margin-bottom:3px">Doctor's Blood Request Form</div>
+                                        <div style="font-weight:600" id="review-doc-status">⚠ Not uploaded</div>
+                                    </div>
+                                    <div>
+                                        <div style="color:var(--muted);margin-bottom:3px">Commitment Referral Letter</div>
+                                        <div style="font-weight:600" id="review-ref-status">Optional</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Notes Review -->
+                            <div style="padding-top:16px;border-top:1.5px solid #E4E4E7">
+                                <div style="font-size:13px;font-weight:600;color:var(--charcoal);margin-bottom:12px">Additional Notes</div>
+                                <div style="font-size:12px;line-height:1.6;background:#F9FAFB;padding:12px;border-radius:6px;border-left:3px solid #3B82F6" id="review-notes">
+                                    <div style="color:var(--muted)">—</div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
 
                 <!-- Form Error Banner -->
-                <div class="form-err-banner" id="err-submit" style="margin-bottom:14px;display:none">
-                    <span>⚠</span><span id="err-submit-msg">Please fill in all required fields.</span>
+                <div class="form-err-banner" id="err-submit-hosp" style="margin-bottom:14px;display:none">
+                    <span>⚠</span><span id="err-submit-msg-hosp">Please fill in all required fields.</span>
                 </div>
 
                 <!-- Action Buttons -->
                 <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
-                    <button class="btn-secondary" style="flex:1;max-width:120px;display:none" onclick="prevStep()" id="btn-prev">← Back</button>
-                    <button class="btn-secondary" style="flex:1;max-width:120px" onclick="nextStep()" id="btn-next">Next →</button>
-                    <button class="btn-primary" style="flex:1;max-width:240px;display:none" onclick="submitRequest()" id="submit-btn">
+                    <button class="btn-secondary" style="flex:1;max-width:120px;display:none" onclick="prevStepHosp()" id="btn-prev-hosp">← Back</button>
+                    <button class="btn-secondary" style="flex:1;max-width:120px;display:none" onclick="nextStepHosp()" id="btn-next-hosp">Next →</button>
+                    <button class="btn-primary" style="flex:1;max-width:240px;display:none" onclick="submitRequestHosp()" id="submit-btn-hosp">
                         🩸 Submit Blood Request
                     </button>
-                    <button class="btn-secondary" onclick="resetNewRequestForm()" id="btn-reset">Reset</button>
+                    <button class="btn-secondary" onclick="resetFormHosp()" id="btn-reset-hosp">Reset</button>
                 </div>
 
             </div>
         </div>
+
+        <script>
+        // ============================================================================
+        // HOSPITAL BLOOD REQUEST FORM - JavaScript Functions (Updated for 5 steps)
+        // ============================================================================
+
+        function nextStepHosp() {
+            const step = parseInt(document.getElementById('current-step-num-hosp').textContent);
+            if (step < 5) {
+                if (validateStepHosp(step)) {
+                    goToStepHosp(step + 1);
+                }
+            }
+        }
+
+        function prevStepHosp() {
+            const step = parseInt(document.getElementById('current-step-num-hosp').textContent);
+            if (step > 1) {
+                goToStepHosp(step - 1);
+            }
+        }
+
+        function goToStepHosp(n) {
+            // Update step counter
+            document.getElementById('current-step-num-hosp').textContent = n;
+            
+            // Update step dots and lines
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById('step-dot-hosp-' + i).classList.toggle('active', i === n);
+                if (i < 5) {
+                    document.getElementById('step-line-hosp-' + i).style.background = i < n ? '#2E7D4F' : '#E8E8E8';
+                }
+            }
+            
+            // Toggle step visibility
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById('form-step-hosp-' + i).classList.toggle('active', i === n);
+            }
+            
+            // Toggle button visibility
+            document.getElementById('btn-prev-hosp').style.display = n > 1 ? 'block' : 'none';
+            document.getElementById('btn-next-hosp').style.display = (n > 1 && n < 5) ? 'block' : 'none';
+            document.getElementById('submit-btn-hosp').style.display = n === 5 ? 'block' : 'none';
+            
+            // If on review step, populate review data
+            if (n === 5) {
+                populateReviewHosp();
+            }
+        }
+
+        function validateStepHosp(step) {
+            // Add validation logic for each step
+            if (step === 1) {
+                // Patient info validation
+                const category = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
+                const firstName = document.getElementById('pat-firstname-hosp').value.trim();
+                const lastName = document.getElementById('pat-lastname-hosp').value.trim();
+                const birthdate = document.getElementById('pat-birthdate-hosp').value;
+                const sex = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
+                const physician = document.getElementById('pat-physician-hosp').value.trim();
+                
+                if (!category || !firstName || !lastName || !birthdate || !sex || !physician) {
+                    alert('Please fill in all required fields in Step 1.');
+                    return false;
+                }
+            } else if (step === 2) {
+                // Blood details validation
+                const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
+                const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+                const units = document.getElementById('req-units-hosp').value;
+                const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+                const urgency = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value;
+                const indicationSelected = document.querySelector('#panel-newrequest .indication-checkbox:checked');
+                
+                if (!bloodType || !component || !units || !reqType) {
+                    alert('Please fill in all required fields in Step 2.');
+                    return false;
+                }
+                
+                if (reqType === 'ROUTINE' && !urgency) {
+                    alert('Please select an urgency level.');
+                    return false;
+                }
+                
+                if (!indicationSelected) {
+                    document.getElementById('err-indication-hosp').style.display = 'block';
+                    alert('Please select at least one indication.');
+                    return false;
+                }
+            } else if (step === 4) {
+                // Documents validation
+                const docFile = document.getElementById('doc-file-hosp').files.length > 0;
+                if (!docFile) {
+                    alert('Please upload the Doctor\'s Blood Request Form.');
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        function populateReviewHosp() {
+            // Patient info
+            const firstName = document.getElementById('pat-firstname-hosp').value;
+            const lastName = document.getElementById('pat-lastname-hosp').value;
+            const fullName = `${firstName} ${lastName}`.trim();
+            document.getElementById('review-pat-name').textContent = fullName || '—';
+            document.getElementById('review-pat-dob').textContent = document.getElementById('pat-birthdate-hosp').value || '—';
+            document.getElementById('review-pat-type').textContent = document.getElementById('patient-type-display-hosp').textContent || '—';
+            document.getElementById('review-pat-sex').textContent = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value || '—';
+            document.getElementById('review-pat-physician').textContent = document.getElementById('pat-physician-hosp').value || '—';
+            document.getElementById('review-req-category').textContent = document.querySelector('input[name="req-category-hosp"]:checked')?.value || '—';
+            
+            // Blood details
+            document.getElementById('review-blood-type').textContent = document.querySelector('input[name="req-bt-hosp"]:checked')?.value || '—';
+            document.getElementById('review-blood-comp').textContent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value || '—';
+            document.getElementById('review-blood-units').textContent = document.getElementById('req-units-hosp').value || '—';
+            document.getElementById('review-req-type').textContent = document.querySelector('input[name="req-type-hosp"]:checked')?.value || '—';
+            
+            const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+            if (reqType === 'STAT') {
+                document.getElementById('review-urgency').textContent = 'HIGH (Auto)';
+            } else {
+                document.getElementById('review-urgency').textContent = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value || '—';
+            }
+            
+            document.getElementById('review-date-needed').textContent = document.getElementById('req-date-needed-hosp').value || '—';
+            
+            // Clinical data
+            document.getElementById('review-hemoglobin').textContent = document.getElementById('pat-hemoglobin-hosp').value || '—';
+            const hematocrit = document.getElementById('pat-hematocrit-hosp').value;
+            document.getElementById('review-hematocrit').textContent = hematocrit ? (hematocrit * 100) + '%' : '—';
+            document.getElementById('review-diagnosis').textContent = document.getElementById('pat-diagnosis-hosp').value || '—';
+            
+            // Indications
+            const selectedIndications = document.querySelectorAll('#panel-newrequest .indication-checkbox:checked');
+            if (selectedIndications.length > 0) {
+                const indicationLabels = Array.from(selectedIndications).map(cb => {
+                    const label = document.querySelector(`label[for="${cb.id}"]`);
+                    return label ? label.textContent.substring(0, 50) + (label.textContent.length > 50 ? '...' : '') : cb.value;
+                }).join('<br>');
+                document.getElementById('review-indications').innerHTML = indicationLabels || '—';
+            } else {
+                document.getElementById('review-indications').innerHTML = '<div style="color:var(--muted)">—</div>';
+            }
+            
+            // Documents
+            const docFile = document.getElementById('doc-file-hosp').files.length > 0;
+            document.getElementById('review-doc-status').textContent = docFile ? '✓ ' + document.getElementById('doc-name-hosp').textContent : '⚠ Not uploaded';
+            
+        }
+
+        function syncForm() {
+            // Placeholder for form sync logic - updates are handled by onchange/oninput
+        }
+
+        function handleDrop(e, type) {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const input = document.getElementById(type === 'doc-hosp' ? 'doc-file-hosp' : 'ref-file-hosp');
+                input.files = files;
+                handleFile(input, type);
+            }
+        }
+
+        function handleFile(input, type) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                alert('File size exceeds 5MB limit.');
+                return;
+            }
+            
+            const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Only PDF, JPG, and PNG files are allowed.');
+                return;
+            }
+            
+            const placeholderId = type === 'doc-hosp' ? 'doc-placeholder-hosp' : 'ref-placeholder-hosp';
+            const previewId = type === 'doc-hosp' ? 'doc-preview-hosp' : 'ref-preview-hosp';
+            const nameId = type === 'doc-hosp' ? 'doc-name-hosp' : 'ref-name-hosp';
+            const sizeId = type === 'doc-hosp' ? 'doc-size-hosp' : 'ref-size-hosp';
+            
+            document.getElementById(placeholderId).style.display = 'none';
+            document.getElementById(previewId).style.display = 'block';
+            document.getElementById(nameId).textContent = file.name;
+            document.getElementById(sizeId).textContent = (file.size / 1024).toFixed(2) + ' KB';
+        }
+
+        function clearFile(type) {
+            const fileInputId = type === 'doc-hosp' ? 'doc-file-hosp' : 'ref-file-hosp';
+            const placeholderId = type === 'doc-hosp' ? 'doc-placeholder-hosp' : 'ref-placeholder-hosp';
+            const previewId = type === 'doc-hosp' ? 'doc-preview-hosp' : 'ref-preview-hosp';
+            
+            document.getElementById(fileInputId).value = '';
+            document.getElementById(placeholderId).style.display = 'block';
+            document.getElementById(previewId).style.display = 'none';
+        }
+
+        function togglePrevTransfusionFieldsHosp() {
+            const selected = document.querySelector('input[name="prev-transfusion-hosp"]:checked')?.value;
+            const fieldsDiv = document.getElementById('prev-transfusion-fields-hosp');
+            fieldsDiv.style.display = selected === 'yes' ? 'block' : 'none';
+        }
+
+        function togglePrevReactionFieldsHosp() {
+            const selected = document.querySelector('input[name="prev-reaction-hosp"]:checked')?.value;
+            const fieldsDiv = document.getElementById('prev-reaction-fields-hosp');
+            fieldsDiv.style.display = selected === 'yes' ? 'block' : 'none';
+        }
+
+        function updateUrgencyLevelHosp() {
+            const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+            const autoDisplay = document.getElementById('urgency-auto-stat-hosp');
+            const options = document.getElementById('urgency-routine-options-hosp');
+            
+            if (requestType === 'STAT') {
+                autoDisplay.style.display = 'block';
+                options.style.display = 'none';
+                // Auto-select HIGH for STAT
+                document.querySelector('input[name="req-urgency-hosp"][value="HIGH"]').checked = true;
+            } else {
+                autoDisplay.style.display = 'none';
+                options.style.display = 'block';
+            }
+        }
+
+        function updateIndicationGroupsHosp() {
+            const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+            const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
+            
+            if (!birthdate || !component) {
+                document.getElementById('indication-container-hosp').style.display = 'none';
+                return;
+            }
+            
+            const birthYear = new Date(birthdate).getFullYear();
+            const isAdult = new Date().getFullYear() - birthYear >= 13;
+            
+            document.getElementById('indication-container-hosp').style.display = 'block';
+            
+            // Hide all groups
+            document.querySelectorAll('#panel-newrequest .indication-group').forEach(g => {
+                g.style.display = 'none';
+            });
+            
+            // Component-to-group mapping
+            const adultComponentGroupMap = {
+                // PRBC-related
+                PRBC: 'group-PRBC-hosp',
+                LEUKOREDUCED_PRBC: 'group-PRBC-hosp',
+                ALIQUOTED_PRBC: 'group-PRBC-hosp',
+
+                // Platelets
+                PLATELET_CONCENTRATE: 'group-PLATELET_CONCENTRATE-hosp',
+
+                // Plasma
+                FRESH_FROZEN_PLASMA: 'group-FRESH_FROZEN_PLASMA-hosp',
+
+                // Cryo-related
+                CRYOPRECIPITATE: 'group-CRYOPRECIPITATE-hosp',
+                CRYO: 'group-CRYOPRECIPITATE-hosp',
+
+                CRYOSUPERNATANT: 'group-CRYOPRECIPITATE-hosp',
+                'CRYO-SN': 'group-CRYOPRECIPITATE-hosp'
+            };
+            
+            let groupId = '';
+
+            if (isAdult) {
+                groupId = adultComponentGroupMap[component] || '';
+            }
+
+            // Pediatric mapping can be added later here
+            
+            if (groupId) {
+                document.getElementById(groupId).style.display = 'block';
+            }
+        }
+
+        function calculateAgeHosp() {
+            const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
+            if (!birthdate) {
+                document.getElementById('patient-type-display-hosp').textContent = 'Select date of birth';
+                return;
+            }
+            
+            const today = new Date();
+            const birth = new Date(birthdate);
+            let age = today.getFullYear() - birth.getFullYear();
+            if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            
+            const type = age >= 13 ? 'Adult (≥13 years)' : 'Pediatric (<13 years)';
+            document.getElementById('patient-type-display-hosp').textContent = `${type} - Age: ${age} years`;
+            
+            updateIndicationGroupsHosp();
+        }
+
+        function resetFormHosp() {
+            document.querySelectorAll('#panel-newrequest input[type="text"], #panel-newrequest input[type="date"], #panel-newrequest input[type="number"], #panel-newrequest textarea').forEach(el => {
+                el.value = '';
+            });
+            document.querySelectorAll('#panel-newrequest input[type="radio"], #panel-newrequest input[type="checkbox"]').forEach(el => {
+                el.checked = false;
+            });
+            document.getElementById('doc-file-hosp').value = '';
+            goToStepHosp(1);
+        }
+
+        function submitRequestHosp() {
+            // Validation before submit
+            if (!validateStepHosp(4)) {
+                return;
+            }
+            
+            // Gather form data
+            const formData = {
+                requestCategory: document.querySelector('input[name="req-category-hosp"]:checked')?.value,
+                patientName: `${document.getElementById('pat-firstname-hosp').value} ${document.getElementById('pat-lastname-hosp').value}`,
+                birthdate: document.getElementById('pat-birthdate-hosp').value,
+                bloodType: document.querySelector('input[name="req-bt-hosp"]:checked')?.value,
+                component: document.querySelector('input[name="req-comp-hosp"]:checked')?.value,
+                units: document.getElementById('req-units-hosp').value,
+                requestType: document.querySelector('input[name="req-type-hosp"]:checked')?.value,
+                urgency: document.querySelector('input[name="req-urgency-hosp"]:checked')?.value,
+                docFile: document.getElementById('doc-file-hosp').files[0],
+            };
+            
+            // Log submission
+            console.log('Blood Request submitted:', formData);
+            alert(`Blood request submitted successfully!\n\nReference will be generated and sent to the hospital.`);
+            
+            // Reset form after submission
+            resetFormHosp();
+        }
+        </script>
 
         <!-- ════════════════════════════
             PANEL: MY BLOOD REQUESTS
@@ -1319,6 +2103,45 @@
 
         </main>
 
+        <!-- SUCCESS MODAL - Blood Request Submitted -->
+        <div class="success-modal-overlay" id="success-modal-overlay">
+        <div class="success-modal" onclick="event.stopPropagation()">
+            
+            <!-- Close Button -->
+            <button class="success-modal-close" onclick="closeSuccessModal()">✕</button>
+        
+            <!-- Success Icon -->
+            <div class="success-icon-wrap">✓</div>
+        
+            <!-- Title & Subtitle -->
+            <div class="success-title">Request Submitted</div>
+            <div class="success-sub">
+            Your blood request is now under review by our Blood Bank staff.
+            Please save your reference number — you'll need it to track your request.
+            </div>
+        
+            <!-- Reference Number Display -->
+            <div class="ref-display">
+            <div style="flex: 1;">
+                <div class="ref-label">Reference No.</div>
+                <div class="ref-number" id="success-ref">BR-2026-00000</div>
+            </div>
+            <button class="btn-copy" onclick="copyRef()">Copy</button>
+            </div>
+        
+            <!-- Email Confirmation -->
+            <div class="email-confirmation">
+            We'll send a confirmation and updates to <strong id="success-email">your registered email</strong>
+            </div>
+        
+            <!-- Action Button -->
+            <button class="btn-new-request" onclick="newAnotherRequest()">Submit Another Request</button>
+        
+        </div>
+        </div>
+
+        
+       
         <!-- ══════════════════════════════════════════════════════════════
             MODAL: REQUEST DETAIL (EXPANDED WITH ALL SECTIONS)
             ══════════════════════════════════════════════════════════════ -->
@@ -1333,10 +2156,10 @@
                     </div>
                     <button class="modal-close" onclick="closeModal('requestDetailModal')">✕</button>
                 </div>
-
+ 
                 <!-- MODAL BODY — SCROLLABLE CONTENT -->
                 <div class="modal-body" style="flex:1;overflow-y:auto;padding:0">
-
+ 
                     <!-- STATUS STRIP (STICKY AT TOP) -->
                     <div style="position:sticky;top:0;z-index:10;padding:16px;border-bottom:1px solid var(--border);background:var(--modal-bg)">
                         <div id="rd-status-strip" style="border-radius:11px;padding:14px 16px;display:flex;align-items:center;gap:12px">
@@ -1349,10 +2172,10 @@
                             <div id="rd-blood-ghost" style="font-family:'Playfair Display',serif;font-size:44px;font-weight:900;opacity:0.1;line-height:1"></div>
                         </div>
                     </div>
-
+ 
                     <!-- SCROLLABLE CONTENT AREA -->
                     <div style="padding:16px">
-
+ 
                         <!-- SECTION: Request Status -->
                         <div class="detail-section">
                             <div class="detail-section-title">Request Status</div>
@@ -1383,7 +2206,7 @@
                                 </div>
                             </div>
                         </div>
-
+ 
                         <!-- SECTION: Patient Information -->
                         <div class="detail-section">
                             <div class="detail-section-title">Patient Information</div>
@@ -1414,7 +2237,7 @@
                                 </div>
                             </div>
                         </div>
-
+ 
                         <!-- SECTION: Blood Requirements -->
                         <div class="detail-section">
                             <div class="detail-section-title">Blood Requirements</div>
@@ -1427,23 +2250,23 @@
                                     <div class="detail-label">Units Needed</div>
                                     <div class="detail-val" id="rd-units"></div>
                                 </div>
-                                <div class="detail-box">
-                                    <div class="detail-label">Volume (mL)</div>
-                                    <div class="detail-val" id="rd-volume"></div>
-                                </div>
-                                <div class="detail-box">
-                                    <div class="detail-label">Special Notes</div>
-                                    <div class="detail-val" id="rd-notes"></div>
-                                </div>
                             </div>
                         </div>
-
+ 
+                        <!-- SECTION: Additional Notes -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">Additional Notes</div>
+                            <div style="font-size:12px;line-height:1.6;background:var(--bg);min-height:60px" id="rd-notes-display">
+                                <div style="color:var(--muted)">—</div>
+                            </div>
+                        </div>
+ 
                         <!-- SECTION: Transfusion Indications -->
                         <div class="detail-section" id="rd-indications-section" style="display:none">
                             <div class="detail-section-title">Transfusion Indications</div>
                             <div id="rd-indication-details" style="font-size:13px;color:var(--charcoal);line-height:1.8"></div>
                         </div>
-
+ 
                         <!-- SECTION: Clinical Information -->
                         <div class="detail-section">
                             <div class="detail-section-title">Clinical Information</div>
@@ -1451,14 +2274,6 @@
                                 <div class="detail-box">
                                     <div class="detail-label">Clinical Impression</div>
                                     <div class="detail-val" id="rd-clinical-impression"></div>
-                                </div>
-                                <div class="detail-box">
-                                    <div class="detail-label">Attending Physician</div>
-                                    <div class="detail-val" id="rd-attending-physician"></div>
-                                </div>
-                                <div class="detail-box">
-                                    <div class="detail-label">Contact Number</div>
-                                    <div class="detail-val" id="rd-contact-number"></div>
                                 </div>
                                 <div class="detail-box">
                                     <div class="detail-label">Hemoglobin (g/L)</div>
@@ -1470,7 +2285,7 @@
                                 </div>
                             </div>
                         </div>
-
+ 
                         <!-- SECTION: Transfusion History -->
                         <div class="detail-section">
                             <div class="detail-section-title">Transfusion History</div>
@@ -1489,7 +2304,7 @@
                                 </div>
                             </div>
                         </div>
-
+ 
                         <!-- SECTION: Reaction History -->
                         <div class="detail-section">
                             <div class="detail-section-title">Reaction History</div>
@@ -1508,7 +2323,13 @@
                                 </div>
                             </div>
                         </div>
-
+ 
+                        <!-- SECTION: Indication Other Specify -->
+                        <div class="detail-section" id="rd-indication-other-section" style="display:none">
+                            <div class="detail-section-title">Indication Specifications</div>
+                            <div id="rd-indication-other-details" style="font-size:13px;color:var(--charcoal);line-height:1.8;background:var(--bg);padding:12px;border-radius:6px;border-left:3px solid var(--amber)"></div>
+                        </div>
+ 
                         <!-- SECTION: Requester Information -->
                         <div class="detail-section">
                             <div class="detail-section-title">Requester Information</div>
@@ -1535,14 +2356,14 @@
                                 </div>
                             </div>
                         </div>
-
+ 
                         <!-- SECTION: Rejection Reason (if applicable) -->
                         <div id="rd-rejection-box" style="display:none;background:var(--red-soft);border:1px solid #F5B7B1;
                             border-radius:10px;padding:12px 14px;margin-top:12px">
                             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:5px">Rejection Reason</div>
                             <div id="rd-rejection-text" style="font-size:13px;color:var(--navy);line-height:1.6"></div>
                         </div>
-
+ 
                         <!-- SECTION: Fulfilled By Bag (if applicable) -->
                         <div id="rd-fulfilled-box" style="display:none;background:var(--green-soft);border:1px solid #A9DFBF;
                             border-radius:10px;padding:12px 14px;margin-top:12px">
@@ -1552,7 +2373,7 @@
                                 <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Released</div><div id="rd-released-at" style="font-size:13px;font-weight:600"></div></div>
                             </div>
                         </div>
-
+ 
                         <!-- SECTION: Request Document -->
                         <div id="rd-doc-box" style="display:none;margin-top:20px;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:10px">
                             <div style="font-weight:600;margin-bottom:10px">Request Form</div>
@@ -1560,29 +2381,29 @@
                                 📄 View Document
                             </button>
                         </div>
-
+ 
                     </div>
-
+ 
                 </div>
-
+ 
                 <!-- MODAL FOOTER — ACTION BUTTONS -->
-                <div style="border-top:1px solid var(--border);padding:16px;background:var(--modal-bg)">
+                <!-- <div style="border-top:1px solid var(--border);padding:16px;background:var(--modal-bg)">
                     <div id="rd-cancel-row" style="display:none">
                         <button class="btn-secondary" style="width:100%;justify-content:center;color:var(--red);border-color:rgba(192,57,43,0.3)"
                             id="rd-cancel-btn">Cancel Request</button>
                         <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">Only requests pending review can be cancelled.</div>
                     </div>
-                </div>
-
+                </div> -->
+ 
             </div>
         </div>
-
+ 
         <!-- CSS FOR DETAIL SECTIONS -->
         <style>
         .detail-section {
             margin-bottom: 24px;
         }
-
+ 
         .detail-section-title {
             font-size: 12px;
             font-weight: 700;
@@ -1593,20 +2414,20 @@
             padding-bottom: 8px;
             border-bottom: 1px solid var(--border);
         }
-
+ 
         .detail-grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
         }
-
+ 
         .detail-box {
             padding: 10px;
             background: var(--bg);
             border-radius: 8px;
             border: 1px solid var(--border);
         }
-
+ 
         .detail-label {
             font-size: 10px;
             font-weight: 700;
@@ -1615,14 +2436,14 @@
             color: var(--muted);
             margin-bottom: 4px;
         }
-
+ 
         .detail-val {
             font-size: 13px;
             color: var(--charcoal);
             font-weight: 500;
             word-break: break-word;
         }
-
+ 
         @media (max-width: 640px) {
             .detail-grid-2 {
                 grid-template-columns: 1fr;

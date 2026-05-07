@@ -108,7 +108,7 @@ function showPanel(id, navEl) {
   if (id === 'newrequest') { 
     currentStep = 1;
     updateStepUI();
-    hideStepErrorBanner();
+    // hideStepErrorBanner();
   }
 }
 
@@ -313,774 +313,444 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-
 // ═══════════════════════════════════════════════════════════════
-// ░░░ UPDATED: NEW BLOOD REQUEST TAB (6 STEPS) ░░░
+// ░░░ NEW BLOOD REQUEST FORM (5 STEPS) - FIXED JS ░░░
 // ═══════════════════════════════════════════════════════════════
 
-const TOTAL_STEPS = 6;
-let currentStep = 1;
-let docFile = null;
+const TOTAL_STEPS_HOSP = 5;
+let currentStepHosp = 1;
+let docFileHosp = null;
+
+// ──────────────────────────────────────────────────────────────
+// STEP NAVIGATION
+// ──────────────────────────────────────────────────────────────
 
 /**
- * Update step indicator UI (dots, lines, buttons, content visibility)
+ * Navigate to a specific step
+ */
+function goToStepHosp(n) {
+  if (n > currentStepHosp && !validateStepHosp(currentStepHosp)) {
+    return;
+  }
+
+  currentStepHosp = n;
+  updateStepUI();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/**
+ * Next button handler
+ */
+function nextStepHosp() {
+  if (currentStepHosp < TOTAL_STEPS_HOSP) {
+    goToStepHosp(currentStepHosp + 1);
+  }
+}
+
+/**
+ * Previous button handler
+ */
+function prevStepHosp() {
+  if (currentStepHosp > 1) {
+    goToStepHosp(currentStepHosp - 1);
+  }
+}
+
+/**
+ * Update step UI (dots, lines, content visibility, buttons)
  */
 function updateStepUI() {
   // Update step dots and lines
-  for (let i = 1; i <= TOTAL_STEPS; i++) {
-    const dot = document.getElementById(`step-dot-${i}`);
-    const line = document.getElementById(`step-line-${i}`);
+  for (let i = 1; i <= TOTAL_STEPS_HOSP; i++) {
+    const dot = document.getElementById(`step-dot-hosp-${i}`);
+    const line = document.getElementById(`step-line-hosp-${i}`);
     
     if (dot) {
-      dot.classList.remove('active');
-      if (i === currentStep) {
-        dot.classList.add('active');
-      } else if (i < currentStep) {
-        dot.textContent = '✓';
-        dot.style.background = '#2E7D4F';
-        dot.style.color = 'white';
-      } else {
-        dot.textContent = i;
-        dot.style.background = '#F0F0F0';
-        dot.style.color = '#999';
-      }
+      dot.classList.toggle('active', i === currentStepHosp);
     }
     
-    if (line && i < TOTAL_STEPS) {
-      line.style.background = i < currentStep ? '#2E7D4F' : '#E8E8E8';
+    if (line && i < TOTAL_STEPS_HOSP) {
+      line.style.background = i < currentStepHosp ? '#2E7D4F' : '#E8E8E8';
     }
   }
   
   // Update step counter
-  const counter = document.getElementById('current-step-num');
-  if (counter) counter.textContent = currentStep;
+  document.getElementById('current-step-num-hosp').textContent = currentStepHosp;
   
   // Show/hide step content
-  for (let i = 1; i <= TOTAL_STEPS; i++) {
-    const step = document.getElementById(`form-step-${i}`);
+  for (let i = 1; i <= TOTAL_STEPS_HOSP; i++) {
+    const step = document.getElementById(`form-step-hosp-${i}`);
     if (step) {
-      step.style.display = i === currentStep ? 'block' : 'none';
+      step.classList.toggle('active', i === currentStepHosp);
     }
   }
   
-  // Update button visibility
-  const prevBtn = document.getElementById('btn-prev');
-  const nextBtn = document.getElementById('btn-next');
-  const submitBtn = document.getElementById('submit-btn');
-  const resetBtn = document.getElementById('btn-reset');
+  // Toggle button visibility
+  document.getElementById('btn-prev-hosp').style.display = currentStepHosp > 1 ? 'block' : 'none';
+  document.getElementById('btn-next-hosp').style.display = currentStepHosp < TOTAL_STEPS_HOSP ? 'block' : 'none';
+  document.getElementById('submit-btn-hosp').style.display = currentStepHosp === TOTAL_STEPS_HOSP ? 'block' : 'none';
   
-  if (prevBtn) prevBtn.style.display = currentStep > 1 ? 'block' : 'none';
-  if (nextBtn) nextBtn.style.display = currentStep < TOTAL_STEPS ? 'block' : 'none';
-  if (submitBtn) submitBtn.style.display = currentStep === TOTAL_STEPS ? 'block' : 'none';
-  if (resetBtn) resetBtn.style.display = currentStep === TOTAL_STEPS ? 'none' : 'block';
+  // Populate review on step 5
+  if (currentStepHosp === TOTAL_STEPS_HOSP) {
+    populateReviewHosp();
+  }
   
-  hideStepErrorBanner();
+  hideErrorHosp();
 }
 
-/**
- * Move to next step
- */
-function nextStep() {
-  hideStepErrorBanner();
-  
-  // Validate current step before proceeding
-  if (currentStep === 1 && !validateStep1()) return;
-  if (currentStep === 2 && !validateStep2()) return;
-  if (currentStep === 3 && !validateStep3()) return;
-  if (currentStep === 4 && !validateStep4()) return;
-  if (currentStep === 5 && !validateStep5()) return;
+// ──────────────────────────────────────────────────────────────
+// ERROR HANDLING
+// ──────────────────────────────────────────────────────────────
 
-  if (currentStep < TOTAL_STEPS) {
-    currentStep++;
-    updateStepUI();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+/**
+ * Show error message
+ */
+function showErrorHosp(msg) {
+  const el = document.getElementById('err-submit-hosp');
+  if (el) {
+    document.getElementById('err-submit-msg-hosp').textContent = msg;
+    el.style.display = 'flex';
   }
 }
 
 /**
- * Move to previous step
+ * Hide error message
  */
-function prevStep() {
-  if (currentStep > 1) {
-    currentStep--;
-    updateStepUI();
-    hideStepErrorBanner();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+function hideErrorHosp() {
+  const el = document.getElementById('err-submit-hosp');
+  if (el) {
+    el.style.display = 'none';
   }
 }
 
 // ──────────────────────────────────────────────────────────────
-// Form Validation
+// VALIDATION
 // ──────────────────────────────────────────────────────────────
 
 /**
- * Error display helpers
+ * Validate current step
  */
-function showStepError(message) {
-  const el = document.getElementById('err-submit-msg');
-  if (el) el.textContent = message;
-}
+function validateStepHosp(step) {
+  hideErrorHosp();
 
-function showStepErrorBanner() {
-  const errSubmit = document.getElementById('err-submit');
-  if (errSubmit) errSubmit.classList.add('show');
-}
+  if (step === 1) {
+    // Validate patient info
+    const firstName = document.getElementById('pat-firstname-hosp')?.value?.trim();
+    const lastName = document.getElementById('pat-lastname-hosp')?.value?.trim();
+    const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
+    const sex = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
+    const physician = document.getElementById('pat-physician-hosp')?.value?.trim();
+    const category = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
 
-function hideStepErrorBanner() {
-  const errSubmit = document.getElementById('err-submit');
-  if (errSubmit) errSubmit.classList.remove('show');
-}
-
-/**
- * Validate Step 1: Patient Information
- */
-function validateStep1() {
-  let ok = true;
-  const errBanners = ['err-category', 'err-agegroup'];
-  errBanners.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('show');
-  });
-
-  // Check Request Category
-  if (!document.querySelector('input[name="req-category"]:checked')) {
-    const el = document.getElementById('err-category');
-    if (el) el.classList.add('show');
-    showStepError('Please select a request category.');
-    ok = false;
-  }
-
-  // Check Age Group
-  if (!document.querySelector('input[name="req-agegroup"]:checked')) {
-    const el = document.getElementById('err-agegroup');
-    if (el) el.classList.add('show');
-    showStepError('Please select an age group.');
-    ok = false;
-  }
-
-  // Check required text fields
-  const required = [
-    ['pat-lastname', 'Patient Last Name'],
-    ['pat-firstname', 'Patient First Name'],
-    ['pat-age', 'Patient Age'],
-    ['pat-physician', 'Requesting Physician'],
-  ];
-
-  for (const [id, name] of required) {
-    const val = document.getElementById(id)?.value?.trim();
-    if (!val) {
-      showStepError(`⚠ ${name} is required.`);
-      ok = false;
-      break;
+    if (!category) {
+      showErrorHosp('Please select a request category.');
+      return false;
     }
-  }
-
-  // Check Patient Sex
-  if (!document.querySelector('input[name="pat-sex"]:checked')) {
-    showStepError('⚠ Please select patient sex.');
-    ok = false;
-  }
-
-  if (!ok) {
-    showStepErrorBanner();
-  }
-
-  return ok;
-}
-
-/**
- * Validate Step 2: Blood Request Details
- */
-function validateStep2() {
-  let ok = true;
-  const errBanners = ['err-bt', 'err-comp', 'err-urgency'];
-  errBanners.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('show');
-  });
-
-  // Check Blood Type
-  if (!document.querySelector('input[name="req-bt"]:checked')) {
-    const el = document.getElementById('err-bt');
-    if (el) el.classList.add('show');
-    showStepError('⚠ Please select a blood type.');
-    ok = false;
-  }
-
-  // Check Component
-  if (!document.querySelector('input[name="req-comp"]:checked')) {
-    const el = document.getElementById('err-comp');
-    if (el) el.classList.add('show');
-    showStepError('⚠ Please select a blood component.');
-    ok = false;
-  }
-
-  // Check Units
-  const units = document.getElementById('req-units')?.value?.trim();
-  if (!units || parseInt(units) < 1) {
-    showStepError('⚠ Please enter number of units (minimum 1).');
-    ok = false;
-  }
-
-  // Check Urgency
-  if (!document.querySelector('input[name="req-urgency"]:checked')) {
-    const el = document.getElementById('err-urgency');
-    if (el) el.classList.add('show');
-    showStepError('⚠ Please select an urgency level.');
-    ok = false;
-  }
-
-  if (!ok) {
-    showStepErrorBanner();
-  }
-
-  return ok;
-}
-
-/**
- * Validate Step 3: Clinical Data & History (optional, no validation needed)
- */
-function validateStep3() {
-  // This step is optional - no validation required
-  return true;
-}
-
-/**
- * Validate Step 4: Indication for Transfusion
- */
-function validateStep4() {
-  const checkedIndications = document.querySelectorAll('.indication-checkbox:checked');
-  
-  if (checkedIndications.length === 0) {
-    showStepError('⚠ Please select at least one indication.');
-    const errEl = document.getElementById('err-indication');
-    if (errEl) errEl.classList.add('show');
-    showStepErrorBanner();
-    return false;
-  }
-
-  const errEl = document.getElementById('err-indication');
-  if (errEl) errEl.classList.remove('show');
-  return true;
-}
-
-/**
- * Validate Step 5: Supporting Documents
- */
-function validateStep5() {
-  const docFile = document.getElementById('doc-file')?.files[0];
-  
-  if (!docFile) {
-    showStepError('⚠ Please upload Doctor\'s Blood Request Form. This is required.');
-    showStepErrorBanner();
-    return false;
-  }
-  
-  return true;
-}
-
-/**
- * Full form validation (used when submitting)
- */
-function validateNewRequest() {
-  let ok = true;
-
-  const errBanners = ['err-category','err-bt','err-comp','err-urgency','err-indication'];
-  errBanners.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('show');
-  });
-
-  if (!document.querySelector('input[name="req-category"]:checked')) {
-    const el = document.getElementById('err-category');
-    if (el) el.classList.add('show');
-    ok = false;
-  }
-  if (!document.querySelector('input[name="req-bt"]:checked')) {
-    const el = document.getElementById('err-bt');
-    if (el) el.classList.add('show');
-    ok = false;
-  }
-  if (!document.querySelector('input[name="req-comp"]:checked')) {
-    const el = document.getElementById('err-comp');
-    if (el) el.classList.add('show');
-    ok = false;
-  }
-  if (!document.querySelector('input[name="req-urgency"]:checked')) {
-    const el = document.getElementById('err-urgency');
-    if (el) el.classList.add('show');
-    ok = false;
-  }
-
-  const checkedIndications = document.querySelectorAll('.indication-checkbox:checked');
-  if (checkedIndications.length === 0) {
-    const el = document.getElementById('err-indication');
-    if (el) el.classList.add('show');
-    ok = false;
-  }
-
-  const required = [
-    ['pat-lastname','Last Name'],
-    ['pat-firstname','First Name'],
-    ['pat-age','Age'],
-    ['pat-physician','Requesting Physician'],
-    ['req-units','Number of Units'],
-  ];
-
-  for (const [id, name] of required) {
-    if (!document.getElementById(id)?.value?.trim()) {
-      const el = document.getElementById('err-submit-msg');
-      if (el) el.textContent = `Please fill in: ${name}`;
-      ok = false;
-      break;
+    if (!firstName) {
+      showErrorHosp('Please enter patient first name.');
+      return false;
     }
+    if (!lastName) {
+      showErrorHosp('Please enter patient last name.');
+      return false;
+    }
+    if (!birthdate) {
+      showErrorHosp('Please enter patient date of birth.');
+      return false;
+    }
+    if (!sex) {
+      showErrorHosp('Please select patient sex.');
+      return false;
+    }
+    if (!physician) {
+      showErrorHosp('Please enter requesting physician name.');
+      return false;
+    }
+
+    return true;
   }
 
-  if (!document.querySelector('input[name="pat-sex"]:checked')) {
-    const el = document.getElementById('err-submit-msg');
-    if (el) el.textContent = 'Please select patient sex.';
-    ok = false;
+  if (step === 2) {
+    // Validate blood details
+    const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
+    const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+    const units = document.getElementById('req-units-hosp')?.value;
+    const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+
+    if (!bloodType) {
+      showErrorHosp('Please select blood type.');
+      return false;
+    }
+    if (!component) {
+      showErrorHosp('Please select blood component.');
+      return false;
+    }
+    if (!units || parseInt(units) < 1) {
+      showErrorHosp('Please enter number of units (minimum 1).');
+      return false;
+    }
+    if (!requestType) {
+      showErrorHosp('Please select request type (STAT or ROUTINE).');
+      return false;
+    }
+
+    // Check urgency
+    if (requestType === 'ROUTINE') {
+      const urgency = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value;
+      if (!urgency) {
+        showErrorHosp('For ROUTINE requests, please select an urgency level.');
+        return false;
+      }
+    }
+
+    // Check indication
+    const indicationSelected = document.querySelector('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
+    if (!indicationSelected) {
+      document.getElementById('err-indication-hosp').style.display = 'block';
+      showErrorHosp('Please select at least one indication for transfusion.');
+      return false;
+    }
+
+    return true;
   }
 
-  const docFileInput = document.getElementById('doc-file');
-  if (!docFileInput?.files[0]) {
-    const el = document.getElementById('err-submit-msg');
-    if (el) el.textContent = 'Please upload Doctor\'s Blood Request Form.';
-    ok = false;
+  if (step === 4) {
+    // Validate documents - Check the global variable, not the input element
+    console.log('Validating documents. docFileHosp:', docFileHosp);
+    if (!docFileHosp) {
+      showErrorHosp('Please upload Doctor\'s Blood Request Form.');
+      return false;
+    }
+
+    return true;
   }
 
-  const errSubmit = document.getElementById('err-submit');
-  if (errSubmit) errSubmit.classList.toggle('show', !ok);
-  
-  return ok;
+  return true;
 }
 
 // ──────────────────────────────────────────────────────────────
-// Indication Management
+// PATIENT INFORMATION
 // ──────────────────────────────────────────────────────────────
 
 /**
- * Update visible indication groups based on selected component and age group
+ * Calculate patient age from date of birth
+ * Auto-update Patient Type (Adult/Pediatric)
  */
-function updateIndicationGroups() {
-  const component = document.querySelector('input[name="req-comp"]:checked')?.value;
-  const ageGroup = document.querySelector('input[name="req-agegroup"]:checked')?.value;
+function calculateAgeHosp() {
+  const birthdateInput = document.getElementById('pat-birthdate-hosp');
+  if (!birthdateInput || !birthdateInput.value) {
+    document.getElementById('patient-type-display-hosp').textContent = 'Select date of birth';
+    updateIndicationGroupsHosp();
+    return;
+  }
 
-  // Hide all indication groups
-  document.querySelectorAll('.indication-group').forEach(g => {
+  const birthdate = new Date(birthdateInput.value);
+  const today = new Date();
+  let age = today.getFullYear() - birthdate.getFullYear();
+  const monthDiff = today.getMonth() - birthdate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
+    age--;
+  }
+
+  // Auto-determine patient type
+  const patientType = age >= 13 ? 'Adult (≥13 years)' : 'Pediatric (<13 years)';
+  document.getElementById('patient-type-display-hosp').textContent = `${patientType} - Age: ${age} years`;
+
+  // Update indication groups when patient type changes
+  updateIndicationGroupsHosp();
+}
+
+/**
+ * Get patient type from birthdate (ADULT or PEDIA)
+ */
+function getPatientTypeHosp() {
+  const birthdateInput = document.getElementById('pat-birthdate-hosp');
+  if (!birthdateInput || !birthdateInput.value) return 'ADULT';
+
+  const birthdate = new Date(birthdateInput.value);
+  const today = new Date();
+  let age = today.getFullYear() - birthdate.getFullYear();
+  const monthDiff = today.getMonth() - birthdate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
+    age--;
+  }
+
+  return age >= 13 ? 'ADULT' : 'PEDIA';
+}
+
+/**
+ * Get patient age as number
+ */
+function getPatientAgeHosp() {
+  const birthdateInput = document.getElementById('pat-birthdate-hosp');
+  if (!birthdateInput || !birthdateInput.value) return null;
+
+  const birthdate = new Date(birthdateInput.value);
+  const today = new Date();
+  let age = today.getFullYear() - birthdate.getFullYear();
+  const monthDiff = today.getMonth() - birthdate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
+    age--;
+  }
+
+  return age;
+}
+
+// ──────────────────────────────────────────────────────────────
+// BLOOD REQUEST DETAILS
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Update urgency display based on request type
+ * STAT = Auto HIGH urgency (non-selectable)
+ * ROUTINE = Selectable urgency (Low, Medium, High)
+ */
+function updateUrgencyLevelHosp() {
+  const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  const autoStatDisplay = document.getElementById('urgency-auto-stat-hosp');
+  const routineOptions = document.getElementById('urgency-routine-options-hosp');
+
+  if (requestType === 'STAT') {
+    autoStatDisplay.style.display = 'block';
+    routineOptions.style.display = 'none';
+  } else if (requestType === 'ROUTINE') {
+    autoStatDisplay.style.display = 'none';
+    routineOptions.style.display = 'block';
+  } else {
+    autoStatDisplay.style.display = 'none';
+    routineOptions.style.display = 'none';
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// CLINICAL DATA & INDICATION GROUPS
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Update visible indication groups based on selected component and patient type
+ * FIXED: Now properly shows indication container and groups
+ * FIXED: Leukoreduced PRBC and Aliquoted PRBC have separate indication mappings
+ */
+function updateIndicationGroupsHosp() {
+  const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+  const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
+  const patientType = getPatientTypeHosp();
+  const container = document.getElementById('indication-container-hosp');
+  
+  if (!container) {
+    console.warn('indication-container-hosp not found');
+    return;
+  }
+
+  // Hide all indication groups first
+  document.querySelectorAll('#panel-newrequest .indication-group[id*="-hosp"]').forEach(g => {
     g.style.display = 'none';
   });
 
-  // Show indication container
-  const container = document.getElementById('indication-container');
-  if (container && component && ageGroup) {
-    container.style.display = 'block';
-
-    // Determine which group(s) to show
-    let groupId = '';
-    if (ageGroup === 'ADULT') {
-      if (component === 'WHOLE_BLOOD') groupId = 'group-WHOLE_BLOOD';
-      else if (component === 'PRBC' || component === 'LEUKOREDUCED_PRBC' || component === 'ALIQUOTED_PRBC') groupId = 'group-PRBC';
-      else if (component === 'PLATELET_CONCENTRATE') groupId = 'group-PLATELET_CONCENTRATE';
-      else if (component === 'FRESH_FROZEN_PLASMA') groupId = 'group-FRESH_FROZEN_PLASMA';
-      else if (component === 'CRYOPRECIPITATE') groupId = 'group-CRYOPRECIPITATE';
-    } else if (ageGroup === 'PEDIA') {
-      if (component === 'WHOLE_BLOOD') groupId = 'group-WHOLE_BLOOD-PEDIA';
-      else if (component === 'PRBC' || component === 'LEUKOREDUCED_PRBC' || component === 'ALIQUOTED_PRBC') groupId = 'group-PRBC-PEDIA';
-      else if (component === 'PLATELET_CONCENTRATE') groupId = 'group-PLATELET_CONCENTRATE-PEDIA';
-      else if (component === 'FRESH_FROZEN_PLASMA') groupId = 'group-FRESH_FROZEN_PLASMA-PEDIA';
-      else if (component === 'CRYOPRECIPITATE') groupId = 'group-CRYOPRECIPITATE-PEDIA';
-    }
-
-    if (groupId) {
-      const group = document.getElementById(groupId);
-      if (group) group.style.display = 'block';
-    }
-  } else {
+  // Only show container and groups if we have both birthdate and component
+  if (!component || !birthdate) {
     container.style.display = 'none';
+    return;
+  }
+
+  // IMPORTANT: Show the container first
+  container.style.display = 'block';
+  
+  // Determine which group to show based on patient type and component
+  let groupId = '';
+  
+  if (patientType === 'ADULT') {
+    // ADULT GROUPS
+    if (component === 'WHOLE_BLOOD') {
+      groupId = 'group-WHOLE_BLOOD-hosp';
+    } 
+    else if (component === 'PRBC') {
+      groupId = 'group-PRBC-hosp';
+    }
+    else if (component === 'LEUKOREDUCED_PRBC') {
+      // Leukoreduced PRBC uses same indications as regular PRBC
+      groupId = 'group-PRBC-hosp';
+    }
+    else if (component === 'ALIQUOTED_PRBC') {
+      // Aliquoted PRBC uses same indications as regular PRBC
+      groupId = 'group-PRBC-hosp';
+    }
+    else if (component === 'PLATELET_CONCENTRATE') {
+      groupId = 'group-PLATELET_CONCENTRATE-hosp';
+    } 
+    else if (component === 'FRESH_FROZEN_PLASMA') {
+      groupId = 'group-FRESH_FROZEN_PLASMA-hosp';
+    } 
+    else if (component === 'CRYOPRECIPITATE') {
+      groupId = 'group-CRYOPRECIPITATE-hosp';
+    }
+    else if (component === 'CRYOSUPERNATANT') {
+      groupId = 'group-CRYOPRECIPITATE-hosp';
+    }
+  } else if (patientType === 'PEDIA') {
+    // PEDIATRIC GROUPS
+    if (component === 'WHOLE_BLOOD') {
+      // Check if pediatric group exists, fall back to adult
+      groupId = document.getElementById('group-WHOLE_BLOOD-PEDIA-hosp') ? 'group-WHOLE_BLOOD-PEDIA-hosp' : 'group-WHOLE_BLOOD-hosp';
+    }
+    else if (['PRBC', 'LEUKOREDUCED_PRBC', 'ALIQUOTED_PRBC'].includes(component)) {
+      // Check if pediatric group exists, fall back to adult
+      groupId = document.getElementById('group-PRBC-PEDIA-hosp') ? 'group-PRBC-PEDIA-hosp' : 'group-PRBC-hosp';
+    } 
+    else if (component === 'PLATELET_CONCENTRATE') {
+      groupId = document.getElementById('group-PLATELET_CONCENTRATE-PEDIA-hosp') ? 'group-PLATELET_CONCENTRATE-PEDIA-hosp' : 'group-PLATELET_CONCENTRATE-hosp';
+    } 
+    else if (component === 'FRESH_FROZEN_PLASMA') {
+      groupId = document.getElementById('group-FRESH_FROZEN_PLASMA-PEDIA-hosp') ? 'group-FRESH_FROZEN_PLASMA-PEDIA-hosp' : 'group-FRESH_FROZEN_PLASMA-hosp';
+    } 
+    else if (component === 'CRYOPRECIPITATE') {
+      groupId = document.getElementById('group-CRYOPRECIPITATE-PEDIA-hosp') ? 'group-CRYOPRECIPITATE-PEDIA-hosp' : 'group-CRYOPRECIPITATE-hosp';
+    }
+  }
+
+  // Show the appropriate group
+  if (groupId) {
+    const group = document.getElementById(groupId);
+    if (group) {
+      group.style.display = 'block';
+    } else {
+      console.warn(`Group ${groupId} not found in DOM`);
+    }
   }
 }
 
 /**
- * Handle indication checkbox changes (toggle sub-groups if parent is checked)
+ * Handle indication checkbox parent/child toggling
  */
 document.addEventListener('change', function(e) {
-  if (e.target.classList.contains('indication-checkbox')) {
-    // If this is a parent checkbox, toggle its sub-group
+  if (e.target.classList.contains('indication-checkbox') && e.target.id.includes('-hosp')) {
     const parentId = e.target.getAttribute('data-parent');
     if (!parentId) {
-      // This is a parent (no data-parent attribute)
-      // Extract the parent code from the ID (e.g., "ind-F-5" -> "F-5")
       const elementId = e.target.id;
       if (elementId && elementId.startsWith('ind-')) {
-        const parentCode = elementId.substring(4);  // Remove "ind-" prefix
-        toggleIndicationSubgroup(parentCode);
+        const code = elementId.replace('ind-', '').replace('-hosp', '');
+        toggleIndicationSubgroupHosp(code);
       }
     }
   }
 }, true);
 
-// ──────────────────────────────────────────────────────────────
-// Clinical Data Toggle Functions
-// ──────────────────────────────────────────────────────────────
-
-/**
- * Toggle previous transfusion history fields
- */
-function togglePrevTransfusionFields() {
-  const selected = document.querySelector('input[name="prev-transfusion"]:checked')?.value;
-  const fieldsDiv = document.getElementById('prev-transfusion-fields');
-  
-  if (selected === 'yes') {
-    fieldsDiv.style.display = 'block';
-  } else {
-    fieldsDiv.style.display = 'none';
-    // Clear fields when hidden
-    document.getElementById('prev-transfusion-date').value = '';
-    document.getElementById('prev-transfusion-units').value = '';
-  }
-}
-
-/**
- * Toggle previous reaction history fields
- */
-function togglePrevReactionFields() {
-  const selected = document.querySelector('input[name="prev-reaction"]:checked')?.value;
-  const fieldsDiv = document.getElementById('prev-reaction-fields');
-  
-  if (selected === 'yes') {
-    fieldsDiv.style.display = 'block';
-  } else {
-    fieldsDiv.style.display = 'none';
-    // Clear fields when hidden
-    document.getElementById('prev-reaction-date').value = '';
-    document.getElementById('prev-reaction-details').value = '';
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// File Upload Handling
-// ──────────────────────────────────────────────────────────────
-
-/**
- * Handle file drop on upload zone
- */
-function handleDrop(e, key) {
-  e.preventDefault();
-  const zone = document.getElementById(key+'-zone');
-  if (zone) zone.classList.remove('drag-over');
-  if (e.dataTransfer.files[0]) processUpload(e.dataTransfer.files[0], key);
-}
-
-/**
- * Handle file selection from input
- */
-function handleFile(input, key) {
-  if (input.files[0]) processUpload(input.files[0], key);
-}
-
-/**
- * Process uploaded file (validate size, type, display preview)
- */
-function processUpload(file, key) {
-  const errEl = document.getElementById(key+'-err');
-  if (errEl) errEl.style.display = 'none';
- 
-  if (file.size > 5*1024*1024) {
-    if (errEl) {
-      errEl.textContent = '⚠ File too large (max 5MB)';
-      errEl.style.display = 'block';
-    }
-    return;
-  }
- 
-  if (!['application/pdf','image/jpeg','image/png'].includes(file.type)) {
-    if (errEl) {
-      errEl.textContent = '⚠ Only PDF, JPG, PNG accepted';
-      errEl.style.display = 'block';
-    }
-    return;
-  }
- 
-  const placeholder = document.getElementById(key+'-placeholder');
-  const preview = document.getElementById(key+'-preview');
-  if (placeholder) placeholder.style.display = 'none';
-  if (preview) preview.style.display = 'flex';
- 
-  const nameEl = document.getElementById(key+'-name');
-  const sizeEl = document.getElementById(key+'-size');
-  if (nameEl) nameEl.textContent = file.name;
-  if (sizeEl) sizeEl.textContent = file.size < 1024*1024
-    ? (file.size/1024).toFixed(1)+' KB' : (file.size/(1024*1024)).toFixed(1)+' MB';
-}
-
-/**
- * Clear uploaded file
- */
-function clearFile(key) {
-  const fileInput = document.getElementById(key+'-file');
-  if (fileInput) fileInput.value = '';
- 
-  const placeholder = document.getElementById(key+'-placeholder');
-  const preview = document.getElementById(key+'-preview');
-  if (placeholder) placeholder.style.display = 'block';
-  if (preview) preview.style.display = 'none';
-}
-
-// ──────────────────────────────────────────────────────────────
-// Form Submission & Reset
-// ──────────────────────────────────────────────────────────────
-
-/**
- * Optional: Can be used to sync form state, validate on change, etc.
- */
-function syncForm() {
-  // Placeholder for future validation on change
-}
-
-/**
- * Collect all indication codes from checked checkboxes
- */
-function getSelectedIndications() {
-  const indications = [];
-  document.querySelectorAll('.indication-checkbox:checked').forEach(cb => {
-    indications.push(cb.value);
-  });
-  return indications.join(',');
-}
-
-/**
- * Submit new blood request to backend
- * Note: New fields (hemoglobin, hematocrit, clinicalImpression, previousTransfusion*, previousReaction*, indication)
- * are NOT sent to backend yet - ready for future implementation
- */
-async function submitRequest() {
-  if (!validateNewRequest()) {
-    console.error('Form validation failed');
-    return;
-  }
- 
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Submitting...';
- 
-  try {
-    // ─────────────────────────────────────────────────────────────
-    // COLLECT CORE FIELDS
-    // ─────────────────────────────────────────────────────────────
-    
-    const bloodType = document.querySelector('input[name="req-bt"]:checked')?.value;
-    const bloodComponent = document.querySelector('input[name="req-comp"]:checked')?.value;
-    const requestCategory = document.querySelector('input[name="req-category"]:checked')?.value;
-    const urgencyLevel = document.querySelector('input[name="req-urgency"]:checked')?.value;
-    const ageGroup = document.querySelector('input[name="req-agegroup"]:checked')?.value || 'ADULT';
-    const patientSex = document.querySelector('input[name="pat-sex"]:checked')?.value;
- 
-    // ─────────────────────────────────────────────────────────────
-    // COLLECT CLINICAL DATA FIELDS (Step 3)
-    // ─────────────────────────────────────────────────────────────
-    
-    const clinicalImpression = document.getElementById('pat-diagnosis')?.value?.trim() || '';
-    const attendingPhysician = document.getElementById('pat-physician')?.value?.trim() || '';
-    const contactNumber = document.getElementById('pat-contact')?.value?.trim() || '';
-    const hemoglobin = document.getElementById('pat-hemoglobin')?.value 
-      ? parseFloat(document.getElementById('pat-hemoglobin').value) 
-      : null;
-    const hematocrit = document.getElementById('pat-hematocrit')?.value 
-      ? parseFloat(document.getElementById('pat-hematocrit').value) 
-      : null;
-    const requestType = document.querySelector('input[name="req-type"]:checked')?.value || 'ROUTINE';
- 
-    // ─────────────────────────────────────────────────────────────
-    // COLLECT TRANSFUSION HISTORY (Step 3)
-    // ─────────────────────────────────────────────────────────────
-    
-    const hadPreviousTransfusion = document.querySelector('input[name="prev-transfusion"]:checked')?.value === 'yes';
-    const previousTransfusionDate = hadPreviousTransfusion 
-      ? document.getElementById('prev-transfusion-date')?.value || null 
-      : null;
-    const previousTransfusionUnits = hadPreviousTransfusion 
-      ? document.getElementById('prev-transfusion-units')?.value 
-        ? parseInt(document.getElementById('prev-transfusion-units').value) 
-        : null 
-      : null;
- 
-    // ─────────────────────────────────────────────────────────────
-    // COLLECT REACTION HISTORY (Step 3)
-    // ─────────────────────────────────────────────────────────────
-    
-    const hadPreviousReaction = document.querySelector('input[name="prev-reaction"]:checked')?.value === 'yes';
-    const previousReactionDate = hadPreviousReaction 
-      ? document.getElementById('prev-reaction-date')?.value || null 
-      : null;
-    const previousReactionDetails = hadPreviousReaction
-      ? document.getElementById('prev-reaction-details')?.value?.trim() || null
-      : null;
- 
-    // ─────────────────────────────────────────────────────────────
-    // COLLECT INDICATIONS (Step 4) - HIERARCHICAL CODES
-    // Includes parent codes and their selected sub-codes
-    // Example: "F-5,F-5a,F-5b" or "R-2,R-2a,R-2c"
-    // ─────────────────────────────────────────────────────────────
-    
-    const indication = getSelectedIndicationsHierarchical();
- 
-    // ─────────────────────────────────────────────────────────────
-    // BUILD REQUEST DTO
-    // ─────────────────────────────────────────────────────────────
- 
-    const requestDTO = {
-      // Core fields
-      patientName: (
-        document.getElementById('pat-lastname').value.trim() + ', ' +
-        document.getElementById('pat-firstname').value.trim()
-      ),
-      patientAge: parseInt(document.getElementById('pat-age').value, 10),
-      patientSex: patientSex,
-      wardRoom: document.getElementById('pat-ward')?.value.trim() || '',
-      requestingPhysician: document.getElementById('pat-physician').value.trim(),
-      
-      // Patient type & category
-      ageGroup: ageGroup,
-      requestCategory: requestCategory,
-      
-      // Blood request details
-      bloodType: bloodType,
-      bloodComponent: bloodComponent,
-      numberOfUnits: parseInt(document.getElementById('req-units').value, 10),
-      urgencyLevel: urgencyLevel,
-      requiredBy: document.getElementById('req-date-needed')?.value || null,
-      notes: document.getElementById('req-notes')?.value.trim() || '',
-      
-      // ────── CLINICAL DATA ──────
-      clinicalImpression: clinicalImpression || null,
-      attendingPhysician: attendingPhysician || null,
-      contactNumber: contactNumber || null,
-      hemoglobin: hemoglobin,
-      hematocrit: hematocrit,
-      requestType: requestType,
-      
-      // ────── TRANSFUSION HISTORY ──────
-      hadPreviousTransfusion: hadPreviousTransfusion,
-      previousTransfusionDate: previousTransfusionDate,
-      previousTransfusionUnits: previousTransfusionUnits,
-      
-      // ────── REACTION HISTORY ──────
-      hadPreviousReaction: hadPreviousReaction,
-      previousReactionDate: previousReactionDate,
-      previousReactionDetails: previousReactionDetails,
-      
-      // ────── INDICATIONS (HIERARCHICAL) ──────
-      indication: indication  // "F-5,F-5a,F-5b" format
-    };
- 
-    // ─────────────────────────────────────────────────────────────
-    // PREPARE FORM DATA (Include file upload)
-    // ─────────────────────────────────────────────────────────────
- 
-    const formData = new FormData();
-    formData.append('data', new Blob([JSON.stringify(requestDTO)], { type: 'application/json' }));
- 
-    const docFileInput = document.getElementById('doc-file');
-    if (docFileInput && docFileInput.files.length > 0) {
-      formData.append('doctorsNote', docFileInput.files[0]);
-    }
- 
-    // ─────────────────────────────────────────────────────────────
-    // SUBMIT TO BACKEND
-    // ─────────────────────────────────────────────────────────────
- 
-    const response = await fetch('/api/hospital/blood-requests', {
-      method: 'POST',
-      credentials: 'include',
-      body: formData
-    });
- 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-    }
- 
-    const result = await response.json();
- 
-    // Show success modal
-    const successRefElement = document.getElementById('success-ref');
-    if (successRefElement) {
-      successRefElement.textContent = result.referenceNumber;
-    }
- 
-    const successModal = document.getElementById('successModal');
-    if (successModal) {
-      openModal('successModal');
-    }
- 
-    // Clear form
-    resetNewRequestForm();
- 
-    // Reload requests from backend
-    await loadHospitalRequests();
- 
-  } catch (error) {
-    console.error('Error submitting request:', error);
-    alert(`Failed to submit blood request: ${error.message}`);
- 
-    const errorElement = document.getElementById('error-message');
-    if (errorElement) {
-      errorElement.textContent = error.message;
-      errorElement.style.display = 'block';
-    }
- 
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🩸 Submit Blood Request';
-  }
-}
- 
-/**
- * Collect all indication codes including hierarchical parent-child relationships
- * Example output: "F-5,F-5a,F-5b,R-2,R-2a"
- * 
- * If parent (e.g., F-5) is checked, include it
- * If child (e.g., F-5a, F-5b) is checked, include both parent and child
- * This preserves the logical hierarchy in the saved data
- */
-function getSelectedIndicationsHierarchical() {
-  const selected = new Set();
-  const allChecked = document.querySelectorAll('.indication-checkbox:checked');
-  
-  allChecked.forEach(checkbox => {
-    const code = checkbox.value;
-    selected.add(code);
-    
-    // If this is a sub-item (e.g., F-5a), also add the parent (e.g., F-5)
-    const parentId = checkbox.getAttribute('data-parent');
-    if (parentId) {
-      const parentCode = parentId;  // data-parent already contains the code like "F-5"
-      selected.add(parentCode);
-    }
-  });
-  
-  // Convert set to comma-separated string and sort for consistency
-  return Array.from(selected).sort().join(',');
-}
- 
 /**
  * Toggle visibility of sub-items when parent indication is checked
- * Triggered on parent checkbox change
  */
-function toggleIndicationSubgroup(parentId) {
-  const subGroup = document.getElementById(`sub-${parentId}`);
-  const parentCheckbox = document.getElementById(`ind-${parentId}`);
+function toggleIndicationSubgroupHosp(parentId) {
+  const subGroup = document.getElementById(`sub-${parentId}-hosp`);
+  const parentCheckbox = document.getElementById(`ind-${parentId}-hosp`);
   
   if (parentCheckbox && subGroup) {
     if (parentCheckbox.checked) {
-      // Show sub-items when parent is checked
       subGroup.style.display = 'block';
     } else {
-      // Hide sub-items AND uncheck them when parent is unchecked
       subGroup.style.display = 'none';
       
-      // Uncheck all sub-items
       const subItems = subGroup.querySelectorAll('.indication-checkbox.sub');
       subItems.forEach(item => {
         item.checked = false;
@@ -1089,39 +759,601 @@ function toggleIndicationSubgroup(parentId) {
   }
 }
 
+// ──────────────────────────────────────────────────────────────
+// TOGGLE "OTHERS (SPECIFY)" INPUT FIELD
+// ──────────────────────────────────────────────────────────────
+
 /**
- * Reset new request form to initial state
+ * Toggle visibility of "Others (specify)" input field when checkbox is changed
+ * Shows the input field when checkbox is checked
+ * Hides and clears the input field when checkbox is unchecked
  */
-function resetNewRequestForm() {
-  document.querySelectorAll('#panel-newrequest input[type=text], #panel-newrequest input[type=number], #panel-newrequest input[type=date], #panel-newrequest input[type=tel], #panel-newrequest textarea')
-    .forEach(el => el.value = '');
-  document.querySelectorAll('#panel-newrequest input[type=radio], #panel-newrequest input[type=checkbox]').forEach(el => el.checked = false);
-  clearFile('doc');
-  clearFile('ref');
-  ['err-category','err-bt','err-comp','err-urgency','err-agegroup','err-indication'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('show');
-  });
-  const el = document.getElementById('err-submit');
-  if (el) el.classList.remove('show');
- 
-  // Hide clinical data conditional fields
-  document.getElementById('prev-transfusion-fields').style.display = 'none';
-  document.getElementById('prev-reaction-fields').style.display = 'none';
- 
-  // Hide all indication groups and sub-groups
-  document.querySelectorAll('.indication-group').forEach(g => {
-    g.style.display = 'none';
-  });
-  document.querySelectorAll('.indication-sub-group').forEach(g => {
-    g.style.display = 'none';
-  });
-  document.getElementById('indication-container').style.display = 'none';
- 
-  currentStep = 1;
-  updateStepUI();
+function toggleOthersFieldHosp(checkbox) {
+  const code = checkbox.value;
+  const inputField = document.getElementById(`others-input-${code}-hosp`);
+  
+  if (inputField) {
+    if (checkbox.checked) {
+      // Show the field and focus on it
+      inputField.classList.add('visible');
+      inputField.focus();
+    } else {
+      // Hide the field and clear its value
+      inputField.classList.remove('visible');
+      inputField.value = '';
+    }
+  }
+  
+  syncForm(); // Call sync to update form state
 }
 
+// ──────────────────────────────────────────────────────────────
+// CLINICAL DATA TOGGLES
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Toggle previous transfusion history fields
+ */
+function togglePrevTransfusionFieldsHosp() {
+  const selected = document.querySelector('input[name="prev-transfusion-hosp"]:checked')?.value;
+  const fieldsDiv = document.getElementById('prev-transfusion-fields-hosp');
+  
+  if (fieldsDiv) {
+    if (selected === 'yes') {
+      fieldsDiv.style.display = 'block';
+    } else {
+      fieldsDiv.style.display = 'none';
+      document.getElementById('prev-transfusion-date-hosp').value = '';
+      document.getElementById('prev-transfusion-units-hosp').value = '';
+    }
+  }
+}
+
+/**
+ * Toggle previous reaction history fields
+ */
+function togglePrevReactionFieldsHosp() {
+  const selected = document.querySelector('input[name="prev-reaction-hosp"]:checked')?.value;
+  const fieldsDiv = document.getElementById('prev-reaction-fields-hosp');
+  
+  if (fieldsDiv) {
+    if (selected === 'yes') {
+      fieldsDiv.style.display = 'block';
+    } else {
+      fieldsDiv.style.display = 'none';
+      document.getElementById('prev-reaction-date-hosp').value = '';
+      document.getElementById('prev-reaction-details-hosp').value = '';
+    }
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// FILE UPLOAD HANDLING
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Handle file drop on upload zone
+ */
+function handleDrop(e, type) {
+  e.preventDefault();
+  const zone = document.getElementById(`${type}-zone-hosp`);
+  if (zone) zone.classList.remove('drag-over');
+  
+  if (e.dataTransfer.files[0]) {
+    const input = document.getElementById(`${type}-file-hosp`);
+    handleFile(input, type);
+  }
+}
+
+/**
+ * Handle file selection from input
+ * FIXED: Now properly extracts and stores file objects
+ */
+function handleFile(fileInput, type) {
+  let file = null;
+  
+  // Handle different input types
+  if (fileInput instanceof File) {
+    file = fileInput;
+  } else if (fileInput instanceof HTMLInputElement) {
+    // Extract file from input element
+    if (fileInput.files && fileInput.files.length > 0) {
+      file = fileInput.files[0];
+    }
+  } else if (fileInput && fileInput.files) {
+    // Handle as file list
+    if (fileInput.files.length > 0) {
+      file = fileInput.files[0];
+    }
+  }
+
+  // Validate file exists
+  if (!file) {
+    console.warn(`No file selected for type: ${type}`);
+    return;
+  }
+
+  console.log(`File selected for ${type}:`, file.name, file.size, file.type);
+  
+  // Validate file size
+  if (file.size > 5 * 1024 * 1024) {
+    showErrorHosp("File exceeds 5MB limit.");
+    return;
+  }
+
+  // Validate file type
+  if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+    showErrorHosp("Only PDF, JPG or PNG files are accepted.");
+    return;
+  }
+
+  // Store file and update UI
+  if (type === 'doc') {
+    docFileHosp = file;
+    console.log('Doc file stored:', docFileHosp.name);
+    document.getElementById('doc-placeholder-hosp').style.display = 'none';
+    document.getElementById('doc-preview-hosp').style.display = 'block';
+    document.getElementById('doc-name-hosp').textContent = file.name;
+    document.getElementById('doc-size-hosp').textContent =
+      file.size < 1024*1024 ? (file.size/1024).toFixed(1)+' KB' : (file.size/(1024*1024)).toFixed(1)+' MB';
+  } 
+}
+
+/**
+ * Clear uploaded file
+ */
+function clearFile(type) {
+  if (type === 'doc') {
+    docFileHosp = null;
+    document.getElementById('doc-file-hosp').value = '';
+    document.getElementById('doc-placeholder-hosp').style.display = 'block';
+    document.getElementById('doc-preview-hosp').style.display = 'none';
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// REVIEW PAGE
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Populate review page with current form data
+ */
+function populateReviewHosp() {
+  const firstName = document.getElementById('pat-firstname-hosp').value;
+  const lastName = document.getElementById('pat-lastname-hosp').value;
+  const fullName = `${firstName} ${lastName}`.trim();
+  document.getElementById('review-pat-name').textContent = fullName || '—';
+  document.getElementById('review-pat-dob').textContent = document.getElementById('pat-birthdate-hosp').value || '—';
+  document.getElementById('review-pat-type').textContent = document.getElementById('patient-type-display-hosp').textContent || '—';
+  document.getElementById('review-pat-sex').textContent = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value || '—';
+  document.getElementById('review-pat-physician').textContent = document.getElementById('pat-physician-hosp').value || '—';
+  document.getElementById('review-req-category').textContent = document.querySelector('input[name="req-category-hosp"]:checked')?.value || '—';
+  
+  document.getElementById('review-blood-type').textContent = document.querySelector('input[name="req-bt-hosp"]:checked')?.value || '—';
+  document.getElementById('review-blood-comp').textContent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value || '—';
+  document.getElementById('review-blood-units').textContent = document.getElementById('req-units-hosp').value || '—';
+  document.getElementById('review-req-type').textContent = document.querySelector('input[name="req-type-hosp"]:checked')?.value || '—';
+  
+  const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  if (reqType === 'STAT') {
+    document.getElementById('review-urgency').textContent = 'HIGH (Auto)';
+  } else {
+    document.getElementById('review-urgency').textContent = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value || '—';
+  }
+  
+  document.getElementById('review-date-needed').textContent = document.getElementById('req-date-needed-hosp').value || '—';
+  
+  document.getElementById('review-hemoglobin').textContent = document.getElementById('pat-hemoglobin-hosp').value || '—';
+  const hematocrit = document.getElementById('pat-hematocrit-hosp').value;
+  document.getElementById('review-hematocrit').textContent = hematocrit ? (parseFloat(hematocrit) * 100).toFixed(1) + '%' : '—';
+  document.getElementById('review-diagnosis').textContent = document.getElementById('pat-diagnosis-hosp').value || '—';
+  
+  const selectedIndications = document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
+  if (selectedIndications.length > 0) {
+    const indicationLabels = Array.from(selectedIndications).map(cb => {
+      const label = document.querySelector(`label[for="${cb.id}"]`);
+      return label ? label.textContent.trim() : cb.value;
+    }).join('<br>');
+    document.getElementById('review-indications').innerHTML = indicationLabels || '—';
+  } else {
+    document.getElementById('review-indications').innerHTML = '<div style="color:var(--muted)">—</div>';
+  }
+  
+  const docFile = docFileHosp || document.getElementById('doc-file-hosp').files.length > 0;
+  document.getElementById('review-doc-status').textContent = docFile ? '✓ ' + (docFileHosp?.name || document.getElementById('doc-name-hosp').textContent) : '⚠ Not uploaded';
+  
+  // Populate Additional Notes
+  populateReviewNotes();
+}
+
+// Function to handle Additional Notes population and character count
+function populateReviewNotes() {
+  const notesInput = document.getElementById('notes-input-hosp');
+  const reviewNotesDiv = document.getElementById('review-notes');
+  const charCountSpan = document.getElementById('notes-char-count');
+  
+  if (!notesInput) return;
+  
+  const notesText = notesInput.value.trim();
+  
+  // Update review display
+  if (notesText) {
+    reviewNotesDiv.textContent = notesText;
+    reviewNotesDiv.style.color = 'var(--charcoal)';
+  } else {
+    reviewNotesDiv.innerHTML = '<div style="color:var(--muted)">—</div>';
+  }
+  
+  // Update character count
+  charCountSpan.textContent = notesText.length;
+}
+
+// Function to handle real-time character count and validation
+function setupNotesListener() {
+  const notesInput = document.getElementById('notes-input-hosp');
+  const charCountSpan = document.getElementById('notes-char-count');
+  
+  if (!notesInput) return;
+  
+  notesInput.addEventListener('input', function() {
+    const currentLength = this.value.length;
+    const maxLength = 1000;
+    
+    // Update character count
+    charCountSpan.textContent = currentLength;
+    
+    // Optional: Prevent exceeding max length
+    if (currentLength > maxLength) {
+      this.value = this.value.substring(0, maxLength);
+      charCountSpan.textContent = maxLength;
+    }
+    
+    // Update review in real-time
+    populateReviewNotes();
+  });
+}
+
+
+// ──────────────────────────────────────────────────────────────
+// FORM SUBMISSION
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Collect selected indications
+ */
+function getSelectedIndicationsHosp() {
+  const selected = [];
+  const allChecked = document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
+  
+  allChecked.forEach(checkbox => {
+    const code = checkbox.value;
+    selected.push(code);
+  });
+  
+  return selected.sort().join(',');
+}
+
+/**
+ * Get urgency level based on request type
+ */
+function getUrgencyLevelHosp() {
+  const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  
+  if (requestType === 'STAT') {
+    return 'HIGH';
+  } else if (requestType === 'ROUTINE') {
+    return document.querySelector('input[name="req-urgency-hosp"]:checked')?.value || null;
+  }
+  
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════════
+// SUCCESS MODAL FUNCTIONS
+// ════════════════════════════════════════════════════════════════
+
+function showSuccessModal(referenceNumber, userEmail) {
+  document.getElementById('success-ref').textContent = referenceNumber;
+  document.getElementById('success-email').textContent = userEmail;
+  
+  const overlay = document.getElementById('success-modal-overlay');
+  if (overlay) {
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeSuccessModal(event) {
+  // Allow closing from overlay click or close button
+  if (event && event.target.id !== 'success-modal-overlay') {
+    return;
+  }
+  
+  const overlay = document.getElementById('success-modal-overlay');
+  if (overlay) {
+    overlay.classList.remove('show');
+    document.body.style.overflow = 'auto';
+  }
+}
+
+function copyRef() {
+  const refNumber = document.getElementById('success-ref').textContent;
+  const btn = event.target;
+  
+  navigator.clipboard.writeText(refNumber).then(() => {
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    
+    setTimeout(() => {
+      btn.textContent = originalText;
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = refNumber;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+    }, 2000);
+  });
+}
+
+function newAnotherRequest() {
+  closeSuccessModal();
+  resetFormHosp();
+}
+
+// ════════════════════════════════════════════════════════════════
+// UPDATED SUBMIT FUNCTION WITH MODAL
+// ════════════════════════════════════════════════════════════════
+
+async function submitRequestHosp() {
+  hideErrorHosp();
+
+  if (!validateStepHosp(TOTAL_STEPS_HOSP - 1)) {
+    return;
+  }
+
+  const patientFirstName = document.getElementById('pat-firstname-hosp').value.trim();
+  const patientMiddleName = document.getElementById('pat-middlename-hosp').value.trim();
+  const patientLastName = document.getElementById('pat-lastname-hosp').value.trim();
+  const patientSuffix = document.getElementById('pat-suffix-hosp').value.trim();
+  const patientBirthdate = document.getElementById('pat-birthdate-hosp').value;
+  const patientAge = getPatientAgeHosp();
+  const patientSex = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
+  const patientType = getPatientTypeHosp();
+
+  const ward = document.getElementById('pat-ward-hosp').value.trim();
+  const room = document.getElementById('pat-room-hosp').value.trim();
+  const requestingPhysician = document.getElementById('pat-physician-hosp').value.trim();
+  const diagnosis = document.getElementById('pat-diagnosis-hosp').value.trim();
+
+  const requestCategory = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
+  const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
+  const bloodComponent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+  const numberOfUnits = document.getElementById('req-units-hosp').value;
+  const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  const urgencyLevel = getUrgencyLevelHosp();
+  const requiredBy = document.getElementById('req-date-needed-hosp').value;
+
+  const hemoglobin = document.getElementById('pat-hemoglobin-hosp').value;
+  const hematocrit = document.getElementById('pat-hematocrit-hosp').value;
+
+  const hadPreviousTransfusion = document.querySelector('input[name="prev-transfusion-hosp"]:checked')?.value === 'yes';
+  const previousTransfusionDate = hadPreviousTransfusion ? document.getElementById('prev-transfusion-date-hosp').value : null;
+  const previousTransfusionUnits = hadPreviousTransfusion ? document.getElementById('prev-transfusion-units-hosp').value : null;
+
+  const hadPreviousReaction = document.querySelector('input[name="prev-reaction-hosp"]:checked')?.value === 'yes';
+  const previousReactionDate = hadPreviousReaction ? document.getElementById('prev-reaction-date-hosp').value : null;
+  const previousReactionDetails = hadPreviousReaction ? document.getElementById('prev-reaction-details-hosp').value.trim() : null;
+
+  const indication = getSelectedIndicationsHosp();
+  const indicationOtherSpecify = buildIndicationOtherSpecify();
+  const notes = document.getElementById('notes-input-hosp').value.trim();
+
+  const requestData = {
+    patientName: patientFirstName,
+    patientMiddle: patientMiddleName,
+    patientLast: patientLastName,
+    patientSuffix: patientSuffix,
+
+    patientBirthdate: patientBirthdate,
+    patientAge: patientAge,
+    patientSex: patientSex,
+
+    ageGroup: patientType,
+
+    wardRoom: ward || null,
+    roomNo: room || null,
+
+    requestingPhysician: requestingPhysician,
+    clinicalImpression: diagnosis || null,
+
+    requestCategory: requestCategory,
+    bloodType: bloodType,
+    bloodComponent: bloodComponent,
+
+    numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : null,
+
+    requestType: requestType,
+    urgencyLevel: urgencyLevel,
+    requiredBy: requiredBy || null,
+
+    hemoglobin: hemoglobin ? parseFloat(hemoglobin) : null,
+    hematocrit: hematocrit ? parseFloat(hematocrit) : null,
+
+    hadPreviousTransfusion: hadPreviousTransfusion,
+    previousTransfusionDate: previousTransfusionDate,
+    previousTransfusionUnits: previousTransfusionUnits ? parseInt(previousTransfusionUnits) : null,
+
+    hadPreviousReaction: hadPreviousReaction,
+    previousReactionDate: previousReactionDate,
+    previousReactionDetails: previousReactionDetails,
+
+    indication: indication,
+    indicationOtherSpecify: indicationOtherSpecify,
+    notes: notes
+  };
+
+  console.log('=== HOSPITAL BLOOD REQUEST DATA ===');
+  console.log(JSON.stringify(requestData, null, 2));
+
+  const btn = document.getElementById('submit-btn-hosp');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  try {
+    const formData = new FormData();
+    formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
+    
+    const docFileHosp = document.getElementById('doc-file-hosp').files[0];
+    if (docFileHosp) {
+      formData.append('doctorsNote', docFileHosp);
+    }
+
+    const res = await fetch('/api/hospital/blood-requests', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      showErrorHosp(json.error || 'Submission failed. Please try again.');
+      btn.disabled = false;
+      btn.textContent = originalText;
+      return;
+    }
+
+    // Generate reference number
+    const referenceNumber = json.referenceNumber || 
+      ('BR-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 100000)).padStart(5, '0'));
+
+    // Get user email (from response or use a default)
+    const userEmail = json.userEmail || 'your registered email';
+
+    // Show success modal
+    showSuccessModal(referenceNumber, userEmail);
+
+    console.log('Request submitted successfully with reference:', referenceNumber);
+
+  } catch (err) {
+    showErrorHosp('Error submitting request. Please try again.');
+    console.error(err);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// FORM RESET
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Reset hospital form
+ */
+function resetFormHosp() {
+  [
+    'pat-firstname-hosp', 'pat-middlename-hosp', 'pat-lastname-hosp', 'pat-suffix-hosp',
+    'pat-birthdate-hosp', 'pat-ward-hosp', 'pat-room-hosp', 'pat-physician-hosp', 'pat-diagnosis-hosp',
+    'pat-hemoglobin-hosp', 'pat-hematocrit-hosp', 'prev-transfusion-date-hosp', 'prev-transfusion-units-hosp',
+    'prev-reaction-date-hosp', 'prev-reaction-details-hosp', 'req-date-needed-hosp'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  document.querySelectorAll('#panel-newrequest input[type="radio"][id*="-hosp"], #panel-newrequest input[type="checkbox"][id*="-hosp"]').forEach(el => {
+    el.checked = false;
+  });
+
+  clearFile('doc');
+
+  document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]').forEach(cb => {
+    cb.checked = false;
+  });
+  document.querySelectorAll('#panel-newrequest .indication-sub-group[id*="-hosp"]').forEach(g => {
+    g.style.display = 'none';
+  });
+
+  // Hide and clear all "Others (specify)" input fields
+  document.querySelectorAll('#panel-newrequest .others-input-field[id*="-hosp"]').forEach(field => {
+    field.classList.remove('visible');
+    field.value = '';
+  });
+
+  currentStepHosp = 1;
+  updateStepUI();
+
+  document.getElementById('patient-type-display-hosp').textContent = 'Select date of birth';
+
+  document.getElementById('prev-transfusion-fields-hosp').style.display = 'none';
+  document.getElementById('prev-reaction-fields-hosp').style.display = 'none';
+  document.getElementById('indication-container-hosp').style.display = 'none';
+  document.getElementById('err-indication-hosp').style.display = 'none';
+
+  hideErrorHosp();
+}
+
+function buildIndicationOtherSpecify() {
+  const pairs = [];
+  document.querySelectorAll('input[type="text"][data-ref]').forEach(input => {
+    const text = input.value.trim();
+    if (text) {
+      pairs.push(`${input.dataset.ref}:${text}`);
+    }
+  });
+  return pairs.length > 0 ? pairs.join(',') : null;
+}
+
+/**
+ * Sync form state (called by onchange/oninput handlers)
+ */
+function syncForm() {
+  // Placeholder for form state sync logic
+}
+
+// ──────────────────────────────────────────────────────────────
+// INITIALIZATION
+// ──────────────────────────────────────────────────────────────
+
+function initializeFormHosp() {
+  const birthdateInput = document.getElementById('pat-birthdate-hosp');
+  if (birthdateInput) {
+    const today = new Date().toISOString().split('T')[0];
+    const minDate = new Date();
+    minDate.setFullYear(minDate.getFullYear() - 120);
+    
+    birthdateInput.max = today;
+    birthdateInput.min = minDate.toISOString().split('T')[0];
+  }
+ 
+  const requiredByInput = document.getElementById('req-date-needed-hosp');
+  if (requiredByInput) {
+    requiredByInput.min = new Date().toISOString().split('T')[0];
+  }
+ 
+  if (typeof updateStepUI === 'function') {
+    updateStepUI();
+  }
+  if (typeof updateUrgencyLevelHosp === 'function') {
+    updateUrgencyLevelHosp();
+  }
+}
+ 
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeFormHosp);
+} else {
+  initializeFormHosp();
+}
+ 
 // ═══════════════════════════════════════════════════════════════
 // ░░░ 3️⃣ MY REQUESTS TAB - ENHANCED WITH BACKEND & INDICATIONS ░░░
 // ═══════════════════════════════════════════════════════════════
@@ -1413,6 +1645,7 @@ async function loadHospitalRequests() {
 // Call on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadHospitalRequests();
+    setupNotesListener();
 });
 
 // ──────────────────────────────────────────────────────────────
@@ -1810,8 +2043,17 @@ function openRequestDetail(id) {
     // ─────────────────────────────────────────────
     document.getElementById('rd-comp').textContent = COMP_LABELS[r.bloodComponent] || r.bloodComponent || '—';
     document.getElementById('rd-units').textContent = r.numberOfUnits ? `${r.numberOfUnits} unit(s)` : '—';
-    document.getElementById('rd-volume').textContent = r.volumeMl ? `${r.volumeMl} mL` : '—';
-    document.getElementById('rd-notes').textContent = r.notes || '—';
+    
+       
+    // ─────────────────────────────────────────────
+    // SECTION: ADDITIONAL NOTES
+    // ─────────────────────────────────────────────
+    const notesDisplay = document.getElementById('rd-notes-display');
+    if (r.notes && r.notes.trim() !== '') {
+        notesDisplay.textContent = r.notes;
+    } else {
+        notesDisplay.innerHTML = '<div style="color:var(--muted)">—</div>';
+    }
     
     // ─────────────────────────────────────────────
     // SECTION: TRANSFUSION INDICATIONS
@@ -1821,7 +2063,6 @@ function openRequestDetail(id) {
         const indCodes = r.indication.split(',').map(c => c.trim()).filter(c => c);
         if (indCodes.length > 0) {
             indicationsSection.style.display = 'block';
-            
             
             // Build indication details with grouped hierarchy
             document.getElementById('rd-indication-details').innerHTML = renderIndicationDetails(r.indication);
@@ -1836,8 +2077,6 @@ function openRequestDetail(id) {
     // SECTION: CLINICAL INFORMATION
     // ─────────────────────────────────────────────
     document.getElementById('rd-clinical-impression').textContent = r.clinicalImpression || '—';
-    document.getElementById('rd-attending-physician').textContent = r.attendingPhysician || '—';
-    document.getElementById('rd-contact-number').textContent = r.contactNumber || '—';
     document.getElementById('rd-hemoglobin').textContent = r.hemoglobin ? `${r.hemoglobin} g/L` : '—';
     document.getElementById('rd-hematocrit').textContent = r.hematocrit 
         ? `${(r.hematocrit * 100).toFixed(1)}%` 
@@ -1883,6 +2122,38 @@ function openRequestDetail(id) {
     } else {
         reactionDateBox.style.display = 'none';
         reactionDetailsBox.style.display = 'none';
+    }
+    
+    // ─────────────────────────────────────────────
+    // SECTION: INDICATION OTHER (SPECIFY) DETAILS
+    // ─────────────────────────────────────────────
+    const indicationOtherSection = document.getElementById('rd-indication-other-section');
+    if (r.indicationOtherSpecify) {
+        indicationOtherSection.style.display = 'block';
+        
+        // Parse the format: "WB-2:reason1,R-5:reason2,P-6:reason3"
+        const otherSpecifyPairs = r.indicationOtherSpecify.split(',').map(pair => pair.trim());
+        let otherSpecifyHTML = '';
+        
+        otherSpecifyPairs.forEach((pair, index) => {
+            if (pair.includes(':')) {
+                const [code, text] = pair.split(':', 2).map(s => s.trim());
+                otherSpecifyHTML += `
+                    <div style="margin-bottom:10px">
+                        <span style="font-weight:600;color:var(--charcoal)">${code}:</span>
+                        <span style="color:var(--charcoal)">${text}</span>
+                    </div>
+                `;
+            }
+        });
+        
+        if (otherSpecifyHTML === '') {
+            otherSpecifyHTML = '<div style="color:var(--muted)">—</div>';
+        }
+        
+        document.getElementById('rd-indication-other-details').innerHTML = otherSpecifyHTML;
+    } else {
+        indicationOtherSection.style.display = 'none';
     }
     
     // ─────────────────────────────────────────────
@@ -1935,17 +2206,17 @@ function openRequestDetail(id) {
     // ─────────────────────────────────────────────
     // CANCEL BUTTON (only for PENDING status)
     // ─────────────────────────────────────────────
-    const cancelRow = document.getElementById('rd-cancel-row');
-    if (r.status === 'PENDING') {
-        cancelRow.style.display = 'block';
-        document.getElementById('rd-cancel-btn').onclick = () => {
-            cancelTargetId = r.id;
-            closeModal('requestDetailModal');
-            openModal('cancelConfirmModal');
-        };
-    } else {
-        cancelRow.style.display = 'none';
-    }
+    // const cancelRow = document.getElementById('rd-cancel-row');
+    // if (r.status === 'PENDING') {
+    //     cancelRow.style.display = 'block';
+    //     document.getElementById('rd-cancel-btn').onclick = () => {
+    //         cancelTargetId = r.id;
+    //         closeModal('requestDetailModal');
+    //         openModal('cancelConfirmModal');
+    //     };
+    // } else {
+    //     cancelRow.style.display = 'none';
+    // }
     
     // Open the modal
     openModal('requestDetailModal');
@@ -2308,15 +2579,19 @@ function showProfileError(message) {
 // ──────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Setup modal close on backdrop click for profile modals
+    // Setup modal close on backdrop click - EXCEPT for requestDetailModal
     document.querySelectorAll('.modal-overlay').forEach(o => {
         o.addEventListener('click', e => {
+            // Don't close requestDetailModal when clicking outside
+            if (o.id === 'requestDetailModal') {
+                return; // Do nothing
+            }
+            
+            // For all other modals, close on outside click
             if (e.target === o) o.classList.remove('show');
         });
     });
 });
-
-
 
 /**
  * Logout user
@@ -2365,12 +2640,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load requests from backend
   loadHospitalRequests();
 
-  // Setup modal close on backdrop click
-  document.querySelectorAll('.modal-overlay').forEach(o => {
-    o.addEventListener('click', e => {
-      if (e.target === o) o.classList.remove('show');
-    });
-  });
+  
 
   // Setup mobile sidebar
   document.querySelectorAll('.nav-item').forEach(item => {

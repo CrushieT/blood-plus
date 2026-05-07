@@ -25,9 +25,6 @@
   <nav>
     <a class="nav-logo" href="#"><span>CNPH</span> Blood Bank</a>
     <ul class="nav-links">
-      <li><a href="#">Home</a></li>
-      <li><a href="#">About</a></li>
-      <li><a href="#">Contact</a></li>
       <li><a href="blood-request.html" class="nav-cta">Submit Request</a></li>
     </ul>
   </nav>
@@ -92,16 +89,55 @@
             <h2>Request Portal Login</h2>
             <p class="auth-intro">Hospital or Institution Credentials</p>
             
-            <label>
+            <!-- Email Field with Error State -->
+            <label class="form-label">
               <span>Institution Email</span>
-              <input type="email" id="login-email" placeholder="hospital@email.com" />
-            </label>
-            <label>
-              <span>Password</span>
-              <input type="password" id="login-password" placeholder="••••••••" />
+              <div class="input-wrapper">
+                <input 
+                  type="email" 
+                  id="login-email" 
+                  placeholder="hospital@email.com"
+                  class="form-input"
+                  onblur="validateEmail()"
+                  oninput="clearEmailError()"
+                />
+                <span class="input-icon-error" id="email-error-icon">
+                  <i class="fas fa-exclamation-circle"></i>
+                </span>
+              </div>
+              <span class="error-message" id="email-error-msg"></span>
             </label>
             
-            <button type="button" class="submit" onclick="login()">Sign In</button>
+            <!-- Password Field with Visibility Toggle and Error State -->
+            <label class="form-label">
+              <span>Password</span>
+              <div class="input-wrapper">
+                <input 
+                  type="password" 
+                  id="login-password" 
+                  placeholder="••••••••"
+                  class="form-input"
+                  onblur="validatePassword()"
+                  oninput="clearPasswordError()"
+                  autocomplete="new-password"
+                />
+                <button 
+                  type="button" 
+                  class="toggle-password" 
+                  id="password-toggle"
+                  onclick="togglePasswordVisibility()"
+                  tabindex="-1"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+                <span class="input-icon-error" id="password-error-icon">
+                  <i class="fas fa-exclamation-circle"></i>
+                </span>
+              </div>
+              <span class="error-message" id="password-error-msg"></span>
+            </label>
+            
+            <button type="button" class="submit" onclick="validateAndLogin()">Sign In</button>
             
             <p class="auth-footer">
               No Account? <a href="blood-request.html" >Send Blood Request</a>
@@ -222,9 +258,6 @@
   <footer>
     <div class="footer-logo"><span>CNPH</span> Blood Bank</div>
     <ul class="footer-links">
-      <li><a href="#">Home</a></li>
-      <li><a href="#">About</a></li>
-      <li><a href="#">Contact</a></li>
       <li><a href="#">Privacy</a></li>
     </ul>
     <div class="footer-copy">© CNPH Blood Bank 2026. All rights reserved.</div>
