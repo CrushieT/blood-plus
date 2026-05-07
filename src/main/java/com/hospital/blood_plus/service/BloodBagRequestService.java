@@ -23,19 +23,22 @@ import java.util.*;
 @Service
 public class BloodBagRequestService {
 
-    private final BloodBagRequestRepository repository;
-    private final CloudinaryService         cloudinaryService;
-    private final BloodBagRepository        bloodBagRepository;
+    private final BloodBagRequestRepository     repository;
+    private final CloudinaryService             cloudinaryService;
+    private final BloodBagRepository            bloodBagRepository;
     private final RequestFulfillmentRepository        requestFulfillmentRepository;
+    private final EmailService                  emailService;
 
     public BloodBagRequestService(BloodBagRequestRepository repository,
                                   CloudinaryService cloudinaryService,
                                   BloodBagRepository bloodBagRepository,
-                                  RequestFulfillmentRepository requestFulfillmentRepository) {
+                                  RequestFulfillmentRepository requestFulfillmentRepository,
+                                  EmailService emailService) {
         this.repository          = repository;
         this.cloudinaryService   = cloudinaryService;
         this.bloodBagRepository  = bloodBagRepository;
         this.requestFulfillmentRepository  = requestFulfillmentRepository;
+        this.emailService  = emailService;
     }
 
     // ─────────────────────────────────────────────
@@ -61,6 +64,9 @@ public class BloodBagRequestService {
         // PATIENT INFORMATION (EXISTING)
         // ─────────────────────────────────────────────
         request.setPatientName(dto.getPatientName().trim());
+        request.setPatientMiddle(dto.getPatientMiddle().trim());
+        request.setPatientLast(dto.getPatientLast().trim());
+        request.setPatientSuffix(dto.getPatientSuffix().trim());
         request.setPatientBirthdate(dto.getPatientBirthdate());
         request.setPatientAge(dto.getPatientAge()); 
         request.setPatientSex(dto.getPatientSex());
@@ -134,6 +140,7 @@ public class BloodBagRequestService {
         // INDICATIONS FOR TRANSFUSION
         // ─────────────────────────────────────────────
         request.setIndication(dto.getIndication());
+        request.setIndicationOtherSpecify(dto.getIndicationOtherSpecify());
  
         // ─────────────────────────────────────────────
         // REQUEST LIFECYCLE
@@ -142,7 +149,23 @@ public class BloodBagRequestService {
         request.setStatus(RequestStatus.PENDING);
         request.setReferenceNumber(generateReferenceNumber());
  
-        return repository.save(request);
+        BloodBagRequest savedRequest = repository.save(request);
+
+        // Send confirmation email to requester
+        try {
+            emailService.sendRequestConfirmationEmail(
+                savedRequest.getRequesterEmail(),
+                savedRequest.getRequesterName(),
+                savedRequest.getReferenceNumber(),
+                savedRequest.getBloodType().getDisplayName(),
+                savedRequest.getNumberOfUnits()
+            );
+        } catch (Exception e) {
+            System.err.println("[BloodBagRequest] Failed to send confirmation email: " + e.getMessage());
+            // Don't fail the request if email fails
+        }
+
+        return savedRequest;
     }
 
     // ─────────────────────────────────────────────
@@ -173,7 +196,22 @@ public class BloodBagRequestService {
         BloodBagRequest req = ensureStatus(id, BloodBagRequest.RequestStatus.PENDING);
         req.setStatus(BloodBagRequest.RequestStatus.APPROVED);
         applyReview(req, reviewer);
-        return repository.save(req);
+        BloodBagRequest savedReq = repository.save(req);
+        
+        // Send approval email
+        try {
+            emailService.sendRequestApprovalEmail(
+                savedReq.getRequesterEmail(),
+                savedReq.getRequesterName(),
+                savedReq.getReferenceNumber(),
+                savedReq.getBloodType().getDisplayName(),
+                savedReq.getNumberOfUnits()
+            );
+        } catch (Exception e) {
+            System.err.println("[BloodBagRequest] Failed to send approval email: " + e.getMessage());
+        }
+        
+        return savedReq;
     }
 
     /** PENDING → REJECTED */
@@ -214,10 +252,25 @@ public class BloodBagRequestService {
 
     /** ALLOCATED → READY_FOR_RELEASE */
     public BloodBagRequest markReadyRequest(Long id, AppUser reviewer) {
-        return updateStatus(id,
+        BloodBagRequest req = updateStatus(id,
                 BloodBagRequest.RequestStatus.ALLOCATED,
                 BloodBagRequest.RequestStatus.READY_FOR_RELEASE,
                 reviewer);
+        
+        // Send ready notification email
+        try {
+            emailService.sendRequestReadyEmail(
+                req.getRequesterEmail(),
+                req.getRequesterName(),
+                req.getReferenceNumber(),
+                req.getBloodType().getDisplayName(),
+                req.getNumberOfUnits()
+            );
+        } catch (Exception e) {
+            System.err.println("[BloodBagRequest] Failed to send ready email: " + e.getMessage());
+        }
+        
+        return req;
     }
 
     /** READY_FOR_RELEASE → RELEASED  (marks bag as DISPENSED) */
@@ -349,9 +402,14 @@ public class BloodBagRequestService {
         // ─────────────────────────────────────────────────────────────
         
         request.setPatientName(dto.getPatientName().trim());
+        request.setPatientMiddle(dto.getPatientMiddle().trim());
+        request.setPatientLast(dto.getPatientLast().trim());
+        request.setPatientSuffix(dto.getPatientSuffix().trim());
         request.setPatientAge(dto.getPatientAge());
+        request.setPatientBirthdate(dto.getPatientBirthdate());
         request.setPatientSex(dto.getPatientSex());
         request.setWardRoom(dto.getWardRoom() != null ? dto.getWardRoom() : "");
+        request.setRoomNo(dto.getRoomNo() != null ? dto.getRoomNo() : "");
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());
     
         // ─────────────────────────────────────────────────────────────
@@ -439,7 +497,10 @@ public class BloodBagRequestService {
         if (dto.getIndication() != null && !dto.getIndication().isBlank()) {
             request.setIndication(dto.getIndication());
         }
-    
+        
+        request.setIndicationOtherSpecify(dto.getIndicationOtherSpecify());
+        
+        request.setHospitalProfile(hospital);
         // ─────────────────────────────────────────────────────────────
         // HOSPITAL CONTEXT
         // ─────────────────────────────────────────────────────────────

@@ -116,14 +116,17 @@ function updatePatientTypeAndForms() {
   formDownloadButtons.innerHTML = formHtml;
 }
 
-
 // ── Validation ─────────────────────────────────────────────────
 function validate(page) {
   hideError();
 
   if (page === 1) {
     if (!document.getElementById('f-patientName').value.trim())
-      return showError('Please enter the patient\'s full name.'), false;
+      return showError('Please enter the patient\'s first name.'), false;
+    if (!document.getElementById('f-patientMiddle').value.trim())
+      return showError('Please enter the patient\'s middle name.'), false;
+    if (!document.getElementById('f-patientLast').value.trim())
+      return showError('Please enter the patient\'s last name.'), false;
     if (!document.getElementById('f-birthdate').value)
       return showError('Please enter the patient\'s date of birth.'), false;
     
@@ -148,8 +151,33 @@ function validate(page) {
       return showError('Please select the number of units needed.'), false;
     if (!getRadioVal('urgency'))
       return showError('Please select an urgency level.'), false;
-    if (!hasSelectedIndications())
-      return showError('Please select at least one indication for transfusion.'), false;
+
+    // Check if indications are required for this component
+    const selectedComponent = document.getElementById('f-component').value;
+    const birthdate = document.getElementById('f-birthdate').value;
+    const age = calculateAge(birthdate);
+    const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
+    
+    // Components that REQUIRE indications
+    const requiresIndications = [
+      'WHOLE_BLOOD', 'PRBC', 'WRBC', 'PLATELET_CONCENTRATE', 
+      'FRESH_FROZEN_PLASMA', 'CRYOPRECIPITATE'
+    ];
+    
+    // If component requires indications, validate that at least one is selected
+    if (requiresIndications.includes(selectedComponent)) {
+      if (!hasSelectedIndications()) {
+        return showError('Please select at least one indication for transfusion.'), false;
+      }
+    }
+    
+    // If component is OTHER, require component name and indication text
+    if (selectedComponent === 'OTHER') {
+      if (!document.getElementById('f-otherComponentName').value.trim())
+        return showError('Please enter the component name.'), false;
+      if (!document.getElementById('f-otherComponentIndication').value.trim())
+        return showError('Please specify the indication(s) for this component.'), false;
+    }
   }
 
   if (page === 3) {
@@ -264,21 +292,32 @@ function initIndicationHandlers() {
     });
   });
 
-  // Handle text input for "Others" options
+  // ══════════════════════════════════════════════════════════════
+  // HANDLE TEXT INPUT FOR "OTHERS" OPTIONS — WITH VISIBILITY TOGGLE
+  // ══════════════════════════════════════════════════════════════
   document.querySelectorAll('input[type="text"][data-ref]').forEach(input => {
     const checkboxId = `ind-${input.dataset.ref}`;
     const checkbox = document.getElementById(checkboxId);
     
     if (checkbox) {
-      input.addEventListener('input', function() {
-        if (this.value.trim()) {
-          checkbox.checked = true;
+      // Start hidden
+      input.style.display = 'none';
+      
+      // Show when checkbox is checked, hide when unchecked
+      checkbox.addEventListener('change', function() {
+        if (this.checked) {
+          input.style.display = 'inline-block';
+          input.focus();
+        } else {
+          input.style.display = 'none';
+          input.value = '';
         }
       });
       
-      checkbox.addEventListener('change', function() {
-        if (!this.checked) {
-          input.value = '';
+      // Auto-check box if user types in the field
+      input.addEventListener('input', function() {
+        if (this.value.trim()) {
+          checkbox.checked = true;
         }
       });
     }
@@ -302,10 +341,26 @@ function getSelectedIndications() {
     const input = document.querySelector(`input[type="text"][data-ref="${checkbox.value}"]`);
     selected.push({
       code: checkbox.value,
-      additional: input ? input.value : null
+      additional: input ? input.value.trim() : null
     });
   });
   return selected;
+}
+
+/**
+ * Build the indicationOtherSpecify string for submission.
+ * Format: "WB-2:reason1,R-5:reason2,P-6:reason3"
+ * Only includes codes that have a text input with content.
+ */
+function buildIndicationOtherSpecify() {
+  const pairs = [];
+  document.querySelectorAll('input[type="text"][data-ref]').forEach(input => {
+    const text = input.value.trim();
+    if (text) {
+      pairs.push(`${input.dataset.ref}:${text}`);
+    }
+  });
+  return pairs.length > 0 ? pairs.join(',') : null;
 }
 
 // ── Styles for Indications (CSS-in-JS) ──────────────────────────
@@ -394,6 +449,14 @@ function injectIndicationStyles() {
       font-size: 12px !important;
       height: auto !important;
       border: 1px solid #DDD !important;
+      border-radius: 4px !important;
+      transition: all 0.2s ease;
+    }
+
+    .inline-input:focus {
+      outline: none;
+      border-color: #C41E3A !important;
+      box-shadow: 0 0 0 2px rgba(196,30,58,0.1) !important;
     }
 
     .ward-dropdown {
@@ -465,7 +528,9 @@ var COMPONENT_LABELS_R = {
   PLATELET_CONCENTRATE: 'Platelet Concentrate',
   FRESH_FROZEN_PLASMA: 'Fresh Frozen Plasma (FFP)',
   CRYOPRECIPITATE: 'Cryoprecipitate',
-  CRYOSUPERNATANT: 'Cryosupernatant'
+  CRYOSUPERNATANT: 'Cryosupernatant',
+  WRBC: 'Whole Red Blood Cells',
+  OTHER: 'Other'
 };
 
 var BLOOD_LABELS_R = {
@@ -516,10 +581,21 @@ function buildReview() {
     reviewRow('Category',    catEl ? (CATEGORY_LABELS_R[catEl.value] || catEl.value) : '—');
 
   // ── Blood details section ──
+  const componentVal = document.getElementById('f-component').value;
+  let componentDisplay = COMPONENT_LABELS_R[componentVal] || componentVal;
+  
+  // If OTHER, append the component name
+  if (componentVal === 'OTHER') {
+    const otherName = document.getElementById('f-otherComponentName').value.trim();
+    if (otherName) {
+      componentDisplay += ` (${otherName})`;
+    }
+  }
+
   document.getElementById('review-blood').innerHTML =
     '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Blood Details</div>' +
     reviewRow('Blood Type',  BLOOD_LABELS_R[document.getElementById('f-bloodType').value] || document.getElementById('f-bloodType').value) +
-    reviewRow('Component',   COMPONENT_LABELS_R[document.getElementById('f-component').value] || document.getElementById('f-component').value) +
+    reviewRow('Component',   componentDisplay) +
     reviewRow('Units',       document.getElementById('f-units').value) +
     reviewRow('Urgency',     urgEl ? (URGENCY_LABELS_R[urgEl.value] || urgEl.value) : '—') +
     reviewRow('Required By', document.getElementById('f-requiredBy').value || '—') +
@@ -649,6 +725,9 @@ async function submitRequest() {
   // PATIENT INFORMATION (PAGE 1)
   // ──────────────────────────────────────────────
   const patientName   = document.getElementById('f-patientName').value.trim();
+  const patientMiddle   = document.getElementById('f-patientMiddle').value.trim();
+  const patientLast   = document.getElementById('f-patientLast').value.trim();
+  const patientSuffix   = document.getElementById('f-patientSuffix').value.trim();
   const patientBirthdate = document.getElementById('f-birthdate').value;
   const patientAge = calculateAge(patientBirthdate);
   const patientSex    = document.getElementById('f-sex').value;
@@ -696,6 +775,7 @@ async function submitRequest() {
   // ──────────────────────────────────────────────
   const indications = getSelectedIndications();
   const indication = indications.map(ind => ind.code).join(',');
+  const indicationOtherSpecify = buildIndicationOtherSpecify();
 
   // ──────────────────────────────────────────────
   // URGENCY & TIMING (PAGE 2)
@@ -707,6 +787,12 @@ async function submitRequest() {
   // NOTES (PAGE 3)
   // ──────────────────────────────────────────────
   const notes = document.getElementById('f-notes').value.trim();
+
+  // ──────────────────────────────────────────────
+  // OTHER COMPONENT (if component = OTHER)
+  // ──────────────────────────────────────────────
+  const otherComponentName = bloodComponent === 'OTHER' ? document.getElementById('f-otherComponentName').value.trim() : null;
+  const otherComponentIndication = bloodComponent === 'OTHER' ? document.getElementById('f-otherComponentIndication').value.trim() : null;
 
   // ──────────────────────────────────────────────
   // CONTACT / REQUESTER INFORMATION (PAGE 3)
@@ -723,6 +809,9 @@ async function submitRequest() {
   const requestData = {
     // PATIENT INFO
     patientName: patientName,
+    patientMiddle: patientMiddle,
+    patientLast: patientLast,
+    patientSuffix: patientSuffix,
     patientBirthdate: patientBirthdate ? patientBirthdate : null,
     patientAge: patientAge,
     patientSex: patientSex || null,
@@ -769,7 +858,12 @@ async function submitRequest() {
     previousReactionDetails: previousReactionDetails || null,
 
     // INDICATIONS
-    indication: indication || null
+    indication: indication || null,
+    indicationOtherSpecify: indicationOtherSpecify,
+
+    // OTHER COMPONENT (if applicable)
+    otherComponentName: otherComponentName,
+    otherComponentIndication: otherComponentIndication
   };
   
 
@@ -821,14 +915,13 @@ async function submitRequest() {
       patientName: patientName,
       patientAge: patientAge,
       patientSex: patientSex,
-      wardRoom: wardRoom,
+      wardRoom: ward + ' ' + room,
       requestingPhysician: requestingPhysician,
       ageGroup: ageGroup,
       requestCategory: requestCategory,
       bloodType: bloodType,
       bloodComponent: bloodComponent,
       numberOfUnits: numberOfUnits,
-      urgencyLevel: urgencyLevel,
       requiredBy: requiredBy,
       requesterName: requesterName,
       requesterRelationship: requesterRelationship,
@@ -846,6 +939,9 @@ async function submitRequest() {
       previousReactionDate: previousReactionDate,
       previousReactionDetails: previousReactionDetails,
       indication: indication,
+      indicationOtherSpecify: indicationOtherSpecify,
+      otherComponentName: otherComponentName,
+      otherComponentIndication: otherComponentIndication,
       status: 'PENDING',
       submittedAt: new Date().toISOString()
     }));
@@ -867,7 +963,8 @@ function resetForm() {
     'f-patientName','f-birthdate','f-ward', 'f-room','f-physician',
     'f-diagnosis','f-hemoglobin','f-hematocrit',
     'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
-    'f-requiredBy','f-notes','f-requesterName','f-contact','f-email'
+    'f-requiredBy','f-notes','f-requesterName','f-contact','f-email',
+    'f-otherComponentName','f-otherComponentIndication'
   ].forEach(id => { 
     const el = document.getElementById(id);
     if (el) el.value = ''; 
@@ -917,7 +1014,9 @@ const COMPONENT_LABELS = {
   PLATELET_CONCENTRATE:'Platelet Concentrate',
   FRESH_FROZEN_PLASMA:'Fresh Frozen Plasma',
   CRYOPRECIPITATE:'Cryoprecipitate',
-  CRYOSUPERNATANT:'Cryosupernatant'
+  CRYOSUPERNATANT:'Cryosupernatant',
+  WRBC:'Whole Red Blood Cells',
+  OTHER:'Other'
 };
 
 const URGENCY_LABELS = {
@@ -1067,7 +1166,7 @@ async function trackRequest() {
           <div class="tl-label">${step.label}</div>
           ${step.time
             ? `<div class="tl-time">${step.time}</div>`
-            : (isCurrent ? '<div class="tl-time">In progress...</div>' : '')}
+            : (isCurrent ? '<div class="tl-time">Done...</div>' : '')}
         </div>
       </div>`;
   }
@@ -1150,17 +1249,82 @@ function downloadForm(type) {
   document.body.removeChild(a);
 }
 
+// ── Urgency Level Management (dependent on Request Type) ────────
+function updateUrgencyBasedOnRequestType() {
+  const requestTypeRadios = document.querySelectorAll('input[name="requestType"]');
+  const urgencyGroup = document.getElementById('urgency-group');
+  const urgencyDisplay = document.getElementById('urgency-display');
+  
+  // Find selected request type
+  let selectedType = null;
+  requestTypeRadios.forEach(radio => {
+    if (radio.checked) {
+      selectedType = radio.value;
+    }
+  });
+
+  if (selectedType === 'STAT') {
+    // STAT: Auto-set to HIGH, hide radios, show badge
+    urgencyDisplay.style.display = 'block';
+    urgencyGroup.style.display = 'none';
+    document.getElementById('urg-high').checked = true;
+  } else if (selectedType === 'ROUTINE') {
+    // ROUTINE: Show radio options, hide badge
+    urgencyDisplay.style.display = 'none';
+    urgencyGroup.style.display = 'grid';
+    // Keep MEDIUM as default for routine (already checked)
+  }
+}
+
 // ── Init ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-  injectIndicationStyles();
-  initIndicationHandlers();
-  
-  // Set minimum date to today for required by field
-  const requiredByInput = document.getElementById('f-requiredBy');
-  if (requiredByInput) {
-    requiredByInput.min = new Date().toISOString().split('T')[0];
-  }
+    injectIndicationStyles();
+    initIndicationHandlers();
+    
+    // Set minimum date to today for required by field
+    const requiredByInput = document.getElementById('f-requiredBy');
+    if (requiredByInput) {
+      requiredByInput.min = new Date().toISOString().split('T')[0];
+    }
 
-  // Listen to birthdate changes to update patient type and forms
-  document.getElementById('f-birthdate').addEventListener('change', updatePatientTypeAndForms);
+    // Listen to birthdate changes to update patient type and forms
+    document.getElementById('f-birthdate').addEventListener('change', updatePatientTypeAndForms);
+
+    // Add event listeners to request type radios
+    const requestTypeRadios = document.querySelectorAll('input[name="requestType"]');
+    requestTypeRadios.forEach(radio => {
+      radio.addEventListener('change', updateUrgencyBasedOnRequestType);
+    });
+    
+    // Initialize urgency display on page load
+    updateUrgencyBasedOnRequestType();
+});
+
+
+// Date Format
+
+const birthdateInput = document.getElementById("f-birthdate");
+
+// today = latest allowed birthdate
+const today = new Date().toISOString().split("T")[0];
+
+// optional: oldest allowed date (example: max 120 years old)
+const minDate = new Date();
+minDate.setFullYear(minDate.getFullYear() - 120);
+
+birthdateInput.max = today;
+birthdateInput.min = minDate.toISOString().split("T")[0];
+
+["f-prevTransDate", "f-reactionDate"].forEach(id => {
+  const input = document.getElementById(id);
+
+  input.addEventListener("change", function () {
+    const selected = new Date(this.value);
+    const now = new Date();
+
+    if (selected > now) {
+      alert("Date cannot be in the future.");
+      this.value = "";
+    }
+  });
 });

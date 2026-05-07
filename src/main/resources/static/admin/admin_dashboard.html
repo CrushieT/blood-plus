@@ -82,9 +82,6 @@
           <div class="page-title">Admin Dashboard</div>
           <div class="page-sub" id="dash-date">Loading...</div>
         </div>
-        <div class="topbar-right">
-          <div class="notif-btn">🔔<span class="notif-dot"></span></div>
-        </div>
       </div>
 
       <!-- Admin Hero -->
@@ -774,10 +771,10 @@
         </div>
         <select class="req-select" id="req-filter-urgency" onchange="reqRender()">
           <option value="ALL">All Urgency</option>
-          <option value="CRITICAL">🚨 Critical</option>
-          <option value="HIGH">🔴 High</option>
-          <option value="MEDIUM">🟡 Medium</option>
-          <option value="LOW">🟢 Low</option>
+          <option value="CRITICAL"> Critical</option>
+          <option value="HIGH"> High</option>
+          <option value="MEDIUM"> Medium</option> 
+          <option value="LOW"> Low</option>
         </select>
         <select class="req-select" id="req-sort" onchange="reqRender()">
           <option value="date_desc">Newest first</option>
@@ -1023,7 +1020,7 @@
             <th>Department</th>
             <th>Position</th>
             <th>Phone</th>
-            <th>Hire Date</th>
+            <th>Date Created</th>
             <th>Status</th>
             <th>Actions</th>
           </tr></thead>
@@ -1835,263 +1832,256 @@
 
   
  
- 
-<!-- ═══════════════════════════════════════════
-    MODALS — Staff Management
-═══════════════════════════════════════════ -->
- 
-<!-- Add Staff Modal -->
-<div class="modal-overlay" id="addStaffModal">
-  <div class="modal" style="max-width:540px">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">Add Staff Member</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Creates a staff account with login access</div>
+  
+  <!-- ═══════════════════════════════════════════
+      MODALS — Staff Management
+  ═══════════════════════════════════════════ -->
+  
+  <!-- Add Staff Modal -->
+  <div class="modal-overlay" id="addStaffModal">
+    <div class="modal" style="max-width:540px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Add Staff Member</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Creates a staff account with login access</div>
+        </div>
+        <button class="modal-close" onclick="closeModal('addStaffModal')">✕</button>
       </div>
-      <button class="modal-close" onclick="closeModal('addStaffModal')">✕</button>
-    </div>
-    <div class="modal-body">
+      <div class="modal-body">
 
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Account Info</div>
-      <div class="form-row">
-        <div class="form-group-m" style="flex:1">
-          <label>Email (Login) <span style="color:var(--crimson)">*</span></label>
-          <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph">
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;background:var(--blue-light,#E8F0FF);
-          border:1px solid rgba(59,130,246,0.2);border-radius:9px;padding:10px 14px;
-          font-size:12px;color:var(--blue);margin-top:4px">
-        <span style="font-size:15px;flex-shrink:0">ℹ️</span>
-        A login password will be auto-generated and sent to the staff member's email.
-      </div>
-
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Personal Info</div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>First Name <span style="color:var(--crimson)">*</span></label>
-          <input type="text" id="add-staff-first" placeholder="Juan"
-            oninput="staffPreviewPassword()">
-        </div>
-        <div class="form-group-m">
-          <label>Last Name <span style="color:var(--crimson)">*</span></label>
-          <input type="text" id="add-staff-last" placeholder="Dela Cruz"
-            oninput="staffPreviewPassword()">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>Phone Number</label>
-          <input type="tel" id="add-staff-phone" placeholder="+63 9XX XXX XXXX">
-        </div>
-        <div class="form-group-m">
-          <label>Hire Date</label>
-          <input type="date" id="add-staff-hiredate">
-        </div>
-      </div>
-
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Role Info</div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>Staff ID</label>
-          <input type="text" id="add-staff-id" placeholder="e.g. STF-001" maxlength="20">
-        </div>
-        <div class="form-group-m">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>Position</label>
-          <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist">
-        </div>
-        <div class="form-group-m">
-          <label>Status</label>
-          <select id="add-staff-status">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-      </div>
-
-      <div id="add-staff-pass-hint" style="font-size:12px;color:var(--muted);margin-top:6px;min-height:18px"></div>
-
-      <div id="add-staff-error" style="display:none;background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
-          border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
-
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn-primary" id="add-staff-submit-btn" style="flex:1;justify-content:center" onclick="submitAddStaff()">Create Staff Account</button>
-        <button class="btn-ghost" onclick="closeModal('addStaffModal')">Cancel</button>
-      </div>
-    </div>
-  </div>
-</div>
- 
-<!-- Edit Staff Modal -->
-<div class="modal-overlay" id="editStaffModal">
-  <div class="modal" style="max-width:540px">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">Edit Staff Member</div>
-        <div id="edit-staff-subtitle" style="font-size:12px;color:var(--muted);margin-top:2px;font-family:monospace"></div>
-      </div>
-      <button class="modal-close" onclick="closeModal('editStaffModal')">✕</button>
-    </div>
-    <div class="modal-body">
- 
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Personal Info</div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>First Name <span style="color:var(--crimson)">*</span></label>
-          <input type="text" id="edit-staff-first">
-        </div>
-        <div class="form-group-m">
-          <label>Last Name <span style="color:var(--crimson)">*</span></label>
-          <input type="text" id="edit-staff-last">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>Phone Number</label>
-          <input type="tel" id="edit-staff-phone">
-        </div>
-        <div class="form-group-m">
-          <label>Hire Date</label>
-          <input type="date" id="edit-staff-hiredate">
-        </div>
-      </div>
- 
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Role Info</div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>Staff ID</label>
-          <input type="text" id="edit-staff-id" maxlength="20">
-        </div>
-        <div class="form-group-m">
-          <label>Department</label>
-          <input type="text" id="edit-staff-dept" list="staff-dept-list">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group-m">
-          <label>Position</label>
-          <input type="text" id="edit-staff-position">
-        </div>
-        <div class="form-group-m">
-          <label>Status</label>
-          <select id="edit-staff-status">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-      </div>
- 
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Reset Password</div>
-      <div class="form-row">
-        <div class="form-group-m" style="flex:1">
-          <label>New Password <span style="color:var(--muted);font-weight:400">(leave blank to keep current)</span></label>
-          <div style="position:relative">
-            <input type="password" id="edit-staff-password" placeholder="Enter new password"
-              style="padding-right:38px;width:100%;box-sizing:border-box">
-            <span onclick="staffTogglePass('edit-staff-password', this)"
-              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
-                cursor:pointer;font-size:14px;color:var(--muted);user-select:none">👁</span>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Account Info</div>
+        <div class="form-row">
+          <div class="form-group-m" style="flex:1">
+            <label>Email (Login) <span style="color:var(--crimson)">*</span></label>
+            <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph">
           </div>
         </div>
-      </div>
- 
-      <input type="hidden" id="edit-staff-target-id">
- 
-      <div id="edit-staff-error" style="display:none;background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
-          border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
- 
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn-primary" style="flex:1;justify-content:center" onclick="submitEditStaff()">Save Changes</button>
-        <button class="btn-ghost" onclick="closeModal('editStaffModal')">Cancel</button>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--blue-light,#E8F0FF);
+            border:1px solid rgba(59,130,246,0.2);border-radius:9px;padding:10px 14px;
+            font-size:12px;color:var(--blue);margin-top:4px">
+          <span style="font-size:15px;flex-shrink:0">ℹ️</span>
+          A login password will be auto-generated and sent to the staff member's email.
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Personal Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>First Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="add-staff-first" placeholder="Juan"
+              oninput="staffPreviewPassword()">
+          </div>
+          <div class="form-group-m">
+            <label>Last Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="add-staff-last" placeholder="Dela Cruz"
+              oninput="staffPreviewPassword()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="add-staff-phone" placeholder="+63 9XX XXX XXXX">
+          </div>
+          
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Role Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Staff ID</label>
+            <input type="text" id="add-staff-id" placeholder="e.g. STF-001" maxlength="20">
+          </div>
+          <div class="form-group-m">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Position</label>
+            <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist">
+          </div>
+          <div class="form-group-m">
+            <label>Status</label>
+            <select id="add-staff-status">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="add-staff-pass-hint" style="font-size:12px;color:var(--muted);margin-top:6px;min-height:18px"></div>
+
+        <div id="add-staff-error" style="display:none;background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
+            border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
+
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn-primary" id="add-staff-submit-btn" style="flex:1;justify-content:center" onclick="submitAddStaff()">Create Staff Account</button>
+          <button class="btn-ghost" onclick="closeModal('addStaffModal')">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
- 
-<!-- View Staff Profile Modal -->
-<div class="modal-overlay" id="viewStaffModal">
-  <div class="modal" style="max-width:480px">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">Staff Profile</div>
-        <div id="view-staff-id-label" style="font-size:12px;color:var(--muted);margin-top:2px;font-family:monospace"></div>
-      </div>
-      <button class="modal-close" onclick="closeModal('viewStaffModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <!-- Avatar + name -->
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-        <div id="view-staff-avatar" style="width:52px;height:52px;border-radius:50%;
-            background:var(--soft-red);display:flex;align-items:center;justify-content:center;
-            font-family:'Playfair Display',serif;font-size:18px;font-weight:900;
-            color:var(--crimson);flex-shrink:0"></div>
+  
+  <!-- Edit Staff Modal -->
+  <div class="modal-overlay" id="editStaffModal">
+    <div class="modal" style="max-width:540px">
+      <div class="modal-header">
         <div>
-          <div id="view-staff-name" style="font-size:17px;font-weight:700;font-family:'Playfair Display',serif"></div>
-          <div id="view-staff-position-label" style="font-size:13px;color:var(--muted);margin-top:2px"></div>
-          <div id="view-staff-status-badge" style="margin-top:6px"></div>
+          <div class="modal-title">Edit Staff Member</div>
+          <div id="edit-staff-subtitle" style="font-size:12px;color:var(--muted);margin-top:2px;font-family:monospace"></div>
         </div>
+        <button class="modal-close" onclick="closeModal('editStaffModal')">✕</button>
       </div>
- 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div style="background:var(--cream);border-radius:9px;padding:12px">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Staff ID</div>
-          <div id="view-staff-staffid" style="font-size:13px;font-weight:600;font-family:monospace"></div>
+      <div class="modal-body">
+  
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Personal Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>First Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="edit-staff-first">
+          </div>
+          <div class="form-group-m">
+            <label>Last Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="edit-staff-last">
+          </div>
         </div>
-        <div style="background:var(--cream);border-radius:9px;padding:12px">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Department</div>
-          <div id="view-staff-dept" style="font-size:13px;font-weight:600"></div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="edit-staff-phone">
+          </div>
         </div>
-        <div style="background:var(--cream);border-radius:9px;padding:12px">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Phone</div>
-          <div id="view-staff-phone" style="font-size:13px;font-weight:600"></div>
+  
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Role Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Staff ID</label>
+            <input type="text" id="edit-staff-id" maxlength="20">
+          </div>
+          <div class="form-group-m">
+            <label>Department</label>
+            <input type="text" id="edit-staff-dept" list="staff-dept-list">
+          </div>
         </div>
-        <div style="background:var(--cream);border-radius:9px;padding:12px">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Hire Date</div>
-          <div id="view-staff-hiredate" style="font-size:13px;font-weight:600"></div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Position</label>
+            <input type="text" id="edit-staff-position">
+          </div>
+          <div class="form-group-m">
+            <label>Status</label>
+            <select id="edit-staff-status">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
         </div>
-        <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Email</div>
-          <div id="view-staff-email" style="font-size:13px;font-weight:600"></div>
+  
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Reset Password</div>
+        <div class="form-row">
+          <div class="form-group-m" style="flex:1">
+            <label>New Password <span style="color:var(--muted);font-weight:400">(leave blank to keep current)</span></label>
+            <div style="position:relative">
+              <input type="password" id="edit-staff-password" placeholder="Enter new password"
+                style="padding-right:38px;width:100%;box-sizing:border-box">
+              <span onclick="staffTogglePass('edit-staff-password', this)"
+                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                  cursor:pointer;font-size:14px;color:var(--muted);user-select:none">👁</span>
+            </div>
+          </div>
         </div>
-        <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Account Created</div>
-          <div id="view-staff-created" style="font-size:13px;font-weight:600"></div>
+  
+        <input type="hidden" id="edit-staff-target-id">
+  
+        <div id="edit-staff-error" style="display:none;background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
+            border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
+  
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn-primary" style="flex:1;justify-content:center" onclick="submitEditStaff()">Save Changes</button>
+          <button class="btn-ghost" onclick="closeModal('editStaffModal')">Cancel</button>
         </div>
-      </div>
- 
-      <div style="display:flex;gap:8px">
-        <button class="btn-primary" style="flex:1;justify-content:center"
-          onclick="staffOpenEditFromView()">Edit</button>
-        <button class="btn-danger" onclick="staffOpenDeleteConfirm()">Delete</button>
-        <button class="btn-ghost" onclick="closeModal('viewStaffModal')">Close</button>
       </div>
     </div>
   </div>
-</div>
-
-
- 
-<!-- Delete Staff Confirm Modal -->
-<div class="modal-overlay" id="deleteStaffModal">
-  <div class="modal" style="max-width:400px">
-    <div class="modal-body" style="padding:32px;text-align:center">
-      <div style="font-size:36px;margin-bottom:14px">🗑</div>
-      <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px">Delete Staff Member?</div>
-      <div id="delete-staff-name-label" style="font-size:14px;color:var(--muted);margin-bottom:6px"></div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">
-        This will permanently remove the account and all associated data. This cannot be undone.
+  
+  <!-- View Staff Profile Modal -->
+  <div class="modal-overlay" id="viewStaffModal">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Staff Profile</div>
+          <div id="view-staff-id-label" style="font-size:12px;color:var(--muted);margin-top:2px;font-family:monospace"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal('viewStaffModal')">✕</button>
       </div>
-      <div style="display:flex;gap:10px">
-        <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeModal('deleteStaffModal')">Cancel</button>
-        <button class="btn-danger" style="flex:1;justify-content:center" onclick="staffConfirmDelete()">Yes, Delete</button>
+      <div class="modal-body">
+        <!-- Avatar + name -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+          <div id="view-staff-avatar" style="width:52px;height:52px;border-radius:50%;
+              background:var(--soft-red);display:flex;align-items:center;justify-content:center;
+              font-family:'Playfair Display',serif;font-size:18px;font-weight:900;
+              color:var(--crimson);flex-shrink:0"></div>
+          <div>
+            <div id="view-staff-name" style="font-size:17px;font-weight:700;font-family:'Playfair Display',serif"></div>
+            <div id="view-staff-position-label" style="font-size:13px;color:var(--muted);margin-top:2px"></div>
+            <div id="view-staff-status-badge" style="margin-top:6px"></div>
+          </div>
+        </div>
+  
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Staff ID</div>
+            <div id="view-staff-staffid" style="font-size:13px;font-weight:600;font-family:monospace"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Department</div>
+            <div id="view-staff-dept" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Phone</div>
+            <div id="view-staff-phone" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Date Created</div>
+            <div id="view-staff-hiredate" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Email</div>
+            <div id="view-staff-email" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Account Created</div>
+            <div id="view-staff-created" style="font-size:13px;font-weight:600"></div>
+          </div>
+        </div>
+  
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:1;justify-content:center"
+            onclick="staffOpenEditFromView()">Edit</button>
+          <button class="btn-danger" onclick="staffOpenDeleteConfirm()">Delete</button>
+          <button class="btn-ghost" onclick="closeModal('viewStaffModal')">Close</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
+
+
+  
+  <!-- Delete Staff Confirm Modal -->
+  <div class="modal-overlay" id="deleteStaffModal">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-body" style="padding:32px;text-align:center">
+        <div style="font-size:36px;margin-bottom:14px">🗑</div>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px">Delete Staff Member?</div>
+        <div id="delete-staff-name-label" style="font-size:14px;color:var(--muted);margin-bottom:6px"></div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">
+          This will permanently remove the account and all associated data. This cannot be undone.
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeModal('deleteStaffModal')">Cancel</button>
+          <button class="btn-danger" style="flex:1;justify-content:center" onclick="staffConfirmDelete()">Yes, Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
  
   <!-- Doc Preview Modal -->
   <div class="req-reject-overlay" id="req-doc-modal">
@@ -2220,6 +2210,88 @@
       </div>
     </div>
   </div>
+
+    <!-- ═══════════════════════════════════════════
+        REUSABLE SUCCESS MODAL
+        Used for: Create, Edit, Delete actions across the system
+    ═══════════════════════════════════════════ -->
+    
+    <div class="modal-overlay" id="sysSuccessModal">
+      <div class="modal" style="max-width:400px">
+        <div class="modal-body" style="padding:32px;text-align:center">
+          <div id="sysSuccessIcon" style="font-size:48px;margin-bottom:16px;animation:successPulse 0.6s ease">✓</div>
+          <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:8px" id="sysSuccessTitle">
+            Success!
+          </div>
+          <div id="sysSuccessMessage" style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6">
+            Operation completed successfully.
+          </div>
+          <button class="btn-primary" style="width:100%;justify-content:center" onclick="closeSysSuccessModal()">
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  
+    <!-- ═══════════════════════════════════════════
+        REUSABLE DELETE CONFIRMATION MODAL
+        Used for: Deleting any resource (Hospital, Staff, Requests, etc.)
+    ═══════════════════════════════════════════ -->
+    
+    <div class="modal-overlay" id="sysDeleteConfirmModal">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-body" style="padding:32px;text-align:center">
+          <div style="font-size:48px;margin-bottom:16px">🗑</div>
+          <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:8px">
+            Delete Permanently?
+          </div>
+          <div id="sysDeleteConfirmMessage" style="font-size:14px;color:var(--muted);margin-bottom:8px;line-height:1.6">
+            Are you sure you want to delete this item?
+          </div>
+          <div id="sysDeleteConfirmDetails" style="font-size:13px;background:var(--cream);border-radius:8px;padding:10px;margin-bottom:24px;font-weight:600;word-break:break-word">
+            Item details here
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:24px">
+            This action cannot be undone.
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeSysDeleteConfirmModal()">
+              Cancel
+            </button>
+            <button class="btn-danger" style="flex:1;justify-content:center" id="sysDeleteConfirmBtn" onclick="sysConfirmDeleteAction()">
+              Yes, Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+ 
+  <!-- CSS for success animation -->
+  <style>
+    @keyframes successPulse {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+      50% {
+        transform: scale(1.1);
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+ 
+    @keyframes successCheckmark {
+      0% {
+        stroke-dashoffset: 50;
+      }
+      100% {
+        stroke-dashoffset: 0;
+      }
+    }
+  </style>
+ 
 
   <!-- Logout Confirm -->
   <div class="modal-overlay" id="logoutModal">

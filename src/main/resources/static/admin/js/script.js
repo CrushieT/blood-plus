@@ -57,9 +57,18 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
 
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) overlay.classList.remove('show');
+document.addEventListener('DOMContentLoaded', function() {
+  // Get all modal overlays
+  const modalOverlays = document.querySelectorAll('.modal-overlay');
+ 
+  modalOverlays.forEach(overlay => {
+    overlay.addEventListener('click', function(event) {
+      // Only close if clicking directly on the overlay background, NOT on the modal
+      if (event.target === this) {
+        event.stopPropagation(); // Prevent the click from propagating
+        // Do NOT close the modal - removed closeModal() call
+      }
+    });
   });
 });
 
@@ -2071,6 +2080,49 @@ window.exportBloodBagsToExcel = function() {
   }
 
   /* ─────────────────────────────────────────────────────────
+     PATIENT NAME FORMATTING — Format name parts as: Last, First Middle Suffix
+  ───────────────────────────────────────────────────────── */
+  function formatPatientName(req) {
+    const first = req.patientName || '';
+    const middle = req.patientMiddle || '';
+    const last = req.patientLast || '';
+    const suffix = req.patientSuffix || '';
+
+    if (!first && !last) return '—';
+
+    let formatted = '';
+    // Last, First Middle Suffix format
+    if (last) {
+      formatted = last;
+      if (first) formatted += ', ' + first;
+      if (middle) formatted += ' ' + middle;
+      if (suffix) formatted += ' ' + suffix;
+    } else {
+      // Fallback if only first name exists
+      formatted = first;
+      if (middle) formatted += ' ' + middle;
+      if (suffix) formatted += ' ' + suffix;
+    }
+
+    return formatted.trim();
+  }
+
+
+  
+  /* ─────────────────────────────────────────────────────────
+     BIRTHDATE FORMATTING
+  ───────────────────────────────────────────────────────── */
+  function formatBirthdate(birthdateStr) {
+    if (!birthdateStr) return '—';
+    try {
+      const date = new Date(birthdateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return birthdateStr;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────
      CONSTANTS
   ───────────────────────────────────────────────────────── */
   const REQ_STATUSES = ['PENDING', 'APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
@@ -2166,16 +2218,20 @@ window.exportBloodBagsToExcel = function() {
  
     const bloodTypeEnum = r.bloodType ?? '—';
     const displayBloodType = formatBloodType(bloodTypeEnum);
- 
     return {
       id:             r.id,
       name,
       type:           r.requesterType    ?? 'ANONYMOUS',
-      patient:        r.patientName      ?? '—',
+      patient:        formatPatientName(r) ?? '—',
       patientName:    r.patientName      ?? '—',
+      patientMiddle:  r.patientMiddle    ?? null,
+      patientLast:    r.patientLast      ?? null,
+      patientSuffix:  r.patientSuffix    ?? null,
       patientAge:     r.patientAge       ?? null,
       patientSex:     r.patientSex       ?? null,
+      patientBirthdate: r.patientBirthdate ?? null,
       wardRoom:       r.wardRoom         ?? null,
+      roomNo:         r.roomNo           ?? null,
       referenceNumber:       r.referenceNumber         ?? null,
       requestingPhysician: r.requestingPhysician ?? null,
       ageGroup:       r.ageGroup         ?? null,
@@ -2199,6 +2255,7 @@ window.exportBloodBagsToExcel = function() {
       requesterEmail: r.requesterEmail   ?? null,
       notes:          r.notes            ?? null,
       indication:     r.indication       ?? null,
+      indicationOtherSpecify:     r.indicationOtherSpecify       ?? null,
       clinicalImpression: r.clinicalImpression ?? null,
       attendingPhysician: r.attendingPhysician ?? null,
       contactNumber:  r.contactNumber    ?? null,
@@ -2791,6 +2848,7 @@ window.exportBloodBagsToExcel = function() {
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
+    const typeLabel = req.type === 'ANONYMOUS' ? '' : `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${req.type})</span>`;
  
     if (isExp && ['PENDING', 'APPROVED'].includes(req.status)) {
       setTimeout(() => reqFetchCompatibleBags(req), 0);
@@ -2803,9 +2861,9 @@ window.exportBloodBagsToExcel = function() {
              style="background:${urgColor};margin-right:0;flex-shrink:0;border-radius:12px 0 0 ${isExp ? '0' : '12px'}"></div>
         <div style="flex:1;display:grid;grid-template-columns:1fr auto auto auto auto;align-items:center;gap:12px;padding:15px 18px">
           <div>
-            <div class="req-name">${req.name}${req.type === 'ANONYMOUS'
-              ? ` <span style="font-size:11px;font-weight:400;color:var(--muted)">(anonymous)</span>` : ''}</div>
+            <div class="req-name">${req.referenceNumber} ${typeLabel}</div>
             <div class="req-meta">
+              <span>${req.referenceNumber ? `Ref: ${req.name}` : 'N/A'}</span><span class="req-meta-dot"></span>
               <span>${req.patient}</span><span class="req-meta-dot"></span>
               <span>${req.component}</span><span class="req-meta-dot"></span>
               <span style="font-weight:600;color:var(--charcoal)">${req.units} unit${req.units > 1 ? 's' : ''}</span>
@@ -2978,7 +3036,7 @@ window.exportBloodBagsToExcel = function() {
     const title = document.getElementById('req-details-title');
     const body = document.getElementById('req-details-body');
     
-    title.textContent = `Request #${req.id} — ${req.name}`;
+    title.textContent = `Request #${req.referenceNumber ?? req.id} — ${req.name}`;
     body.innerHTML = renderReqDetailsContent(req);
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -2994,6 +3052,8 @@ window.exportBloodBagsToExcel = function() {
     const indicationCodes = req.indication ? req.indication.split(',').map(s => s.trim()).filter(Boolean) : [];
     const indicationBadges = getIndicationBadges(req.indication);
     const indicationDetailsHtml = renderIndicationDetails(req.indication);
+    const formattedPatientName = formatPatientName(req);
+    const formattedBirthdate = formatBirthdate(req.patientBirthdate);
 
     return `
       <div class="req-details-sections">
@@ -3003,7 +3063,7 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Reference #</span>
-              <span class="req-details-value">${req.id ?? '—'}</span>
+              <span class="req-details-value">${req.referenceNumber ?? req.id ?? '—'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Status</span>
@@ -3037,7 +3097,7 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Patient Name</span>
-              <span class="req-details-value">${req.patientName ?? req.patient ?? '—'}</span>
+              <span class="req-details-value">${formattedPatientName}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Age / Age Group</span>
@@ -3048,8 +3108,15 @@ window.exportBloodBagsToExcel = function() {
               <span class="req-details-value">${req.patientSex ?? '—'}</span>
             </div>
             <div class="req-details-field">
-              <span class="req-details-label">Ward / Room</span>
+              <span class="req-details-label">Date of Birth</span>
+              <span class="req-details-value">${formattedBirthdate}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Location (Ward)</span>
               <span class="req-details-value">${req.wardRoom ?? '—'}</span>
+            </div><div class="req-details-field">
+              <span class="req-details-label">Location (Room)</span>
+              <span class="req-details-value">${req.roomNo ?? '—'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Category</span>
@@ -3076,10 +3143,6 @@ window.exportBloodBagsToExcel = function() {
             <div class="req-details-field">
               <span class="req-details-label">Units Needed</span>
               <span class="req-details-value req-details-highlight">${req.units ?? '—'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Volume (mL)</span>
-              <span class="req-details-value">${req.volumeMl ?? '—'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Notes</span>
@@ -3207,7 +3270,6 @@ window.exportBloodBagsToExcel = function() {
 
   reqFetchAll();
 })();
-
 /////// STAFF MANAGEMENT ////////
 
 const STAFF_API = '/api/admin/staff';
@@ -3462,7 +3524,14 @@ async function submitAddStaff() {
   const first    = document.getElementById('add-staff-first').value.trim();
   const last     = document.getElementById('add-staff-last').value.trim();
   const phone    = document.getElementById('add-staff-phone').value.trim();
-  const hireDate = document.getElementById('add-staff-hiredate').value || null;
+  
+  // Use current date if hire date not provided
+  let hireDate;
+  if (!hireDate) {
+    const today = new Date();
+    hireDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+  }
+  
   const staffId  = document.getElementById('add-staff-id').value.trim();
   const dept     = "Blood bank";
   const position = document.getElementById('add-staff-position').value.trim();
@@ -3484,14 +3553,19 @@ async function submitAddStaff() {
     const created = await staffApiFetch('', {
       method: 'POST',
       body: JSON.stringify({ email, firstName: first, lastName: last, phoneNumber: phone,
-                             hireDate: hireDate || null, staffId: staffId || null,
+                             hireDate: hireDate, staffId: staffId || null,
                              department: dept, position, status }),
     });
 
     staffList.unshift(created);   // optimistic: prepend to local list
     closeModal('addStaffModal');
     staffRender();
-    staffShowToast(`Staff account created for ${first} ${last}. Credentials emailed.`, 'success');
+    
+    // Show success modal
+    showSysSuccessModal(
+      'Staff Account Created',
+      `Account created for ${first} ${last}. Credentials have been emailed.`
+    );
   } catch (err) {
     staffShowError('add-staff-error', err.message);
   } finally {
@@ -3546,7 +3620,6 @@ function staffOpenEdit(id) {
   document.getElementById('edit-staff-first').value          = s.firstName;
   document.getElementById('edit-staff-last').value           = s.lastName;
   document.getElementById('edit-staff-phone').value          = s.phoneNumber || '';
-  document.getElementById('edit-staff-hiredate').value       = s.hireDate    || '';
   document.getElementById('edit-staff-id').value             = s.staffId     || '';
   document.getElementById('edit-staff-dept').value           = s.department  || '';
   document.getElementById('edit-staff-position').value       = s.position    || '';
@@ -3564,7 +3637,6 @@ async function submitEditStaff() {
   const first    = document.getElementById('edit-staff-first').value.trim();
   const last     = document.getElementById('edit-staff-last').value.trim();
   const phone    = document.getElementById('edit-staff-phone').value.trim();
-  const hireDate = document.getElementById('edit-staff-hiredate').value || null;
   const staffId  = document.getElementById('edit-staff-id').value.trim();
   const dept     = document.getElementById('edit-staff-dept').value.trim();
   const position = document.getElementById('edit-staff-position').value.trim();
@@ -3598,7 +3670,12 @@ async function submitEditStaff() {
 
     closeModal('editStaffModal');
     staffRender();
-    staffShowToast(`${first} ${last}'s profile updated.`, 'success');
+    
+    // Show success modal
+    showSysSuccessModal(
+      'Profile Updated',
+      `${first} ${last}'s profile has been successfully updated.`
+    );
   } catch (err) {
     staffShowError('edit-staff-error', err.message);
   } finally {
@@ -3614,9 +3691,14 @@ function staffOpenDelete(id) {
   const s = staffList.find(x => x.id === id);
   if (!s) return;
   staffCurrentViewId = id;
-  document.getElementById('delete-staff-name-label').textContent =
-    `${s.firstName} ${s.lastName} (${s.staffId || s.email})`;
-  openModal('deleteStaffModal');
+  
+  // Show delete confirmation modal using the reusable system modal
+  showSysDeleteConfirmModal(
+    'Staff Account',
+    `${s.firstName} ${s.lastName}`,
+    `${s.staffId || s.email}`,
+    staffConfirmDelete
+  );
 }
 
 function staffOpenDeleteConfirm() {
@@ -3629,19 +3711,18 @@ async function staffConfirmDelete() {
   const s   = staffList.find(x => x.id === id);
   const name = s ? `${s.firstName} ${s.lastName}` : 'Staff member';
 
-  const btn = document.getElementById('delete-staff-confirm-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
-
   try {
     await staffApiFetch(`/${id}`, { method: 'DELETE' });
     staffList = staffList.filter(x => x.id !== id);
-    closeModal('deleteStaffModal');
     staffRender();
-    staffShowToast(`${name}'s account has been deleted.`, 'danger');
+    
+    // Show success modal for delete
+    showSysSuccessModal(
+      'Account Deleted',
+      `${name}'s account has been permanently deleted.`
+    );
   } catch (err) {
     staffShowToast(`Delete failed: ${err.message}`, 'danger');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Yes, Delete'; }
   }
 }
 
@@ -3737,7 +3818,6 @@ function initStaffPanel() {
 }
 
 document.addEventListener('DOMContentLoaded', initStaffPanel);
-
 
 ///////// HOSPITAL PANEL/////////////
 
@@ -3935,7 +4015,6 @@ async function hospCreate() {
         const created = await res.json();
         hospData.unshift(created);
         hospPage = 1;
-        hospRender();
         
         // Clear form
         ['hosp-add-email','hosp-add-name','hosp-add-address','hosp-add-city','hosp-add-province',
@@ -3945,7 +4024,14 @@ async function hospCreate() {
         });
         
         closeModal('addHospitalModal');
-        alert('Hospital account created! Credentials sent to their email.');
+        
+        // Show success modal with callback to re-render
+        showSysSuccessModal(
+            'Hospital Created!',
+            `${name} has been added to the system. Credentials sent to ${email}.`,
+            () => hospRender()
+        );
+        
     } catch (err) {
         alert('Error: ' + err.message);
         console.error('[Hospital] Create error:', err);
@@ -4023,9 +4109,15 @@ async function hospSaveEdit() {
         const idx = hospData.findIndex(x => x.id === parseInt(id));
         if (idx >= 0) hospData[idx] = updated;
         
-        hospRender();
         closeModal('editHospitalModal');
-        alert('Hospital updated successfully!');
+        
+        // Show success modal with callback to re-render
+        showSysSuccessModal(
+            'Hospital Updated!',
+            `${name} has been successfully updated.`,
+            () => hospRender()
+        );
+        
     } catch (err) {
         alert('Error: ' + err.message);
         console.error('[Hospital] Edit error:', err);
@@ -4055,9 +4147,15 @@ async function hospDelete(id) {
         }
 
         hospData = hospData.filter(x => x.id !== parseInt(id));
-        hospRender();
         closeModal('editHospitalModal');
-        alert('Hospital deleted successfully!');
+        
+        // Show success modal with callback to re-render
+        showSysSuccessModal(
+            'Hospital Deleted!',
+            `${h.hospitalName} has been permanently removed from the system.`,
+            () => hospRender()
+        );
+        
     } catch (err) {
         alert('Error: ' + err.message);
         console.error('[Hospital] Delete error:', err);
@@ -4065,7 +4163,7 @@ async function hospDelete(id) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// CONFIRM DELETE (from table row)
+// CONFIRM DELETE (from table row) — Uses reusable modal
 // ──────────────────────────────────────────────────────────────
 function hospConfirmDelete(id) {
     const h = hospData.find(x => x.id === id);
@@ -4074,13 +4172,14 @@ function hospConfirmDelete(id) {
         return;
     }
 
-    if (!confirm(`Delete "${h.hospitalName}"? This cannot be undone.`)) {
-        return;
-    }
-
-    hospDelete(id); // ✅ PASS ID HERE
+    // Show delete confirmation modal
+    showSysDeleteConfirmModal(
+        'hospital',                          // resourceType
+        h.hospitalName,                      // resourceName (what's being deleted)
+        `Email: ${h.email}`,                 // details
+        () => hospDelete(id)                 // onConfirmCallback
+    );
 }
-
 
 
 // ══════════════════════════════════════════════════════════════
@@ -5618,6 +5717,188 @@ document.addEventListener('click', function(event) {
   }
 });
 
+/**
+ * REUSABLE MODAL SYSTEM
+ * Functions for success and delete confirmation modals
+ * Used across the entire system for consistency
+ */
+
+// ═══════════════════════════════════════════════════════════════
+// SUCCESS MODAL FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+let sysSuccessCallback = null;
+
+function showSysSuccessModal(title = 'Success!', message = 'Operation completed successfully.', callback = null) {
+    const titleEl = document.getElementById('sysSuccessTitle');
+    const messageEl = document.getElementById('sysSuccessMessage');
+    const iconEl = document.getElementById('sysSuccessIcon');
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+    
+    // Reset animation
+    if (iconEl) {
+        iconEl.style.animation = 'none';
+        setTimeout(() => {
+            if (iconEl) iconEl.style.animation = 'successPulse 0.6s ease';
+        }, 10);
+    }
+
+    sysSuccessCallback = callback;
+    openModal('sysSuccessModal');
+}
+
+function closeSysSuccessModal() {
+    closeModal('sysSuccessModal');
+    if (sysSuccessCallback && typeof sysSuccessCallback === 'function') {
+        sysSuccessCallback();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DELETE CONFIRMATION MODAL FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+let sysDeleteAction = null;
+
+function showSysDeleteConfirmModal(resourceType = 'Item', resourceName = '', details = '', onConfirmCallback) {
+    const messageEl = document.getElementById('sysDeleteConfirmMessage');
+    const detailsEl = document.getElementById('sysDeleteConfirmDetails');
+    const btn = document.getElementById('sysDeleteConfirmBtn');
+
+    // Set message
+    if (messageEl) {
+        messageEl.textContent = `Are you sure you want to delete this ${resourceType}?`;
+    }
+
+    // Set details (what's being deleted)
+    if (detailsEl) {
+        detailsEl.textContent = resourceName || details || 'This item will be permanently removed.';
+    }
+
+    // Store callback
+    sysDeleteAction = onConfirmCallback;
+
+    // Update button text if needed
+    if (btn) {
+        btn.textContent = 'Yes, Delete';
+    }
+
+    openModal('sysDeleteConfirmModal');
+}
+
+function closeSysDeleteConfirmModal() {
+    closeModal('sysDeleteConfirmModal');
+    sysDeleteAction = null;
+}
+
+function sysConfirmDeleteAction() {
+    if (sysDeleteAction && typeof sysDeleteAction === 'function') {
+        const btn = document.getElementById('sysDeleteConfirmBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Deleting…';
+        }
+
+        Promise.resolve(sysDeleteAction()).then(() => {
+            closeSysDeleteConfirmModal();
+        }).catch(err => {
+            console.error('Delete action error:', err);
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Yes, Delete';
+            }
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER: Show toast notification (alternative to modal)
+// ═══════════════════════════════════════════════════════════════
+
+function showToast(message, type = 'info', duration = 3000) {
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        `;
+        document.body.appendChild(toastContainer);
+    }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? 'var(--soft-green, #E8F5E9)' : 
+                    type === 'error' ? 'var(--soft-red, #FFEBEE)' : 
+                    'var(--blue-light, #E8F0FF)';
+    const textColor = type === 'success' ? 'var(--green, #2E7D32)' : 
+                      type === 'error' ? 'var(--crimson, #C41E3A)' : 
+                      'var(--blue, #1E40AF)';
+    const icon = type === 'success' ? '✓' : 
+                 type === 'error' ? '✕' : 'ℹ';
+
+    toast.style.cssText = `
+        background: ${bgColor};
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        color: ${textColor};
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.3s ease;
+    `;
+    toast.innerHTML = `<span style="font-size: 16px;">${icon}</span><span>${message}</span>`;
+
+    toastContainer.appendChild(toast);
+
+    // Auto remove after duration
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// Add toast animations
+if (!document.getElementById('toast-styles')) {
+    const style = document.createElement('style');
+    style.id = 'toast-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // ENHANCED AUTO-REFRESH WITH CHANGE DETECTION (SILENT UPDATES)
 // ═══════════════════════════════════════════════════════════════
@@ -5627,8 +5908,8 @@ let dataSnapshots = {
   dashboard: null,
   bloodBank: null,
   requests: null,
+  logging: null,  
 };
-
 /**
  * Creates a snapshot of data for change detection
  */
@@ -5714,6 +5995,8 @@ function initializeAutoRefresh() {
   loadDashboard();
   loadBloodBank();
   reqFetchAll();
+  loggingStatusRender()
+  loggingFulfillmentRender()
 
   // Small delay to ensure initial data is loaded
   setTimeout(() => {
@@ -5730,6 +6013,7 @@ function initializeAutoRefresh() {
     checkDashboardUpdates();
     checkBloodBankUpdates();
     checkBloodRequestsUpdates();
+    checkLoggingUpdates(); 
   }, REFRESH_INTERVAL);
 }
 
@@ -5776,6 +6060,28 @@ function changeRefreshInterval(seconds) {
   console.log(`[Auto-Refresh] Check interval changed to ${seconds} seconds`);
 }
 
+async function checkLoggingUpdates() {
+  try {
+    const res = await fetch('/api/admin/logs/summary', { headers: { Accept: 'application/json' } });
+    if (!res.ok) return;
+    const json = await res.json();
+    
+    const newSnapshot = createSnapshot(json);
+    
+    if (hasDataChanged(dataSnapshots.logging, newSnapshot)) {
+      dataSnapshots.logging = newSnapshot;
+      loadSummary();
+      if (loggingState.currentTab === 'status-logs') {
+        loggingStatusRender();
+      } else {
+        loggingFulfillmentRender();
+      }
+    }
+  } catch (err) {
+    console.error('[Auto-Refresh] Logging check failed:', err);
+  }
+}
+
 /**
  * Force invalidate all snapshots and refresh
  * Useful when user manually triggers refresh
@@ -5791,3 +6097,4 @@ function forceRefreshAll() {
   
   console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }
+

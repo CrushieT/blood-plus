@@ -79,9 +79,9 @@ public class AnalyticsService {
         return new RequestMetrics(pending, approved, allocated, released, rejected, cancelled);
     }
 
-    /**
-     * Calculate urgency level breakdown
-     */
+    // /**
+    //  * Calculate urgency level breakdown
+    //  */
     private Map<String, Long> calculateUrgencyBreakdown() {
         Map<String, Long> urgencyMap = new LinkedHashMap<>();
 

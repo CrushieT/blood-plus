@@ -17,7 +17,10 @@ public class BloodBagRequestDTO {
     // CORE FIELDS (Required for all request types)
     // ─────────────────────────────────────────────────────────────
 
-    private String patientName;          // "Smith, John"
+    private String patientName;         
+    private String patientMiddle;       
+    private String patientLast;          
+    private String patientSuffix;          
     private Integer patientAge;
     private String patientSex;           // "M" or "F"
     private LocalDate patientBirthdate;
@@ -73,6 +76,7 @@ public class BloodBagRequestDTO {
     // ─────────────────────────────────────────────────────────────
 
     private String indication;  // Comma-separated codes: "F-1,F-2,F-3" or with sub-codes "F-5,F-5a,F-5b"
+    private String indicationOtherSpecify;
 
     // ─────────────────────────────────────────────────────────────
     // REQUESTER FIELDS (For ANONYMOUS requests)
@@ -90,6 +94,15 @@ public class BloodBagRequestDTO {
     // Core fields
     public String getPatientName() { return patientName; }
     public void setPatientName(String patientName) { this.patientName = patientName; }
+
+    public String getPatientMiddle() { return patientMiddle; }
+    public void setPatientMiddle(String patientMiddle) { this.patientMiddle = patientMiddle; }
+
+    public String getPatientLast() { return patientLast; }
+    public void setPatientLast(String patientLast) { this.patientLast = patientLast; }
+    
+    public String getPatientSuffix() { return patientSuffix; }
+    public void setPatientSuffix(String patientSuffix) { this.patientSuffix = patientSuffix; }
 
     public Integer getPatientAge() { return patientAge; }
     public void setPatientAge(Integer patientAge) { this.patientAge = patientAge; }
@@ -176,6 +189,9 @@ public class BloodBagRequestDTO {
     // Indications
     public String getIndication() { return indication; }
     public void setIndication(String indication) { this.indication = indication; }
+
+    public String getIndicationOtherSpecify() { return indicationOtherSpecify; }
+    public void setIndicationOtherSpecify(String indicationOtherSpecify) { this.indicationOtherSpecify = indicationOtherSpecify; }
 
     // Requester fields (for anonymous requests)
     public String getRequesterName() { return requesterName; }

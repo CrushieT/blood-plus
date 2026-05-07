@@ -570,6 +570,7 @@ body {
 
 /* ── MODAL OVERLAY ────────────────────────────────────────── */
 .modal-overlay {
+  pointer-events: none;
   display: none;
   position: fixed;
   inset: 0;
@@ -584,6 +585,9 @@ body {
 .modal-overlay.show,
 .modal-overlay.open { display: flex; }
 
+.modal-overlay .modal {
+    pointer-events: auto;
+}
 /* ── MODAL ────────────────────────────────────────────────── */
 .modal {
   background: white;
