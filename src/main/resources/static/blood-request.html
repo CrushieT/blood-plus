@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="js/AuthGuard.js"></script>
   <link href="css/blood_request.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
 </head>
 <body>
 
@@ -100,6 +101,78 @@
     <div class="stat"><div class="stat-num">24/7</div><div class="stat-label">Available</div></div>
     <div class="stat"><div class="stat-num">30<span style="font-size:16px">min</span></div><div class="stat-label">Avg. Release Time</div></div>
     <div class="stat"><div class="stat-num">5</div><div class="stat-label">Components</div></div>
+  </div>
+</div>
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- STANDALONE FORM SCANNER (OUTSIDE MAIN FORM) -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+ 
+<div class="scanner-container" id="scanner-container">
+  <div class="scanner-header">
+    <div class="scanner-title-section">
+      <div class="scanner-icon">📋</div>
+      <div>
+        <div class="scanner-title">Quick Scan</div>
+        <div class="scanner-subtitle">Scan your blood request form to auto-fill</div>
+      </div>
+    </div>
+    <button class="scanner-collapse-btn" id="scanner-collapse-btn" 
+      onclick="toggleScannerPanel()" 
+      title="Collapse scanner">
+      ↑
+    </button>
+  </div>
+ 
+  <div class="scanner-content" id="scanner-content">
+    
+    <!-- Scanner zone -->
+    <div class="scanner-upload-zone" id="scanner-upload-zone" 
+      onclick="document.getElementById('scan-input').click()">
+      <input type="file" id="scan-input" accept=".pdf,image/*" style="display:none" 
+        onchange="handleScan(this.files[0])" />
+      
+      <div id="scan-placeholder" class="scan-state">
+        <div class="scan-placeholder-icon">📄</div>
+        <div class="scan-placeholder-text">
+          <div class="scan-placeholder-title">Click to scan form</div>
+          <div class="scan-placeholder-subtitle">PDF, JPG, or PNG — Max 10MB</div>
+        </div>
+      </div>
+      
+      <div id="scan-preview" class="scan-state" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;width:100%">
+          <div class="scan-success-icon">✓</div>
+          <div style="flex:1;min-width:0">
+            <div id="scan-file-name" class="scan-filename"></div>
+            <div id="scan-status" class="scan-status">Processing...</div>
+          </div>
+          <button type="button" onclick="event.stopPropagation();clearScan()" 
+            class="scan-clear-btn">×</button>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- Scanner results -->
+    <div id="scanner-results-box" class="scanner-results-box" style="display:none">
+      <div class="results-header">
+        <span class="results-icon">✓</span>
+        <span class="results-title">Form detected</span>
+      </div>
+      
+      <div class="results-fields" id="scanner-fields-found"></div>
+      
+      <button class="btn-apply-scan" onclick="applyScanResults()" id="btn-apply-scan">
+        ✓ Fill Form With This Data
+      </button>
+      
+      <div class="results-note">
+        You can edit any field after it's filled in the form below.
+      </div>
+    </div>
+ 
+    <!-- Error/Status messages -->
+    <div id="scanner-error" class="scanner-error" style="display:none"></div>
+ 
   </div>
 </div>
 
@@ -1110,6 +1183,15 @@
         <div class="review-block" id="review-indications"></div>
         <div class="review-block" id="review-contact"></div>
         <div class="review-block" id="review-doc"></div>
+
+        <!-- ACKNOWLEDGMENT CHECKBOX -->
+        <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px">
+          <input type="checkbox" id="ack-confirm" style="margin-top:3px;width:18px;height:18px;cursor:pointer;flex-shrink:0">
+          <label for="ack-confirm" style="font-size:13px;line-height:1.6;color:var(--charcoal);cursor:pointer;flex:1">
+            I acknowledge that all information provided above is accurate and complete to the best of my knowledge. I understand that any false or misleading information may result in the rejection or cancellation of this blood request.
+          </label>
+        </div>
+
 
         <button class="btn-submit" id="submit-btn" onclick="submitRequest()">
           Submit Blood Request

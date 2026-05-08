@@ -995,3 +995,321 @@ html { scroll-behavior: smooth; }
 @media(max-width:520px){
   .step-label{font-size:9px;}
 }
+
+/* 
+   STANDALONE FORM SCANNER STYLES
+   
+   WHERE TO ADD THIS:
+   In your css/blood_request.css file, add this at the END of the file
+*/
+
+/* ══════════════════════════════════════════════════════════════════ */
+/* STANDALONE FORM SCANNER STYLES */
+/* ══════════════════════════════════════════════════════════════════ */
+
+.scanner-container {
+  position: relative;
+  margin: 0 auto 40px;
+  max-width: 900px;
+  background: linear-gradient(135deg, rgba(196, 30, 58, 0.05), rgba(46, 125, 79, 0.05));
+  border: 1.5px solid rgba(196, 30, 58, 0.2);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  z-index: 99;
+}
+
+.scanner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(196, 30, 58, 0.08), rgba(46, 125, 79, 0.08));
+  border-bottom: 1px solid rgba(196, 30, 58, 0.15);
+}
+
+.scanner-title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scanner-icon {
+  font-size: 24px;
+  opacity: 0.8;
+}
+
+.scanner-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--charcoal);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.scanner-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.scanner-collapse-btn {
+  background: rgba(196, 30, 58, 0.1);
+  border: 1px solid rgba(196, 30, 58, 0.2);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #C41E3A;
+  font-size: 16px;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.scanner-collapse-btn:hover {
+  background: rgba(196, 30, 58, 0.2);
+  border-color: rgba(196, 30, 58, 0.4);
+}
+
+.scanner-collapse-btn.collapsed {
+  transform: rotate(180deg);
+}
+
+.scanner-content {
+  padding: 20px;
+  transition: max-height 0.3s ease;
+  max-height: 600px;
+  overflow: hidden;
+}
+
+.scanner-content.collapsed {
+  display: none;
+}
+
+/* Scanner upload zone */
+.scanner-upload-zone {
+  border: 2px dashed rgba(196, 30, 58, 0.3);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.5);
+  margin-bottom: 16px;
+}
+
+.scanner-upload-zone:hover {
+  border-color: #C41E3A;
+  background: rgba(196, 30, 58, 0.03);
+}
+
+.scanner-upload-zone.has-file {
+  border-color: #2E7D4F;
+  background: rgba(46, 125, 79, 0.03);
+}
+
+.scan-state {
+  pointer-events: none;
+}
+
+.scan-placeholder-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.scan-placeholder-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--charcoal);
+  margin-bottom: 4px;
+}
+
+.scan-placeholder-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.scan-success-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(46, 125, 79, 0.15);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #2E7D4F;
+  flex-shrink: 0;
+}
+
+.scan-filename {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--charcoal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scan-status {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.scan-clear-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 20px;
+  padding: 4px;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.scan-clear-btn:hover {
+  color: #C41E3A;
+}
+
+/* Scanner spinner */
+.scanner-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(196, 30, 58, 0.2);
+  border-top-color: #C41E3A;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Scanner results */
+.scanner-results-box {
+  background: rgba(46, 125, 79, 0.08);
+  border: 1.5px solid rgba(46, 125, 79, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2E7D4F;
+}
+
+.results-icon {
+  font-size: 16px;
+}
+
+.results-title {
+  font-family: 'DM Sans', sans-serif;
+}
+
+.results-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--charcoal);
+  line-height: 1.5;
+}
+
+.result-field {
+  padding: 8px 10px;
+  background: rgba(46, 125, 79, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid #2E7D4F;
+}
+
+.result-field-label {
+  font-weight: 600;
+  color: #2E7D4F;
+  display: block;
+}
+
+.result-field-value {
+  color: var(--charcoal);
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.btn-apply-scan {
+  width: 100%;
+  background: #2E7D4F;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+
+.btn-apply-scan:hover {
+  background: #245a3d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 125, 79, 0.2);
+}
+
+.btn-apply-scan:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.results-note {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Scanner error */
+.scanner-error {
+  background: rgba(196, 30, 58, 0.08);
+  border: 1.5px solid rgba(196, 30, 58, 0.2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #C41E3A;
+  margin-bottom: 12px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .scanner-container {
+    margin: 0 16px 40px;
+    border-radius: 12px;
+  }
+
+  .scanner-content {
+    padding: 16px;
+  }
+
+  .scanner-upload-zone {
+    padding: 16px;
+  }
+
+  .results-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .scanner-header {
+    padding: 12px 16px;
+  }
+}
