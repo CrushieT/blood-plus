@@ -225,34 +225,66 @@
             </div>
 
             <!-- Optional: Component Type Availability (can be added separately) -->
-            <!-- Uncomment if you want to show blood component availability as well -->
-        
             <div class="card" style="margin-top:16px">
                 <div class="card-header">
-                <div class="card-title">Component Availability</div>
-                <span style="font-size:12px;color:var(--muted)">Blood components in stock</span>
+                    <div class="card-title">Component Availability</div>
+                    <span style="font-size:12px;color:var(--muted)">Blood components currently in stock</span>
                 </div>
                 <div class="card-body">
-                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;font-size:12px">
-                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--green)">
-                    <div style="font-weight:600">Whole Blood</div>
-                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-whole-blood">Available</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:16px;font-size:13px">
+                        
+                        <!-- Whole Blood -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--muted);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">Whole Blood</div>
+                            <div style="font-size:12px;color:var(--muted)" id="comp-whole-blood">Loading...</div>
+                        </div>
+            
+                        <!-- PRBC -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--green);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">PRBC</div>
+                            <div style="font-size:12px;color:var(--green)" id="comp-prbc">Loading...</div>
+                        </div>
+            
+                        <!-- Leukoreduced PRBC -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--green);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">LR-PRBC</div>
+                            <div style="font-size:12px;color:var(--green)" id="comp-leukoreduced-prbc">Loading...</div>
+                        </div>
+            
+                        <!-- Aliquoted PRBC -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--green);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">ALQ-PRBC</div>
+                            <div style="font-size:12px;color:var(--green)" id="comp-aliquoted-prbc">Loading...</div>
+                        </div>
+            
+                        <!-- Platelet Concentrate -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--amber);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">Platelets</div>
+                            <div style="font-size:12px;color:var(--amber)" id="comp-platelet-concentrate">Loading...</div>
+                        </div>
+            
+                        <!-- Fresh Frozen Plasma -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--green);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">FFP</div>
+                            <div style="font-size:12px;color:var(--green)" id="comp-fresh-frozen-plasma">Loading...</div>
+                        </div>
+            
+                        <!-- Cryoprecipitate -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--green);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">Cryo</div>
+                            <div style="font-size:12px;color:var(--green)" id="comp-cryoprecipitate">Loading...</div>
+                        </div>
+            
+                        <!-- Cryosupernatant -->
+                        <div style="padding:14px;background:#F9FAFB;border-radius:8px;border-left:4px solid var(--green);transition:all 0.3s ease">
+                            <div style="font-weight:700;color:var(--charcoal);margin-bottom:6px">Cryo-SN</div>
+                            <div style="font-size:12px;color:var(--green)" id="comp-cryosupernatant">Loading...</div>
+                        </div>
+            
                     </div>
-                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--green)">
-                    <div style="font-weight:600">PRBC</div>
-                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-prbc">Available</div>
-                    </div>
-                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--amber)">
-                    <div style="font-weight:600">Platelets</div>
-                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-platelets">Low Stock</div>
-                    </div>
-                    <div style="padding:10px;background:var(--surface-secondary);border-radius:6px;border-left:3px solid var(--green)">
-                    <div style="font-weight:600">Fresh Frozen Plasma</div>
-                    <div style="color:var(--muted);font-size:11px;margin-top:2px" id="comp-ffp">Available</div>
-                    </div>
-                </div>
                 </div>
             </div>
+            
         </div>
 
         
@@ -1617,59 +1649,7 @@
             }
         }
 
-        function updateIndicationGroupsHosp() {
-            const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
-            const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
-            
-            if (!birthdate || !component) {
-                document.getElementById('indication-container-hosp').style.display = 'none';
-                return;
-            }
-            
-            const birthYear = new Date(birthdate).getFullYear();
-            const isAdult = new Date().getFullYear() - birthYear >= 13;
-            
-            document.getElementById('indication-container-hosp').style.display = 'block';
-            
-            // Hide all groups
-            document.querySelectorAll('#panel-newrequest .indication-group').forEach(g => {
-                g.style.display = 'none';
-            });
-            
-            // Component-to-group mapping
-            const adultComponentGroupMap = {
-                // PRBC-related
-                PRBC: 'group-PRBC-hosp',
-                LEUKOREDUCED_PRBC: 'group-PRBC-hosp',
-                ALIQUOTED_PRBC: 'group-PRBC-hosp',
-
-                // Platelets
-                PLATELET_CONCENTRATE: 'group-PLATELET_CONCENTRATE-hosp',
-
-                // Plasma
-                FRESH_FROZEN_PLASMA: 'group-FRESH_FROZEN_PLASMA-hosp',
-
-                // Cryo-related
-                CRYOPRECIPITATE: 'group-CRYOPRECIPITATE-hosp',
-                CRYO: 'group-CRYOPRECIPITATE-hosp',
-
-                CRYOSUPERNATANT: 'group-CRYOPRECIPITATE-hosp',
-                'CRYO-SN': 'group-CRYOPRECIPITATE-hosp'
-            };
-            
-            let groupId = '';
-
-            if (isAdult) {
-                groupId = adultComponentGroupMap[component] || '';
-            }
-
-            // Pediatric mapping can be added later here
-            
-            if (groupId) {
-                document.getElementById(groupId).style.display = 'block';
-            }
-        }
-
+       
         function calculateAgeHosp() {
             const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
             if (!birthdate) {
@@ -1687,7 +1667,6 @@
             const type = age >= 13 ? 'Adult (≥13 years)' : 'Pediatric (<13 years)';
             document.getElementById('patient-type-display-hosp').textContent = `${type} - Age: ${age} years`;
             
-            updateIndicationGroupsHosp();
         }
 
         function resetFormHosp() {

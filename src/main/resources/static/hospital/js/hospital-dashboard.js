@@ -237,35 +237,47 @@ function updateComponentDisplay() {
     'prbc': 'comp-prbc',
     'leukoreduced-prbc': 'comp-leukoreduced-prbc',
     'aliquoted-prbc': 'comp-aliquoted-prbc',
-    'platelet-concentrate': 'comp-platelets',
-    'fresh-frozen-plasma': 'comp-ffp',
-    'cryoprecipitate': 'comp-cryo',
-    'cryosupernatant': 'comp-cryo-sn'
+    'platelet-concentrate': 'comp-platelet-concentrate',
+    'fresh-frozen-plasma': 'comp-fresh-frozen-plasma',
+    'cryoprecipitate': 'comp-cryoprecipitate',
+    'cryosupernatant': 'comp-cryosupernatant'
   };
-
+ 
   for (const [componentKey, elementId] of Object.entries(componentMap)) {
     const statusEl = document.getElementById(elementId);
-    if (!statusEl) continue;
-
-    const availability = bloodBankAvailability.components[componentKey];
-    if (!availability) {
-      statusEl.textContent = 'Loading...';
+    if (!statusEl) {
+      console.warn(`Element with ID ${elementId} not found`);
       continue;
     }
-
+ 
+    const availability = bloodBankAvailability.components[componentKey];
+    
+    if (!availability) {
+      statusEl.textContent = 'Not available';
+      statusEl.parentElement.style.borderLeftColor = 'var(--muted)';
+      continue;
+    }
+ 
     const { status, label } = availability;
     let borderColor = 'var(--muted)';
-
+    let statusColor = 'var(--muted)';
+ 
+    // Determine border and text color based on availability status
     if (status === 'AVAILABLE') {
       borderColor = 'var(--green)';
+      statusColor = 'var(--green)';
     } else if (status === 'LOW_STOCK') {
       borderColor = 'var(--amber)';
+      statusColor = 'var(--amber)';
+    } else if (status === 'OUT_OF_STOCK' || status === 'UNAVAILABLE') {
+      borderColor = 'var(--muted)';
+      statusColor = 'var(--muted)';
     }
-
+ 
     statusEl.textContent = label;
+    statusEl.style.color = statusColor;
     statusEl.parentElement.style.borderLeftColor = borderColor;
   }
-
   // Update last updated timestamp
   // const lastUpdatedEl = document.getElementById('bloodbank-last-updated');
   // if (lastUpdatedEl && bloodBankAvailability.lastUpdated) {
@@ -313,6 +325,7 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
 // ═══════════════════════════════════════════════════════════════
 // ░░░ NEW BLOOD REQUEST FORM (5 STEPS) - FIXED JS ░░░
 // ═══════════════════════════════════════════════════════════════
@@ -505,11 +518,11 @@ function validateStepHosp(step) {
 
     // Check indication
     const indicationSelected = document.querySelector('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
-    if (!indicationSelected) {
-      document.getElementById('err-indication-hosp').style.display = 'block';
-      showErrorHosp('Please select at least one indication for transfusion.');
-      return false;
-    }
+    // if (!indicationSelected) {
+    //   document.getElementById('err-indication-hosp').style.display = 'block';
+    //   showErrorHosp('Please select at least one indication for transfusion.');
+    //   return false;
+    // }
 
     return true;
   }
@@ -670,14 +683,6 @@ function updateIndicationGroupsHosp() {
     else if (component === 'PRBC') {
       groupId = 'group-PRBC-hosp';
     }
-    else if (component === 'LEUKOREDUCED_PRBC') {
-      // Leukoreduced PRBC uses same indications as regular PRBC
-      groupId = 'group-PRBC-hosp';
-    }
-    else if (component === 'ALIQUOTED_PRBC') {
-      // Aliquoted PRBC uses same indications as regular PRBC
-      groupId = 'group-PRBC-hosp';
-    }
     else if (component === 'PLATELET_CONCENTRATE') {
       groupId = 'group-PLATELET_CONCENTRATE-hosp';
     } 
@@ -696,7 +701,7 @@ function updateIndicationGroupsHosp() {
       // Check if pediatric group exists, fall back to adult
       groupId = document.getElementById('group-WHOLE_BLOOD-PEDIA-hosp') ? 'group-WHOLE_BLOOD-PEDIA-hosp' : 'group-WHOLE_BLOOD-hosp';
     }
-    else if (['PRBC', 'LEUKOREDUCED_PRBC', 'ALIQUOTED_PRBC'].includes(component)) {
+    else if (['PRBC'].includes(component)) {
       // Check if pediatric group exists, fall back to adult
       groupId = document.getElementById('group-PRBC-PEDIA-hosp') ? 'group-PRBC-PEDIA-hosp' : 'group-PRBC-hosp';
     } 
