@@ -2760,7 +2760,8 @@ window.exportBloodBagsToExcel = function() {
       r.name.toLowerCase().includes(q)      ||
       r.patient.toLowerCase().includes(q)   ||
       r.bloodType.toLowerCase().includes(q) ||
-      r.component.toLowerCase().includes(q)
+      r.component.toLowerCase().includes(q)||
+      r.referenceNumber.toLowerCase().includes(q)
     );
     if (sort === 'date_desc')       list.sort((a, b) => b.id - a.id);
     else if (sort === 'date_asc')   list.sort((a, b) => a.id - b.id);
