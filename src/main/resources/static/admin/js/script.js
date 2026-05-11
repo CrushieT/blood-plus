@@ -1917,6 +1917,9 @@ window.exportBloodBagsToExcel = function() {
   ───────────────────────────────────────────────────────── */
   const INDICATION_MAP = {
     'WB-1': 'Active bleeding with at least 15% blood volume loss, Hb<90 g/L, or BP drop >20%',
+    'WB-1a': 'Loss of over 15% of blood volume',
+    'WB-1b': 'Hemoglobin less than 90 g/L',
+    'WB-1c': 'Blood pressure decrease >20% and <90 mmHg systolic',
     'WB-2': 'Other whole blood indications (requires review)',
     'R-1': 'Hemoglobin < 80 g/L or Hematocrit < 0.24',
     'R-2': 'Preoperative with Hb < 80 g/L or Hct < 0.24-0.30, or major surgery with high bleeding risk',
@@ -1978,30 +1981,71 @@ window.exportBloodBagsToExcel = function() {
     'PC-5': 'Other cryoprecipitate indications (requires review)',
   };
 
-  function formatIndications(indicationString) {
+  function escapeIndicationText(text) {
+    const div = document.createElement('div');
+    div.textContent = text ?? '';
+    return div.innerHTML;
+  }
+
+  function parseIndicationOtherSpecify(indicationOtherSpecify) {
+    if (!indicationOtherSpecify) return {};
+
+    return indicationOtherSpecify
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .reduce((map, pair) => {
+        const separatorIndex = pair.indexOf(':');
+        if (separatorIndex === -1) return map;
+
+        const code = pair.slice(0, separatorIndex).trim();
+        const note = pair.slice(separatorIndex + 1).trim();
+        if (code && note) {
+          map[code] = note;
+        }
+        return map;
+      }, {});
+  }
+
+  function isSpecifyOnlyIndicationCode(code) {
+    return typeof code === 'string' && code.endsWith('_SPECIFY');
+  }
+
+  function formatIndications(indicationString, indicationOtherSpecify) {
     if (!indicationString) return 'Not specified';
     const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    const noteMap = parseIndicationOtherSpecify(indicationOtherSpecify);
     const descriptions = codes.map(code => {
-      const description = INDICATION_MAP[code];
-      return description || code;
+      const note = noteMap[code];
+      if (isSpecifyOnlyIndicationCode(code) && note) {
+        return note;
+      }
+      return INDICATION_MAP[code] || (note ? `${code}:${note}` : code);
     }).filter(Boolean);
     return descriptions.length > 0 ? descriptions : ['Not specified'];
   }
 
-  function getIndicationBadges(indicationString) {
+  function getIndicationBadges(indicationString, indicationOtherSpecify) {
     if (!indicationString) return '';
-    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    const noteMap = parseIndicationOtherSpecify(indicationOtherSpecify);
+    const codes = indicationString
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .filter(code => !(isSpecifyOnlyIndicationCode(code) && noteMap[code]));
+
     return codes.map(code => {
       return `<span class="req-indication-badge">${code}</span>`;
     }).join('');
   }
 
-  function renderIndicationDetails(indicationString) {
+  function renderIndicationDetails(indicationString, indicationOtherSpecify) {
     if (!indicationString) {
       return '<span class="req-details-value">Not specified</span>';
     }
 
     const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+    const noteMap = parseIndicationOtherSpecify(indicationOtherSpecify);
     
     const grouped = {};
     codes.forEach(code => {
@@ -2027,24 +2071,43 @@ window.exportBloodBagsToExcel = function() {
     
     Object.keys(grouped).sort().forEach(parentCode => {
       const group = grouped[parentCode];
-      const mainDescription = INDICATION_MAP[group.main] || '';
+      const mainCode = group.main || parentCode;
+      const mainDescription = INDICATION_MAP[mainCode] || '';
+      const mainNote = noteMap[mainCode];
       const subCodes = group.subs;
+
+      if (isSpecifyOnlyIndicationCode(mainCode) && mainNote) {
+        html += `
+          <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
+            <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5">
+              ${escapeIndicationText(mainNote)}
+            </div>
+          </div>
+        `;
+        return;
+      }
       
       if (subCodes.length > 0) {
         html += `
           <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
             <div style="font-weight:600;color:var(--blue,#0066cc);margin-bottom:8px;font-size:13px">
-              ${group.main}
+              ${mainCode}
             </div>
             <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-bottom:12px">
               ${mainDescription}
             </div>
+            ${mainNote ? `
+              <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-bottom:12px;padding:8px 10px;background:#fff;border:1px solid var(--border,#e0e0e0);border-radius:4px">
+                ${escapeIndicationText(mainNote)}
+              </div>
+            ` : ''}
             <div style="display:flex;flex-direction:column;gap:8px;margin-left:12px;border-left:2px solid var(--border,#e0e0e0);padding-left:12px;">
         `;
         
         subCodes.forEach(code => {
           const subLetter = code.replace(parentCode, '').toLowerCase();
           const subDescription = INDICATION_MAP[code] || code;
+          const subNote = noteMap[code];
           html += `
             <div>
               <div style="font-weight:600;color:var(--muted,#666);font-size:12px;margin-bottom:2px">
@@ -2053,6 +2116,11 @@ window.exportBloodBagsToExcel = function() {
               <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.4">
                 ${subDescription}
               </div>
+              ${subNote ? `
+                <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-top:6px;padding:8px 10px;background:#fff;border:1px solid var(--border,#e0e0e0);border-radius:4px">
+                  ${escapeIndicationText(subNote)}
+                </div>
+              ` : ''}
             </div>
           `;
         });
@@ -2065,11 +2133,16 @@ window.exportBloodBagsToExcel = function() {
         html += `
           <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
             <div style="font-weight:600;color:var(--blue,#0066cc);margin-bottom:4px;font-size:13px">
-              ${group.main}
+              ${mainCode}
             </div>
             <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5">
               ${mainDescription}
             </div>
+            ${mainNote ? `
+              <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-top:10px;padding:8px 10px;background:#fff;border:1px solid var(--border,#e0e0e0);border-radius:4px">
+                ${escapeIndicationText(mainNote)}
+              </div>
+            ` : ''}
           </div>
         `;
       }
@@ -3051,8 +3124,8 @@ window.exportBloodBagsToExcel = function() {
 
   function renderReqDetailsContent(req) {
     const indicationCodes = req.indication ? req.indication.split(',').map(s => s.trim()).filter(Boolean) : [];
-    const indicationBadges = getIndicationBadges(req.indication);
-    const indicationDetailsHtml = renderIndicationDetails(req.indication);
+    const indicationBadges = getIndicationBadges(req.indication, req.indicationOtherSpecify);
+    const indicationDetailsHtml = renderIndicationDetails(req.indication, req.indicationOtherSpecify);
     const formattedPatientName = formatPatientName(req);
     const formattedBirthdate = formatBirthdate(req.patientBirthdate);
 
@@ -3155,11 +3228,13 @@ window.exportBloodBagsToExcel = function() {
         <div class="req-details-section">
           <div class="req-details-section-title">Transfusion Indications</div>
           ${indicationCodes.length > 0 ? `
-            <div style="margin-bottom:12px">
-              <div class="req-indication-badges">
-                ${indicationBadges}
+            ${indicationBadges ? `
+              <div style="margin-bottom:12px">
+                <div class="req-indication-badges">
+                  ${indicationBadges}
+                </div>
               </div>
-            </div>
+            ` : ''}
             <div style="font-size:13px;color:var(--charcoal);line-height:1.8;">
               ${indicationDetailsHtml}
             </div>

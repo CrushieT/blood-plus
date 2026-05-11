@@ -87,6 +87,9 @@ public class BloodBagRequestService {
         request.setBloodType(dto.getBloodType());
         request.setBloodComponent(dto.getBloodComponent());
         request.setNumberOfUnits(dto.getNumberOfUnits());
+        request.setPlateletCount(dto.getBloodComponent() == BloodBag.ComponentType.PLATELET_CONCENTRATE
+                ? dto.getPlateletCount()
+                : null);
  
         // ─────────────────────────────────────────────
         // URGENCY & DATES (EXISTING)
@@ -436,6 +439,9 @@ public class BloodBagRequestService {
         request.setBloodType(dto.getBloodType());
         request.setBloodComponent(dto.getBloodComponent());
         request.setNumberOfUnits(dto.getNumberOfUnits());
+        request.setPlateletCount(dto.getBloodComponent() == BloodBag.ComponentType.PLATELET_CONCENTRATE
+                ? dto.getPlateletCount()
+                : null);
         request.setUrgencyLevel(dto.getUrgencyLevel());
         request.setRequiredBy(dto.getRequiredBy());
         request.setNotes(dto.getNotes() != null ? dto.getNotes() : "");
@@ -554,6 +560,8 @@ public class BloodBagRequestService {
             throw new IllegalArgumentException("Blood component is required.");
         if (dto.getNumberOfUnits() == null || dto.getNumberOfUnits() < 1)
             throw new IllegalArgumentException("Number of units is required (minimum 1).");
+        if (dto.getPlateletCount() != null && dto.getPlateletCount() < 0)
+            throw new IllegalArgumentException("Platelet count cannot be negative.");
         if (dto.getUrgencyLevel() == null)
             throw new IllegalArgumentException("Urgency level is required.");
         
@@ -595,6 +603,8 @@ public class BloodBagRequestService {
             throw new IllegalArgumentException("Blood component is required.");
         if (dto.getNumberOfUnits() == null || dto.getNumberOfUnits() <= 0)
             throw new IllegalArgumentException("Number of units must be greater than 0.");
+        if (dto.getPlateletCount() != null && dto.getPlateletCount() < 0)
+            throw new IllegalArgumentException("Platelet count cannot be negative.");
  
         // Required urgency
         if (dto.getUrgencyLevel() == null)
@@ -626,7 +636,10 @@ public class BloodBagRequestService {
     private String normalizeOptionalEmail(String email) {
         if (email == null) return null;
         String normalized = email.trim().toLowerCase();
-        return normalized.isEmpty() ? null : normalized;
+        if (normalized.isEmpty() || "null".equals(normalized) || "undefined".equals(normalized)) {
+            return null;
+        }
+        return normalized;
     }
 
     private boolean hasRequesterEmail(BloodBagRequest request) {

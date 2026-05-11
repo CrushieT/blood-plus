@@ -443,6 +443,7 @@ public class HospitalController {
         res.put("contactNumber", req.getContactNumber());
         res.put("hemoglobin", req.getHemoglobin());
         res.put("hematocrit", req.getHematocrit());
+        res.put("plateletCount", req.getPlateletCount());
  
         // ─────────────────────────────────────────────
         // TRANSFUSION HISTORY
@@ -464,6 +465,7 @@ public class HospitalController {
         // INDICATIONS FOR TRANSFUSION
         // ─────────────────────────────────────────────
         res.put("indication", req.getIndication());
+        res.put("indicationOtherSpecify", req.getIndicationOtherSpecify());
  
         // ─────────────────────────────────────────────
         // REQUESTER INFORMATION

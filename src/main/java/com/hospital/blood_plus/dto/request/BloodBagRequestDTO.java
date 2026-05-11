@@ -28,6 +28,7 @@ public class BloodBagRequestDTO {
     private BloodBag.BloodType bloodType;
     private ComponentType bloodComponent;
     private Integer numberOfUnits;
+    private Integer plateletCount;
     private BloodBagRequest.UrgencyLevel urgencyLevel;
 
     // ─────────────────────────────────────────────────────────────
@@ -124,6 +125,9 @@ public class BloodBagRequestDTO {
 
     public Integer getNumberOfUnits() { return numberOfUnits; }
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }
+
+    public Integer getPlateletCount() { return plateletCount; }
+    public void setPlateletCount(Integer plateletCount) { this.plateletCount = plateletCount; }
 
     public BloodBagRequest.UrgencyLevel getUrgencyLevel() { return urgencyLevel; }
     public void setUrgencyLevel(BloodBagRequest.UrgencyLevel urgencyLevel) { this.urgencyLevel = urgencyLevel; }

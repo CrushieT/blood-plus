@@ -157,6 +157,9 @@ public class BloodBagRequest {
     @Column
     private Integer numberOfUnits;
 
+    @Column
+    private Integer plateletCount;
+
     // ─────────────────────────────────────────────
     // Contact / Requester Information (EXISTING)
     // ─────────────────────────────────────────────
@@ -369,6 +372,9 @@ public class BloodBagRequest {
 
     public Integer getNumberOfUnits() { return numberOfUnits; }
     public void setNumberOfUnits(Integer numberOfUnits) { this.numberOfUnits = numberOfUnits; }
+
+    public Integer getPlateletCount() { return plateletCount; }
+    public void setPlateletCount(Integer plateletCount) { this.plateletCount = plateletCount; }
 
     public String getRequesterName() { return requesterName; }
     public void setRequesterName(String requesterName) { this.requesterName = requesterName; }
