@@ -53,6 +53,12 @@ function calculateAge(birthdate) {
   return age;
 }
 
+const SPECIFY_ONLY_INDICATION_COMPONENTS = {
+  LEUKOREDUCED_PRBC: 'LEUKOREDUCED_PRBC_SPECIFY',
+  ALIQUOTED_PRBC: 'ALIQUOTED_PRBC_SPECIFY',
+  CRYOSUPERNATANT: 'CRYOSUPERNATANT_SPECIFY'
+};
+
 // ── Update patient type and form based on birthdate ─────────────
 function updatePatientTypeAndForms() {
   const birthdateInput = document.getElementById('f-birthdate');
@@ -170,6 +176,12 @@ function validate(page) {
         return showError('Please select at least one indication for transfusion.'), false;
       }
     }
+
+    if (SPECIFY_ONLY_INDICATION_COMPONENTS[selectedComponent]) {
+      if (!getSpecifyOnlyIndicationValue(selectedComponent)) {
+        return showError('Please specify the indication for this component.'), false;
+      }
+    }
     
     // If component is OTHER, require component name and indication text
     if (selectedComponent === 'OTHER') {
@@ -192,9 +204,6 @@ function validate(page) {
         return showError('Please select your relationship to the patient.'), false;
       if (!document.getElementById('f-contact').value.trim())
         return showError('Please enter your contact number.'), false;
-      var em = document.getElementById('f-email').value.trim();
-      if (!em || !em.includes('@'))
-        return showError('Please enter a valid email address.'), false;
     }
   }
 
@@ -226,6 +235,45 @@ function toggleReactionFields() {
   }
 }
 
+function togglePlateletCountField(component) {
+  const plateletCountField = document.getElementById('platelet-count-field');
+  const plateletCountInput = document.getElementById('f-plateletCount');
+  if (!plateletCountField || !plateletCountInput) return;
+
+  if (component === 'PLATELET_CONCENTRATE') {
+    plateletCountField.style.display = 'block';
+  } else {
+    plateletCountField.style.display = 'none';
+    plateletCountInput.value = '';
+  }
+}
+
+function getSpecifyOnlyIndicationValue(component) {
+  const input = document.getElementById(`f-indicationSpecify-${component}`);
+  return input ? input.value.trim() : '';
+}
+
+function buildIndicationSubmission(component) {
+  const specifyOnlyCode = SPECIFY_ONLY_INDICATION_COMPONENTS[component];
+  if (specifyOnlyCode) {
+    const specifyValue = getSpecifyOnlyIndicationValue(component);
+    return {
+      indication: specifyValue ? specifyOnlyCode : null,
+      indicationOtherSpecify: specifyValue ? `${specifyOnlyCode}:${specifyValue}` : null,
+      reviewItems: specifyValue
+        ? [{ code: COMPONENT_LABELS_R[component] || component, additional: specifyValue }]
+        : []
+    };
+  }
+
+  const indications = getSelectedIndications();
+  return {
+    indication: indications.map(ind => ind.code).join(',') || null,
+    indicationOtherSpecify: buildIndicationOtherSpecify(),
+    reviewItems: indications
+  };
+}
+
 // ── Indication Management ──────────────────────────────────────
 function initIndicationHandlers() {
   const componentSelect = document.getElementById('f-component');
@@ -236,6 +284,8 @@ function initIndicationHandlers() {
     const age = calculateAge(birthdate);
     const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
     const component = componentSelect.value;
+
+    togglePlateletCountField(component);
 
     // Hide all groups
     document.querySelectorAll('.indication-group').forEach(group => {
@@ -264,6 +314,11 @@ function initIndicationHandlers() {
     // Clear all checkboxes when component changes
     document.querySelectorAll('.indication-checkbox').forEach(cb => {
       cb.checked = false;
+    });
+    document.querySelectorAll('.component-indication-specify').forEach(input => {
+      if (!component || input.dataset.component !== component) {
+        input.value = '';
+      }
     });
     closeAllSubGroups();
   }
@@ -547,6 +602,17 @@ var CATEGORY_LABELS_R = {
   INPATIENT: 'Inpatient (CNPH)', OUTPATIENT: 'Outpatient', EMERGENCY: 'Emergency'
 };
 
+URGENCY_LABELS_R = {
+  LOW: 'Low — Scheduled / Within a week',
+  MEDIUM: 'Medium — 2-3 days',
+  HIGH: 'High — 24hrs',
+  CRITICAL: 'Critical — Immediately'
+};
+
+CATEGORY_LABELS_R = {
+  INPATIENT: 'OPD/ INHOUSE'
+};
+
 var REQUEST_TYPE_LABELS_R = {
   STAT: 'STAT (Emergency)', ROUTINE: 'Routine'
 };
@@ -582,6 +648,7 @@ function buildReview() {
 
   // ── Blood details section ──
   const componentVal = document.getElementById('f-component').value;
+  const plateletCount = document.getElementById('f-plateletCount').value;
   let componentDisplay = COMPONENT_LABELS_R[componentVal] || componentVal;
   
   // If OTHER, append the component name
@@ -597,6 +664,7 @@ function buildReview() {
     reviewRow('Blood Type',  BLOOD_LABELS_R[document.getElementById('f-bloodType').value] || document.getElementById('f-bloodType').value) +
     reviewRow('Component',   componentDisplay) +
     reviewRow('Units',       document.getElementById('f-units').value) +
+    (componentVal === 'PLATELET_CONCENTRATE' && plateletCount ? reviewRow('Platelet Count', plateletCount) : '') +
     reviewRow('Urgency',     urgEl ? (URGENCY_LABELS_R[urgEl.value] || urgEl.value) : '—') +
     reviewRow('Required By', document.getElementById('f-requiredBy').value || '—') +
     reviewRow('Notes',       document.getElementById('f-notes').value.trim() || '—');
@@ -630,7 +698,8 @@ function buildReview() {
   document.getElementById('review-clinical').innerHTML = clinicalHtml;
 
   // ── Indications section ──
-  const indications = getSelectedIndications();
+  const indicationSubmission = buildIndicationSubmission(componentVal);
+  const indications = indicationSubmission.reviewItems;
   let indicationHtml = '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Indications</div>';
   if (indications.length > 0) {
     indicationHtml += '<div style="padding:10px;background:#F0F0F0;border-radius:8px;font-size:12px">';
@@ -655,8 +724,7 @@ function buildReview() {
         reviewRow('Staff',    document.getElementById('ch-staff-name').textContent)
       : reviewRow('Name',         document.getElementById('f-requesterName').value.trim()) +
         reviewRow('Relationship', document.getElementById('f-relationship').value) +
-        reviewRow('Contact',      document.getElementById('f-contact').value.trim()) +
-        reviewRow('Email',        document.getElementById('f-email').value.trim()));
+        reviewRow('Contact',      document.getElementById('f-contact').value.trim()));
 
   // ── Documents section ──
   document.getElementById('review-doc').innerHTML =
@@ -717,6 +785,20 @@ function getRadioVal(name) {
   return checked ? checked.value : '';
 }
 
+function getRequesterEmailValue() {
+  const emailInput = document.getElementById('f-email');
+  if (!emailInput) return null;
+  const emailValue = emailInput.value.trim();
+  if (!emailValue) return null;
+
+  const normalized = emailValue.toLowerCase();
+  if (normalized === 'null' || normalized === 'undefined') {
+    return null;
+  }
+
+  return emailValue;
+}
+
 // ── Submit with CALCULATED AGE FROM BIRTHDATE ─────────────────
 async function submitRequest() {
   hideError();
@@ -752,6 +834,7 @@ async function submitRequest() {
   const bloodType     = document.getElementById('f-bloodType').value;
   const bloodComponent = document.getElementById('f-component').value;
   const numberOfUnits = document.getElementById('f-units').value;
+  const plateletCount = document.getElementById('f-plateletCount').value;
 
   // ──────────────────────────────────────────────
   // CLINICAL INFORMATION (PAGE 2)
@@ -778,9 +861,9 @@ async function submitRequest() {
   // ──────────────────────────────────────────────
   // INDICATIONS FOR TRANSFUSION (PAGE 2)
   // ──────────────────────────────────────────────
-  const indications = getSelectedIndications();
-  const indication = indications.map(ind => ind.code).join(',');
-  const indicationOtherSpecify = buildIndicationOtherSpecify();
+  const indicationSubmission = buildIndicationSubmission(bloodComponent);
+  const indication = indicationSubmission.indication;
+  const indicationOtherSpecify = indicationSubmission.indicationOtherSpecify;
 
   // ──────────────────────────────────────────────
   // URGENCY & TIMING (PAGE 2)
@@ -805,7 +888,7 @@ async function submitRequest() {
   const requesterName = document.getElementById('f-requesterName').value.trim();
   const requesterRelationship = document.getElementById('f-relationship').value;
   const requesterContact = document.getElementById('f-contact').value.trim();
-  const requesterEmail = document.getElementById('f-email').value.trim();
+  const requesterEmail = getRequesterEmailValue();
 
   // ══════════════════════════════════════════════════════════════
   // BUILD COMPLETE DATA OBJECT (MATCHING BloodBagRequestDTO)
@@ -832,6 +915,7 @@ async function submitRequest() {
     bloodType: bloodType,
     bloodComponent: bloodComponent,
     numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : null,
+    plateletCount: plateletCount ? parseInt(plateletCount, 10) : null,
 
     // URGENCY & TIMING
     urgencyLevel: urgencyLevel,
@@ -912,7 +996,7 @@ async function submitRequest() {
     document.getElementById('request-form-body').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
     document.getElementById('success-ref').textContent = mockRefNum;
-    document.getElementById('success-email').textContent = requesterEmail;
+    document.getElementById('success-email').textContent = requesterEmail || '';
 
     // Store in session for tracker (including all fields)
     sessionStorage.setItem(mockRefNum, JSON.stringify({
@@ -936,6 +1020,7 @@ async function submitRequest() {
       clinicalImpression: clinicalImpression,
       hemoglobin: hemoglobin,
       hematocrit: hematocrit,
+      plateletCount: plateletCount ? parseInt(plateletCount, 10) : null,
       requestType: requestType,
       hadPreviousTransfusion: hadPreviousTransfusion,
       previousTransfusionDate: previousTransfusionDate,
@@ -964,16 +1049,17 @@ function resetForm() {
   document.getElementById('request-form-body').style.display = 'block';
   document.getElementById('success-screen').style.display = 'none';
   clearFile();
-  [
-    'f-patientName','f-birthdate','f-ward', 'f-room','f-physician',
-    'f-diagnosis','f-hemoglobin','f-hematocrit',
-    'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
-    'f-requiredBy','f-notes','f-requesterName','f-contact','f-email',
-    'f-otherComponentName','f-otherComponentIndication'
-  ].forEach(id => { 
-    const el = document.getElementById(id);
-    if (el) el.value = ''; 
-  });
+    [
+      'f-patientName','f-birthdate','f-ward', 'f-room','f-physician',
+      'f-diagnosis','f-hemoglobin','f-hematocrit',
+      'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
+      'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount',
+      'f-indicationSpecify-LEUKOREDUCED_PRBC','f-indicationSpecify-ALIQUOTED_PRBC','f-indicationSpecify-CRYOSUPERNATANT',
+      'f-otherComponentName','f-otherComponentIndication'
+    ].forEach(id => { 
+      const el = document.getElementById(id);
+      if (el) el.value = ''; 
+    });
   ['f-sex','f-bloodType','f-component','f-units','f-relationship']
     .forEach(id => { 
       const el = document.getElementById(id);
@@ -986,10 +1072,11 @@ function resetForm() {
   document.getElementById('pt-no').checked = true;
   document.getElementById('pr-no').checked = true;
   
-  // Hide/reset conditional fields
-  togglePrevTransFields();
-  toggleReactionFields();
-  updatePatientTypeAndForms();
+    // Hide/reset conditional fields
+    togglePrevTransFields();
+    toggleReactionFields();
+    togglePlateletCountField('');
+    updatePatientTypeAndForms();
   
   hideError();
   goTo(1);
@@ -1028,6 +1115,10 @@ const URGENCY_LABELS = {
   LOW:'Low — Scheduled', MEDIUM:'Medium — Within a week',
   HIGH:'High — 2–3 days', CRITICAL:'Critical — Immediately'
 };
+
+URGENCY_LABELS.LOW = 'Low — Scheduled / Within a week';
+URGENCY_LABELS.MEDIUM = 'Medium — 2-3 days';
+URGENCY_LABELS.HIGH = 'High — 24hrs';
 
 const STATUS_CFG = {
   PENDING:    { label:'Pending Review',       badge:'status-pending',   step:1 },

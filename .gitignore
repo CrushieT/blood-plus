@@ -36,3 +36,4 @@ build/
 env
 ci-full.yml
 target
+REPO_SUMMARY.md

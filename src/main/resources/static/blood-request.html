@@ -209,7 +209,8 @@
         <button class="btn-copy" onclick="copyRef()">Copy</button>
       </div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
-        We'll send a confirmation and updates to <strong id="success-email"></strong>
+        Keep this reference number for tracking and follow-up updates.
+        <span id="success-email" style="display:none"></span>
       </div>
       <button class="btn-new-request" onclick="resetForm()">Submit Another Request</button>
     </div>
@@ -350,15 +351,7 @@
         <div class="radio-group">
           <div class="radio-option">
             <input type="radio" name="category" id="cat-inpatient" value="INPATIENT" checked>
-            <label class="radio-label" for="cat-inpatient">Inpatient (CNPH)</label>
-          </div>
-          <div class="radio-option">
-            <input type="radio" name="category" id="cat-outpatient" value="OUTPATIENT">
-            <label class="radio-label" for="cat-outpatient">Outpatient</label>
-          </div>
-          <div class="radio-option">
-            <input type="radio" name="category" id="cat-emergency" value="EMERGENCY">
-            <label class="radio-label" for="cat-emergency">Emergency</label>
+            <label class="radio-label" for="cat-inpatient">OPD/ INHOUSE</label>
           </div>
         </div>
 
@@ -406,6 +399,11 @@
           </div>
         </div>
 
+        <div class="form-field" id="platelet-count-field" style="display:none;margin-top:14px">
+          <label class="form-label">Platelet Count</label>
+          <input class="form-input" id="f-plateletCount" type="number" min="0" placeholder="e.g. 50000" />
+        </div>
+
         <!-- CLINICAL INFORMATION -->
         <div class="form-section-title">Clinical Information</div>
         <div class="form-grid cols-2">
@@ -440,20 +438,20 @@
         <div class="form-field" style="margin-top:14px">
           <label class="form-label">Urgency Level <span>*</span></label>
           <div id="urgency-display" style="display:none;background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:12px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
-            <span id="urgency-stat-badge" style="background:rgba(196,30,58,0.15);color:#C41E3A;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700">AUTO: HIGH</span>
+            <span id="urgency-stat-badge" style="background:rgba(196,30,58,0.15);color:#C41E3A;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700">AUTO: HIGH (24hrs)</span>
           </div>
           <div id="urgency-group" class="urgency-group" style="display:none">
             <div class="urgency-opt">
               <input type="radio" name="urgency" id="urg-low" value="LOW">
-              <label class="urgency-label" for="urg-low">Low<br><span style="font-weight:400;font-size:10px">Scheduled</span></label>
+              <label class="urgency-label" for="urg-low">Low<br><span style="font-weight:400;font-size:10px">Scheduled / Within a week</span></label>
             </div>
             <div class="urgency-opt">
               <input type="radio" name="urgency" id="urg-med" value="MEDIUM" checked>
-              <label class="urgency-label" for="urg-med">Medium<br><span style="font-weight:400;font-size:10px">Within a week</span></label>
+              <label class="urgency-label" for="urg-med">Medium<br><span style="font-weight:400;font-size:10px">2-3 days</span></label>
             </div>
             <div class="urgency-opt">
               <input type="radio" name="urgency" id="urg-high" value="HIGH">
-              <label class="urgency-label" for="urg-high">High<br><span style="font-weight:400;font-size:10px">2-3 days</span></label>
+              <label class="urgency-label" for="urg-high">High<br><span style="font-weight:400;font-size:10px">24hrs</span></label>
             </div>
             <!-- <div class="urgency-opt">
               <input type="radio" name="urgency" id="urg-crit" value="CRITICAL">
@@ -650,6 +648,43 @@
                 <strong>W-4:</strong> Others (specify) - Will trigger review
               </label>
               <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="W-4" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- COMPONENTS WITH SPECIFY-ONLY INDICATIONS -->
+          <div class="indication-group" id="group-LEUKOREDUCED_PRBC" style="display:none">
+            <div class="indication-header">Leukoreduced PRBC</div>
+            <div class="form-field">
+              <label class="form-label">Please Specify <span>*</span></label>
+              <textarea
+                class="form-textarea component-indication-specify"
+                id="f-indicationSpecify-LEUKOREDUCED_PRBC"
+                data-component="LEUKOREDUCED_PRBC"
+                placeholder="Specify the indication for leukoreduced PRBC..."></textarea>
+            </div>
+          </div>
+
+          <div class="indication-group" id="group-ALIQUOTED_PRBC" style="display:none">
+            <div class="indication-header">Aliquoted PRBC</div>
+            <div class="form-field">
+              <label class="form-label">Please Specify <span>*</span></label>
+              <textarea
+                class="form-textarea component-indication-specify"
+                id="f-indicationSpecify-ALIQUOTED_PRBC"
+                data-component="ALIQUOTED_PRBC"
+                placeholder="Specify the indication for aliquoted PRBC..."></textarea>
+            </div>
+          </div>
+
+          <div class="indication-group" id="group-CRYOSUPERNATANT" style="display:none">
+            <div class="indication-header">Cryosupernatant</div>
+            <div class="form-field">
+              <label class="form-label">Please Specify <span>*</span></label>
+              <textarea
+                class="form-textarea component-indication-specify"
+                id="f-indicationSpecify-CRYOSUPERNATANT"
+                data-component="CRYOSUPERNATANT"
+                placeholder="Specify the indication for cryosupernatant..."></textarea>
             </div>
           </div>
 
@@ -1126,11 +1161,8 @@
               <label class="form-label">Contact Number <span>*</span></label>
               <input class="form-input" id="f-contact" placeholder="e.g. 09xxxxxxxxx" />
             </div>
-            <div class="form-field">
-              <label class="form-label">Email Address <span>*</span></label>
-              <input class="form-input" id="f-email" type="email" placeholder="For notifications & reference number" />
-            </div>
           </div>
+          <input id="f-email" type="hidden" />
         </div>
 
         <!-- HOSPITAL contact summary (read-only, populated from session) -->
@@ -1198,7 +1230,7 @@
 
         <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6">
           By submitting, you confirm that all information provided is accurate.<br>
-          Your reference number will be sent to the email address provided.
+          Your reference number will be shown after submission.
         </div>
 
         <div class="nav-row" style="margin-top:12px">
@@ -1217,7 +1249,7 @@
 
         <div style="margin-bottom:24px">
           <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:6px">Track Your Request</div>
-          <div style="font-size:13px;color:var(--muted)">Enter the reference number sent to your email after submission.</div>
+          <div style="font-size:13px;color:var(--muted)">Enter the reference number shown after submission.</div>
         </div>
 
         <div class="tracker-search">

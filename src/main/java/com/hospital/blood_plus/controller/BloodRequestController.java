@@ -36,7 +36,12 @@ public class BloodRequestController {
             response.put("referenceNumber", saved.getReferenceNumber());
             response.put("status", saved.getStatus());
             response.put("requestedAt", saved.getRequestedAt());
-            response.put("message", "Request submitted successfully. A confirmation will be sent to " + saved.getRequesterEmail());
+            response.put(
+                "message",
+                saved.getRequesterEmail() != null && !saved.getRequesterEmail().isBlank()
+                    ? "Request submitted successfully. A confirmation will be sent to " + saved.getRequesterEmail()
+                    : "Request submitted successfully."
+            );
  
             return ResponseEntity.ok(response);
  
@@ -73,6 +78,7 @@ public class BloodRequestController {
         res.put("bloodType", req.getBloodType());
         res.put("bloodComponent", req.getBloodComponent());
         res.put("numberOfUnits", req.getNumberOfUnits());
+        res.put("plateletCount", req.getPlateletCount());
         // res.put("urgencyLevel", req.getUrgencyLevel());
         res.put("status", req.getStatus());
         res.put("submittedAt", req.getRequestedAt());
