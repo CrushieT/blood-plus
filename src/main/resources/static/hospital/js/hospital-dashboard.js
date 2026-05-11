@@ -18,8 +18,30 @@ const COMP_LABELS = {
   CRYOPRECIPITATE:'Cryoprecipitate',
   CRYOSUPERNATANT:'Cryosupernatant'
 };
-const URGENCY_LABELS = { LOW:'Low',MEDIUM:'Medium',HIGH:'High',CRITICAL:'Critical' };
-const CAT_LABELS = { INPATIENT:'Inpatient',OUTPATIENT:'Outpatient',HOSPITAL:'Inter-hospital',EMERGENCY:'Emergency' };
+const URGENCY_LABELS = {
+  LOW: 'Low — Scheduled / Within a week',
+  MEDIUM: 'Medium — 2-3 days',
+  HIGH: 'High — 24hrs',
+  CRITICAL: 'Critical — Immediately'
+};
+const CAT_LABELS = {
+  INPATIENT: 'OPD/ INHOUSE',
+  OUTPATIENT: 'OPD',
+  HOSPITAL: 'Inter-hospital',
+  EMERGENCY: 'Emergency'
+};
+const SPECIFY_ONLY_INDICATION_COMPONENTS = {
+  LEUKOREDUCED_PRBC: 'LEUKOREDUCED_PRBC_SPECIFY',
+  ALIQUOTED_PRBC: 'ALIQUOTED_PRBC_SPECIFY',
+  CRYOSUPERNATANT: 'CRYOSUPERNATANT_SPECIFY'
+};
+const INDICATION_REQUIRED_COMPONENTS_HOSP = [
+  'WHOLE_BLOOD',
+  'PRBC',
+  'PLATELET_CONCENTRATE',
+  'FRESH_FROZEN_PLASMA',
+  'CRYOPRECIPITATE'
+];
 
 const STATUS_CFG = {
   PENDING:          { label:'Pending Review',    icon:'⏳', bg:'var(--amber-soft)',  color:'var(--amber)',  sub:'Waiting for blood bank review' },
@@ -37,6 +59,32 @@ const URGENCY_BADGE = { LOW:'badge-low', MEDIUM:'badge-medium', HIGH:'badge-high
 let REQUESTS = [];
 let currentFilter = 'ALL';
 let cancelTargetId = null;
+
+function formatCategoryLabelHosp(category) {
+  return CAT_LABELS[category] || category || '—';
+}
+
+function formatUrgencyLabelHosp(urgency) {
+  return URGENCY_LABELS[urgency] || urgency || '—';
+}
+
+function getSpecifyOnlyIndicationValueHosp(component) {
+  const input = document.getElementById(`req-indication-specify-${component}-hosp`);
+  return input ? input.value.trim() : '';
+}
+
+function togglePlateletCountFieldHosp(component) {
+  const field = document.getElementById('platelet-count-field-hosp');
+  const input = document.getElementById('req-platelet-count-hosp');
+  if (!field || !input) return;
+
+  if (component === 'PLATELET_CONCENTRATE') {
+    field.style.display = 'block';
+  } else {
+    field.style.display = 'none';
+    input.value = '';
+  }
+}
 
 // Blood Bank Availability Cache
 let bloodBankAvailability = {
@@ -333,6 +381,7 @@ document.head.appendChild(style);
 const TOTAL_STEPS_HOSP = 5;
 let currentStepHosp = 1;
 let docFileHosp = null;
+let lastIndicationGroupKeyHosp = '';
 
 // ──────────────────────────────────────────────────────────────
 // STEP NAVIGATION
@@ -489,6 +538,7 @@ function validateStepHosp(step) {
     const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
     const units = document.getElementById('req-units-hosp')?.value;
     const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+    const plateletCount = document.getElementById('req-platelet-count-hosp')?.value;
 
     if (!bloodType) {
       showErrorHosp('Please select blood type.');
@@ -506,6 +556,10 @@ function validateStepHosp(step) {
       showErrorHosp('Please select request type (STAT or ROUTINE).');
       return false;
     }
+    if (component === 'PLATELET_CONCENTRATE' && plateletCount && parseInt(plateletCount, 10) < 0) {
+      showErrorHosp('Platelet count cannot be negative.');
+      return false;
+    }
 
     // Check urgency
     if (requestType === 'ROUTINE') {
@@ -518,11 +572,15 @@ function validateStepHosp(step) {
 
     // Check indication
     const indicationSelected = document.querySelector('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
-    // if (!indicationSelected) {
-    //   document.getElementById('err-indication-hosp').style.display = 'block';
-    //   showErrorHosp('Please select at least one indication for transfusion.');
-    //   return false;
-    // }
+    if (INDICATION_REQUIRED_COMPONENTS_HOSP.includes(component) && !indicationSelected) {
+      document.getElementById('err-indication-hosp').style.display = 'block';
+      showErrorHosp('Please select at least one indication for transfusion.');
+      return false;
+    }
+    if (SPECIFY_ONLY_INDICATION_COMPONENTS[component] && !getSpecifyOnlyIndicationValueHosp(component)) {
+      showErrorHosp('Please specify the indication for this component.');
+      return false;
+    }
 
     return true;
   }
@@ -638,6 +696,26 @@ function updateUrgencyLevelHosp() {
   }
 }
 
+function clearIndicationSelectionsHosp() {
+  document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]').forEach(cb => {
+    cb.checked = false;
+  });
+  document.querySelectorAll('#panel-newrequest .indication-sub-group[id*="-hosp"]').forEach(group => {
+    group.style.display = 'none';
+  });
+  document.querySelectorAll('#panel-newrequest [data-ref]').forEach(input => {
+    input.value = '';
+  });
+  document.querySelectorAll('#panel-newrequest .others-input-field[id*="-hosp"]').forEach(field => {
+    field.classList.remove('visible');
+  });
+  document.querySelectorAll('#panel-newrequest .component-indication-specify-hosp').forEach(field => {
+    field.value = '';
+  });
+  const indicationError = document.getElementById('err-indication-hosp');
+  if (indicationError) indicationError.style.display = 'none';
+}
+
 // ──────────────────────────────────────────────────────────────
 // CLINICAL DATA & INDICATION GROUPS
 // ──────────────────────────────────────────────────────────────
@@ -652,10 +730,18 @@ function updateIndicationGroupsHosp() {
   const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
   const patientType = getPatientTypeHosp();
   const container = document.getElementById('indication-container-hosp');
+  const groupKey = `${patientType}:${component || ''}`;
+
+  togglePlateletCountFieldHosp(component);
   
   if (!container) {
     console.warn('indication-container-hosp not found');
     return;
+  }
+
+  if (groupKey !== lastIndicationGroupKeyHosp) {
+    clearIndicationSelectionsHosp();
+    lastIndicationGroupKeyHosp = groupKey;
   }
 
   // Hide all indication groups first
@@ -683,6 +769,12 @@ function updateIndicationGroupsHosp() {
     else if (component === 'PRBC') {
       groupId = 'group-PRBC-hosp';
     }
+    else if (component === 'LEUKOREDUCED_PRBC') {
+      groupId = 'group-LEUKOREDUCED_PRBC-hosp';
+    }
+    else if (component === 'ALIQUOTED_PRBC') {
+      groupId = 'group-ALIQUOTED_PRBC-hosp';
+    }
     else if (component === 'PLATELET_CONCENTRATE') {
       groupId = 'group-PLATELET_CONCENTRATE-hosp';
     } 
@@ -693,7 +785,7 @@ function updateIndicationGroupsHosp() {
       groupId = 'group-CRYOPRECIPITATE-hosp';
     }
     else if (component === 'CRYOSUPERNATANT') {
-      groupId = 'group-CRYOPRECIPITATE-hosp';
+      groupId = 'group-CRYOSUPERNATANT-hosp';
     }
   } else if (patientType === 'PEDIA') {
     // PEDIATRIC GROUPS
@@ -705,6 +797,12 @@ function updateIndicationGroupsHosp() {
       // Check if pediatric group exists, fall back to adult
       groupId = document.getElementById('group-PRBC-PEDIA-hosp') ? 'group-PRBC-PEDIA-hosp' : 'group-PRBC-hosp';
     } 
+    else if (component === 'LEUKOREDUCED_PRBC') {
+      groupId = 'group-LEUKOREDUCED_PRBC-hosp';
+    }
+    else if (component === 'ALIQUOTED_PRBC') {
+      groupId = 'group-ALIQUOTED_PRBC-hosp';
+    }
     else if (component === 'PLATELET_CONCENTRATE') {
       groupId = document.getElementById('group-PLATELET_CONCENTRATE-PEDIA-hosp') ? 'group-PLATELET_CONCENTRATE-PEDIA-hosp' : 'group-PLATELET_CONCENTRATE-hosp';
     } 
@@ -713,6 +811,9 @@ function updateIndicationGroupsHosp() {
     } 
     else if (component === 'CRYOPRECIPITATE') {
       groupId = document.getElementById('group-CRYOPRECIPITATE-PEDIA-hosp') ? 'group-CRYOPRECIPITATE-PEDIA-hosp' : 'group-CRYOPRECIPITATE-hosp';
+    }
+    else if (component === 'CRYOSUPERNATANT') {
+      groupId = 'group-CRYOSUPERNATANT-hosp';
     }
   }
 
@@ -926,39 +1027,55 @@ function clearFile(type) {
 function populateReviewHosp() {
   const firstName = document.getElementById('pat-firstname-hosp').value;
   const lastName = document.getElementById('pat-lastname-hosp').value;
+  const selectedCategory = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
+  const selectedBloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
+  const selectedComponent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+  const selectedUrgency = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value;
+  const plateletCount = document.getElementById('req-platelet-count-hosp').value;
+  const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  const indicationSubmission = buildIndicationSubmissionHosp(selectedComponent);
   const fullName = `${firstName} ${lastName}`.trim();
   document.getElementById('review-pat-name').textContent = fullName || '—';
   document.getElementById('review-pat-dob').textContent = document.getElementById('pat-birthdate-hosp').value || '—';
   document.getElementById('review-pat-type').textContent = document.getElementById('patient-type-display-hosp').textContent || '—';
   document.getElementById('review-pat-sex').textContent = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value || '—';
   document.getElementById('review-pat-physician').textContent = document.getElementById('pat-physician-hosp').value || '—';
-  document.getElementById('review-req-category').textContent = document.querySelector('input[name="req-category-hosp"]:checked')?.value || '—';
+  document.getElementById('review-req-category').textContent = formatCategoryLabelHosp(selectedCategory);
   
-  document.getElementById('review-blood-type').textContent = document.querySelector('input[name="req-bt-hosp"]:checked')?.value || '—';
-  document.getElementById('review-blood-comp').textContent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value || '—';
+  document.getElementById('review-blood-type').textContent = BT_LABELS[selectedBloodType] || selectedBloodType || '—';
+  document.getElementById('review-blood-comp').textContent = COMP_LABELS[selectedComponent] || selectedComponent || '—';
   document.getElementById('review-blood-units').textContent = document.getElementById('req-units-hosp').value || '—';
-  document.getElementById('review-req-type').textContent = document.querySelector('input[name="req-type-hosp"]:checked')?.value || '—';
+  document.getElementById('review-req-type').textContent = reqType || '—';
   
-  const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
   if (reqType === 'STAT') {
-    document.getElementById('review-urgency').textContent = 'HIGH (Auto)';
+    document.getElementById('review-urgency').textContent = `${formatUrgencyLabelHosp('HIGH')} (Auto)`;
   } else {
-    document.getElementById('review-urgency').textContent = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value || '—';
+    document.getElementById('review-urgency').textContent = formatUrgencyLabelHosp(selectedUrgency);
   }
   
   document.getElementById('review-date-needed').textContent = document.getElementById('req-date-needed-hosp').value || '—';
+
+  const reviewPlateletCountBox = document.getElementById('review-platelet-count-box');
+  const reviewPlateletCount = document.getElementById('review-platelet-count');
+  if (selectedComponent === 'PLATELET_CONCENTRATE' && plateletCount) {
+    reviewPlateletCountBox.style.display = 'block';
+    reviewPlateletCount.textContent = plateletCount;
+  } else {
+    reviewPlateletCountBox.style.display = 'none';
+    reviewPlateletCount.textContent = '—';
+  }
   
   document.getElementById('review-hemoglobin').textContent = document.getElementById('pat-hemoglobin-hosp').value || '—';
   const hematocrit = document.getElementById('pat-hematocrit-hosp').value;
   document.getElementById('review-hematocrit').textContent = hematocrit ? (parseFloat(hematocrit) * 100).toFixed(1) + '%' : '—';
   document.getElementById('review-diagnosis').textContent = document.getElementById('pat-diagnosis-hosp').value || '—';
   
-  const selectedIndications = document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
-  if (selectedIndications.length > 0) {
-    const indicationLabels = Array.from(selectedIndications).map(cb => {
-      const label = document.querySelector(`label[for="${cb.id}"]`);
-      return label ? label.textContent.trim() : cb.value;
-    }).join('<br>');
+  if (indicationSubmission.reviewItems.length > 0) {
+    const indicationLabels = indicationSubmission.reviewItems.map(ind => {
+      return ind.additional
+        ? `<div style="margin-bottom:4px"><strong>${ind.code}:</strong> ${ind.additional}</div>`
+        : `<div style="margin-bottom:4px"><strong>${ind.code}</strong></div>`;
+    }).join('');
     document.getElementById('review-indications').innerHTML = indicationLabels || '—';
   } else {
     document.getElementById('review-indications').innerHTML = '<div style="color:var(--muted)">—</div>';
@@ -1023,19 +1140,61 @@ function setupNotesListener() {
 // FORM SUBMISSION
 // ──────────────────────────────────────────────────────────────
 
+function getSelectedIndicationItemsHosp() {
+  const selected = [];
+  const allChecked = document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
+
+  allChecked.forEach(checkbox => {
+    const input = document.querySelector(`#panel-newrequest [data-ref="${checkbox.value}"]`);
+    selected.push({
+      code: checkbox.value,
+      additional: input ? input.value.trim() : null
+    });
+  });
+
+  return selected;
+}
+
+function buildIndicationOtherSpecifyHosp() {
+  const pairs = [];
+  document.querySelectorAll('#panel-newrequest [data-ref]').forEach(input => {
+    const text = input.value.trim();
+    if (text) {
+      pairs.push(`${input.dataset.ref}:${text}`);
+    }
+  });
+  return pairs.length > 0 ? pairs.join(',') : null;
+}
+
+function buildIndicationSubmissionHosp(component) {
+  const specifyOnlyCode = SPECIFY_ONLY_INDICATION_COMPONENTS[component];
+  if (specifyOnlyCode) {
+    const specifyValue = getSpecifyOnlyIndicationValueHosp(component);
+    return {
+      indication: specifyValue ? specifyOnlyCode : null,
+      indicationOtherSpecify: specifyValue ? `${specifyOnlyCode}:${specifyValue}` : null,
+      reviewItems: specifyValue
+        ? [{ code: COMP_LABELS[component] || component, additional: specifyValue }]
+        : []
+    };
+  }
+
+  const indications = getSelectedIndicationItemsHosp();
+  return {
+    indication: indications.map(indication => indication.code).sort().join(',') || null,
+    indicationOtherSpecify: buildIndicationOtherSpecifyHosp(),
+    reviewItems: indications
+  };
+}
+
 /**
  * Collect selected indications
  */
 function getSelectedIndicationsHosp() {
-  const selected = [];
-  const allChecked = document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
-  
-  allChecked.forEach(checkbox => {
-    const code = checkbox.value;
-    selected.push(code);
-  });
-  
-  return selected.sort().join(',');
+  return getSelectedIndicationItemsHosp()
+    .map(indication => indication.code)
+    .sort()
+    .join(',');
 }
 
 /**
@@ -1142,6 +1301,7 @@ async function submitRequestHosp() {
   const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
   const bloodComponent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
   const numberOfUnits = document.getElementById('req-units-hosp').value;
+  const plateletCount = document.getElementById('req-platelet-count-hosp').value;
   const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
   const urgencyLevel = getUrgencyLevelHosp();
   const requiredBy = document.getElementById('req-date-needed-hosp').value;
@@ -1157,8 +1317,9 @@ async function submitRequestHosp() {
   const previousReactionDate = hadPreviousReaction ? document.getElementById('prev-reaction-date-hosp').value : null;
   const previousReactionDetails = hadPreviousReaction ? document.getElementById('prev-reaction-details-hosp').value.trim() : null;
 
-  const indication = getSelectedIndicationsHosp();
-  const indicationOtherSpecify = buildIndicationOtherSpecify();
+  const indicationSubmission = buildIndicationSubmissionHosp(bloodComponent);
+  const indication = indicationSubmission.indication;
+  const indicationOtherSpecify = indicationSubmission.indicationOtherSpecify;
   const notes = document.getElementById('notes-input-hosp').value.trim();
 
   const requestData = {
@@ -1184,6 +1345,9 @@ async function submitRequestHosp() {
     bloodComponent: bloodComponent,
 
     numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : null,
+    plateletCount: bloodComponent === 'PLATELET_CONCENTRATE' && plateletCount
+      ? parseInt(plateletCount, 10)
+      : null,
 
     requestType: requestType,
     urgencyLevel: urgencyLevel,
@@ -1269,7 +1433,9 @@ function resetFormHosp() {
     'pat-firstname-hosp', 'pat-middlename-hosp', 'pat-lastname-hosp', 'pat-suffix-hosp',
     'pat-birthdate-hosp', 'pat-ward-hosp', 'pat-room-hosp', 'pat-physician-hosp', 'pat-diagnosis-hosp',
     'pat-hemoglobin-hosp', 'pat-hematocrit-hosp', 'prev-transfusion-date-hosp', 'prev-transfusion-units-hosp',
-    'prev-reaction-date-hosp', 'prev-reaction-details-hosp', 'req-date-needed-hosp'
+    'prev-reaction-date-hosp', 'prev-reaction-details-hosp', 'req-date-needed-hosp',
+    'req-platelet-count-hosp', 'req-indication-specify-LEUKOREDUCED_PRBC-hosp',
+    'req-indication-specify-ALIQUOTED_PRBC-hosp', 'req-indication-specify-CRYOSUPERNATANT-hosp'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -1281,20 +1447,10 @@ function resetFormHosp() {
 
   clearFile('doc');
 
-  document.querySelectorAll('#panel-newrequest .indication-checkbox[id*="-hosp"]').forEach(cb => {
-    cb.checked = false;
-  });
-  document.querySelectorAll('#panel-newrequest .indication-sub-group[id*="-hosp"]').forEach(g => {
-    g.style.display = 'none';
-  });
-
-  // Hide and clear all "Others (specify)" input fields
-  document.querySelectorAll('#panel-newrequest .others-input-field[id*="-hosp"]').forEach(field => {
-    field.classList.remove('visible');
-    field.value = '';
-  });
+  clearIndicationSelectionsHosp();
 
   currentStepHosp = 1;
+  lastIndicationGroupKeyHosp = '';
   updateStepUI();
 
   document.getElementById('patient-type-display-hosp').textContent = 'Select date of birth';
@@ -1302,20 +1458,14 @@ function resetFormHosp() {
   document.getElementById('prev-transfusion-fields-hosp').style.display = 'none';
   document.getElementById('prev-reaction-fields-hosp').style.display = 'none';
   document.getElementById('indication-container-hosp').style.display = 'none';
+  document.getElementById('platelet-count-field-hosp').style.display = 'none';
   document.getElementById('err-indication-hosp').style.display = 'none';
 
   hideErrorHosp();
 }
 
 function buildIndicationOtherSpecify() {
-  const pairs = [];
-  document.querySelectorAll('input[type="text"][data-ref]').forEach(input => {
-    const text = input.value.trim();
-    if (text) {
-      pairs.push(`${input.dataset.ref}:${text}`);
-    }
-  });
-  return pairs.length > 0 ? pairs.join(',') : null;
+  return buildIndicationOtherSpecifyHosp();
 }
 
 /**
@@ -1374,6 +1524,9 @@ let columnSort = {}; // Track column sort states
 const INDICATION_MAP = {
     // WHOLE BLOOD (Adult)
     'WB-1': 'Active bleeding with at least 15% blood volume loss, Hb<90 g/L, or BP drop >20%',
+    'WB-1a': 'Loss of over 15% of blood volume',
+    'WB-1b': 'Hemoglobin less than 90 g/L',
+    'WB-1c': 'Blood pressure decrease >20% and <90 mmHg systolic',
     'WB-2': 'Other whole blood indications (requires review)',
 
     // PACKED RED BLOOD CELLS (Adult)
@@ -1466,15 +1619,49 @@ const INDICATION_MAP = {
  * @param {string} indicationString - Comma-separated codes (e.g., "R-1,R-2a,R-3")
  * @returns {array} Array of description strings
  */
-function formatIndications(indicationString) {
+function escapeIndicationTextHosp(text) {
+    const div = document.createElement('div');
+    div.textContent = text ?? '';
+    return div.innerHTML;
+}
+
+function parseIndicationOtherSpecifyHosp(indicationOtherSpecify) {
+    if (!indicationOtherSpecify) return {};
+
+    return indicationOtherSpecify
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .reduce((map, pair) => {
+            const separatorIndex = pair.indexOf(':');
+            if (separatorIndex === -1) return map;
+
+            const code = pair.slice(0, separatorIndex).trim();
+            const note = pair.slice(separatorIndex + 1).trim();
+            if (code && note) {
+                map[code] = note;
+            }
+            return map;
+        }, {});
+}
+
+function isSpecifyOnlyIndicationCodeHosp(code) {
+    return typeof code === 'string' && code.endsWith('_SPECIFY');
+}
+
+function formatIndications(indicationString, indicationOtherSpecify) {
     if (!indicationString) return [];
-    
+
+    const noteMap = parseIndicationOtherSpecifyHosp(indicationOtherSpecify);
     const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
     const descriptions = codes.map(code => {
-        const description = INDICATION_MAP[code];
-        return description || code;
+        const note = noteMap[code];
+        if (isSpecifyOnlyIndicationCodeHosp(code) && note) {
+            return note;
+        }
+        return INDICATION_MAP[code] || (note ? note : code);
     }).filter(Boolean);
-    
+
     return descriptions.length > 0 ? descriptions : [];
 }
 
@@ -1483,10 +1670,16 @@ function formatIndications(indicationString) {
  * @param {string} indicationString - Comma-separated codes
  * @returns {string} HTML string with badges
  */
-function getIndicationBadges(indicationString) {
+function getIndicationBadges(indicationString, indicationOtherSpecify) {
     if (!indicationString) return '';
-    
-    const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
+
+    const noteMap = parseIndicationOtherSpecifyHosp(indicationOtherSpecify);
+    const codes = indicationString
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .filter(code => !(isSpecifyOnlyIndicationCodeHosp(code) && noteMap[code]));
+
     return codes.map(code => {
         return `<span class="req-indication-badge">${code}</span>`;
     }).join('');
@@ -1498,19 +1691,19 @@ function getIndicationBadges(indicationString) {
  * @param {string} indicationString - Comma-separated codes
  * @returns {string} HTML string with grouped indication details
  */
-function renderIndicationDetails(indicationString) {
+function renderIndicationDetails(indicationString, indicationOtherSpecify) {
     if (!indicationString) {
         return '<span class="req-details-value">Not specified</span>';
     }
 
     const codes = indicationString.split(',').map(s => s.trim()).filter(Boolean);
-    
-    // Group parent codes with their sub-codes
+    const noteMap = parseIndicationOtherSpecifyHosp(indicationOtherSpecify);
     const grouped = {};
+
     codes.forEach(code => {
         const parentMatch = code.match(/^([A-Z]+-\d+)/);
         const parentCode = parentMatch ? parentMatch[1] : code;
-        
+
         if (!grouped[parentCode]) {
             grouped[parentCode] = {
                 parent: parentCode,
@@ -1518,40 +1711,95 @@ function renderIndicationDetails(indicationString) {
                 subs: []
             };
         }
-        
-        // Separate main code from sub-codes
+
         if (code === parentCode) {
             grouped[parentCode].main = code;
         } else {
             grouped[parentCode].subs.push(code);
         }
     });
-    
-    // Build HTML
-    let html = '<div style="margin-bottom:12px">';
-    
-    Object.values(grouped).forEach(group => {
-        // Main code
-        if (group.main) {
-            const desc = INDICATION_MAP[group.main] || group.main;
+
+    let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+
+    Object.keys(grouped).sort().forEach(parentCode => {
+        const group = grouped[parentCode];
+        const mainCode = group.main || parentCode;
+        const mainDescription = INDICATION_MAP[mainCode] || '';
+        const mainNote = noteMap[mainCode];
+        const subCodes = group.subs;
+
+        if (isSpecifyOnlyIndicationCodeHosp(mainCode) && mainNote) {
             html += `
-                <div style="margin-bottom:8px">
-                    <strong>${group.main}</strong>: ${desc}
+                <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
+                    <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5">
+                        ${escapeIndicationTextHosp(mainNote)}
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        if (subCodes.length > 0) {
+            html += `
+                <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
+                    <div style="font-weight:600;color:var(--blue,#0066cc);margin-bottom:8px;font-size:13px">
+                        ${mainCode}
+                    </div>
+                    <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-bottom:12px">
+                        ${mainDescription}
+                    </div>
+                    ${mainNote ? `
+                        <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-bottom:12px;padding:8px 10px;background:#fff;border:1px solid var(--border,#e0e0e0);border-radius:4px">
+                            ${escapeIndicationTextHosp(mainNote)}
+                        </div>
+                    ` : ''}
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-left:12px;border-left:2px solid var(--border,#e0e0e0);padding-left:12px;">
+            `;
+
+            subCodes.forEach(code => {
+                const subLetter = code.replace(parentCode, '').toLowerCase();
+                const subDescription = INDICATION_MAP[code] || code;
+                const subNote = noteMap[code];
+                html += `
+                    <div>
+                        <div style="font-weight:600;color:var(--muted,#666);font-size:12px;margin-bottom:2px">
+                            ${subLetter}.
+                        </div>
+                        <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.4">
+                            ${subDescription}
+                        </div>
+                        ${subNote ? `
+                            <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-top:6px;padding:8px 10px;background:#fff;border:1px solid var(--border,#e0e0e0);border-radius:4px">
+                                ${escapeIndicationTextHosp(subNote)}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="padding:12px;background:var(--subtle,#f9f9f9);border-left:3px solid var(--blue,#0066cc);border-radius:4px">
+                    <div style="font-weight:600;color:var(--blue,#0066cc);margin-bottom:4px;font-size:13px">
+                        ${mainCode}
+                    </div>
+                    <div style="font-size:13px;color:var(--charcoal,#2a2a2a);line-height:1.5">
+                        ${mainDescription}
+                    </div>
+                    ${mainNote ? `
+                        <div style="font-size:12px;color:var(--charcoal,#2a2a2a);line-height:1.5;margin-top:10px;padding:8px 10px;background:#fff;border:1px solid var(--border,#e0e0e0);border-radius:4px">
+                            ${escapeIndicationTextHosp(mainNote)}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
-        
-        // Sub-codes
-        group.subs.forEach(subCode => {
-            const desc = INDICATION_MAP[subCode] || subCode;
-            html += `
-                <div style="margin-left:20px;margin-bottom:6px;color:var(--muted)">
-                    <strong>${subCode}</strong>: ${desc}
-                </div>
-            `;
-        });
     });
-    
+
     html += '</div>';
     return html;
 }
@@ -1595,6 +1843,7 @@ async function loadHospitalRequests() {
             bloodType: req.bloodType,
             bloodComponent: req.bloodComponent,
             numberOfUnits: req.numberOfUnits,
+            plateletCount: req.plateletCount ?? null,
             volumeMl: req.volumeMl || null,
             urgencyLevel: req.urgencyLevel,
             status: req.status,
@@ -1624,6 +1873,7 @@ async function loadHospitalRequests() {
             
             // Indications (NEW)
             indication: req.indication || null,
+            indicationOtherSpecify: req.indicationOtherSpecify || null,
             
             // Requester info (NEW)
             requesterName: req.requesterName || null,
@@ -2040,7 +2290,7 @@ function openRequestDetail(id) {
         (r.patientAge || '—') + (r.ageGroup ? ` (${r.ageGroup})` : '');
     document.getElementById('rd-patient-sex').textContent = r.patientSex || '—';
     document.getElementById('rd-ward-room').textContent = r.wardRoom || '—';
-    document.getElementById('rd-cat').textContent = r.requestCategory || '—';
+    document.getElementById('rd-cat').textContent = formatCategoryLabelHosp(r.requestCategory);
     document.getElementById('rd-physician').textContent = r.requestingPhysician || '—';
     
     // ─────────────────────────────────────────────
@@ -2051,6 +2301,17 @@ function openRequestDetail(id) {
     
        
     // ─────────────────────────────────────────────
+    const plateletCountBox = document.getElementById('rd-platelet-count-box');
+    if (r.bloodComponent === 'PLATELET_CONCENTRATE') {
+        plateletCountBox.style.display = 'block';
+        document.getElementById('rd-platelet-count').textContent =
+            r.plateletCount !== null && r.plateletCount !== undefined && r.plateletCount !== ''
+                ? r.plateletCount
+                : '—';
+    } else {
+        plateletCountBox.style.display = 'none';
+    }
+
     // SECTION: ADDITIONAL NOTES
     // ─────────────────────────────────────────────
     const notesDisplay = document.getElementById('rd-notes-display');
@@ -2070,7 +2331,8 @@ function openRequestDetail(id) {
             indicationsSection.style.display = 'block';
             
             // Build indication details with grouped hierarchy
-            document.getElementById('rd-indication-details').innerHTML = renderIndicationDetails(r.indication);
+            document.getElementById('rd-indication-details').innerHTML =
+                renderIndicationDetails(r.indication, r.indicationOtherSpecify);
         } else {
             indicationsSection.style.display = 'none';
         }
@@ -2133,7 +2395,7 @@ function openRequestDetail(id) {
     // SECTION: INDICATION OTHER (SPECIFY) DETAILS
     // ─────────────────────────────────────────────
     const indicationOtherSection = document.getElementById('rd-indication-other-section');
-    if (r.indicationOtherSpecify) {
+    if (false && r.indicationOtherSpecify) {
         indicationOtherSection.style.display = 'block';
         
         // Parse the format: "WB-2:reason1,R-5:reason2,P-6:reason3"
@@ -2157,13 +2419,31 @@ function openRequestDetail(id) {
         }
         
         document.getElementById('rd-indication-other-details').innerHTML = otherSpecifyHTML;
-    } else {
+    } else if (indicationOtherSection) {
         indicationOtherSection.style.display = 'none';
     }
     
     // ─────────────────────────────────────────────
     // SECTION: REQUESTER INFORMATION
     // ─────────────────────────────────────────────
+    if (false && r.indicationOtherSpecify) {
+        const noteMap = parseIndicationOtherSpecifyHosp(r.indicationOtherSpecify);
+        const otherSpecifyItems = Object.entries(noteMap).filter(([code]) => !isSpecifyOnlyIndicationCodeHosp(code));
+
+        if (otherSpecifyItems.length > 0) {
+            indicationOtherSection.style.display = 'block';
+            document.getElementById('rd-indication-other-details').innerHTML = otherSpecifyItems
+                .map(([, text]) => `
+                    <div style="margin-bottom:10px;color:var(--charcoal)">
+                        ${escapeIndicationTextHosp(text)}
+                    </div>
+                `)
+                .join('') || '<div style="color:var(--muted)">—</div>';
+        } else {
+            indicationOtherSection.style.display = 'none';
+        }
+    }
+
     document.getElementById('rd-requester-name').textContent = r.requesterName || '—';
     document.getElementById('rd-requester-relationship').textContent = r.requesterRelationship || '—';
     document.getElementById('rd-requester-contact').textContent = r.requesterContact || '—';

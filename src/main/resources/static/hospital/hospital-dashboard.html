@@ -355,13 +355,12 @@
                         <div class="card-header"><div class="card-title">Patient Information</div></div>
                         <div class="card-body">
 
-                            <!-- Request Category (UPDATED: Inter-hospital or Emergency only) -->
+                            <!-- Request Category -->
                             <div class="form-section" style="margin-bottom:16px">
                                 <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Request Category <span class="req">*</span></div>
                                 <div class="fg">
                                     <div class="chip-group">
-                                        <label class="chip-opt"><input type="radio" name="req-category-hosp" value="HOSPITAL" onchange="syncForm()"><span class="chip">🏨 Inter-hospital</span></label>
-                                        <label class="chip-opt"><input type="radio" name="req-category-hosp" value="EMERGENCY" onchange="syncForm()"><span class="chip">🚨 Emergency</span></label>
+                                        <label class="chip-opt"><input type="radio" name="req-category-hosp" value="OUTPATIENT" checked onchange="syncForm()"><span class="chip">OPD</span></label>
                                     </div>
                                 </div>
                             </div>
@@ -549,6 +548,11 @@
                                 </div>
                             </div>
 
+                            <div class="fg" id="platelet-count-field-hosp" style="display:none;margin-top:16px">
+                                <label>Platelet Count</label>
+                                <input type="number" id="req-platelet-count-hosp" placeholder="e.g. 50000" min="0" oninput="syncForm()">
+                            </div>
+
                             <!-- Request Type (STAT vs ROUTINE) -->
                             <div class="form-grid-2">
                                 <div class="fg">
@@ -566,15 +570,15 @@
                                 
                                 <!-- STAT Auto-display -->
                                 <div id="urgency-auto-stat-hosp" style="display:none;background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
-                                    <span style="background:rgba(196,30,58,0.15);color:#C41E3A;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700">AUTO: HIGH</span>
+                                    <span style="background:rgba(196,30,58,0.15);color:#C41E3A;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700">AUTO: HIGH (24hrs)</span>
                                 </div>
                                 
                                 <!-- ROUTINE Options -->
                                 <div id="urgency-routine-options-hosp" style="display:none;margin-top:8px">
                                     <div class="urgency-grid">
-                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="LOW" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟢 Low</div><div class="urg-desc">Scheduled, days to weeks ahead</div></div></label>
-                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="MEDIUM" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟡 Medium</div><div class="urg-desc">Needed within the week</div></div></label>
-                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="HIGH" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟠 High</div><div class="urg-desc">Needed within 48–72 hours</div></div></label>
+                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="LOW" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟢 Low</div><div class="urg-desc">Scheduled / Within a week</div></div></label>
+                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="MEDIUM" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟡 Medium</div><div class="urg-desc">2-3 days</div></div></label>
+                                        <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="HIGH" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟠 High</div><div class="urg-desc">24hrs</div></div></label>
                                     </div>
                                 </div>
                             </div>
@@ -711,7 +715,46 @@
                                         <input type="text" class="form-input inline-input others-input-field" id="others-input-W-4-hosp" placeholder="Please specify..." data-ref="W-4" style="margin-left:12px;flex:1;max-width:300px">
                                     </div>
                                 </div>
-                            
+
+                                <div class="indication-group" id="group-LEUKOREDUCED_PRBC-hosp" style="display:none">
+                                    <div class="indication-header">Leukoreduced PRBC</div>
+                                    <div class="fg">
+                                        <label>Please Specify <span class="req">*</span></label>
+                                        <textarea
+                                            class="form-textarea component-indication-specify-hosp"
+                                            id="req-indication-specify-LEUKOREDUCED_PRBC-hosp"
+                                            data-component="LEUKOREDUCED_PRBC"
+                                            placeholder="Specify the indication for leukoreduced PRBC..."
+                                            oninput="syncForm()"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="indication-group" id="group-ALIQUOTED_PRBC-hosp" style="display:none">
+                                    <div class="indication-header">Aliquoted PRBC</div>
+                                    <div class="fg">
+                                        <label>Please Specify <span class="req">*</span></label>
+                                        <textarea
+                                            class="form-textarea component-indication-specify-hosp"
+                                            id="req-indication-specify-ALIQUOTED_PRBC-hosp"
+                                            data-component="ALIQUOTED_PRBC"
+                                            placeholder="Specify the indication for aliquoted PRBC..."
+                                            oninput="syncForm()"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="indication-group" id="group-CRYOSUPERNATANT-hosp" style="display:none">
+                                    <div class="indication-header">Cryosupernatant</div>
+                                    <div class="fg">
+                                        <label>Please Specify <span class="req">*</span></label>
+                                        <textarea
+                                            class="form-textarea component-indication-specify-hosp"
+                                            id="req-indication-specify-CRYOSUPERNATANT-hosp"
+                                            data-component="CRYOSUPERNATANT"
+                                            placeholder="Specify the indication for cryosupernatant..."
+                                            oninput="syncForm()"></textarea>
+                                    </div>
+                                </div>
+                             
                                 <!-- ADULT: PLATELET CONCENTRATE -->
                                 <div class="indication-group" id="group-PLATELET_CONCENTRATE-hosp" style="display:none">
                                     <div class="indication-header">🩸 Platelet Concentrate</div>
@@ -1332,6 +1375,10 @@
                                         <div style="color:var(--muted);margin-bottom:3px">Number of Units</div>
                                         <div style="font-weight:600" id="review-blood-units">—</div>
                                     </div>
+                                    <div id="review-platelet-count-box" style="display:none">
+                                        <div style="color:var(--muted);margin-bottom:3px">Platelet Count</div>
+                                        <div style="font-weight:600" id="review-platelet-count">—</div>
+                                    </div>
                                     <div>
                                         <div style="color:var(--muted);margin-bottom:3px">Request Type</div>
                                         <div style="font-weight:600" id="review-req-type">—</div>
@@ -1865,9 +1912,8 @@
                         <select id="filter-category" onchange="applyFiltersAndSort()" 
                             style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg)">
                             <option value="">All Categories</option>
-                            <option value="INPATIENT">Inpatient</option>
-                            <option value="OUTPATIENT">Outpatient</option>
-                            <option value="EMERGENCY">Emergency</option>
+                            <option value="INPATIENT">OPD/ INHOUSE</option>
+                            <option value="OUTPATIENT">OPD</option>
                             <option value="HOSPITAL">Inter-hospital</option>
                         </select>
                     </div>
@@ -2229,6 +2275,10 @@
                                     <div class="detail-label">Units Needed</div>
                                     <div class="detail-val" id="rd-units"></div>
                                 </div>
+                                <div class="detail-box" id="rd-platelet-count-box" style="display:none">
+                                    <div class="detail-label">Platelet Count</div>
+                                    <div class="detail-val" id="rd-platelet-count"></div>
+                                </div>
                             </div>
                         </div>
  
@@ -2301,12 +2351,6 @@
                                     <div class="detail-val" id="rd-reaction-details"></div>
                                 </div>
                             </div>
-                        </div>
- 
-                        <!-- SECTION: Indication Other Specify -->
-                        <div class="detail-section" id="rd-indication-other-section" style="display:none">
-                            <div class="detail-section-title">Indication Specifications</div>
-                            <div id="rd-indication-other-details" style="font-size:13px;color:var(--charcoal);line-height:1.8;background:var(--bg);padding:12px;border-radius:6px;border-left:3px solid var(--amber)"></div>
                         </div>
  
                         <!-- SECTION: Requester Information -->
