@@ -288,10 +288,10 @@
         </div>
 
         
-        <!-- HOSPITAL BLOOD REQUEST FORM (5 STEPS FORMAT)
+        <!-- HOSPITAL BLOOD REQUEST FORM (4 STEPS FORMAT)
             Updated to include:
-            - Request categories: INTER_HOSPITAL or EMERGENCY only
-            - 5-step flow with Review & Submit page
+            - 4-step flow aligned to the public request format
+            - Patient Info â†’ Blood Details â†’ Documents â†’ Review & Submit
             - Patient Info → Blood Details → Clinical Data → Documents → Review & Submit
         ==================================================================== -->
 
@@ -305,7 +305,7 @@
 
             <div style="max-width:720px; margin:0 auto">
 
-                <!-- Step Indicator (5 dots style) -->
+                <!-- Step Indicator (4 dots style) -->
                 <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:32px;padding:0 20px">
                     <div style="display:flex;align-items:center;gap:10px">
                         <div class="step-dot active" id="step-dot-hosp-1">1</div>
@@ -315,11 +315,9 @@
                         <div class="step-dot" id="step-dot-hosp-3">3</div>
                         <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-hosp-3"></div>
                         <div class="step-dot" id="step-dot-hosp-4">4</div>
-                        <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-hosp-4"></div>
-                        <div class="step-dot" id="step-dot-hosp-5">5</div>
                     </div>
                     <div style="font-size:12px;font-weight:600;color:#666;white-space:nowrap">
-                        <span id="current-step-num-hosp">1</span> / 5
+                        <span id="current-step-num-hosp">1</span> / 4
                     </div>
                 </div>
 
@@ -425,18 +423,11 @@
                                 </div>
                             </div>
 
-                            <!-- Requesting Physician & Clinical Impression -->
+                            <!-- Requesting Physician -->
                             <div class="form-grid-2">
                                 <div class="fg form-full">
                                     <label>Requesting Physician <span class="req">*</span></label>
                                     <input type="text" id="pat-physician-hosp" placeholder="Dr. Maria Santos" oninput="syncForm()">
-                                </div>
-                            </div>
-
-                            <div class="form-grid-2">
-                                <div class="fg form-full">
-                                    <label>Clinical Impression / Diagnosis</label>
-                                    <textarea id="pat-diagnosis-hosp" placeholder="Brief clinical reason for the blood request..." oninput="syncForm()"></textarea>
                                 </div>
                             </div>
 
@@ -553,6 +544,25 @@
                                 <input type="number" id="req-platelet-count-hosp" placeholder="e.g. 50000" min="0" oninput="syncForm()">
                             </div>
 
+                            <!-- Clinical Information -->
+                            <div class="form-section" style="margin-top:20px;margin-bottom:16px">
+                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Clinical Information</div>
+                                <div class="form-grid-2">
+                                    <div class="fg form-full">
+                                        <label>Clinical Impression / Diagnosis</label>
+                                        <textarea id="pat-diagnosis-hosp" placeholder="Brief clinical reason for the blood request..." oninput="syncForm()"></textarea>
+                                    </div>
+                                    <div class="fg">
+                                        <label>Hemoglobin (g/L)</label>
+                                        <input type="number" id="pat-hemoglobin-hosp" placeholder="e.g. 85" min="0" max="200" step="0.1" oninput="syncForm()">
+                                    </div>
+                                    <div class="fg">
+                                        <label>Hematocrit (as decimal, e.g. 0.25 for 25%)</label>
+                                        <input type="number" id="pat-hematocrit-hosp" placeholder="e.g. 0.25" min="0" max="1" step="0.01" oninput="syncForm()">
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Request Type (STAT vs ROUTINE) -->
                             <div class="form-grid-2">
                                 <div class="fg">
@@ -579,6 +589,64 @@
                                         <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="LOW" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟢 Low</div><div class="urg-desc">Scheduled / Within a week</div></div></label>
                                         <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="MEDIUM" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟡 Medium</div><div class="urg-desc">2-3 days</div></div></label>
                                         <label class="urg-opt"><input type="radio" name="req-urgency-hosp" value="HIGH" onchange="syncForm()"><div class="urg-chip"><div class="urg-level">🟠 High</div><div class="urg-desc">24hrs</div></div></label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Previous Transfusion History -->
+                            <div class="form-section" style="margin-top:20px;margin-bottom:16px">
+                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Previous Transfusion History</div>
+                                <div class="fg">
+                                    <div style="display:flex;gap:16px;margin-bottom:12px">
+                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                                            <input type="radio" name="prev-transfusion-hosp" value="yes" onchange="togglePrevTransfusionFieldsHosp()">
+                                            <span>Yes</span>
+                                        </label>
+                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                                            <input type="radio" name="prev-transfusion-hosp" value="no" onchange="togglePrevTransfusionFieldsHosp()">
+                                            <span>No</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="prev-transfusion-fields-hosp" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
+                                    <div class="form-grid-2">
+                                        <div class="fg">
+                                            <label>Date of Previous Transfusion</label>
+                                            <input type="date" id="prev-transfusion-date-hosp" oninput="syncForm()">
+                                        </div>
+                                        <div class="fg">
+                                            <label>Number of Units</label>
+                                            <input type="number" id="prev-transfusion-units-hosp" placeholder="e.g. 2" min="0" max="50" oninput="syncForm()">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Previous Reaction History -->
+                            <div class="form-section" style="margin-bottom:0">
+                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Previous Reaction to Transfusion</div>
+                                <div class="fg">
+                                    <div style="display:flex;gap:16px;margin-bottom:12px">
+                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                                            <input type="radio" name="prev-reaction-hosp" value="yes" onchange="togglePrevReactionFieldsHosp()">
+                                            <span>Yes</span>
+                                        </label>
+                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                                            <input type="radio" name="prev-reaction-hosp" value="no" onchange="togglePrevReactionFieldsHosp()">
+                                            <span>No</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="prev-reaction-fields-hosp" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
+                                    <div class="form-grid-2">
+                                        <div class="fg">
+                                            <label>Date of Previous Reaction</label>
+                                            <input type="date" id="prev-reaction-date-hosp" oninput="syncForm()">
+                                        </div>
+                                        <div class="fg form-full">
+                                            <label>Type / Details of Reaction</label>
+                                            <textarea id="prev-reaction-details-hosp" placeholder="e.g. Fever, rash, anaphylaxis, chills, etc." oninput="syncForm()"></textarea>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1165,87 +1233,7 @@
                     </div>
                 </div>
 
-                <!-- STEP 3: Clinical Data & History -->
-                <div class="form-step" id="form-step-hosp-3">
-                    <div class="card" style="margin-bottom:16px">
-                        <div class="card-header"><div class="card-title">Clinical Data & History</div></div>
-                        <div class="card-body">
-                
-                            <!-- Hemoglobin & Hematocrit -->
-                            <div class="form-grid-2">
-                                <div class="fg">
-                                    <label>Hemoglobin (g/L)</label>
-                                    <input type="number" id="pat-hemoglobin-hosp" placeholder="e.g. 85" min="0" max="200" step="0.1" oninput="syncForm()">
-                                </div>
-                                <div class="fg">
-                                    <label>Hematocrit (as decimal, e.g. 0.25 for 25%)</label>
-                                    <input type="number" id="pat-hematocrit-hosp" placeholder="e.g. 0.25" min="0" max="1" step="0.01" oninput="syncForm()">
-                                </div>
-                            </div>
-                
-                            <!-- Previous Transfusion History -->
-                            <div class="form-section" style="margin-bottom:16px">
-                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Previous Transfusion History</div>
-                                <div class="fg">
-                                    <div style="display:flex;gap:16px;margin-bottom:12px">
-                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-transfusion-hosp" value="yes" onchange="togglePrevTransfusionFieldsHosp()">
-                                            <span>Yes</span>
-                                        </label>
-                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-transfusion-hosp" value="no" onchange="togglePrevTransfusionFieldsHosp()">
-                                            <span>No</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="prev-transfusion-fields-hosp" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
-                                    <div class="form-grid-2">
-                                        <div class="fg">
-                                            <label>Date of Previous Transfusion</label>
-                                            <input type="date" id="prev-transfusion-date-hosp" oninput="syncForm()">
-                                        </div>
-                                        <div class="fg">
-                                            <label>Number of Units</label>
-                                            <input type="number" id="prev-transfusion-units-hosp" placeholder="e.g. 2" min="0" max="50" oninput="syncForm()">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                
-                            <!-- Previous Reaction History -->
-                            <div class="form-section" style="margin-bottom:0">
-                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Previous Reaction to Transfusion</div>
-                                <div class="fg">
-                                    <div style="display:flex;gap:16px;margin-bottom:12px">
-                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-reaction-hosp" value="yes" onchange="togglePrevReactionFieldsHosp()">
-                                            <span>Yes</span>
-                                        </label>
-                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                                            <input type="radio" name="prev-reaction-hosp" value="no" onchange="togglePrevReactionFieldsHosp()">
-                                            <span>No</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="prev-reaction-fields-hosp" style="display:none;padding:12px;background:#F9F9F9;border-radius:6px">
-                                    <div class="form-grid-2">
-                                        <div class="fg">
-                                            <label>Date of Previous Reaction</label>
-                                            <input type="date" id="prev-reaction-date-hosp" oninput="syncForm()">
-                                        </div>
-                                        <div class="fg form-full">
-                                            <label>Type / Details of Reaction</label>
-                                            <textarea id="prev-reaction-details-hosp" placeholder="e.g. Fever, rash, anaphylaxis, chills, etc." oninput="syncForm()"></textarea>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                
-                        </div>
-                    </div>
-                </div>
-
-                <!-- STEP 4: Supporting Documents -->
+                <!-- STEP 3: Supporting Documents -->
                 <div class="form-step" id="form-step-hosp-4">
                     <div class="card" style="margin-bottom:16px">
                         <div class="card-header">

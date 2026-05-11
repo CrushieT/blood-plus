@@ -375,10 +375,17 @@ style.textContent = `
 document.head.appendChild(style);
 
 // ═══════════════════════════════════════════════════════════════
-// ░░░ NEW BLOOD REQUEST FORM (5 STEPS) - FIXED JS ░░░
+// ░░░ NEW BLOOD REQUEST FORM (4 STEPS) - FIXED JS ░░░
 // ═══════════════════════════════════════════════════════════════
 
-const TOTAL_STEPS_HOSP = 5;
+const TOTAL_STEPS_HOSP = 4;
+const HOSPITAL_FORM_STEP_IDS = {
+  1: [1],
+  2: [2],
+  3: [4],
+  4: [5]
+};
+const HOSPITAL_ALL_FORM_STEP_IDS = [1, 2, 4, 5];
 let currentStepHosp = 1;
 let docFileHosp = null;
 let lastIndicationGroupKeyHosp = '';
@@ -440,19 +447,26 @@ function updateStepUI() {
   document.getElementById('current-step-num-hosp').textContent = currentStepHosp;
   
   // Show/hide step content
-  for (let i = 1; i <= TOTAL_STEPS_HOSP; i++) {
-    const step = document.getElementById(`form-step-hosp-${i}`);
+  HOSPITAL_ALL_FORM_STEP_IDS.forEach(id => {
+    const step = document.getElementById(`form-step-hosp-${id}`);
     if (step) {
-      step.classList.toggle('active', i === currentStepHosp);
+      step.classList.remove('active');
     }
-  }
+  });
+
+  (HOSPITAL_FORM_STEP_IDS[currentStepHosp] || []).forEach(id => {
+    const step = document.getElementById(`form-step-hosp-${id}`);
+    if (step) {
+      step.classList.add('active');
+    }
+  });
   
   // Toggle button visibility
   document.getElementById('btn-prev-hosp').style.display = currentStepHosp > 1 ? 'block' : 'none';
   document.getElementById('btn-next-hosp').style.display = currentStepHosp < TOTAL_STEPS_HOSP ? 'block' : 'none';
   document.getElementById('submit-btn-hosp').style.display = currentStepHosp === TOTAL_STEPS_HOSP ? 'block' : 'none';
   
-  // Populate review on step 5
+  // Populate review on the final step
   if (currentStepHosp === TOTAL_STEPS_HOSP) {
     populateReviewHosp();
   }
@@ -585,7 +599,7 @@ function validateStepHosp(step) {
     return true;
   }
 
-  if (step === 4) {
+  if (step === 3) {
     // Validate documents - Check the global variable, not the input element
     console.log('Validating documents. docFileHosp:', docFileHosp);
     if (!docFileHosp) {
