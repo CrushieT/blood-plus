@@ -36,7 +36,12 @@ public class BloodRequestController {
             response.put("referenceNumber", saved.getReferenceNumber());
             response.put("status", saved.getStatus());
             response.put("requestedAt", saved.getRequestedAt());
-            response.put("message", "Request submitted successfully. A confirmation will be sent to " + saved.getRequesterEmail());
+            response.put(
+                "message",
+                saved.getRequesterEmail() != null && !saved.getRequesterEmail().isBlank()
+                    ? "Request submitted successfully. A confirmation will be sent to " + saved.getRequesterEmail()
+                    : "Request submitted successfully."
+            );
  
             return ResponseEntity.ok(response);
  

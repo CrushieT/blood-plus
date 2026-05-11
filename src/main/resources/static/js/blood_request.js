@@ -192,9 +192,6 @@ function validate(page) {
         return showError('Please select your relationship to the patient.'), false;
       if (!document.getElementById('f-contact').value.trim())
         return showError('Please enter your contact number.'), false;
-      var em = document.getElementById('f-email').value.trim();
-      if (!em || !em.includes('@'))
-        return showError('Please enter a valid email address.'), false;
     }
   }
 
@@ -226,6 +223,19 @@ function toggleReactionFields() {
   }
 }
 
+function togglePlateletCountField(component) {
+  const plateletCountField = document.getElementById('platelet-count-field');
+  const plateletCountInput = document.getElementById('f-plateletCount');
+  if (!plateletCountField || !plateletCountInput) return;
+
+  if (component === 'PLATELET_CONCENTRATE') {
+    plateletCountField.style.display = 'block';
+  } else {
+    plateletCountField.style.display = 'none';
+    plateletCountInput.value = '';
+  }
+}
+
 // ── Indication Management ──────────────────────────────────────
 function initIndicationHandlers() {
   const componentSelect = document.getElementById('f-component');
@@ -236,6 +246,8 @@ function initIndicationHandlers() {
     const age = calculateAge(birthdate);
     const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
     const component = componentSelect.value;
+
+    togglePlateletCountField(component);
 
     // Hide all groups
     document.querySelectorAll('.indication-group').forEach(group => {
@@ -547,6 +559,17 @@ var CATEGORY_LABELS_R = {
   INPATIENT: 'Inpatient (CNPH)', OUTPATIENT: 'Outpatient', EMERGENCY: 'Emergency'
 };
 
+URGENCY_LABELS_R = {
+  LOW: 'Low — Scheduled / Within a week',
+  MEDIUM: 'Medium — 2-3 days',
+  HIGH: 'High — 24hrs',
+  CRITICAL: 'Critical — Immediately'
+};
+
+CATEGORY_LABELS_R = {
+  INPATIENT: 'OPD/ INHOUSE'
+};
+
 var REQUEST_TYPE_LABELS_R = {
   STAT: 'STAT (Emergency)', ROUTINE: 'Routine'
 };
@@ -655,8 +678,7 @@ function buildReview() {
         reviewRow('Staff',    document.getElementById('ch-staff-name').textContent)
       : reviewRow('Name',         document.getElementById('f-requesterName').value.trim()) +
         reviewRow('Relationship', document.getElementById('f-relationship').value) +
-        reviewRow('Contact',      document.getElementById('f-contact').value.trim()) +
-        reviewRow('Email',        document.getElementById('f-email').value.trim()));
+        reviewRow('Contact',      document.getElementById('f-contact').value.trim()));
 
   // ── Documents section ──
   document.getElementById('review-doc').innerHTML =
@@ -715,6 +737,13 @@ function hideError() {
 function getRadioVal(name) {
   const checked = document.querySelector(`input[name="${name}"]:checked`);
   return checked ? checked.value : '';
+}
+
+function getRequesterEmailValue() {
+  const emailInput = document.getElementById('f-email');
+  if (!emailInput) return null;
+  const emailValue = emailInput.value.trim();
+  return emailValue || null;
 }
 
 // ── Submit with CALCULATED AGE FROM BIRTHDATE ─────────────────
@@ -805,7 +834,7 @@ async function submitRequest() {
   const requesterName = document.getElementById('f-requesterName').value.trim();
   const requesterRelationship = document.getElementById('f-relationship').value;
   const requesterContact = document.getElementById('f-contact').value.trim();
-  const requesterEmail = document.getElementById('f-email').value.trim();
+  const requesterEmail = getRequesterEmailValue();
 
   // ══════════════════════════════════════════════════════════════
   // BUILD COMPLETE DATA OBJECT (MATCHING BloodBagRequestDTO)
@@ -912,7 +941,7 @@ async function submitRequest() {
     document.getElementById('request-form-body').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
     document.getElementById('success-ref').textContent = mockRefNum;
-    document.getElementById('success-email').textContent = requesterEmail;
+    document.getElementById('success-email').textContent = requesterEmail || '';
 
     // Store in session for tracker (including all fields)
     sessionStorage.setItem(mockRefNum, JSON.stringify({
@@ -964,16 +993,16 @@ function resetForm() {
   document.getElementById('request-form-body').style.display = 'block';
   document.getElementById('success-screen').style.display = 'none';
   clearFile();
-  [
-    'f-patientName','f-birthdate','f-ward', 'f-room','f-physician',
-    'f-diagnosis','f-hemoglobin','f-hematocrit',
-    'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
-    'f-requiredBy','f-notes','f-requesterName','f-contact','f-email',
-    'f-otherComponentName','f-otherComponentIndication'
-  ].forEach(id => { 
-    const el = document.getElementById(id);
-    if (el) el.value = ''; 
-  });
+    [
+      'f-patientName','f-birthdate','f-ward', 'f-room','f-physician',
+      'f-diagnosis','f-hemoglobin','f-hematocrit',
+      'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
+      'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount',
+      'f-otherComponentName','f-otherComponentIndication'
+    ].forEach(id => { 
+      const el = document.getElementById(id);
+      if (el) el.value = ''; 
+    });
   ['f-sex','f-bloodType','f-component','f-units','f-relationship']
     .forEach(id => { 
       const el = document.getElementById(id);
@@ -986,10 +1015,11 @@ function resetForm() {
   document.getElementById('pt-no').checked = true;
   document.getElementById('pr-no').checked = true;
   
-  // Hide/reset conditional fields
-  togglePrevTransFields();
-  toggleReactionFields();
-  updatePatientTypeAndForms();
+    // Hide/reset conditional fields
+    togglePrevTransFields();
+    toggleReactionFields();
+    togglePlateletCountField('');
+    updatePatientTypeAndForms();
   
   hideError();
   goTo(1);
@@ -1028,6 +1058,10 @@ const URGENCY_LABELS = {
   LOW:'Low — Scheduled', MEDIUM:'Medium — Within a week',
   HIGH:'High — 2–3 days', CRITICAL:'Critical — Immediately'
 };
+
+URGENCY_LABELS.LOW = 'Low — Scheduled / Within a week';
+URGENCY_LABELS.MEDIUM = 'Medium — 2-3 days';
+URGENCY_LABELS.HIGH = 'High — 24hrs';
 
 const STATUS_CFG = {
   PENDING:    { label:'Pending Review',       badge:'status-pending',   step:1 },

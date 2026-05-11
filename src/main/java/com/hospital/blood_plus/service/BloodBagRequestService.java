@@ -100,7 +100,7 @@ public class BloodBagRequestService {
         request.setRequesterName(dto.getRequesterName().trim());
         request.setRequesterRelationship(dto.getRequesterRelationship());
         request.setRequesterContact(dto.getRequesterContact().trim());
-        request.setRequesterEmail(dto.getRequesterEmail().trim().toLowerCase());
+        request.setRequesterEmail(normalizeOptionalEmail(dto.getRequesterEmail()));
  
         // ─────────────────────────────────────────────
         // NOTES (EXISTING)
@@ -151,18 +151,20 @@ public class BloodBagRequestService {
  
         BloodBagRequest savedRequest = repository.save(request);
 
-        // Send confirmation email to requester
-        try {
-            emailService.sendRequestConfirmationEmail(
-                savedRequest.getRequesterEmail(),
-                savedRequest.getRequesterName(),
-                savedRequest.getReferenceNumber(),
-                savedRequest.getBloodType().getDisplayName(),
-                savedRequest.getNumberOfUnits()
-            );
-        } catch (Exception e) {
-            System.err.println("[BloodBagRequest] Failed to send confirmation email: " + e.getMessage());
-            // Don't fail the request if email fails
+        // Send confirmation email only when an email address is present
+        if (hasRequesterEmail(savedRequest)) {
+            try {
+                emailService.sendRequestConfirmationEmail(
+                    savedRequest.getRequesterEmail(),
+                    savedRequest.getRequesterName(),
+                    savedRequest.getReferenceNumber(),
+                    savedRequest.getBloodType().getDisplayName(),
+                    savedRequest.getNumberOfUnits()
+                );
+            } catch (Exception e) {
+                System.err.println("[BloodBagRequest] Failed to send confirmation email: " + e.getMessage());
+                // Don't fail the request if email fails
+            }
         }
 
         return savedRequest;
@@ -198,17 +200,19 @@ public class BloodBagRequestService {
         applyReview(req, reviewer);
         BloodBagRequest savedReq = repository.save(req);
         
-        // Send approval email
-        try {
-            emailService.sendRequestApprovalEmail(
-                savedReq.getRequesterEmail(),
-                savedReq.getRequesterName(),
-                savedReq.getReferenceNumber(),
-                savedReq.getBloodType().getDisplayName(),
-                savedReq.getNumberOfUnits()
-            );
-        } catch (Exception e) {
-            System.err.println("[BloodBagRequest] Failed to send approval email: " + e.getMessage());
+        // Send approval email only when an email address is present
+        if (hasRequesterEmail(savedReq)) {
+            try {
+                emailService.sendRequestApprovalEmail(
+                    savedReq.getRequesterEmail(),
+                    savedReq.getRequesterName(),
+                    savedReq.getReferenceNumber(),
+                    savedReq.getBloodType().getDisplayName(),
+                    savedReq.getNumberOfUnits()
+                );
+            } catch (Exception e) {
+                System.err.println("[BloodBagRequest] Failed to send approval email: " + e.getMessage());
+            }
         }
         
         return savedReq;
@@ -257,17 +261,19 @@ public class BloodBagRequestService {
                 BloodBagRequest.RequestStatus.READY_FOR_RELEASE,
                 reviewer);
         
-        // Send ready notification email
-        try {
-            emailService.sendRequestReadyEmail(
-                req.getRequesterEmail(),
-                req.getRequesterName(),
-                req.getReferenceNumber(),
-                req.getBloodType().getDisplayName(),
-                req.getNumberOfUnits()
-            );
-        } catch (Exception e) {
-            System.err.println("[BloodBagRequest] Failed to send ready email: " + e.getMessage());
+        // Send ready notification email only when an email address is present
+        if (hasRequesterEmail(req)) {
+            try {
+                emailService.sendRequestReadyEmail(
+                    req.getRequesterEmail(),
+                    req.getRequesterName(),
+                    req.getReferenceNumber(),
+                    req.getBloodType().getDisplayName(),
+                    req.getNumberOfUnits()
+                );
+            } catch (Exception e) {
+                System.err.println("[BloodBagRequest] Failed to send ready email: " + e.getMessage());
+            }
         }
         
         return req;
@@ -599,8 +605,9 @@ public class BloodBagRequestService {
             throw new IllegalArgumentException("Requester name is required.");
         if (dto.getRequesterContact() == null || dto.getRequesterContact().trim().isEmpty())
             throw new IllegalArgumentException("Contact number is required.");
-        if (dto.getRequesterEmail() == null || !dto.getRequesterEmail().contains("@"))
-            throw new IllegalArgumentException("Valid email address is required.");
+        String requesterEmail = normalizeOptionalEmail(dto.getRequesterEmail());
+        if (requesterEmail != null && !requesterEmail.contains("@"))
+            throw new IllegalArgumentException("Requester email must be a valid email address when provided.");
  
         // Required file
         if (doctorsNote == null || doctorsNote.isEmpty())
@@ -614,6 +621,16 @@ public class BloodBagRequestService {
     public BloodBagRequest getRequestById(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Blood request not found with id: " + id));
+    }
+
+    private String normalizeOptionalEmail(String email) {
+        if (email == null) return null;
+        String normalized = email.trim().toLowerCase();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private boolean hasRequesterEmail(BloodBagRequest request) {
+        return request.getRequesterEmail() != null && !request.getRequesterEmail().trim().isEmpty();
     }
     
  
