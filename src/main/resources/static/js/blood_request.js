@@ -1123,6 +1123,7 @@ URGENCY_LABELS.HIGH = 'High — 24hrs';
 const STATUS_CFG = {
   PENDING:    { label:'Pending Review',       badge:'status-pending',   step:1 },
   APPROVED:   { label:'Approved',             badge:'status-approved',  step:2 },
+  NEEDS_CONFIRMATION: { label:'Waiting for requester confirmation', badge:'status-pending', step:2 },
   ALLOCATED:  { label:'Allocated',            badge:'status-approved',  step:2 },
   READY_FOR_RELEASE: { label:'Ready for Pickup', badge:'status-released', step:3 },
   RELEASED:   { label:'Released',             badge:'status-released',  step:3 },
@@ -1181,13 +1182,21 @@ async function trackRequest() {
       component:       api.bloodComponent,
       urgency:         api.urgencyLevel,
       physician:       api.requestingPhysician,
-      units:           api.numberOfUnits || 0,
+      requestedUnits:  api.numberOfUnits || 0,
+      approvedUnits:   api.approvedUnits ?? null,
+      units:           api.patientAcceptedRemarks === true && api.approvedUnits != null
+        ? api.approvedUnits
+        : (api.numberOfUnits ?? 0),
       patientName:     api.patientName,
       submittedAt:     api.requestedAt,
       approvedAt:      api.reviewedAt,
       releasedAt:      null, // Will be added in future updates
       transfusedAt:    null,
       adminNotes:      api.notes,
+      approvalRemarks: api.approvalRemarks,
+      alternativeComponentSuggestion: api.alternativeComponentSuggestion,
+      patientAcceptedRemarks: api.patientAcceptedRemarks ?? null,
+      patientRespondedAt: api.patientRespondedAt ?? null,
       rejectionReason: api.rejectionReason
     };
   } catch (err) {
@@ -1213,6 +1222,7 @@ async function trackRequest() {
   const TRACK_STATUS_CFG = {
     PENDING:          { step: 1, label: "Pending",              badge: "pending" },
     APPROVED:         { step: 3, label: "Approved",             badge: "approved" },
+    NEEDS_CONFIRMATION:{ step: 3, label: "Waiting for requester confirmation",  badge: "pending" },
     ALLOCATED:        { step: 3, label: "Allocated",            badge: "approved" },
     READY_FOR_RELEASE:{ step: 4, label: "Ready for Release: Pick up in CNPH", badge: "approved" },
     RELEASED:         { step: 5, label: "Released",             badge: "released" },
@@ -1226,7 +1236,14 @@ async function trackRequest() {
   const steps = [
     { label: 'Request Submitted',   time: data.submittedAt ? fmtDate(data.submittedAt) : null },
     { label: 'Under Admin Review',  time: data.approvedAt  ? fmtDate(data.approvedAt)  : null },
-    { label: 'Approved / Allocated',time: data.approvedAt  ? fmtDate(data.approvedAt)  : null },
+    {
+      label: data.status === 'NEEDS_CONFIRMATION'
+        ? 'Waiting for Requester Confirmation'
+        : data.status === 'APPROVED' && data.patientAcceptedRemarks === true
+          ? 'Approved After Requester Confirmation'
+          : 'Approved / Allocated',
+      time: data.approvedAt ? fmtDate(data.approvedAt) : null
+    },
     { label: 'Ready for Release',   time: data.releasedAt  ? fmtDate(data.releasedAt)  : null },
     { label: 'Released',            time: data.releasedAt  ? fmtDate(data.releasedAt)  : null }
   ];
@@ -1267,11 +1284,36 @@ async function trackRequest() {
       </div>`;
   }
 
-  const adminNoteHtml = data.rejectionReason
+  let adminNoteHtml = data.rejectionReason
     ? `<div class="admin-note-box rejection"><strong>Reason:</strong> ${data.rejectionReason}</div>`
+    : data.approvalRemarks
+      ? `<div class="admin-note-box info">
+          <strong>Approval update:</strong> ${data.approvalRemarks}<br>
+          <strong>Requested units:</strong> ${data.requestedUnits}<br>
+          <strong>Approved units:</strong> ${data.approvedUnits ?? data.units}
+          ${data.alternativeComponentSuggestion ? `<br><strong>Alternative component:</strong> ${data.alternativeComponentSuggestion}` : ''}
+        </div>`
     : data.adminNotes
       ? `<div class="admin-note-box info">📋 <strong>Staff Note:</strong> ${data.adminNotes}</div>`
       : '';
+
+  if (data.status === 'APPROVED' && data.patientAcceptedRemarks === true && data.approvalRemarks) {
+    adminNoteHtml = `<div class="admin-note-box info">
+        <strong>Approval update accepted:</strong> ${data.approvalRemarks}<br>
+        <strong>Requested units:</strong> ${data.requestedUnits}<br>
+        <strong>Approved units:</strong> ${data.approvedUnits ?? data.units}
+        ${data.alternativeComponentSuggestion ? `<br><strong>Alternative component:</strong> ${data.alternativeComponentSuggestion}` : ''}
+      </div>`;
+  }
+
+  if (data.status === 'REJECTED' && data.patientAcceptedRemarks === false && data.approvalRemarks) {
+    adminNoteHtml = `<div class="admin-note-box rejection">
+        <strong>Approval update rejected:</strong> ${data.approvalRemarks}<br>
+        <strong>Approved units offered:</strong> ${data.approvedUnits ?? data.requestedUnits}
+        ${data.alternativeComponentSuggestion ? `<br><strong>Alternative component:</strong> ${data.alternativeComponentSuggestion}` : ''}
+        ${data.patientRespondedAt ? `<br><strong>Requester responded at:</strong> ${fmtDate(data.patientRespondedAt)}` : ''}
+      </div>`;
+  }
 
   resultEl.style.display = 'block';
   defaultEl.style.display = 'none';

@@ -2198,14 +2198,26 @@ window.exportBloodBagsToExcel = function() {
   /* ─────────────────────────────────────────────────────────
      CONSTANTS
   ───────────────────────────────────────────────────────── */
-  const REQ_STATUSES = ['PENDING', 'APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
+  const REQ_STATUSES = ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
   const REQ_STATUS_LABEL = {
-    PENDING: 'Pending', APPROVED: 'Approved', ALLOCATED: 'Allocated',
-    READY_FOR_RELEASE: 'Ready for release', RELEASED: 'Released', REJECTED: 'Rejected',
+    PENDING: 'Pending',
+    APPROVED: 'Approved',
+    NEEDS_CONFIRMATION: 'Waiting for requester confirmation',
+    ALLOCATED: 'Allocated',
+    READY_FOR_RELEASE: 'Ready for release',
+    RELEASED: 'Released',
+    REJECTED: 'Rejected',
+    CANCELLED: 'Cancelled',
   };
   const REQ_STATUS_TAG = {
-    PENDING: 'tag-pending', APPROVED: 'tag-approved', ALLOCATED: 'tag-allocated',
-    READY_FOR_RELEASE: 'tag-ready', RELEASED: 'tag-released', REJECTED: 'tag-rejected',
+    PENDING: 'tag-pending',
+    APPROVED: 'tag-approved',
+    NEEDS_CONFIRMATION: 'tag-needs-confirmation',
+    ALLOCATED: 'tag-allocated',
+    READY_FOR_RELEASE: 'tag-ready',
+    RELEASED: 'tag-released',
+    REJECTED: 'tag-rejected',
+    CANCELLED: 'tag-inactive',
   };
   const REQ_URGENCY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
   const REQ_URGENCY_COLOR = {
@@ -2227,7 +2239,7 @@ window.exportBloodBagsToExcel = function() {
   const CONFIRM_COPY = {
     approve:  {
       title:      'Approve this request?',
-      body:       'This will move the request to <strong>Approved</strong>. You can select a blood bag when marking it as Allocated.',
+      body:       'This will move the request to <strong>Approved</strong> only when enough compatible bags are available for full fulfillment.',
       confirmCls: 'req-btn-approve',
     },
     ready: {
@@ -2259,6 +2271,8 @@ window.exportBloodBagsToExcel = function() {
   let reqExpanded      = {};
   let reqCurrentFilter = 'ALL';
   let reqPendingRejectId = null;
+  let reqPendingResolutionMode = 'reject';
+  let reqPendingRemarksId = null;
  
   let confirmPending = null;
  
@@ -2291,6 +2305,14 @@ window.exportBloodBagsToExcel = function() {
  
     const bloodTypeEnum = r.bloodType ?? '—';
     const displayBloodType = formatBloodType(bloodTypeEnum);
+    const requestedUnits = r.numberOfUnits ?? r.volumeMl ?? 1;
+    const approvedUnits = r.approvedUnits ?? null;
+    const workflowUnits =
+      Number.isInteger(approvedUnits) && approvedUnits > 0 &&
+      (r.status === 'NEEDS_CONFIRMATION' || r.patientAcceptedRemarks === true)
+        ? approvedUnits
+        : requestedUnits;
+
     return {
       id:             r.id,
       name,
@@ -2313,7 +2335,9 @@ window.exportBloodBagsToExcel = function() {
       bloodType:      displayBloodType,
       component:      COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '—',
       bloodComponent: r.bloodComponent   ?? null,
-      units:          r.numberOfUnits    ?? r.volumeMl ?? 1,
+      units:          workflowUnits,
+      requestedUnits,
+      approvedUnits,
       volumeMl:       r.volumeMl         ?? null,
       urgency:        r.urgencyLevel     ?? 'LOW',
       urgencyLevel:   r.urgencyLevel     ?? 'LOW',
@@ -2326,6 +2350,11 @@ window.exportBloodBagsToExcel = function() {
       requesterRelationship: r.requesterRelationship ?? null,
       requesterContact: r.requesterContact ?? null,
       requesterEmail: r.requesterEmail   ?? null,
+      confirmationEmailSentAt: r.confirmationEmailSentAt ?? null,
+      approvalRemarks: r.approvalRemarks ?? null,
+      alternativeComponentSuggestion: r.alternativeComponentSuggestion ?? null,
+      patientAcceptedRemarks: r.patientAcceptedRemarks ?? null,
+      patientRespondedAt: r.patientRespondedAt ?? null,
       notes:          r.notes            ?? null,
       indication:     r.indication       ?? null,
       indicationOtherSpecify:     r.indicationOtherSpecify       ?? null,
@@ -2345,6 +2374,32 @@ window.exportBloodBagsToExcel = function() {
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
       allocatedBags,
+    };
+  }
+
+  function reqHasAcceptedPartialApproval(req) {
+    return Number.isInteger(req?.approvedUnits) && req.approvedUnits > 0 && req?.patientAcceptedRemarks === true;
+  }
+
+  function reqGetRequiredUnits(req) {
+    if (reqHasAcceptedPartialApproval(req)) {
+      return req.approvedUnits;
+    }
+    return req?.requestedUnits ?? req?.units ?? 0;
+  }
+
+  function reqGetAvailabilitySnapshot(req) {
+    const cache = reqBagCache[req.id];
+    const compatible = Array.isArray(cache?.bags)
+      ? cache.bags.filter(b => b.compatible !== false)
+      : [];
+    const required = reqGetRequiredUnits(req);
+    return {
+      known: Array.isArray(cache?.bags),
+      compatible,
+      available: compatible.length,
+      required,
+      enough: compatible.length >= required,
     };
   }
  
@@ -2400,7 +2455,7 @@ window.exportBloodBagsToExcel = function() {
       const params = new URLSearchParams({
         bloodType: req.bloodTypeEnum.replace(/[^A-Za-z0-9_]/g, '_'),
         component: req.bloodComponent ?? '',
-        units:     req.units,
+        units:     reqGetRequiredUnits(req),
       });
       const res  = await fetch(`${API_BASE}/admin/available?${params}`, { headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -2415,39 +2470,37 @@ window.exportBloodBagsToExcel = function() {
       reqBagCache[cacheKey] = { loading: false, bags: [], error: err.message };
     }
  
-    const previewEl = document.getElementById(`req-bag-preview-${req.id}`);
-    if (previewEl) {
-      previewEl.outerHTML = reqBuildBagPreviewHTML(req);
-    }
+    reqRender();
   }
  
   function reqBuildBagPreviewHTML(req) {
     const cache = reqBagCache[req.id];
     const id    = `req-bag-preview-${req.id}`;
  
-    if (!['PENDING', 'APPROVED'].includes(req.status)) return `<div id="${id}"></div>`;
+    if (!['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status)) return `<div id="${id}"></div>`;
  
     if (!cache || cache.loading) {
       return `<div id="${id}" class="req-bag-preview-wrap">
-        <div class="req-section-label">Compatible blood bags</div>
+        <div class="req-section-label">Available blood bags</div>
         <div class="req-bag-preview-loading">⏳ Checking available bags…</div>
       </div>`;
     }
     if (cache.error) {
       return `<div id="${id}" class="req-bag-preview-wrap">
-        <div class="req-section-label">Compatible blood bags</div>
+        <div class="req-section-label">Available blood bags</div>
         <div class="req-bag-preview-loading" style="color:var(--crimson)">⚠️ ${cache.error}</div>
       </div>`;
     }
     if (!cache.bags?.length) {
       return `<div id="${id}" class="req-bag-preview-wrap">
-        <div class="req-section-label">Compatible blood bags</div>
-        <div class="req-bag-preview-loading">📭 No compatible bags in stock for ${req.bloodType}.</div>
+        <div class="req-section-label">Available blood bags</div>
+        <div class="req-bag-preview-loading"> No Available bags in stock for ${req.bloodType}.</div>
       </div>`;
     }
  
     const compatible = cache.bags.filter(b => b.compatible !== false);
     const others     = cache.bags.filter(b => b.compatible === false);
+    const availability = reqGetAvailabilitySnapshot(req);
     const now        = Date.now();
  
     function bagRow(b) {
@@ -2470,8 +2523,8 @@ window.exportBloodBagsToExcel = function() {
  
     return `<div id="${id}" class="req-bag-preview-wrap">
       <div class="req-section-label" style="display:flex;align-items:center;gap:8px">
-        Compatible blood bags
-        <span class="req-bag-preview-count">${compatible.length} compatible · ${cache.bags.length} total available</span>
+        Available blood bags
+        <span class="req-bag-preview-count">${compatible.length} - compatible · ${cache.bags.length} - total available</span>
       </div>
       <div class="req-bag-preview-list">
         ${compatible.map(bagRow).join('')}
@@ -2655,7 +2708,7 @@ window.exportBloodBagsToExcel = function() {
       req.status = data.status ?? 'ALLOCATED';
       reqRender();
     } catch (err) {
-      console.error('[reqAllocate] failed', err);
+      console.error(`[req${isChange ? 'Reallocate' : 'Allocate'}] failed`, err);
       req.status        = prevStatus;
       req.allocatedBags = prevBags;
       reqRender();
@@ -2668,6 +2721,16 @@ window.exportBloodBagsToExcel = function() {
     if (!req) return;
     const next = REQ_NEXT[req.status];
     if (!next) return;
+
+    if (endpoint === 'approve') {
+      const availability = reqGetAvailabilitySnapshot(req);
+      if (availability.known && !availability.enough) {
+        alert(
+          `Not enough available bags for full approval. Available compatible bags: ${availability.available} of ${availability.required}. Use Approve with Remarks instead.`
+        );
+        return;
+      }
+    }
  
     if (endpoint === 'allocate') {
       openBagPicker(id, false);
@@ -2698,7 +2761,7 @@ window.exportBloodBagsToExcel = function() {
     if (!confirmPending) return;
     const { id, endpoint, next } = confirmPending;
     reqCloseConfirm();
- 
+
     const r = reqData.find(x => x.id === id);
     if (!r) return;
     const prevStatus = r.status;
@@ -2763,17 +2826,313 @@ window.exportBloodBagsToExcel = function() {
     openReleaseReceipt(req, {});
   };
 
-  window.reqOpenReject = function (id) {
+  function reqOpenApproveWithRemarksLegacy(id) {
+    reqPendingRemarksId = id;
+    const req = reqData.find(x => x.id === id);
+    if (!req) return;
+
+    document.getElementById('req-remarks-subtitle').textContent = `${req.name} — ${req.patient}`;
+    document.getElementById('req-remarks-requested-units').textContent = req.requestedUnits ?? req.units ?? '—';
+    document.getElementById('req-remarks-email').textContent = req.requesterEmail || 'No requester email on file';
+    document.getElementById('req-approved-units').value = req.requestedUnits ?? req.units ?? '';
+    document.getElementById('req-approval-remarks').value = '';
+    document.getElementById('req-alternative-component').value = '';
+    document.getElementById('req-remarks-modal').classList.add('open');
+  };
+
+  function reqCloseApproveWithRemarksLegacy() {
+    document.getElementById('req-remarks-modal').classList.remove('open');
+  };
+
+  async function reqSubmitApproveWithRemarksLegacy() {
+    const req = reqData.find(x => x.id === reqPendingRemarksId);
+    if (!req) return;
+
+    if (!req.requesterEmail || !req.requesterEmail.trim()) {
+      alert('Requester email is required before a confirmation email can be sent.');
+      return;
+    }
+
+    const approvedUnits = Number(document.getElementById('req-approved-units').value);
+    const approvalRemarks = document.getElementById('req-approval-remarks').value.trim();
+    const alternativeComponentSuggestion = document.getElementById('req-alternative-component').value.trim();
+
+    if (!Number.isInteger(approvedUnits) || approvedUnits <= 0) {
+      alert('Approved units must be greater than 0.');
+      return;
+    }
+    if (approvedUnits > (req.requestedUnits ?? req.units ?? 0)) {
+      alert('Approved units cannot be greater than the requested units.');
+      return;
+    }
+    if (!approvalRemarks) {
+      alert('Approval remarks are required.');
+      return;
+    }
+
+    const prevState = {
+      status: req.status,
+      units: req.units,
+      approvedUnits: req.approvedUnits,
+      approvalRemarks: req.approvalRemarks,
+      alternativeComponentSuggestion: req.alternativeComponentSuggestion,
+      patientAcceptedRemarks: req.patientAcceptedRemarks,
+      confirmationEmailSentAt: req.confirmationEmailSentAt
+    };
+
+    req.status = 'NEEDS_CONFIRMATION';
+    req.units = approvedUnits;
+    req.approvedUnits = approvedUnits;
+    req.approvalRemarks = approvalRemarks;
+    req.alternativeComponentSuggestion = alternativeComponentSuggestion || null;
+    req.patientAcceptedRemarks = null;
+    req.confirmationEmailSentAt = new Date().toISOString();
+    reqExpanded[req.id] = true;
+    reqCloseApproveWithRemarks();
+    reqRender();
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/blood-requests/${req.id}/approve-with-remarks`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approvedUnits,
+          approvalRemarks,
+          alternativeComponentSuggestion: alternativeComponentSuggestion || null
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      req.status = data.status ?? 'NEEDS_CONFIRMATION';
+      req.approvedUnits = data.approvedUnits ?? approvedUnits;
+      req.units = req.approvedUnits ?? approvedUnits;
+      req.confirmationEmailSentAt = data.confirmationEmailSentAt ?? req.confirmationEmailSentAt;
+      reqRender();
+      alert(data.message ?? 'Confirmation email sent to requester.');
+    } catch (err) {
+      console.error('[reqApproveWithRemarks] failed', err);
+      req.status = prevState.status;
+      req.units = prevState.units;
+      req.approvedUnits = prevState.approvedUnits;
+      req.approvalRemarks = prevState.approvalRemarks;
+      req.alternativeComponentSuggestion = prevState.alternativeComponentSuggestion;
+      req.patientAcceptedRemarks = prevState.patientAcceptedRemarks;
+      req.confirmationEmailSentAt = prevState.confirmationEmailSentAt;
+      reqRender();
+      alert(`Approve with remarks failed: ${err.message}`);
+    }
+  };
+
+  function reqClearRemarksFeedback() {
+    const feedback = document.getElementById('req-remarks-feedback');
+    if (feedback) {
+      feedback.hidden = true;
+      feedback.textContent = '';
+    }
+
+    ['req-approved-units', 'req-approval-remarks', 'req-alternative-component'].forEach(id => {
+      const field = document.getElementById(id);
+      if (field) field.classList.remove('is-invalid');
+    });
+  }
+
+  function reqShowRemarksFeedback(message, fieldId = null) {
+    const feedback = document.getElementById('req-remarks-feedback');
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.textContent = message;
+    }
+
+    if (fieldId) {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.classList.add('is-invalid');
+        field.focus();
+      }
+    }
+  }
+
+  function reqSetRemarksSubmitting(isSubmitting) {
+    const submitBtn = document.getElementById('req-remarks-submit-btn');
+    if (submitBtn) {
+      submitBtn.disabled = isSubmitting;
+      submitBtn.textContent = isSubmitting ? 'Sending Confirmation...' : 'Send Confirmation Email';
+    }
+  }
+
+  window.reqOpenApproveWithRemarks = function(id) {
+    reqPendingRemarksId = id;
+    const req = reqData.find(x => x.id === id);
+    if (!req) return;
+
+    reqClearRemarksFeedback();
+    reqSetRemarksSubmitting(false);
+
+    document.getElementById('req-remarks-subtitle').textContent = `${req.name} - ${req.patient}`;
+    document.getElementById('req-remarks-requested-units').textContent = req.requestedUnits ?? req.units ?? 'N/A';
+    document.getElementById('req-remarks-email').textContent = req.requesterEmail || 'No requester email on file';
+    document.getElementById('req-approved-units').value = req.requestedUnits ?? req.units ?? '';
+    document.getElementById('req-approval-remarks').value = '';
+    document.getElementById('req-alternative-component').value = '';
+
+    const submitBtn = document.getElementById('req-remarks-submit-btn');
+    const hasRequesterEmail = !!(req.requesterEmail && req.requesterEmail.trim());
+    if (submitBtn) submitBtn.disabled = !hasRequesterEmail;
+    if (!hasRequesterEmail) {
+      reqShowRemarksFeedback('Requester email is required before a confirmation email can be sent.');
+    }
+
+    document.getElementById('req-remarks-modal').classList.add('open');
+  };
+
+  window.reqCloseApproveWithRemarks = function() {
+    document.getElementById('req-remarks-modal').classList.remove('open');
+    reqPendingRemarksId = null;
+    reqClearRemarksFeedback();
+    reqSetRemarksSubmitting(false);
+  };
+
+  window.reqSubmitApproveWithRemarks = async function() {
+    const req = reqData.find(x => x.id === reqPendingRemarksId);
+    if (!req) return;
+
+    reqClearRemarksFeedback();
+
+    if (!req.requesterEmail || !req.requesterEmail.trim()) {
+      reqShowRemarksFeedback('Requester email is required before a confirmation email can be sent.');
+      return;
+    }
+
+    const approvedUnits = Number(document.getElementById('req-approved-units').value);
+    const approvalRemarks = document.getElementById('req-approval-remarks').value.trim();
+    const alternativeComponentSuggestion = document.getElementById('req-alternative-component').value.trim();
+    const requestedUnits = req.requestedUnits ?? req.units ?? 0;
+
+    if (!Number.isInteger(approvedUnits) || approvedUnits <= 0) {
+      reqShowRemarksFeedback('Approved units must be greater than 0.', 'req-approved-units');
+      return;
+    }
+    if (approvedUnits > requestedUnits) {
+      reqShowRemarksFeedback('Approved units cannot be greater than the requested units.', 'req-approved-units');
+      return;
+    }
+    if (!approvalRemarks) {
+      reqShowRemarksFeedback('Approval remarks are required.', 'req-approval-remarks');
+      return;
+    }
+
+    reqSetRemarksSubmitting(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/blood-requests/${req.id}/approve-with-remarks`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          approvedUnits,
+          approvalRemarks,
+          alternativeComponentSuggestion: alternativeComponentSuggestion || null
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      req.status = data.status ?? 'NEEDS_CONFIRMATION';
+      req.units = data.approvedUnits ?? approvedUnits;
+      req.approvedUnits = data.approvedUnits ?? approvedUnits;
+      req.approvalRemarks = data.approvalRemarks ?? approvalRemarks;
+      req.alternativeComponentSuggestion = data.alternativeComponentSuggestion ?? (alternativeComponentSuggestion || null);
+      req.patientAcceptedRemarks = null;
+      req.confirmationEmailSentAt = data.confirmationEmailSentAt ?? new Date().toISOString();
+      reqExpanded[req.id] = true;
+
+      delete reqBagCache[req.id];
+      reqCloseApproveWithRemarks();
+      reqRender();
+      setTimeout(() => reqFetchCompatibleBags(req), 0);
+
+      const successMessage = data.message
+        ?? `A confirmation email was sent to ${req.requesterEmail}. The request is now waiting for requester confirmation.`;
+      if (typeof showSysSuccessModal === 'function') {
+        showSysSuccessModal('Confirmation Email Sent', successMessage);
+      } else if (typeof showToast === 'function') {
+        showToast(successMessage, 'success');
+      }
+    } catch (err) {
+      console.error('[reqApproveWithRemarks] failed', err);
+      reqShowRemarksFeedback(`Approve with remarks failed: ${err.message}`);
+    } finally {
+      reqSetRemarksSubmitting(false);
+    }
+  };
+
+  function reqGetResolutionConfig(mode) {
+    if (mode === 'cancel') {
+      return {
+        title: 'Cancel Request',
+        helper: 'Use this when the request can no longer be fulfilled. Reserved bags will be released back to inventory.',
+        label: 'Cancellation Note',
+        placeholder: 'e.g. Crossmatched bags became unavailable, storage issue, sudden stock discrepancy...',
+        confirmText: 'Confirm Cancel',
+        endpoint: 'cancel',
+        requestKey: 'cancellationReason',
+        nextStatus: 'CANCELLED',
+        failureLabel: 'Cancellation',
+      };
+    }
+
+    return {
+      title: 'Reject Request',
+      helper: 'This will notify the requester. Provide a clear, specific reason.',
+      label: 'Reason for Rejection',
+      placeholder: 'e.g. Incompatible blood type on cross-match, insufficient documentation...',
+      confirmText: 'Confirm Reject',
+      endpoint: 'reject',
+      requestKey: 'rejectionReason',
+      nextStatus: 'REJECTED',
+      failureLabel: 'Rejection',
+    };
+  }
+
+  function reqOpenResolutionModal(id, mode) {
     reqPendingRejectId = id;
+    reqPendingResolutionMode = mode;
     const r = reqData.find(x => x.id === id);
-    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} — ${r.patient}` : '';
+    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} - ${r.patient}` : '';
+    const config = reqGetResolutionConfig(mode);
+    document.getElementById('req-reject-title').textContent = config.title;
+    document.getElementById('req-reject-helper').innerHTML = `<span>âš </span><span>${config.helper}</span>`;
+    document.getElementById('req-reject-label').textContent = config.label;
+    document.getElementById('req-reject-confirm').textContent = config.confirmText;
+    document.getElementById('req-reject-helper').innerHTML = `<span>!</span><span>${config.helper}</span>`;
+    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} - ${r.patient}` : '';
     document.getElementById('req-reject-reason').value = '';
+    document.getElementById('req-reject-reason').placeholder = config.placeholder;
     document.getElementById('req-reject-reason').style.borderColor = 'var(--border)';
     document.getElementById('req-reject-modal').classList.add('open');
+  }
+
+  window.reqOpenReject = function (id) {
+    reqOpenResolutionModal(id, 'reject');
+    const r = reqData.find(x => x.id === id);
+    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} - ${r.patient}` : '';
+    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} — ${r.patient}` : '';
+  };
+
+  window.reqOpenCancel = function (id) {
+    reqOpenResolutionModal(id, 'cancel');
   };
  
   window.reqCloseReject = function () {
     document.getElementById('req-reject-modal').classList.remove('open');
+    reqPendingRejectId = null;
+    reqPendingResolutionMode = 'reject';
   };
  
   window.reqConfirmReject = async function () {
@@ -2782,20 +3141,30 @@ window.exportBloodBagsToExcel = function() {
       document.getElementById('req-reject-reason').style.borderColor = 'var(--crimson)';
       return;
     }
-    const r = reqData.find(x => x.id === reqPendingRejectId);
+    const targetId = reqPendingRejectId;
+    const r = reqData.find(x => x.id === targetId);
     if (!r) return;
-    const prevStatus = r.status;
-    r.status          = 'REJECTED';
+    const config = reqGetResolutionConfig(reqPendingResolutionMode);
+    const prevState = {
+      status: r.status,
+      rejectionReason: r.rejectionReason,
+      allocatedBags: r.allocatedBags,
+    };
+    r.status = config.nextStatus;
     r.rejectionReason = reason;
+    r.allocatedBags = [];
     reqCloseReject();
-    reqExpanded[reqPendingRejectId] = true;
+    reqExpanded[targetId] = true;
     reqRender();
  
     try {
-      const res = await fetch(`${API_BASE}/admin/blood-requests/${reqPendingRejectId}/reject`, {
+      const res = await fetch(`${API_BASE}/admin/blood-requests/${targetId}/${config.endpoint}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rejectionReason: reason }),
+        body: JSON.stringify({
+          [config.requestKey]: reason,
+          notes: reason,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -2803,10 +3172,11 @@ window.exportBloodBagsToExcel = function() {
       }
     } catch (err) {
       console.error('[reqConfirmReject] failed', err);
-      r.status          = prevStatus;
-      r.rejectionReason = null;
+      r.status = prevState.status;
+      r.rejectionReason = prevState.rejectionReason;
+      r.allocatedBags = prevState.allocatedBags;
       reqRender();
-      alert(`Rejection failed: ${err.message}`);
+      alert(`${config.failureLabel} failed: ${err.message}`);
     }
   };
  
@@ -2850,15 +3220,29 @@ window.exportBloodBagsToExcel = function() {
     reqRender();
   };
  
-  function reqRenderFlow(status) {
-    if (status === 'REJECTED') return `<div style="margin-bottom:16px"><span class="tag tag-rejected">Rejected</span></div>`;
-    const idx = REQ_STATUSES.indexOf(status);
+  function reqUsesConfirmationFlow(req) {
+    return Boolean(
+      req.approvalRemarks ||
+      req.approvedUnits != null ||
+      req.patientAcceptedRemarks != null ||
+      req.status === 'NEEDS_CONFIRMATION'
+    );
+  }
+
+  function reqRenderFlow(req) {
+    if (req.status === 'REJECTED') return `<div style="margin-bottom:16px"><span class="tag tag-rejected">Rejected</span></div>`;
+    if (req.status === 'CANCELLED') return `<div style="margin-bottom:16px"><span class="tag tag-inactive">Cancelled</span></div>`;
+
+    const flowStatuses = reqUsesConfirmationFlow(req)
+      ? ['PENDING', 'NEEDS_CONFIRMATION', 'APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED']
+      : ['PENDING', 'APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
+    const idx = flowStatuses.indexOf(req.status);
     let h = `<div class="req-status-flow">`;
-    REQ_STATUSES.forEach((s, i) => {
+    flowStatuses.forEach((s, i) => {
       const cls = i < idx ? 'done' : i === idx ? 'active' : 'todo';
       h += `<div class="req-sf-step">
               <span class="req-sf-node ${cls}">${REQ_STATUS_LABEL[s]}</span>
-              ${i < REQ_STATUSES.length - 1 ? '<span class="req-sf-arrow">›</span>' : ''}
+              ${i < flowStatuses.length - 1 ? '<span class="req-sf-arrow">›</span>' : ''}
             </div>`;
     });
     return h + `</div>`;
@@ -2908,23 +3292,80 @@ window.exportBloodBagsToExcel = function() {
       </div>`;
     }
 
-    if (req.status === 'REJECTED') return '';
+    if (['REJECTED', 'CANCELLED'].includes(req.status)) return '';
     const next = REQ_NEXT[req.status];
-    if (!next) return '';
-    let h = `<div class="req-action-bar">
-      <button class="req-btn ${next.cls}" onclick="reqOpenConfirm(${req.id},'${next.endpoint}')">${next.label}</button>`;
-    if (req.status === 'PENDING' || req.status === 'APPROVED') {
+    const availability = reqGetAvailabilitySnapshot(req);
+    const canReject = ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status);
+    const canCancel = ['APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE'].includes(req.status);
+    const approveChecking = req.status === 'PENDING' && !availability.known;
+    const approveDisabled = req.status === 'PENDING' && availability.known && !availability.enough;
+    if (!next && !canReject && !canCancel) return '';
+    let h = `<div class="req-action-bar">`;
+    if (next) {
+      if (req.status === 'PENDING' && (approveChecking || approveDisabled)) {
+        h += `<button class="req-btn ${next.cls}" disabled title="${approveChecking ? 'Checking available compatible bags for full approval.' : 'Not enough available bags for full approval. Use Approve with Remarks instead.'}">${next.label}</button>`;
+      } else {
+        h += `<button class="req-btn ${next.cls}" onclick="reqOpenConfirm(${req.id},'${next.endpoint}')">${next.label}</button>`;
+      }
+    }
+    if (req.status === 'PENDING') {
+      h += `<button class="req-btn req-btn-review" onclick="reqOpenApproveWithRemarks(${req.id})">Approve with Remarks</button>`;
+    }
+    if (canReject) {
       h += `<button class="req-btn req-btn-reject" onclick="reqOpenReject(${req.id})">Reject</button>`;
     }
+    if (canCancel) {
+      h += `<button class="req-btn req-btn-reject" onclick="reqOpenCancel(${req.id})">Cancel with Note</button>`;
+    }
+    if (approveChecking) {
+      h += `<div style="width:100%;padding:10px 12px;border-radius:12px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18);color:var(--blue);font-size:12px;line-height:1.6">Checking compatible stock before full approval.</div>`;
+    }
+    if (approveDisabled) {
+      h += `<div style="width:100%;padding:10px 12px;border-radius:12px;background:rgba(244,162,89,0.12);border:1px solid rgba(244,162,89,0.28);color:#9A5B13;font-size:12px;line-height:1.6">Not enough available bags for full approval. Use <strong>Approve with Remarks</strong> to offer partial fulfillment.</div>`;
+    }
     return h + `</div>`;
+  }
+
+  function reqRenderApprovalSummary(req) {
+    if (!req.approvedUnits && !req.approvalRemarks && !req.alternativeComponentSuggestion) return '';
+
+    const requestedVsApproved = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
+      ? `<div class="req-detail-row"><span class="lbl">Requested units</span><span class="val">${req.requestedUnits}</span></div>
+         <div class="req-detail-row"><span class="lbl">Approved units</span><span class="val">${req.approvedUnits}</span></div>`
+      : `<div class="req-detail-row"><span class="lbl">Approved units</span><span class="val">${req.approvedUnits ?? req.requestedUnits}</span></div>`;
+
+    const responseLabel = req.patientAcceptedRemarks === true
+      ? 'Requester accepted via email'
+      : req.patientAcceptedRemarks === false
+        ? 'Requester rejected via email'
+        : 'Awaiting requester reply';
+
+    return `
+      <div class="req-detail-box" style="margin-bottom:12px;border-left:3px solid #F4A259">
+        <div class="req-detail-box-title" style="color:#9A5B13">Approval summary</div>
+        ${requestedVsApproved}
+        <div class="req-detail-row"><span class="lbl">Remarks</span><span class="val">${req.approvalRemarks ?? '—'}</span></div>
+        ${req.alternativeComponentSuggestion
+          ? `<div class="req-detail-row"><span class="lbl">Alternative component</span><span class="val">${req.alternativeComponentSuggestion}</span></div>`
+          : ''}
+        <div class="req-detail-row"><span class="lbl">Requester email</span><span class="val">${req.requesterEmail ?? 'â€”'}</span></div>
+        <div class="req-detail-row"><span class="lbl">Email sent at</span><span class="val">${req.confirmationEmailSentAt ? formatDateTime(req.confirmationEmailSentAt) : 'â€”'}</span></div>
+        <div class="req-detail-row"><span class="lbl">Confirmation status</span><span class="val">${responseLabel}</span></div>
+        ${req.patientRespondedAt
+          ? `<div class="req-detail-row"><span class="lbl">Requester responded at</span><span class="val">${formatDateTime(req.patientRespondedAt)}</span></div>`
+          : ''}
+      </div>`;
   }
  
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
     const typeLabel = req.type === 'ANONYMOUS' ? '' : `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${req.type})</span>`;
+    const unitsMeta = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
+      ? `${req.approvedUnits} ${req.status === 'NEEDS_CONFIRMATION' ? 'offered' : 'approved'} of ${req.requestedUnits} requested`
+      : `${req.units} unit${req.units > 1 ? 's' : ''}`;
  
-    if (isExp && ['PENDING', 'APPROVED'].includes(req.status)) {
+    if (isExp && ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status)) {
       setTimeout(() => reqFetchCompatibleBags(req), 0);
     }
  
@@ -2940,7 +3381,7 @@ window.exportBloodBagsToExcel = function() {
               <span>${req.referenceNumber ? `Ref: ${req.name}` : 'N/A'}</span><span class="req-meta-dot"></span>
               <span>${req.patient}</span><span class="req-meta-dot"></span>
               <span>${req.component}</span><span class="req-meta-dot"></span>
-              <span style="font-weight:600;color:var(--charcoal)">${req.units} unit${req.units > 1 ? 's' : ''}</span>
+              <span style="font-weight:600;color:var(--charcoal)">${unitsMeta}</span>
               <span class="req-meta-dot"></span><span>${req.date}</span>
             </div>
           </div>
@@ -2952,7 +3393,7 @@ window.exportBloodBagsToExcel = function() {
       </div>
  
       <div class="req-detail${isExp ? ' open' : ''}" id="req-detail-${req.id}">
-        ${reqRenderFlow(req.status)}
+        ${reqRenderFlow(req)}
  
         <div class="req-detail-grid">
           <div class="req-detail-box" onclick="window.openReqDetailsModal(${req.id})" 
@@ -2963,7 +3404,7 @@ window.exportBloodBagsToExcel = function() {
             <div class="req-detail-row"><span class="lbl">Name</span><span class="val">${req.patient}</span></div>
             <div class="req-detail-row"><span class="lbl">Blood type</span><span class="val">${req.bloodType}</span></div>
             <div class="req-detail-row"><span class="lbl">Component</span><span class="val">${req.component}</span></div>
-            <div class="req-detail-row"><span class="lbl">Units needed</span><span class="val">${req.units}</span></div>
+            <div class="req-detail-row"><span class="lbl">Units requested</span><span class="val">${req.requestedUnits}</span></div>
           </div>
           <div class="req-detail-box" onclick="window.openReqDetailsModal(${req.id})" 
                style="cursor:pointer;transition:all 0.2s ease"
@@ -2977,6 +3418,8 @@ window.exportBloodBagsToExcel = function() {
           </div>
         </div>
  
+        ${reqRenderApprovalSummary(req)}
+
         <div class="req-section-label">Supporting document</div>
         <div class="req-doc-preview" onclick="reqViewDoc('${req.docUrl}','${req.docLabel}')">
           <div class="req-doc-icon">
@@ -2992,9 +3435,9 @@ window.exportBloodBagsToExcel = function() {
           <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View ↗</span>
         </div>
  
-        ${req.status === 'REJECTED' && req.rejectionReason
+        ${['REJECTED', 'CANCELLED'].includes(req.status) && req.rejectionReason
           ? `<div class="req-detail-box" style="margin-bottom:12px;border-left:3px solid var(--crimson)">
-              <div class="req-detail-box-title" style="color:var(--crimson)">Rejection reason</div>
+              <div class="req-detail-box-title" style="color:var(--crimson)">Resolution note</div>
               <div style="font-size:13px;color:var(--charcoal);line-height:1.6">${req.rejectionReason}</div>
             </div>` : ''}
  
@@ -3027,10 +3470,12 @@ window.exportBloodBagsToExcel = function() {
       'ALL': reqData.length,
       'PENDING': reqData.filter(r => r.status === 'PENDING').length,
       'APPROVED': reqData.filter(r => r.status === 'APPROVED').length,
+      'NEEDS_CONFIRMATION': reqData.filter(r => r.status === 'NEEDS_CONFIRMATION').length,
       'ALLOCATED': reqData.filter(r => r.status === 'ALLOCATED').length,
       'READY_FOR_RELEASE': reqData.filter(r => r.status === 'READY_FOR_RELEASE').length,
       'RELEASED': reqData.filter(r => r.status === 'RELEASED').length,
       'REJECTED': reqData.filter(r => r.status === 'REJECTED').length,
+      'CANCELLED': reqData.filter(r => r.status === 'CANCELLED').length,
     };
 
     // Update the ALL and PENDING with IDs (they exist in HTML)
@@ -3040,7 +3485,7 @@ window.exportBloodBagsToExcel = function() {
     if (pendEl) pendEl.textContent = counts['PENDING'];
 
     // Update all other filter chips by looking for their onclick attribute
-    ['APPROVED', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED', 'REJECTED'].forEach(status => {
+    ['APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED', 'REJECTED', 'CANCELLED'].forEach(status => {
       // Find the button with this status filter
       const buttons = document.querySelectorAll('#req-filters button');
       buttons.forEach(btn => {
@@ -3070,19 +3515,20 @@ window.exportBloodBagsToExcel = function() {
     Object.keys(reqExpanded).forEach(reqId => {
       if (reqExpanded[reqId]) {
         const req = reqData.find(r => r.id == reqId);
-        if (req && ['PENDING', 'APPROVED'].includes(req.status)) {
+        if (req && ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status)) {
           setTimeout(() => reqFetchCompatibleBags(req), 0);
         }
       }
     });
   };
  
-  ['req-reject-modal', 'req-doc-modal', 'req-confirm-modal', 'req-bag-picker-modal'].forEach(modalId => {
+  ['req-reject-modal', 'req-remarks-modal', 'req-doc-modal', 'req-confirm-modal', 'req-bag-picker-modal'].forEach(modalId => {
     const el = document.getElementById(modalId);
     if (!el) return;
     el.addEventListener('click', e => {
       if (e.target !== e.currentTarget) return;
       if (modalId === 'req-reject-modal')      reqCloseReject();
+      else if (modalId === 'req-remarks-modal') reqCloseApproveWithRemarks();
       else if (modalId === 'req-confirm-modal') reqCloseConfirm();
       else if (modalId === 'req-bag-picker-modal') reqCloseBagPicker();
       else el.classList.remove('open');
@@ -3333,9 +3779,9 @@ window.exportBloodBagsToExcel = function() {
           </div>
         </div>
 
-        ${req.status === 'REJECTED' && req.rejectionReason ? `
+        ${['REJECTED', 'CANCELLED'].includes(req.status) && req.rejectionReason ? `
           <div class="req-details-section req-details-section-rejected">
-            <div class="req-details-section-title" style="color: var(--crimson)">Rejection Reason</div>
+            <div class="req-details-section-title" style="color: var(--crimson)">Resolution Note</div>
             <div class="req-details-value" style="color: var(--charcoal); line-height: 1.6;">${req.rejectionReason}</div>
           </div>
         ` : ''}
@@ -5295,7 +5741,6 @@ function renderStatusLogsTable(response) {
     response.data.forEach(log => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td><strong>#${log.request?.id || 'N/A'}</strong></td>
         <td>${log.request?.referenceNumber || '—'}</td>
         <td><span class="status-badge" style="background:#E8F0FF;color:#0066CC">${log.oldStatus || '—'}</span></td>
         <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus}</span></td>
@@ -5425,7 +5870,7 @@ function renderFulfillmentsTable(response) {
     response.data.forEach(fulfillment => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td><strong>#${fulfillment.request?.id || 'N/A'}</strong></td>
+        <td><strong>${fulfillment.request?.referenceNumber || 'N/A'}</strong></td>
         <td><strong>${fulfillment.bloodBag?.serialNumber || 'N/A'}</strong></td>
         <td>${fulfillment.bloodBag?.bloodType || '—'}</td>
         <td>${fulfillment.bloodBag?.componentType || '—'}</td>

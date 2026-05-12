@@ -228,6 +228,8 @@ body {
 }
 .badge-pending   { background: var(--amber-soft);  color: var(--amber); }
 .badge-approved  { background: var(--blue-soft);   color: var(--blue); }
+.badge-needs-confirmation { background: var(--amber-soft); color: var(--amber); }
+.badge-confirmed { background: var(--blue-soft); color: var(--blue); }
 .badge-allocated { background: var(--purple-soft); color: var(--purple); }
 .badge-ready     { background: var(--gold-soft);   color: var(--gold); }
 .badge-released  { background: var(--green-soft);  color: var(--green); }

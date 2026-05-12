@@ -46,6 +46,7 @@ const INDICATION_REQUIRED_COMPONENTS_HOSP = [
 const STATUS_CFG = {
   PENDING:          { label:'Pending Review',    icon:'⏳', bg:'var(--amber-soft)',  color:'var(--amber)',  sub:'Waiting for blood bank review' },
   APPROVED:         { label:'Approved',          icon:'✓',  bg:'var(--blue-soft)',   color:'var(--blue)',   sub:'Request has been approved' },
+  NEEDS_CONFIRMATION:{ label:'Waiting for requester confirmation', icon:'✉', bg:'var(--amber-soft)',  color:'var(--amber)',  sub:'Waiting for requester email confirmation' },
   ALLOCATED:        { label:'Allocated',         icon:'🩸', bg:'var(--purple-soft)', color:'var(--purple)', sub:'Blood bag has been allocated' },
   READY_FOR_RELEASE:{ label:'Ready for Release', icon:'📦', bg:'var(--gold-soft)',   color:'var(--gold)',   sub:'Ready for pickup / transport' },
   RELEASED:         { label:'Released',          icon:'✅', bg:'var(--green-soft)',  color:'var(--green)',  sub:'Blood has been released' },
@@ -103,6 +104,22 @@ function formatDate(d) {
   const dateStr = d.includes('T') ? d : d + 'T00:00:00';
   return new Date(dateStr)
     .toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' });
+}
+
+function getEffectiveUnitsHosp(request) {
+  if (request?.patientAcceptedRemarks === true && Number.isInteger(request.approvedUnits) && request.approvedUnits > 0) {
+    return request.approvedUnits;
+  }
+  return request?.numberOfUnits || 0;
+}
+
+function formatUnitsDisplayHosp(request) {
+  const requestedUnits = request?.numberOfUnits || 0;
+  const effectiveUnits = getEffectiveUnitsHosp(request);
+  if (Number.isInteger(request?.approvedUnits) && request.approvedUnits > 0 && request.approvedUnits !== requestedUnits) {
+    return `${effectiveUnits} of ${requestedUnits}`;
+  }
+  return `${effectiveUnits}`;
 }
 
 // Modal helpers
@@ -169,10 +186,10 @@ function showPanel(id, navEl) {
  * Render dashboard with statistics and recent requests
  */
 function renderDashboard() {
-  const pending  = REQUESTS.filter(r => ['PENDING','APPROVED','ALLOCATED','READY_FOR_RELEASE'].includes(r.status)).length;
+  const pending  = REQUESTS.filter(r => ['PENDING','APPROVED','NEEDS_CONFIRMATION','ALLOCATED','READY_FOR_RELEASE'].includes(r.status)).length;
   const released = REQUESTS.filter(r => r.status === 'RELEASED').length;
   const total    = REQUESTS.length;
-  const units    = REQUESTS.filter(r => r.status === 'RELEASED').reduce((s,r) => s + r.numberOfUnits, 0);
+  const units    = REQUESTS.filter(r => r.status === 'RELEASED').reduce((s, r) => s + getEffectiveUnitsHosp(r), 0);
 
   document.getElementById('dash-stat-pending').textContent  = pending;
   document.getElementById('dash-stat-released').textContent = released;
@@ -1857,6 +1874,10 @@ async function loadHospitalRequests() {
             bloodType: req.bloodType,
             bloodComponent: req.bloodComponent,
             numberOfUnits: req.numberOfUnits,
+            approvedUnits: req.approvedUnits ?? null,
+            effectiveUnits: req.patientAcceptedRemarks === true && Number.isInteger(req.approvedUnits) && req.approvedUnits > 0
+                ? req.approvedUnits
+                : (req.numberOfUnits || 0),
             plateletCount: req.plateletCount ?? null,
             volumeMl: req.volumeMl || null,
             urgencyLevel: req.urgencyLevel,
@@ -1897,9 +1918,17 @@ async function loadHospitalRequests() {
             requesterType: req.requesterType || null,
             
             // Fulfillment & rejection
+            approvalRemarks: req.approvalRemarks || null,
+            alternativeComponentSuggestion: req.alternativeComponentSuggestion || null,
+            patientAcceptedRemarks: req.patientAcceptedRemarks ?? null,
+            patientRespondedAt: req.patientRespondedAt || null,
+            confirmationEmailSentAt: req.confirmationEmailSentAt || null,
             rejectionReason: req.rejectionReason || null,
             reviewedAt: req.reviewedAt || null,
-            fulfilledByBag: req.fulfilledByBag || null
+            fulfilledByBag: req.fulfilledByBag || null,
+            reservedBags: Array.isArray(req.reservedBags)
+                ? req.reservedBags
+                : (req.fulfilledByBag ? [req.fulfilledByBag] : [])
         }));
         // console.log(requests);
         // Re-render with fetched data
@@ -2051,7 +2080,7 @@ function filterRequests(filter, btn) {
     
     // Apply status filter
     let list = REQUESTS.filter(r => {
-        if (filter === 'ACTIVE') return ['PENDING','APPROVED','ALLOCATED','READY_FOR_RELEASE'].includes(r.status);
+        if (filter === 'ACTIVE') return ['PENDING','APPROVED','NEEDS_CONFIRMATION','ALLOCATED','READY_FOR_RELEASE'].includes(r.status);
         if (filter === 'RELEASED') return r.status === 'RELEASED';
         if (filter === 'REJECTED') return ['REJECTED','CANCELLED'].includes(r.status);
         return true;
@@ -2158,7 +2187,7 @@ function filterRequests(filter, btn) {
             </td>
             <td>${COMP_LABELS[r.bloodComponent]}</td>
             <td><span style="font-family:'Playfair Display',serif;font-size:14px;font-weight:900">${BT_LABELS[r.bloodType]}</span></td>
-            <td style="font-weight:700">${r.numberOfUnits}</td>
+            <td style="font-weight:700">${formatUnitsDisplayHosp(r)}</td>
             <td><span class="badge ${urg}">${URGENCY_LABELS[r.urgencyLevel]}</span></td>
             <td><span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span></td>
             <td style="font-size:12px;color:var(--muted)">${formatDate(r.requestedAt)}</td>
@@ -2199,17 +2228,26 @@ function sortRequests(list, sortType) {
             return sorted.sort((a, b) => b.patientName.localeCompare(a.patientName));
         
         case 'status-pending':
-            const statusOrder = { 'PENDING': 0, 'APPROVED': 1, 'ALLOCATED': 2, 'READY_FOR_RELEASE': 3, 'RELEASED': 4, 'REJECTED': 5, 'CANCELLED': 6 };
+            const statusOrder = {
+                'PENDING': 0,
+                'APPROVED': 1,
+                'NEEDS_CONFIRMATION': 2,
+                'ALLOCATED': 3,
+                'READY_FOR_RELEASE': 4,
+                'RELEASED': 5,
+                'REJECTED': 6,
+                'CANCELLED': 7
+            };
             return sorted.sort((a, b) => 
-                (statusOrder[a.status] || 7) - (statusOrder[b.status] || 7)
+                (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
             );
         
         case 'units':
         case 'units-asc':
-            return sorted.sort((a, b) => a.numberOfUnits - b.numberOfUnits);
+            return sorted.sort((a, b) => getEffectiveUnitsHosp(a) - getEffectiveUnitsHosp(b));
         
         case 'units-desc':
-            return sorted.sort((a, b) => b.numberOfUnits - a.numberOfUnits);
+            return sorted.sort((a, b) => getEffectiveUnitsHosp(b) - getEffectiveUnitsHosp(a));
         
         case 'recent-desc':
         case 'date-desc':
@@ -2227,10 +2265,10 @@ function updateRequestStats(list) {
     const statsRow = document.getElementById('req-stats');
     
     // Count statistics
-    const pending = list.filter(r => r.status === 'PENDING').length;
+    const pending = list.filter(r => ['PENDING','APPROVED','NEEDS_CONFIRMATION','ALLOCATED','READY_FOR_RELEASE'].includes(r.status)).length;
     const critical = list.filter(r => r.urgencyLevel === 'CRITICAL').length;
     const released = list.filter(r => r.status === 'RELEASED').length;
-    const totalUnits = list.reduce((sum, r) => sum + r.numberOfUnits, 0);
+    const totalUnits = list.reduce((sum, r) => sum + getEffectiveUnitsHosp(r), 0);
     
     // Update stats
     document.getElementById('stat-pending').textContent = pending;
@@ -2311,7 +2349,11 @@ function openRequestDetail(id) {
     // SECTION: BLOOD REQUIREMENTS
     // ─────────────────────────────────────────────
     document.getElementById('rd-comp').textContent = COMP_LABELS[r.bloodComponent] || r.bloodComponent || '—';
-    document.getElementById('rd-units').textContent = r.numberOfUnits ? `${r.numberOfUnits} unit(s)` : '—';
+    if (Number.isInteger(r.approvedUnits) && r.approvedUnits > 0 && r.approvedUnits !== r.numberOfUnits) {
+        document.getElementById('rd-units').textContent = `${r.approvedUnits} unit(s) approved of ${r.numberOfUnits} requested`;
+    } else {
+        document.getElementById('rd-units').textContent = getEffectiveUnitsHosp(r) ? `${getEffectiveUnitsHosp(r)} unit(s)` : '—';
+    }
     
        
     // ─────────────────────────────────────────────
@@ -2329,8 +2371,39 @@ function openRequestDetail(id) {
     // SECTION: ADDITIONAL NOTES
     // ─────────────────────────────────────────────
     const notesDisplay = document.getElementById('rd-notes-display');
+    const noteSections = [];
     if (r.notes && r.notes.trim() !== '') {
-        notesDisplay.textContent = r.notes;
+        noteSections.push(`
+            <div style="margin-bottom:${r.approvalRemarks ? '14px' : '0'};white-space:pre-wrap;color:var(--charcoal)">
+                ${escapeIndicationTextHosp(r.notes)}
+            </div>
+        `);
+    }
+    if (r.approvalRemarks) {
+        const confirmationState = r.status === 'NEEDS_CONFIRMATION'
+            ? 'Waiting for requester confirmation'
+            : r.patientAcceptedRemarks === true
+                ? 'Requester accepted via email'
+                : r.patientAcceptedRemarks === false
+                    ? 'Requester rejected via email'
+                    : 'Approval update sent to requester';
+        noteSections.push(`
+            <div style="border:1px solid var(--border);border-radius:10px;background:white;padding:12px 14px">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Approval Update</div>
+                <div style="color:var(--charcoal);line-height:1.6">
+                    <div><strong>Requested Units:</strong> ${r.numberOfUnits ?? '—'}</div>
+                    <div><strong>Approved Units:</strong> ${r.approvedUnits ?? r.numberOfUnits ?? '—'}</div>
+                    <div><strong>Remarks:</strong> ${escapeIndicationTextHosp(r.approvalRemarks)}</div>
+                    <div><strong>Units:</strong> ${formatUnitsDisplayHosp(r)} unit(s)</div>
+                    ${r.alternativeComponentSuggestion ? `<div><strong>Alternative Component:</strong> ${escapeIndicationTextHosp(r.alternativeComponentSuggestion)}</div>` : ''}
+                    <div><strong>Confirmation:</strong> ${confirmationState}</div>
+                    ${r.patientRespondedAt ? `<div><strong>Requester Responded:</strong> ${formatDate(r.patientRespondedAt)}</div>` : ''}
+                </div>
+            </div>
+        `);
+    }
+    if (noteSections.length > 0) {
+        notesDisplay.innerHTML = noteSections.join('');
     } else {
         notesDisplay.innerHTML = '<div style="color:var(--muted)">—</div>';
     }
@@ -2468,8 +2541,10 @@ function openRequestDetail(id) {
     // REJECTION REASON (if applicable)
     // ─────────────────────────────────────────────
     const rejBox = document.getElementById('rd-rejection-box');
-    if (r.rejectionReason && r.status === 'REJECTED') {
+    if (r.rejectionReason && ['REJECTED', 'CANCELLED'].includes(r.status)) {
         rejBox.style.display = 'block';
+        document.getElementById('rd-rejection-title').textContent =
+            r.status === 'CANCELLED' ? 'Cancellation Note' : 'Rejection Reason';
         document.getElementById('rd-rejection-text').textContent = r.rejectionReason;
     } else {
         rejBox.style.display = 'none';
@@ -2479,11 +2554,29 @@ function openRequestDetail(id) {
     // FULFILLED BY BAG (if applicable)
     // ─────────────────────────────────────────────
     const fulBox = document.getElementById('rd-fulfilled-box');
-    if (r.fulfilledByBag && r.status === 'RELEASED') {
+    const reservedBags = Array.isArray(r.reservedBags)
+        ? r.reservedBags
+        : (r.fulfilledByBag ? [r.fulfilledByBag] : []);
+    if (reservedBags.length > 0 && ['ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'].includes(r.status)) {
         fulBox.style.display = 'block';
+        if (!r.fulfilledByBag) {
+            r.fulfilledByBag = reservedBags[0];
+        }
         document.getElementById('rd-bag-id').textContent = r.fulfilledByBag.id || '—';
         document.getElementById('rd-released-at').textContent = 
             r.fulfilledByBag.dispensedAt ? formatDate(r.fulfilledByBag.dispensedAt) : '—';
+        const bagLabel = reservedBags.map(b => b.serialNumber || b.id || 'â€”').join(', ');
+        const firstDispensedAt = reservedBags.find(b => b.dispensedAt)?.dispensedAt;
+        const statusTimestamp = firstDispensedAt || r.reviewedAt || null;
+        document.getElementById('rd-fulfilled-title').textContent =
+            r.status === 'RELEASED' ? 'Released Blood Bags' : 'Allocated Blood Bags';
+        document.getElementById('rd-bag-label').textContent =
+            reservedBags.length > 1 ? 'Bag Serials' : 'Bag Serial';
+        document.getElementById('rd-fulfilled-time-label').textContent =
+            r.status === 'RELEASED' ? 'Released' : 'Updated';
+        document.getElementById('rd-bag-id').textContent = bagLabel;
+        document.getElementById('rd-released-at').textContent =
+            statusTimestamp ? formatDate(statusTimestamp) : 'â€”';
     } else {
         fulBox.style.display = 'none';
     }

@@ -2,6 +2,7 @@ package com.hospital.blood_plus.controller;
 
 import com.hospital.blood_plus.dto.request.AllocateRequestDTO;
 import com.hospital.blood_plus.dto.request.AnalyticsDTO;
+import com.hospital.blood_plus.dto.request.ApproveRequestDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
@@ -196,10 +197,10 @@ public class AdminController {
     @GetMapping("/blood-requests")
     public ResponseEntity<List<BloodBagRequest>> getAllRequests(
             @RequestParam(required = false) BloodBagRequest.RequestStatus status) {
-        return ResponseEntity.ok(
-                status != null
-                        ? bloodBagRequestService.getByStatus(status)
-                        : bloodBagRequestService.getAllRequests());
+        List<BloodBagRequest> requests = status != null
+                ? bloodBagRequestService.getByStatus(status)
+                : bloodBagRequestService.getAllRequests();
+        return ResponseEntity.ok(bloodBagRequestService.populateReservedBags(requests));
     }
 
     // PENDING → APPROVED  (no body needed — bag selection happens at allocate)
@@ -240,26 +241,58 @@ public class AdminController {
     // PENDING → REJECTED
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @PutMapping("/blood-requests/{id}/approve-with-remarks")
+    public ResponseEntity<?> approveRequestWithRemarks(
+            @PathVariable Long id,
+            @RequestBody ApproveRequestDTO dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            BloodBagRequest req = bloodBagRequestService.approveRequestWithRemarks(id, dto, user);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Confirmation email sent to requester.",
+                    "referenceNumber", req.getReferenceNumber(),
+                    "status", req.getStatus(),
+                    "approvedUnits", req.getApprovedUnits(),
+                    "approvalRemarks", req.getApprovalRemarks(),
+                    "alternativeComponentSuggestion", req.getAlternativeComponentSuggestion(),
+                    "confirmationEmailSentAt", req.getConfirmationEmailSentAt(),
+                    "requesterEmail", req.getRequesterEmail()
+            ));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/reject")
     public ResponseEntity<?> rejectRequest(
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            String reason = body.getOrDefault("rejectionReason", "").trim();
+            String reason = body.getOrDefault("rejectionReason", body.getOrDefault("notes", "")).trim();
             if (reason.isBlank())
                 return ResponseEntity.badRequest().body(Map.of("error", "Rejection reason is required."));
  
             // Extract user with consistent logic
             AppUser user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
+            BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
  
             BloodBagRequest req = bloodBagRequestService.rejectRequest(id, reason, user);
             
             // Log the status change with rejection reason
             requestStatusLogService.logStatusChange(
                     req,
-                    BloodBagRequest.RequestStatus.PENDING,
+                    statusBefore,
                     BloodBagRequest.RequestStatus.REJECTED,
                     user,
                     "Request rejected. Reason: " + reason
@@ -290,6 +323,9 @@ public class AdminController {
             AppUser user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
 
+            BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
+            BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
+
             BloodBagRequest req = bloodBagRequestService.allocateRequest(id, dto.getBagIds(), user);
             
             // Fetch blood types for allocated bags
@@ -301,7 +337,7 @@ public class AdminController {
             // Log the status change
             requestStatusLogService.logStatusChange(
                     req,
-                    BloodBagRequest.RequestStatus.APPROVED,
+                    statusBefore,
                     BloodBagRequest.RequestStatus.ALLOCATED,
                     user,
                     "Blood bags allocated. Blood Types: " + bloodTypes
@@ -438,8 +474,13 @@ public class AdminController {
     @PutMapping("/blood-requests/{id}/cancel")
     public ResponseEntity<?> cancelRequest(
             @PathVariable Long id,
+            @RequestBody Map<String, String> body,
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
+            String reason = body.getOrDefault("cancellationReason", body.getOrDefault("notes", "")).trim();
+            if (reason.isBlank())
+                return ResponseEntity.badRequest().body(Map.of("error", "Cancellation note is required."));
+
             // Extract user with consistent logic
             AppUser user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
@@ -447,7 +488,7 @@ public class AdminController {
             BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
             BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
             
-            BloodBagRequest req = bloodBagRequestService.cancelRequest(id);
+            BloodBagRequest req = bloodBagRequestService.cancelRequest(id, reason, user);
             
             // Log the status change
             requestStatusLogService.logStatusChange(
@@ -455,7 +496,7 @@ public class AdminController {
                     statusBefore,
                     BloodBagRequest.RequestStatus.CANCELLED,
                     user,
-                    "Request cancelled"
+                    "Request cancelled. Reason: " + reason
             );
  
             return ResponseEntity.ok(Map.of(
@@ -987,8 +1028,8 @@ public class AdminController {
         dto.setReferenceNumber(log.getRequest().getReferenceNumber());
         dto.setOldStatus(log.getOldStatus());
         dto.setNewStatus(log.getNewStatus());
-        dto.setChangedByEmail(log.getChangedBy().getEmail());
-        dto.setChangedByFullName(log.getChangedBy().getUsername());
+        dto.setChangedByEmail(log.getChangedBy() != null ? log.getChangedBy().getEmail() : null);
+        dto.setChangedByFullName(log.getChangedBy() != null ? log.getChangedBy().getUsername() : "System");
         dto.setChangedAt(log.getChangedAt());
         dto.setNotes(log.getNotes());
         return dto;

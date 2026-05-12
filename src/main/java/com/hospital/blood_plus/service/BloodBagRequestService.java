@@ -1,6 +1,9 @@
 package com.hospital.blood_plus.service;
 
+import com.hospital.blood_plus.dto.request.ApproveRequestDTO;
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
+import com.hospital.blood_plus.dto.request.EmailConfirmationRequest;
+import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
@@ -26,19 +29,25 @@ public class BloodBagRequestService {
     private final BloodBagRequestRepository     repository;
     private final CloudinaryService             cloudinaryService;
     private final BloodBagRepository            bloodBagRepository;
+    private final BloodBagService               bloodBagService;
     private final RequestFulfillmentRepository        requestFulfillmentRepository;
     private final EmailService                  emailService;
+    private final RequestStatusLogService       requestStatusLogService;
 
     public BloodBagRequestService(BloodBagRequestRepository repository,
                                   CloudinaryService cloudinaryService,
                                   BloodBagRepository bloodBagRepository,
+                                  BloodBagService bloodBagService,
                                   RequestFulfillmentRepository requestFulfillmentRepository,
-                                  EmailService emailService) {
+                                  EmailService emailService,
+                                  RequestStatusLogService requestStatusLogService) {
         this.repository          = repository;
         this.cloudinaryService   = cloudinaryService;
         this.bloodBagRepository  = bloodBagRepository;
+        this.bloodBagService     = bloodBagService;
         this.requestFulfillmentRepository  = requestFulfillmentRepository;
         this.emailService  = emailService;
+        this.requestStatusLogService = requestStatusLogService;
     }
 
     // ─────────────────────────────────────────────
@@ -199,6 +208,15 @@ public class BloodBagRequestService {
     /** PENDING → APPROVED  (simple approval, no bag selection here) */
     public BloodBagRequest approveRequest(Long id, AppUser reviewer) {
         BloodBagRequest req = ensureStatus(id, BloodBagRequest.RequestStatus.PENDING);
+        int requestedUnits = getRequestedUnits(req);
+        int availableCompatibleBags = countCompatibleAvailableBags(req);
+        if (availableCompatibleBags < requestedUnits) {
+            throw new IllegalStateException(
+                "Not enough available bags for full approval. Available compatible bags: "
+                    + availableCompatibleBags
+                    + ". Use Approve with Remarks to offer partial fulfillment."
+            );
+        }
         req.setStatus(BloodBagRequest.RequestStatus.APPROVED);
         applyReview(req, reviewer);
         BloodBagRequest savedReq = repository.save(req);
@@ -211,7 +229,7 @@ public class BloodBagRequestService {
                     savedReq.getRequesterName(),
                     savedReq.getReferenceNumber(),
                     savedReq.getBloodType().getDisplayName(),
-                    savedReq.getNumberOfUnits()
+                    requestedUnits
                 );
             } catch (Exception e) {
                 System.err.println("[BloodBagRequest] Failed to send approval email: " + e.getMessage());
@@ -222,17 +240,147 @@ public class BloodBagRequestService {
     }
 
     /** PENDING → REJECTED */
-    public BloodBagRequest rejectRequest(Long id, String reason, AppUser reviewer) {
+    @Transactional
+    public BloodBagRequest approveRequestWithRemarks(Long id, ApproveRequestDTO dto, AppUser reviewer) {
         BloodBagRequest req = ensureStatus(id, BloodBagRequest.RequestStatus.PENDING);
+
+        String requesterEmail = normalizeOptionalEmail(req.getRequesterEmail());
+        if (requesterEmail == null) {
+            throw new IllegalArgumentException("Requester email is required before approval confirmation can be sent.");
+        }
+        if (dto == null) {
+            throw new IllegalArgumentException("Approval details are required.");
+        }
+
+        String approvalRemarks = normalizeRequiredText(dto.getApprovalRemarks(), "Approval remarks are required.");
+        Integer approvedUnits = dto.getApprovedUnits();
+        if (approvedUnits == null || approvedUnits <= 0) {
+            throw new IllegalArgumentException("Approved units must be greater than 0.");
+        }
+        if (req.getNumberOfUnits() == null || approvedUnits > req.getNumberOfUnits()) {
+            throw new IllegalArgumentException("Approved units cannot be greater than the originally requested units.");
+        }
+
+        BloodBagRequest.RequestStatus oldStatus = req.getStatus();
+        req.setRequesterEmail(requesterEmail);
+        req.setApprovedUnits(approvedUnits);
+        req.setApprovalRemarks(approvalRemarks);
+        req.setAlternativeComponentSuggestion(normalizeOptionalText(dto.getAlternativeComponentSuggestion()));
+        req.setPatientAcceptedRemarks(null);
+        req.setPatientRespondedAt(null);
+        req.setConfirmationToken(generateConfirmationToken());
+        req.setConfirmationTokenExpiresAt(LocalDateTime.now().plusHours(24));
+        req.setConfirmationEmailSentAt(LocalDateTime.now());
+        req.setStatus(BloodBagRequest.RequestStatus.NEEDS_CONFIRMATION);
+        applyReview(req, reviewer);
+
+        BloodBagRequest savedReq = repository.save(req);
+        requestStatusLogService.logStatusChange(
+            savedReq,
+            oldStatus,
+            BloodBagRequest.RequestStatus.NEEDS_CONFIRMATION,
+            reviewer,
+            approvalRemarks
+        );
+        emailService.sendApprovalRemarksConfirmationEmail(savedReq);
+        return savedReq;
+    }
+
+    @Transactional
+    public BloodBagRequest confirmApprovalRemarksByToken(EmailConfirmationRequest dto) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Confirmation payload is required.");
+        }
+
+        String token = normalizeRequiredText(dto.getToken(), "Confirmation token is required.");
+        if (dto.getAccepted() == null) {
+            throw new IllegalArgumentException("Accepted flag is required.");
+        }
+
+        BloodBagRequest req = repository.findByConfirmationToken(token)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "This confirmation link is invalid or has already been used."
+            ));
+
+        if (req.getStatus() != BloodBagRequest.RequestStatus.NEEDS_CONFIRMATION) {
+            throw new IllegalStateException("This confirmation link is no longer active.");
+        }
+        if (req.getConfirmationTokenExpiresAt() == null
+                || LocalDateTime.now().isAfter(req.getConfirmationTokenExpiresAt())) {
+            throw new IllegalStateException(
+                "This confirmation link is invalid or expired. Please contact the blood bank."
+            );
+        }
+
+        BloodBagRequest.RequestStatus oldStatus = req.getStatus();
+        req.setPatientRespondedAt(LocalDateTime.now());
+
+        if (Boolean.TRUE.equals(dto.getAccepted())) {
+            req.setPatientAcceptedRemarks(true);
+            req.setStatus(BloodBagRequest.RequestStatus.APPROVED);
+            clearConfirmationToken(req);
+
+            BloodBagRequest savedReq = repository.save(req);
+            requestStatusLogService.logStatusChange(
+                savedReq,
+                oldStatus,
+                BloodBagRequest.RequestStatus.APPROVED,
+                null,
+                "Requester accepted approval remarks via email."
+            );
+            return savedReq;
+        }
+
+        req.setPatientAcceptedRemarks(false);
+        req.setStatus(BloodBagRequest.RequestStatus.REJECTED);
+        clearConfirmationToken(req);
+
+        BloodBagRequest savedReq = repository.save(req);
+        requestStatusLogService.logStatusChange(
+            savedReq,
+            oldStatus,
+            BloodBagRequest.RequestStatus.REJECTED,
+            null,
+            "Requester rejected approval remarks via email."
+        );
+        return savedReq;
+    }
+
+    public BloodBagRequest rejectRequest(Long id, String reason, AppUser reviewer) {
+        BloodBagRequest req = findById(id);
+        if (req.getStatus() == BloodBagRequest.RequestStatus.RELEASED) {
+            throw new IllegalStateException("Released requests cannot be rejected.");
+        }
+        if (req.getStatus() == BloodBagRequest.RequestStatus.REJECTED
+                || req.getStatus() == BloodBagRequest.RequestStatus.CANCELLED) {
+            throw new IllegalStateException("Request is already closed with status " + req.getStatus() + ".");
+        }
+        if (req.getStatus() == BloodBagRequest.RequestStatus.ALLOCATED
+                || req.getStatus() == BloodBagRequest.RequestStatus.READY_FOR_RELEASE) {
+            releaseAllocatedBags(req);
+        }
         req.setStatus(BloodBagRequest.RequestStatus.REJECTED);
         req.setRejectionReason(reason);
+        clearConfirmationToken(req);
+        clearAllocatedBagSelection(req);
         applyReview(req, reviewer);
-        return repository.save(req);
+        BloodBagRequest savedReq = repository.save(req);
+        return populateReservedBags(savedReq);
     }
 
     /** APPROVED → ALLOCATED  (selects blood bags) */
     public BloodBagRequest allocateRequest(Long id, List<Long> bagIds, AppUser reviewer) {
-        BloodBagRequest req = ensureStatus(id, BloodBagRequest.RequestStatus.APPROVED);
+        BloodBagRequest req = findById(id);
+        if (req.getStatus() == BloodBagRequest.RequestStatus.NEEDS_CONFIRMATION) {
+            throw new IllegalStateException(
+                "Request is still waiting for requester confirmation."
+            );
+        }
+        if (req.getStatus() != BloodBagRequest.RequestStatus.APPROVED) {
+            throw new IllegalStateException(
+                "Request is not approved for allocation. Current status: " + req.getStatus() + "."
+            );
+        }
         return reserveBags(req, bagIds, reviewer);
     }
 
@@ -245,14 +393,7 @@ public class BloodBagRequestService {
                     "Can only change bag selection on ALLOCATED or READY_FOR_RELEASE requests.");
         }
 
-        // Release previously crossmatched bag back to AVAILABLE
-        if (req.getFulfilledByBag() != null) {
-            BloodBag old = req.getFulfilledByBag();
-            if (old.getStatus() == BloodBag.BagStatus.CROSSMATCHED) {
-                old.setStatus(BloodBag.BagStatus.AVAILABLE);
-                bloodBagRepository.save(old);
-            }
-        }
+        releaseAllocatedBags(req);
 
         return reserveBags(req, bagIds, reviewer);
     }
@@ -272,7 +413,7 @@ public class BloodBagRequestService {
                     req.getRequesterName(),
                     req.getReferenceNumber(),
                     req.getBloodType().getDisplayName(),
-                    req.getNumberOfUnits()
+                    getEffectiveUnits(req)
                 );
             } catch (Exception e) {
                 System.err.println("[BloodBagRequest] Failed to send ready email: " + e.getMessage());
@@ -289,38 +430,56 @@ public class BloodBagRequestService {
         req.setStatus(BloodBagRequest.RequestStatus.RELEASED);
         applyReview(req, reviewer);
 
-        if (req.getFulfilledByBag() != null) {
-            BloodBag bag = req.getFulfilledByBag();
-            bag.setStatus(BloodBag.BagStatus.DISPENSED);
-            bloodBagRepository.save(bag);
-            
-            String notes = String.format(
-                "Blood request released. Bag Serial Number: %s, Blood Type: %s, Component: %s, Units: %d",
-                bag.getSerialNumber(),
-                bag.getBloodType().getDisplayName(),
-                bag.getComponentType(),
-                (req.getNumberOfUnits() != null) ? req.getNumberOfUnits() : 1
-            );
-            
-            RequestFulfillment fulfillment = new RequestFulfillment();
-            fulfillment.setRequest(req);
-            fulfillment.setBloodBag(bag);
-            fulfillment.setFulfilledBy(reviewer);
-            fulfillment.setNotes(notes);
-            requestFulfillmentRepository.save(fulfillment);
+        List<BloodBag> allocatedBags = loadAllocatedBags(req);
+        if (!allocatedBags.isEmpty()) {
+            for (BloodBag bag : allocatedBags) {
+                bag.setStatus(BloodBag.BagStatus.DISPENSED);
+
+                String notes = String.format(
+                    "Blood request released. Bag Serial Number: %s, Blood Type: %s, Component: %s, Units: %d",
+                    bag.getSerialNumber(),
+                    bag.getBloodType().getDisplayName(),
+                    bag.getComponentType(),
+                    getEffectiveUnits(req)
+                );
+
+                RequestFulfillment fulfillment = new RequestFulfillment();
+                fulfillment.setRequest(req);
+                fulfillment.setBloodBag(bag);
+                fulfillment.setFulfilledBy(reviewer);
+                fulfillment.setNotes(notes);
+                requestFulfillmentRepository.save(fulfillment);
+            }
+
+            bloodBagRepository.saveAll(allocatedBags);
+            req.setReservedBags(allocatedBags);
         }
 
-        return repository.save(req);
+        BloodBagRequest savedReq = repository.save(req);
+        return populateReservedBags(savedReq);
     }
 
     /** Any non-RELEASED → CANCELLED */
-    public BloodBagRequest cancelRequest(Long id) {
+    public BloodBagRequest cancelRequest(Long id, String reason, AppUser reviewer) {
         BloodBagRequest req = findById(id);
         if (req.getStatus() == BloodBagRequest.RequestStatus.RELEASED) {
             throw new IllegalStateException("Released requests cannot be cancelled.");
         }
+        if (req.getStatus() == BloodBagRequest.RequestStatus.REJECTED
+                || req.getStatus() == BloodBagRequest.RequestStatus.CANCELLED) {
+            throw new IllegalStateException("Request is already closed with status " + req.getStatus() + ".");
+        }
+        if (req.getStatus() == BloodBagRequest.RequestStatus.ALLOCATED
+                || req.getStatus() == BloodBagRequest.RequestStatus.READY_FOR_RELEASE) {
+            releaseAllocatedBags(req);
+        }
         req.setStatus(BloodBagRequest.RequestStatus.CANCELLED);
-        return repository.save(req);
+        req.setRejectionReason(reason);
+        clearConfirmationToken(req);
+        clearAllocatedBagSelection(req);
+        applyReview(req, reviewer);
+        BloodBagRequest savedReq = repository.save(req);
+        return populateReservedBags(savedReq);
     }
 
     // ─────────────────────────────────────────────
@@ -332,9 +491,10 @@ public class BloodBagRequestService {
         if (bagIds == null || bagIds.isEmpty()) {
             throw new IllegalArgumentException("At least one blood bag must be selected.");
         }
-        if (bagIds.size() != req.getNumberOfUnits()) {
+        int requiredUnits = getRequiredUnitsForAllocation(req);
+        if (bagIds.size() != requiredUnits) {
             throw new IllegalArgumentException(
-                    "Expected " + req.getNumberOfUnits() + " bag(s), got " + bagIds.size() + ".");
+                    "Expected " + requiredUnits + " bag(s), got " + bagIds.size() + ".");
         }
 
         List<BloodBag> bags = bloodBagRepository.findAllById(bagIds);
@@ -352,8 +512,12 @@ public class BloodBagRequestService {
 
         req.setStatus(BloodBagRequest.RequestStatus.ALLOCATED);
         req.setFulfilledByBag(bags.get(0));
+        req.setAllocatedBagIds(serializeAllocatedBagIds(bags));
+        req.setReservedBags(new ArrayList<>(bags));
         applyReview(req, reviewer);
-        return repository.save(req);
+        BloodBagRequest savedReq = repository.save(req);
+        savedReq.setReservedBags(new ArrayList<>(bags));
+        return savedReq;
     }
 
     private BloodBagRequest updateStatus(Long id,
@@ -633,6 +797,18 @@ public class BloodBagRequestService {
                 .orElseThrow(() -> new IllegalArgumentException("Blood request not found with id: " + id));
     }
 
+    public BloodBagRequest populateReservedBags(BloodBagRequest request) {
+        if (request == null) return null;
+        request.setReservedBags(loadAllocatedBags(request));
+        return request;
+    }
+
+    public List<BloodBagRequest> populateReservedBags(List<BloodBagRequest> requests) {
+        if (requests == null) return List.of();
+        requests.forEach(this::populateReservedBags);
+        return requests;
+    }
+
     private String normalizeOptionalEmail(String email) {
         if (email == null) return null;
         String normalized = email.trim().toLowerCase();
@@ -642,8 +818,154 @@ public class BloodBagRequestService {
         return normalized;
     }
 
+    private String normalizeOptionalText(String value) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeRequiredText(String value, String message) {
+        String normalized = normalizeOptionalText(value);
+        if (normalized == null) {
+            throw new IllegalArgumentException(message);
+        }
+        return normalized;
+    }
+
     private boolean hasRequesterEmail(BloodBagRequest request) {
         return request.getRequesterEmail() != null && !request.getRequesterEmail().trim().isEmpty();
+    }
+
+    private int getEffectiveUnits(BloodBagRequest request) {
+        if (Boolean.TRUE.equals(request.getPatientAcceptedRemarks())) {
+            if (request.getApprovedUnits() == null || request.getApprovedUnits() <= 0) {
+                throw new IllegalStateException("Approved-with-remarks request has no valid approved units.");
+            }
+            return request.getApprovedUnits();
+        }
+        return getRequestedUnits(request);
+    }
+
+    private int getRequiredUnitsForAllocation(BloodBagRequest request) {
+        Boolean acceptedRemarks = request.getPatientAcceptedRemarks();
+        if (Boolean.FALSE.equals(acceptedRemarks)) {
+            throw new IllegalStateException("Requester rejected the updated approval terms.");
+        }
+
+        if (Boolean.TRUE.equals(acceptedRemarks)) {
+            if (request.getApprovedUnits() == null || request.getApprovedUnits() <= 0) {
+                throw new IllegalStateException("Approved-with-remarks request has no valid approved units.");
+            }
+            return request.getApprovedUnits();
+        }
+
+        return getRequestedUnits(request);
+    }
+
+    private int getRequestedUnits(BloodBagRequest request) {
+        return request.getNumberOfUnits() != null ? request.getNumberOfUnits() : 1;
+    }
+
+    private int countCompatibleAvailableBags(BloodBagRequest request) {
+        List<BloodBagAvailableDTO> bags = bloodBagService.getAvailableBags(
+            request.getBloodType(),
+            request.getBloodComponent()
+        );
+
+        int compatibleCount = 0;
+        for (BloodBagAvailableDTO bag : bags) {
+            if (bag.isCompatible()) {
+                compatibleCount++;
+            }
+        }
+        return compatibleCount;
+    }
+
+    private String serializeAllocatedBagIds(List<BloodBag> bags) {
+        List<String> ids = new ArrayList<>();
+        for (BloodBag bag : bags) {
+            if (bag != null && bag.getId() != null) {
+                ids.add(String.valueOf(bag.getId()));
+            }
+        }
+        return ids.isEmpty() ? null : String.join(",", ids);
+    }
+
+    private List<Long> parseAllocatedBagIds(BloodBagRequest request) {
+        List<Long> bagIds = new ArrayList<>();
+        String rawIds = request.getAllocatedBagIds();
+        if (rawIds != null && !rawIds.isBlank()) {
+            for (String token : rawIds.split(",")) {
+                String normalized = token.trim();
+                if (normalized.isEmpty()) {
+                    continue;
+                }
+                try {
+                    bagIds.add(Long.parseLong(normalized));
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+
+        if (bagIds.isEmpty() && request.getFulfilledByBag() != null && request.getFulfilledByBag().getId() != null) {
+            bagIds.add(request.getFulfilledByBag().getId());
+        }
+        return bagIds;
+    }
+
+    private List<BloodBag> loadAllocatedBags(BloodBagRequest request) {
+        List<Long> bagIds = parseAllocatedBagIds(request);
+        if (bagIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Map<Long, BloodBag> bagMap = new HashMap<>();
+        for (BloodBag bag : bloodBagRepository.findAllById(bagIds)) {
+            bagMap.put(bag.getId(), bag);
+        }
+
+        List<BloodBag> orderedBags = new ArrayList<>();
+        for (Long bagId : bagIds) {
+            BloodBag bag = bagMap.get(bagId);
+            if (bag != null) {
+                orderedBags.add(bag);
+            }
+        }
+        return orderedBags;
+    }
+
+    private void releaseAllocatedBags(BloodBagRequest request) {
+        List<BloodBag> allocatedBags = loadAllocatedBags(request);
+        if (allocatedBags.isEmpty()) {
+            return;
+        }
+
+        boolean changed = false;
+        for (BloodBag bag : allocatedBags) {
+            if (bag.getStatus() == BloodBag.BagStatus.CROSSMATCHED) {
+                bag.setStatus(BloodBag.BagStatus.AVAILABLE);
+                changed = true;
+            }
+        }
+        if (changed) {
+            bloodBagRepository.saveAll(allocatedBags);
+        }
+        request.setReservedBags(new ArrayList<>());
+    }
+
+    private void clearAllocatedBagSelection(BloodBagRequest request) {
+        request.setAllocatedBagIds(null);
+        request.setFulfilledByBag(null);
+        request.setReservedBags(new ArrayList<>());
+    }
+
+    private String generateConfirmationToken() {
+        return UUID.randomUUID().toString();
+    }
+
+    private void clearConfirmationToken(BloodBagRequest request) {
+        request.setConfirmationToken(null);
+        request.setConfirmationTokenExpiresAt(null);
     }
     
  

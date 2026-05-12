@@ -1,5 +1,6 @@
 package com.hospital.blood_plus.service;
 
+import com.hospital.blood_plus.model.BloodBagRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,9 @@ public class EmailService {
 
     @Value("${app.mail.from}")
     private String fromEmail;
+
+    @Value("${app.frontend.base-url:http://localhost:8080}")
+    private String frontendBaseUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -476,6 +480,143 @@ public class EmailService {
             System.out.println("[BloodRequest] Ready notification email sent to: " + to + " | Ref: " + referenceNumber);
         } catch (Exception e) {
             System.err.println("[BloodRequest] Ready email failed: " + e.getMessage());
+        }
+    }
+
+    public void sendApprovalRemarksConfirmationEmail(BloodBagRequest request) {
+        try {
+            String url = "https://api.brevo.com/v3/smtp/email";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("api-key", apiKey);
+
+            String baseUrl = frontendBaseUrl != null ? frontendBaseUrl.trim() : "";
+            if (baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
+
+            String token = request.getConfirmationToken();
+            String acceptUrl = baseUrl + "/blood-request-confirmation.html?token=" + token + "&action=accept";
+            String rejectUrl = baseUrl + "/blood-request-confirmation.html?token=" + token + "&action=reject";
+
+            String alternativeComponentHtml =
+                request.getAlternativeComponentSuggestion() != null
+                    ? """
+                        <div class="detail-row">
+                            <span class="detail-label">Alternative Component:</span>
+                            <span class="detail-value">%s</span>
+                        </div>
+                      """.formatted(request.getAlternativeComponentSuggestion())
+                    : "";
+
+            String htmlContent = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+                        .container { max-width: 640px; margin: 20px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                        .header { background: #C41E3A; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+                        .header h1 { margin: 0; }
+                        .details { background: #f9f9f9; padding: 18px; border-radius: 6px; margin: 18px 0; }
+                        .detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #eee; }
+                        .detail-row:last-child { border-bottom: none; }
+                        .detail-label { font-weight: 600; color: #666; }
+                        .detail-value { color: #333; text-align: right; }
+                        .remarks-box { background: #fff8e1; border-left: 4px solid #FF9800; padding: 14px; margin: 18px 0; border-radius: 4px; }
+                        .actions { display: flex; gap: 12px; margin-top: 24px; }
+                        .btn { display: inline-block; padding: 12px 18px; border-radius: 6px; font-weight: 700; text-decoration: none; text-align: center; }
+                        .btn-accept { background: #22863A; color: white; }
+                        .btn-reject { background: #C41E3A; color: white; }
+                        .footer { border-top: 1px solid #eee; margin-top: 30px; padding-top: 15px; font-size: 12px; color: #666; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>Blood Request Confirmation Needed</h1>
+                        </div>
+                        <div style="padding: 20px 0;">
+                            <p>Hello <strong>%s</strong>,</p>
+                            <p>Your blood request needs confirmation before the blood bank can proceed.</p>
+
+                            <div class="details">
+                                <div class="detail-row">
+                                    <span class="detail-label">Reference Number:</span>
+                                    <span class="detail-value">%s</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Requested Units:</span>
+                                    <span class="detail-value">%d unit(s)</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Available / Approved Units:</span>
+                                    <span class="detail-value">%d unit(s)</span>
+                                </div>
+                                %s
+                            </div>
+
+                            <div class="remarks-box">
+                                <strong>Remarks:</strong><br>
+                                %s
+                            </div>
+
+                            <p>Please choose one:</p>
+
+                            <div class="actions">
+                                <a class="btn btn-accept" href="%s">Proceed / Accept</a>
+                                <a class="btn btn-reject" href="%s">Reject / Cancel</a>
+                            </div>
+
+                            <p style="margin-top: 20px; color: #666;">This confirmation link will expire in 24 hours.</p>
+                        </div>
+                        <div class="footer">
+                            <p>CNPH Blood Bank · Camarines Norte Provincial Hospital</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(
+                    request.getRequesterName(),
+                    request.getReferenceNumber(),
+                    request.getNumberOfUnits(),
+                    request.getApprovedUnits(),
+                    alternativeComponentHtml,
+                    request.getApprovalRemarks(),
+                    acceptUrl,
+                    rejectUrl
+                );
+
+            String textContent =
+                "Hello " + request.getRequesterName() + ",\n\n" +
+                "Your blood request needs confirmation.\n\n" +
+                "Reference Number: " + request.getReferenceNumber() + "\n" +
+                "Requested Units: " + request.getNumberOfUnits() + "\n" +
+                "Available/Approved Units: " + request.getApprovedUnits() + "\n" +
+                "Remarks: " + request.getApprovalRemarks() + "\n" +
+                (request.getAlternativeComponentSuggestion() != null
+                    ? "Alternative Component: " + request.getAlternativeComponentSuggestion() + "\n"
+                    : "") +
+                "\nProceed:\n" + acceptUrl + "\n\n" +
+                "Reject:\n" + rejectUrl + "\n\n" +
+                "This confirmation link will expire in 24 hours.";
+
+            Map<String, Object> body = Map.of(
+                "sender",      Map.of("email", fromEmail, "name", "Blood+ System"),
+                "to",          new Object[]{ Map.of("email", request.getRequesterEmail()) },
+                "subject",     "Blood Request Confirmation Needed - " + request.getReferenceNumber(),
+                "htmlContent", htmlContent,
+                "textContent", textContent
+            );
+
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, requestEntity, String.class);
+            System.out.println("[BloodRequest] Remarks confirmation email sent to: "
+                + request.getRequesterEmail() + " | Ref: " + request.getReferenceNumber()
+                + " | Status: " + response.getStatusCode());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send approval confirmation email: " + e.getMessage(), e);
         }
     }
 }

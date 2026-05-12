@@ -787,11 +787,13 @@
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="req-filters">
         <button class="req-filter-chip active" onclick="reqFilterBy('ALL',this)">All <span class="chip-cnt" id="req-cnt-all">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('PENDING',this)">Pending <span class="chip-cnt" id="req-cnt-pending">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('NEEDS_CONFIRMATION',this)">Waiting for requester confirmation <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('APPROVED',this)">Approved <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('ALLOCATED',this)">Allocated <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('READY_FOR_RELEASE',this)">Ready for Release <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('RELEASED',this)">Released <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('REJECTED',this)">Rejected <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('CANCELLED',this)">Cancelled <span class="chip-cnt">0</span></button>
       </div>
 
       <div class="req-results-info" id="req-results-info"></div>
@@ -854,6 +856,76 @@
                   onclick="reqConfirmBagSelection()" disabled>
             Approve & Assign Bags
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="req-remarks-modal">
+      <div class="modal req-remarks-modal-card">
+        <div class="modal-header req-remarks-modal-header">
+          <div class="req-remarks-heading">
+            <div class="req-remarks-kicker">Requester Confirmation Workflow</div>
+            <div class="modal-title">Approve With Remarks</div>
+            <div class="req-remarks-subtitle" id="req-remarks-subtitle"></div>
+          </div>
+          <button class="req-modal-close" onclick="reqCloseApproveWithRemarks()">&times;</button>
+        </div>
+
+        <div class="modal-body req-remarks-modal-body">
+          <div class="req-remarks-banner">
+            <div class="req-remarks-banner-icon">!</div>
+            <div>
+              <div class="req-remarks-banner-title">Send a secure confirmation email</div>
+              <div class="req-remarks-banner-copy">
+                The requester receives a 24-hour confirmation link. Allocation stays locked until the updated terms are accepted.
+              </div>
+            </div>
+          </div>
+
+          <div class="req-remarks-summary-grid">
+            <div class="req-remarks-summary-card">
+              <div class="req-remarks-summary-label">Requester Email</div>
+              <div class="req-remarks-summary-value" id="req-remarks-email"></div>
+              <div class="req-remarks-summary-note">Confirmation destination</div>
+            </div>
+            <div class="req-remarks-summary-card req-remarks-summary-card-accent">
+              <div class="req-remarks-summary-label">Requested Units</div>
+              <div class="req-remarks-summary-value" id="req-remarks-requested-units"></div>
+              <div class="req-remarks-summary-note">Use remarks to explain any partial offer</div>
+            </div>
+          </div>
+
+          <div class="req-remarks-feedback" id="req-remarks-feedback" hidden></div>
+
+          <div class="form-row">
+            <div class="form-group-m">
+              <label for="req-approved-units">Approved Units</label>
+              <input id="req-approved-units" class="req-remarks-input" type="number" min="1" step="1" inputmode="numeric">
+              <div class="req-remarks-field-note">Must be greater than 0 and no more than the requested units.</div>
+            </div>
+            <div class="form-group-m">
+              <label for="req-alternative-component">Alternative Component Suggestion</label>
+              <input id="req-alternative-component" class="req-remarks-input" type="text" placeholder="Optional alternative component suggestion">
+              <div class="req-remarks-field-note">Optional guidance if another component may help the requester.</div>
+            </div>
+          </div>
+
+          <div class="form-row full">
+            <div class="form-group-m">
+              <label for="req-approval-remarks">Approval Remarks</label>
+              <textarea id="req-approval-remarks" class="req-remarks-textarea" placeholder="Explain the available units, what changed, and any instructions the requester should review."></textarea>
+              <div class="req-remarks-field-note">This message is included in the confirmation email the requester receives.</div>
+            </div>
+          </div>
+
+          <div class="req-remarks-footnote">
+            After the email is sent, the request moves to <strong>Waiting for requester confirmation</strong> until the requester responds.
+          </div>
+        </div>
+
+        <div class="req-remarks-modal-footer">
+          <button class="btn-secondary" type="button" onclick="reqCloseApproveWithRemarks()">Cancel</button>
+          <button class="btn-primary req-remarks-submit" type="button" id="req-remarks-submit-btn" onclick="reqSubmitApproveWithRemarks()">Send Confirmation Email</button>
         </div>
       </div>
     </div>
@@ -1104,6 +1176,7 @@
           <option value="ALL">All Status Changes</option>
           <option value="PENDING">→ PENDING</option>
           <option value="APPROVED">→ APPROVED</option>
+          <option value="NEEDS_CONFIRMATION">→ NEEDS_CONFIRMATION</option>
           <option value="ALLOCATED">→ ALLOCATED</option>
           <option value="READY_FOR_RELEASE">→ READY_FOR_RELEASE</option>
           <option value="RELEASED">→ RELEASED</option>
@@ -1790,24 +1863,24 @@
     <div class="modal" style="max-width:480px">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Reject Request</div>
+          <div class="modal-title" id="req-reject-title">Reject Request</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px" id="req-reject-subtitle"></div>
         </div>
         <button class="modal-close" onclick="reqCloseReject()">✕</button>
       </div>
       <div class="modal-body">
-        <div style="background:var(--amber-light);border:1px solid rgba(179,92,0,0.2);border-radius:9px;
+        <div id="req-reject-helper" style="background:var(--amber-light);border:1px solid rgba(179,92,0,0.2);border-radius:9px;
             padding:11px 14px;font-size:13px;color:var(--amber);margin-bottom:14px;display:flex;gap:8px">
           <span>⚠</span><span>This will notify the requester. Provide a clear, specific reason.</span>
         </div>
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px">Reason for Rejection</label>
+        <label id="req-reject-label" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px">Reason for Rejection</label>
         <textarea id="req-reject-reason" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;
             font-family:'DM Sans',sans-serif;font-size:13px;color:var(--charcoal);background:var(--cream);
             resize:vertical;min-height:90px;outline:none;box-sizing:border-box"
           placeholder="e.g. Incompatible blood type on cross-match, insufficient documentation..."></textarea>
         <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
           <button class="btn-ghost" onclick="reqCloseReject()">Cancel</button>
-          <button class="req-btn req-btn-reject" onclick="reqConfirmReject()">Confirm Reject</button>
+          <button class="req-btn req-btn-reject" id="req-reject-confirm" onclick="reqConfirmReject()">Confirm Reject</button>
         </div>
       </div>
     </div>

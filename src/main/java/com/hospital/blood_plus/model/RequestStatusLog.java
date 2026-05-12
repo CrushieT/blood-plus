@@ -24,7 +24,7 @@ public class RequestStatusLog {
     private BloodBagRequest.RequestStatus newStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "changed_by", nullable = false)
+    @JoinColumn(name = "changed_by", nullable = true)
     private AppUser changedBy;
 
     @Column(nullable = false)

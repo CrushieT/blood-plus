@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blood Request Confirmation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7f1ed;
+      --surface: #ffffff;
+      --surface-soft: #f6f0eb;
+      --text: #1f1b18;
+      --muted: #6c625b;
+      --border: #e4d7ce;
+      --danger: #b53a34;
+      --danger-soft: #fde8e6;
+      --success: #1b6a43;
+      --success-soft: #e8f5ee;
+      --warning: #9a6417;
+      --warning-soft: #fff4de;
+      --shadow: 0 18px 42px rgba(55, 30, 16, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(181, 58, 52, 0.12), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(27, 106, 67, 0.12), transparent 28%),
+        linear-gradient(180deg, #fcf8f5 0%, var(--bg) 100%);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .shell {
+      width: min(720px, 100%);
+      display: grid;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.03em;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #b53a34, #8f201b);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      box-shadow: 0 10px 24px rgba(181, 58, 52, 0.24);
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(228, 215, 206, 0.9);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .hero {
+      padding: 26px 28px 18px;
+      border-bottom: 1px solid var(--border);
+      background:
+        linear-gradient(135deg, rgba(181, 58, 52, 0.08), rgba(255, 255, 255, 0)),
+        linear-gradient(180deg, rgba(246, 240, 235, 0.9), rgba(255, 255, 255, 0.9));
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--warning-soft);
+      color: var(--warning);
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: "Playfair Display", serif;
+      font-size: clamp(28px, 4vw, 38px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      max-width: 56ch;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .body {
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .status-card {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface-soft);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+      background: var(--warning-soft);
+      color: var(--warning);
+      flex-shrink: 0;
+    }
+
+    .status-title {
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .status-copy {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .meta {
+      display: grid;
+      gap: 10px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      font-size: 14px;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .meta-value {
+      color: var(--text);
+      font-weight: 700;
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .note {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-top: 4px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      opacity: 0.96;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #b53a34, #8f201b);
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(181, 58, 52, 0.24);
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .state-success .pill,
+    .state-success .status-icon {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .state-error .pill,
+    .state-error .status-icon {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .state-success .pill { color: var(--success); }
+    .state-error .pill { color: var(--danger); }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(154, 100, 23, 0.18);
+      border-top-color: var(--warning);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 640px) {
+      .brand {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hero,
+      .body {
+        padding: 22px;
+      }
+
+      .meta-row {
+        flex-direction: column;
+      }
+
+      .meta-value {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="brand">
+      <div class="brand-mark">
+        <div class="brand-icon">+</div>
+        <span>BloodPlus Request Confirmation</span>
+      </div>
+      <span>Secure requester response portal</span>
+    </div>
+
+    <section class="card" id="confirmation-card">
+      <div class="hero">
+        <div class="pill" id="confirmation-pill">
+          <span class="spinner" id="confirmation-spinner" aria-hidden="true"></span>
+          <span id="confirmation-pill-text">Processing response</span>
+        </div>
+        <h1 id="confirmation-heading">Checking your confirmation link</h1>
+        <p id="confirmation-subtext">
+          We are validating your secure confirmation token and recording your response for the blood bank.
+        </p>
+      </div>
+
+      <div class="body">
+        <div class="status-card" id="status-card">
+          <div class="status-head">
+            <div class="status-icon" id="status-icon">...</div>
+            <div>
+              <div class="status-title" id="status-title">Waiting for confirmation</div>
+              <div class="status-copy" id="status-copy">
+                This should only take a moment. Please keep this page open while we process your response.
+              </div>
+            </div>
+          </div>
+
+          <div class="meta">
+            <div class="meta-row">
+              <span class="meta-label">Requested action</span>
+              <span class="meta-value" id="requested-action">Reviewing link</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Security</span>
+              <span class="meta-value">Token-based confirmation</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="note" id="result-note">
+          If this link has expired or was already used, please contact the blood bank so the team can assist you.
+        </div>
+
+        <div class="actions">
+          <a class="btn btn-secondary" href="/blood-request.html">Back to request page</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/blood_request_confirmation.js"></script>
+</body>
+</html>

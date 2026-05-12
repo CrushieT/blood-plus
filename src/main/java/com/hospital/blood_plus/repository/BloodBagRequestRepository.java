@@ -35,6 +35,8 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     // Blood Bag request Anonymous user
     Optional<BloodBagRequest> findByReferenceNumber(String referenceNumber);
 
+    Optional<BloodBagRequest> findByConfirmationToken(String confirmationToken);
+
     List<BloodBagRequest> findAllByOrderByRequestedAtDesc();
 
     List<BloodBagRequest> findByStatus(BloodBagRequest.RequestStatus status);
