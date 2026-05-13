@@ -159,7 +159,7 @@ public class BloodBagRequestService {
         // ─────────────────────────────────────────────
         request.setRequesterType(BloodBagRequest.RequesterType.ANONYMOUS);
         request.setStatus(RequestStatus.PENDING);
-        request.setReferenceNumber(generateReferenceNumber());
+        request.setReferenceNumber(generateReferenceNumber(request.getRequestCategory()));
  
         BloodBagRequest savedRequest = repository.save(request);
 
@@ -701,7 +701,7 @@ public class BloodBagRequestService {
         
         request.setRequesterType(BloodBagRequest.RequesterType.HOSPITAL);
         request.setStatus(BloodBagRequest.RequestStatus.PENDING);
-        request.setReferenceNumber(generateReferenceNumber());
+        request.setReferenceNumber(generateReferenceNumber(request.getRequestCategory()));
     
         return repository.save(request);
     }
@@ -973,12 +973,17 @@ public class BloodBagRequestService {
     // REFERENCE NUMBER
     // ─────────────────────────────────────────────
 
-    private String generateReferenceNumber() {
+    private String generateReferenceNumber(BloodBagRequest.RequestCategory requestCategory) {
         int year = LocalDate.now().getYear();
         long count = repository.count() + 1;
+        String prefix = switch (requestCategory) {
+            case INPATIENT -> "IP";
+            case OUTPATIENT -> "OP";
+            default -> "BR";
+        };
         String ref;
         do {
-            ref = String.format("BR-%d-%05d", year, count++);
+            ref = String.format("%s-%d-%05d", prefix, year, count++);
         } while (repository.findByReferenceNumber(ref).isPresent());
         return ref;
     }
