@@ -47,8 +47,9 @@ public class EmailService {
         }
     }
 
-    public void sendStaffCredentialsEmail(String to, String firstName,
-                                           String username, String tempPassword) {
+    public void sendStaffCredentialsEmail(String to, String staffName,
+                                           String username, String tempPassword,
+                                           String uniqueCode) {
         try {
             String url = "https://api.brevo.com/v3/smtp/email";
  
@@ -57,13 +58,17 @@ public class EmailService {
             headers.set("api-key", apiKey);
  
             String body =
-                "Hi " + firstName + ",\n\n" +
-                "Your BloodPlus staff account has been created.\n\n" +
+                "Hi " + staffName + ",\n\n" +
+                "Your BloodPlus Blood Bank staff account has been created.\n\n" +
                 "Login details:\n" +
-                "  Email:    " + to + "\n" +
-                "  Username: " + username + "\n" +
-                "  Password: " + tempPassword + "\n\n" +
-                "Please log in and change your password as soon as possible.\n\n" +
+                "Email/Login: " + to + "\n" +
+                "Username: " + username + "\n" +
+                "Temporary Password: " + tempPassword + "\n\n" +
+                "Staff authorization code:\n" +
+                uniqueCode + "\n\n" +
+                "Dashboard access:\n" +
+                "Sign in at " + normalizedFrontendBaseUrl() + "/admin-login.html using your email and temporary password. " +
+                "Please change your password after your first login.\n\n" +
                 "— BloodPlus Admin";
  
             Map<String, Object> payload = Map.of(
@@ -78,6 +83,77 @@ public class EmailService {
             System.out.println("Brevo credentials email: " + response.getStatusCode());
         } catch (Exception e) {
             System.err.println("Failed to send credentials email: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void sendStaffAuthorizationCodeEmail(String to, String staffName,
+                                                String department, String uniqueCode) {
+        try {
+            String url = "https://api.brevo.com/v3/smtp/email";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("api-key", apiKey);
+
+            String body =
+                "Hi " + staffName + ",\n\n" +
+                "Your BloodPlus staff authorization code has been created.\n\n" +
+                "Department: " + department + "\n" +
+                "Authorization Code: " + uniqueCode + "\n\n" +
+                "This code is for staff identification and authorization for blood requesting workflows.\n\n" +
+                "You do not have BloodPlus dashboard login access. No password has been created for your account.\n\n" +
+                "BloodPlus Admin";
+
+            Map<String, Object> payload = Map.of(
+                "sender",      Map.of("email", fromEmail, "name", "BloodPlus"),
+                "to",          new Object[]{ Map.of("email", to) },
+                "subject",     "BloodPlus - Staff Authorization Code",
+                "textContent", body
+            );
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+            System.out.println("Brevo staff authorization code email: " + response.getStatusCode());
+        } catch (Exception e) {
+            System.err.println("Failed to send staff authorization code email: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void sendStaffRegeneratedCodeEmail(String to, String staffName,
+                                              String uniqueCode, boolean hasDashboardAccess) {
+        try {
+            String url = "https://api.brevo.com/v3/smtp/email";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("api-key", apiKey);
+
+            String dashboardNote = hasDashboardAccess
+                ? "Your dashboard password has not been changed.\n"
+                : "You still do not have BloodPlus dashboard login access.\n";
+
+            String body =
+                "Hi " + staffName + ",\n\n" +
+                "A new BloodPlus staff authorization code has been generated for you.\n\n" +
+                "New Authorization Code: " + uniqueCode + "\n\n" +
+                "Please use this new code going forward. Your previous authorization code should no longer be used.\n\n" +
+                dashboardNote + "\n" +
+                "BloodPlus Admin";
+
+            Map<String, Object> payload = Map.of(
+                "sender",      Map.of("email", fromEmail, "name", "BloodPlus"),
+                "to",          new Object[]{ Map.of("email", to) },
+                "subject",     "BloodPlus - New Staff Authorization Code",
+                "textContent", body
+            );
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+            System.out.println("Brevo regenerated staff code email: " + response.getStatusCode());
+        } catch (Exception e) {
+            System.err.println("Failed to send regenerated staff code email: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -618,5 +694,13 @@ public class EmailService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to send approval confirmation email: " + e.getMessage(), e);
         }
+    }
+
+    private String normalizedFrontendBaseUrl() {
+        String baseUrl = frontendBaseUrl != null ? frontendBaseUrl.trim() : "http://localhost:8080";
+        if (baseUrl.endsWith("/")) {
+            return baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        return baseUrl;
     }
 }

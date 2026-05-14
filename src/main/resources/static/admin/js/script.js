@@ -50,11 +50,13 @@ function showPanel(id, navEl) {
 
 // ── Modal helpers ──────────────────────────────────────────
 function openModal(id) {
-  document.getElementById(id).classList.add('show');
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add('show');
 }
 
 function closeModal(id) {
-  document.getElementById(id).classList.remove('show');
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('show');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -2202,7 +2204,7 @@ window.exportBloodBagsToExcel = function() {
   const REQ_STATUS_LABEL = {
     PENDING: 'Pending',
     APPROVED: 'Approved',
-    NEEDS_CONFIRMATION: 'Waiting for requester confirmation',
+    NEEDS_CONFIRMATION: 'Waiting for confirmation',
     ALLOCATED: 'Allocated',
     READY_FOR_RELEASE: 'Ready for release',
     RELEASED: 'Released',
@@ -2273,6 +2275,16 @@ window.exportBloodBagsToExcel = function() {
   let reqPendingRejectId = null;
   let reqPendingResolutionMode = 'reject';
   let reqPendingRemarksId = null;
+  const REQ_STATUS_PRIORITY = {
+    PENDING: 0,
+    NEEDS_CONFIRMATION: 1,
+    APPROVED: 2,
+    ALLOCATED: 3,
+    READY_FOR_RELEASE: 4,
+    RELEASED: 5,
+    REJECTED: 6,
+    CANCELLED: 7,
+  };
  
   let confirmPending = null;
  
@@ -3206,10 +3218,74 @@ window.exportBloodBagsToExcel = function() {
       r.component.toLowerCase().includes(q)||
       r.referenceNumber.toLowerCase().includes(q)
     );
-    if (sort === 'date_desc')       list.sort((a, b) => b.id - a.id);
-    else if (sort === 'date_asc')   list.sort((a, b) => a.id - b.id);
-    else if (sort === 'urgency')    list.sort((a, b) => REQ_URGENCY_ORDER[a.urgency] - REQ_URGENCY_ORDER[b.urgency]);
-    else if (sort === 'units_desc') list.sort((a, b) => b.units - a.units);
+    if (sort === 'date_desc') {
+      list.sort((a, b) => {
+        const statusDiff =
+          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
+          (REQ_STATUS_PRIORITY[b.status] ?? 99);
+
+        if (statusDiff !== 0) return statusDiff;
+
+        const urgencyDiff =
+          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
+          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
+
+        if (urgencyDiff !== 0) return urgencyDiff;
+
+        return b.id - a.id;
+      });
+    }
+    else if (sort === 'date_asc') {
+      list.sort((a, b) => {
+        const statusDiff =
+          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
+          (REQ_STATUS_PRIORITY[b.status] ?? 99);
+
+        if (statusDiff !== 0) return statusDiff;
+
+        const urgencyDiff =
+          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
+          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
+
+        if (urgencyDiff !== 0) return urgencyDiff;
+
+        return a.id - b.id;
+      });
+    }
+    else if (sort === 'urgency') {
+      list.sort((a, b) => {
+        const statusDiff =
+          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
+          (REQ_STATUS_PRIORITY[b.status] ?? 99);
+
+        if (statusDiff !== 0) return statusDiff;
+
+        const urgencyDiff =
+          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
+          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
+
+        if (urgencyDiff !== 0) return urgencyDiff;
+
+        return b.id - a.id;
+      });
+    }
+    else if (sort === 'units_desc') {
+      list.sort((a, b) => {
+        const statusDiff =
+          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
+          (REQ_STATUS_PRIORITY[b.status] ?? 99);
+
+        if (statusDiff !== 0) return statusDiff;
+
+        const urgencyDiff =
+          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
+          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
+
+        if (urgencyDiff !== 0) return urgencyDiff;
+
+        return b.units - a.units;
+      });
+    }
     return list;
   }
  
@@ -3848,15 +3924,15 @@ function staffGetDepts() {
 function staffPopulateDepts() {
   const sel      = document.getElementById('staff-filter-dept');
   const datalist = document.getElementById('staff-dept-list');
-  if (!sel || !datalist) return;
+  if (!sel) return;
   const current = sel.value;
   while (sel.options.length > 1) sel.remove(1);
-  datalist.innerHTML = '';
+  if (datalist) datalist.innerHTML = '';
   staffGetDepts().forEach(d => {
     const opt = document.createElement('option');
     opt.value = d; opt.textContent = d;
     sel.appendChild(opt.cloneNode(true));
-    datalist.appendChild(opt);
+    if (datalist) datalist.appendChild(opt);
   });
   if (current) sel.value = current;
 }
@@ -3878,16 +3954,60 @@ function staffValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function staffHasDashboardAccess(staff) {
+  return staff.hasDashboardAccess === true || staff.userId != null;
+}
+
+function staffAccessStatus(staff) {
+  return staff.accountAccessStatus || (staffHasDashboardAccess(staff) ? 'Dashboard Access' : 'Request Code Only');
+}
+
+function staffCodeLabel(staff) {
+  if (staff.codeStatus && staff.codeStatus !== 'Active') return staff.codeStatus;
+  return staff.maskedUniqueCode || 'Code Active';
+}
+
+function staffToggleDepartmentInput() {
+  const choice = document.getElementById('add-staff-dept-choice')?.value || 'Blood Bank';
+  const wrap = document.getElementById('add-staff-custom-dept-wrap');
+  const custom = document.getElementById('add-staff-custom-dept');
+  const note = document.getElementById('add-staff-access-note');
+  const isOther = choice === 'Others';
+
+  if (wrap) wrap.style.display = isOther ? 'flex' : 'none';
+  if (custom) {
+    custom.required = isOther;
+    if (!isOther) custom.value = '';
+  }
+  if (note) {
+    note.innerHTML = isOther
+      ? `<span style="font-size:15px;flex-shrink:0">i</span> Other department staff receive a staff authorization code only and cannot log in to the dashboard.`
+      : `<span style="font-size:15px;flex-shrink:0">i</span> Blood Bank staff receive dashboard credentials and a staff authorization code.`;
+  }
+}
+
+function staffGetAddDepartment() {
+  const choice = document.getElementById('add-staff-dept-choice')?.value || 'Blood Bank';
+  if (choice === 'Blood Bank') return 'Blood Bank';
+  return document.getElementById('add-staff-custom-dept')?.value.trim() || '';
+}
+
+function staffCloseModals(exceptId = null) {
+  ['addStaffModal', 'editStaffModal', 'viewStaffModal', 'deleteStaffModal', 'sysDeleteConfirmModal']
+    .forEach(id => {
+      if (id !== exceptId) closeModal(id);
+    });
+}
+
 /* ══════════════════════════════════════════════════════════════
    SUMMARY STRIP
 ══════════════════════════════════════════════════════════════ */
 
 function staffUpdateStrip() {
-  const active   = staffList.filter(s => s.status === 'active').length;
-  const inactive = staffList.filter(s => s.status === 'inactive').length;
-  const depts    = staffGetDepts().length;
-  document.getElementById('staff-active-count').textContent   = active;
-  document.getElementById('staff-inactive-count').textContent = inactive;
+  const dashboardAccess = staffList.filter(staffHasDashboardAccess).length;
+  const codeOnly = staffList.length - dashboardAccess;
+  document.getElementById('staff-active-count').textContent   = dashboardAccess;
+  document.getElementById('staff-inactive-count').textContent = codeOnly;
   document.getElementById('staff-total-count').textContent    = staffList.length;
 }
 
@@ -3909,7 +4029,10 @@ function staffGetFiltered() {
                     || (s.position || '').toLowerCase().includes(q)
                     || (s.email || '').toLowerCase().includes(q);
     const matchD = dept   === 'ALL' || s.department === dept;
-    const matchS = status === 'ALL' || s.status === status;
+    const hasAccess = staffHasDashboardAccess(s);
+    const matchS = status === 'ALL'
+                    || (status === 'dashboard' && hasAccess)
+                    || (status === 'code-only' && !hasAccess);
     return matchQ && matchD && matchS;
   });
 
@@ -3955,10 +4078,10 @@ function staffRender() {
 
   tbody.innerHTML = slice.map(s => {
     const initials  = staffInitials(s.firstName, s.lastName);
-    const isActive  = s.status === 'active';
-    const statusTag = isActive
-      ? `<span class="tag tag-active">Active</span>`
-      : `<span class="tag tag-inactive">Inactive</span>`;
+    const hasAccess = staffHasDashboardAccess(s);
+    const accessTag = hasAccess
+      ? `<span class="tag tag-active">Dashboard Access</span>`
+      : `<span class="tag tag-inactive">Request Code Only</span>`;
 
     return `
       <tr>
@@ -3977,14 +4100,16 @@ function staffRender() {
         <td style="font-size:12px">${escHtml(s.department || '—')}</td>
         <td style="font-size:12px">${escHtml(s.position || '—')}</td>
         <td style="font-size:12px;color:var(--muted)">${escHtml(s.phoneNumber || '—')}</td>
-        <td style="font-size:12px">${staffFmtDate(s.hireDate)}</td>
-        <td>${statusTag}</td>
+        <td>${accessTag}</td>
+        <td style="font-family:monospace;font-size:12px">${escHtml(staffCodeLabel(s))}</td>
         <td>
-          <div style="display:flex;gap:6px;align-items:center">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <button class="btn-ghost" style="font-size:12px;padding:5px 10px"
               onclick="staffOpenView(${s.id})">View</button>
             <button class="btn-ghost" style="font-size:12px;padding:5px 10px"
               onclick="staffOpenEdit(${s.id})">Edit</button>
+            <button class="btn-ghost" style="font-size:12px;padding:5px 10px"
+              onclick="staffRegenerateCode(${s.id})">Regenerate Code</button>
             <button class="btn-danger" style="font-size:12px;padding:5px 10px"
               onclick="staffOpenDelete(${s.id})">Delete</button>
           </div>
@@ -4008,37 +4133,23 @@ function staffNextPage() {
 ══════════════════════════════════════════════════════════════ */
 
 function openAddStaffModal() {
+  staffCloseModals('addStaffModal');
+  staffCurrentViewId = null;
   ['add-staff-email','add-staff-first','add-staff-last',
-   'add-staff-phone','add-staff-id','add-staff-dept','add-staff-position'].forEach(id => {
+   'add-staff-phone','add-staff-position','add-staff-custom-dept'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  const statusEl = document.getElementById('add-staff-status');
-  if (statusEl) statusEl.value = 'active';
-  const hireDateEl = document.getElementById('add-staff-hiredate');
-  if (hireDateEl) hireDateEl.value = new Date().toISOString().split('T')[0];
-
-  // Show the generated-password hint
-  const hint = document.getElementById('add-staff-pass-hint');
-  if (hint) hint.textContent = '';
+  const deptChoice = document.getElementById('add-staff-dept-choice');
+  if (deptChoice) deptChoice.value = 'Blood Bank';
 
   staffHideError('add-staff-error');
-  staffPopulateDepts();
+  staffToggleDepartmentInput();
   openModal('addStaffModal');
 }
 
-// Preview the generated password as the admin types the name
 function staffPreviewPassword() {
-  const first = document.getElementById('add-staff-first')?.value.trim() || '';
-  const last  = document.getElementById('add-staff-last')?.value.trim()  || '';
-  const hint  = document.getElementById('add-staff-pass-hint');
-  if (!hint) return;
-  if (first && last) {
-    const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
-    hint.textContent = `Generated password: ${cap(first)}${cap(last)}@1234`;
-  } else {
-    hint.textContent = '';
-  }
+  staffToggleDepartmentInput();
 }
 
 async function submitAddStaff() {
@@ -4046,37 +4157,30 @@ async function submitAddStaff() {
   const first    = document.getElementById('add-staff-first').value.trim();
   const last     = document.getElementById('add-staff-last').value.trim();
   const phone    = document.getElementById('add-staff-phone').value.trim();
-  
-  // Use current date if hire date not provided
-  let hireDate;
-  if (!hireDate) {
-    const today = new Date();
-    hireDate = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-  }
-  
-  const staffId  = document.getElementById('add-staff-id').value.trim();
-  const dept     = "Blood bank";
+  const dept     = staffGetAddDepartment();
   const position = document.getElementById('add-staff-position').value.trim();
-  const status   = document.getElementById('add-staff-status').value;
 
-  if (!email || !first || !last) {
-    staffShowError('add-staff-error', 'Email, first name, and last name are required.');
+  if (!email || !first || !last || !dept) {
+    staffShowError('add-staff-error', 'Email, first name, last name, and department are required.');
     return;
   }
   if (!staffValidEmail(email)) {
     staffShowError('add-staff-error', 'Please enter a valid email address.');
     return;
   }
+  if (document.getElementById('add-staff-dept-choice')?.value === 'Others' && !dept) {
+    staffShowError('add-staff-error', 'Please enter the custom department.');
+    return;
+  }
 
   const btn = document.getElementById('add-staff-submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
 
   try {
     const created = await staffApiFetch('', {
       method: 'POST',
       body: JSON.stringify({ email, firstName: first, lastName: last, phoneNumber: phone,
-                             hireDate: hireDate, staffId: staffId || null,
-                             department: dept, position, status }),
+                             department: dept, position }),
     });
 
     staffList.unshift(created);   // optimistic: prepend to local list
@@ -4085,13 +4189,15 @@ async function submitAddStaff() {
     
     // Show success modal
     showSysSuccessModal(
-      'Staff Account Created',
-      `Account created for ${first} ${last}. Credentials have been emailed.`
+      'Staff Added',
+      created.hasDashboardAccess
+        ? `Dashboard credentials and authorization code have been emailed to ${first} ${last}.`
+        : `Authorization code has been emailed to ${first} ${last}.`
     );
   } catch (err) {
     staffShowError('add-staff-error', err.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Add Staff'; }
   }
 }
 
@@ -4102,6 +4208,7 @@ async function submitAddStaff() {
 function staffOpenView(id) {
   const s = staffList.find(x => x.id === id);
   if (!s) return;
+  staffCloseModals('viewStaffModal');
   staffCurrentViewId = id;
 
   document.getElementById('view-staff-id-label').textContent       = s.staffId || '';
@@ -4114,12 +4221,14 @@ function staffOpenView(id) {
   document.getElementById('view-staff-phone').textContent    = s.phoneNumber || '—';
   document.getElementById('view-staff-hiredate').textContent = staffFmtDate(s.hireDate);
   document.getElementById('view-staff-email').textContent    = s.email;
+  document.getElementById('view-staff-access').textContent   = staffAccessStatus(s);
+  document.getElementById('view-staff-code').textContent     = staffCodeLabel(s);
   document.getElementById('view-staff-created').textContent  = staffFmtDate(s.createdAt);
 
   const badge = document.getElementById('view-staff-status-badge');
-  badge.innerHTML = s.status === 'active'
-    ? `<span class="tag tag-active">Active</span>`
-    : `<span class="tag tag-inactive">Inactive</span>`;
+  badge.innerHTML = staffHasDashboardAccess(s)
+    ? `<span class="tag tag-active">Dashboard Access</span>`
+    : `<span class="tag tag-inactive">Request Code Only</span>`;
 
   openModal('viewStaffModal');
 }
@@ -4136,6 +4245,7 @@ function staffOpenEditFromView() {
 function staffOpenEdit(id) {
   const s = staffList.find(x => x.id === id);
   if (!s) return;
+  staffCloseModals('editStaffModal');
   staffCurrentViewId = id;
 
   document.getElementById('edit-staff-subtitle').textContent = s.staffId || s.email;
@@ -4145,9 +4255,17 @@ function staffOpenEdit(id) {
   document.getElementById('edit-staff-id').value             = s.staffId     || '';
   document.getElementById('edit-staff-dept').value           = s.department  || '';
   document.getElementById('edit-staff-position').value       = s.position    || '';
-  document.getElementById('edit-staff-status').value         = s.status;
+  document.getElementById('edit-staff-status').value         = s.status || 'active';
   document.getElementById('edit-staff-password').value       = '';
   document.getElementById('edit-staff-target-id').value      = id;
+
+  const hasAccess = staffHasDashboardAccess(s);
+  const statusWrap = document.getElementById('edit-staff-status-wrap');
+  const passwordTitle = document.getElementById('edit-staff-password-title');
+  const passwordRow = document.getElementById('edit-staff-password-row');
+  if (statusWrap) statusWrap.style.display = hasAccess ? '' : 'none';
+  if (passwordTitle) passwordTitle.style.display = hasAccess ? '' : 'none';
+  if (passwordRow) passwordRow.style.display = hasAccess ? 'flex' : 'none';
 
   staffHideError('edit-staff-error');
   staffPopulateDepts();
@@ -4164,12 +4282,14 @@ async function submitEditStaff() {
   const position = document.getElementById('edit-staff-position').value.trim();
   const status   = document.getElementById('edit-staff-status').value;
   const password = document.getElementById('edit-staff-password').value;
+  const current  = staffList.find(s => s.id === id);
+  const hasAccess = staffHasDashboardAccess(current || {});
 
-  if (!first || !last) {
-    staffShowError('edit-staff-error', 'First name and last name are required.');
+  if (!first || !last || !dept) {
+    staffShowError('edit-staff-error', 'First name, last name, and department are required.');
     return;
   }
-  if (password && password.length < 6) {
+  if (hasAccess && password && password.length < 6) {
     staffShowError('edit-staff-error', 'New password must be at least 6 characters.');
     return;
   }
@@ -4181,9 +4301,10 @@ async function submitEditStaff() {
     const updated = await staffApiFetch(`/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ firstName: first, lastName: last, phoneNumber: phone,
-                             hireDate: hireDate || null, staffId: staffId || null,
-                             department: dept, position, status,
-                             newPassword: password || null }),
+                             staffId: staffId || null,
+                             department: dept, position,
+                             status: hasAccess ? status : null,
+                             newPassword: hasAccess ? (password || null) : null }),
     });
 
     // Replace local copy
@@ -4212,6 +4333,7 @@ async function submitEditStaff() {
 function staffOpenDelete(id) {
   const s = staffList.find(x => x.id === id);
   if (!s) return;
+  staffCloseModals();
   staffCurrentViewId = id;
   
   // Show delete confirmation modal using the reusable system modal
@@ -4251,6 +4373,27 @@ async function staffConfirmDelete() {
 /* ══════════════════════════════════════════════════════════════
    TOGGLE STATUS  →  PATCH /api/admin/staff/{id}/toggle-status
 ══════════════════════════════════════════════════════════════ */
+
+async function staffRegenerateCode(id) {
+  const s = staffList.find(x => x.id === id);
+  if (!s) return;
+
+  const name = `${s.firstName} ${s.lastName}`;
+  if (!confirm(`Generate a new staff authorization code for ${name}? The previous code will no longer be used.`)) {
+    return;
+  }
+
+  try {
+    const result = await staffApiFetch(`/${id}/regenerate-code`, { method: 'POST' });
+    await staffLoadAll();
+    staffShowToast(
+      result.message || 'New staff authorization code generated and emailed successfully.',
+      'success'
+    );
+  } catch (err) {
+    staffShowToast(`Code regeneration failed: ${err.message}`, 'danger');
+  }
+}
 
 async function staffToggleStatus(id) {
   const s = staffList.find(x => x.id === id);

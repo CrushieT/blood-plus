@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -591,14 +592,21 @@ public class AdminController {
         try {
             if (req.getEmail()     == null || req.getEmail().isBlank() ||
                 req.getFirstName() == null || req.getFirstName().isBlank() ||
-                req.getLastName()  == null || req.getLastName().isBlank()) {
+                req.getLastName()  == null || req.getLastName().isBlank() ||
+                req.getDepartment() == null || req.getDepartment().isBlank()) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Email, first name, and last name are required."));
+                        .body(Map.of("error", "Email, first name, last name, and department are required."));
             }
             StaffResponse created = staffService.createStaff(req);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            String message = "Failed to create staff account due to a database constraint.";
+            if (hasUserIdNullSchemaIssue(e)) {
+                message = "Database schema update required: staff_profiles.user_id must allow NULL values for non-Blood Bank staff.";
+            }
+            return ResponseEntity.internalServerError().body(Map.of("error", message));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError()
@@ -613,9 +621,10 @@ public class AdminController {
                                         @RequestBody UpdateStaffRequest req) {
         try {
             if (req.getFirstName() == null || req.getFirstName().isBlank() ||
-                req.getLastName()  == null || req.getLastName().isBlank()) {
+                req.getLastName()  == null || req.getLastName().isBlank() ||
+                req.getDepartment() == null || req.getDepartment().isBlank()) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "First name and last name are required."));
+                        .body(Map.of("error", "First name, last name, and department are required."));
             }
             return ResponseEntity.ok(staffService.updateStaff(id, req));
         } catch (IllegalArgumentException e) {
@@ -654,6 +663,41 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // POST /api/admin/staff/{id}/regenerate-code
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/staff/{id}/regenerate-code")
+    public ResponseEntity<?> regenerateStaffCode(@PathVariable Long id) {
+        try {
+            staffService.regenerateStaffCode(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "New staff authorization code generated and emailed successfully.",
+                "staffId", id
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to regenerate staff authorization code."));
+        }
+    }
+
+    private boolean hasUserIdNullSchemaIssue(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null &&
+                    message.contains("user_id") &&
+                    message.contains("cannot be null")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     

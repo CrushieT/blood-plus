@@ -99,6 +99,10 @@ public class StaffDTOs {
         private String phoneNumber;
         private String hireDate;
         private String status;
+        private boolean hasDashboardAccess;
+        private String accountAccessStatus;
+        private String codeStatus;
+        private String maskedUniqueCode;
         private String createdAt;
 
         // Builder-style setters
@@ -113,6 +117,10 @@ public class StaffDTOs {
         public StaffResponse phoneNumber(String v){ phoneNumber = v;return this; }
         public StaffResponse hireDate(String v)  { hireDate = v;    return this; }
         public StaffResponse status(String v)    { status = v;      return this; }
+        public StaffResponse hasDashboardAccess(boolean v) { hasDashboardAccess = v; return this; }
+        public StaffResponse accountAccessStatus(String v) { accountAccessStatus = v; return this; }
+        public StaffResponse codeStatus(String v) { codeStatus = v; return this; }
+        public StaffResponse maskedUniqueCode(String v) { maskedUniqueCode = v; return this; }
         public StaffResponse createdAt(String v) { createdAt = v;   return this; }
 
         public Long   getId()          { return id; }
@@ -126,6 +134,11 @@ public class StaffDTOs {
         public String getPhoneNumber() { return phoneNumber; }
         public String getHireDate()    { return hireDate; }
         public String getStatus()      { return status; }
+        public boolean isHasDashboardAccess() { return hasDashboardAccess; }
+        public boolean getHasDashboardAccess() { return hasDashboardAccess; }
+        public String getAccountAccessStatus() { return accountAccessStatus; }
+        public String getCodeStatus() { return codeStatus; }
+        public String getMaskedUniqueCode() { return maskedUniqueCode; }
         public String getCreatedAt()   { return createdAt; }
     }
 }

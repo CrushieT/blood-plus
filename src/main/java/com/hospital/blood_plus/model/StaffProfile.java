@@ -13,11 +13,17 @@ public class StaffProfile {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @JoinColumn(name = "user_id", nullable = true, unique = true)
     private AppUser user;
 
     @Column(unique = true)
     private String staffId;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(name = "unique_code", nullable = false, unique = true, length = 9)
+    private String uniqueCode;
 
     @Column(nullable = false)
     private String firstName;
@@ -52,6 +58,12 @@ public class StaffProfile {
 
     public String getStaffId() { return staffId; }
     public void setStaffId(String staffId) { this.staffId = staffId; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getUniqueCode() { return uniqueCode; }
+    public void setUniqueCode(String uniqueCode) { this.uniqueCode = uniqueCode; }
 
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
