@@ -862,6 +862,7 @@
     });
 
     const ROW_COUNT = 10;
+    let currentReferenceNumber = "";
     let currentRequestId = null;
     let defaultFormData = null;
     let isSaving = false;
@@ -1210,6 +1211,20 @@
         isSaving = false;
       }
     }
+    function formatBloodType(value) {
+      const map = {
+        "A+": "A Pos",
+        "A-": "A Neg",
+        "B+": "B Pos",
+        "B-": "B Neg",
+        "AB+": "AB Pos",
+        "AB-": "AB Neg",
+        "O+": "O Pos",
+        "O-": "O Neg"
+      };
+
+      return map[value] || value || "";
+    }
 
     function populateForm(data) {
       document.querySelectorAll("[data-field]").forEach(function (element) {
@@ -1242,7 +1257,13 @@
           const span = document.createElement("span");
 
           span.setAttribute("data-field", "rows." + rowIndex + "." + column);
-          span.textContent = toText(rowData[column]);
+          let value = toText(rowData[column]);
+
+          if (column === "aboRh") {
+            value = formatBloodType(value);
+          }
+
+          span.textContent = value;
 
           td.appendChild(span);
           tr.appendChild(td);
@@ -1321,7 +1342,7 @@
 
       showSysResetConfirmModal(
         "tracer form",
-        currentRequestId ? `Request #${currentRequestId}` : "",
+        currentReferenceNumber ? `#${currentReferenceNumber}` : "",
         "Blood request default data will overwrite the saved tracer snapshot.",
         async function () {
           populateForm(deepClone(defaultFormData));
@@ -1339,8 +1360,14 @@
       bindChecklistToggles();
 
       const payload = decodePayload();
+      
       currentRequestId = payload.requestId ?? payload.bloodRequestId ?? null;
-
+      currentReferenceNumber =
+        payload.referenceNumber ||
+        payload.requestReferenceNumber ||
+        payload.bloodRequestReference ||
+        payload.transactionNumber ||
+        "";
       try {
         defaultFormData = resolveFormData();
         let formData = deepClone(defaultFormData);
