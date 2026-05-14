@@ -38,6 +38,10 @@ public class BloodBagRequestDTO {
     // Patient context
     private String wardRoom;
     private String roomNo;
+    private String patientPurok;
+    private String patientBarangay;
+    private String patientMunicipality;
+    private String patientProvince;
     private BloodBagRequest.AgeGroup ageGroup;
     private BloodBagRequest.RequestCategory requestCategory;
 
@@ -138,6 +142,18 @@ public class BloodBagRequestDTO {
 
     public String getRoomNo() { return roomNo; }
     public void setRoomNo(String roomNo) { this.roomNo = roomNo; }
+
+    public String getPatientPurok() { return patientPurok; }
+    public void setPatientPurok(String patientPurok) { this.patientPurok = patientPurok; }
+
+    public String getPatientBarangay() { return patientBarangay; }
+    public void setPatientBarangay(String patientBarangay) { this.patientBarangay = patientBarangay; }
+
+    public String getPatientMunicipality() { return patientMunicipality; }
+    public void setPatientMunicipality(String patientMunicipality) { this.patientMunicipality = patientMunicipality; }
+
+    public String getPatientProvince() { return patientProvince; }
+    public void setPatientProvince(String patientProvince) { this.patientProvince = patientProvince; }
 
     public BloodBagRequest.AgeGroup getAgeGroup() { return ageGroup; }
     public void setAgeGroup(BloodBagRequest.AgeGroup ageGroup) { this.ageGroup = ageGroup; }

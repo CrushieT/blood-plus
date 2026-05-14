@@ -177,6 +177,18 @@ public class BloodBagRequest {
     @Column(length = 100)
     private String roomNo;
 
+    @Column(length = 120)
+    private String patientPurok;
+
+    @Column(length = 120)
+    private String patientBarangay;
+
+    @Column(length = 120)
+    private String patientMunicipality;
+
+    @Column(length = 120)
+    private String patientProvince;
+
     @Column(length = 100)
     private String requestingPhysician;
 
@@ -443,6 +455,18 @@ public class BloodBagRequest {
 
     public String getRoomNo() { return roomNo; }
     public void setRoomNo(String roomNo) { this.roomNo = roomNo; }
+
+    public String getPatientPurok() { return patientPurok; }
+    public void setPatientPurok(String patientPurok) { this.patientPurok = patientPurok; }
+
+    public String getPatientBarangay() { return patientBarangay; }
+    public void setPatientBarangay(String patientBarangay) { this.patientBarangay = patientBarangay; }
+
+    public String getPatientMunicipality() { return patientMunicipality; }
+    public void setPatientMunicipality(String patientMunicipality) { this.patientMunicipality = patientMunicipality; }
+
+    public String getPatientProvince() { return patientProvince; }
+    public void setPatientProvince(String patientProvince) { this.patientProvince = patientProvince; }
 
     public String getRequestingPhysician() { return requestingPhysician; }
     public void setRequestingPhysician(String requestingPhysician) { this.requestingPhysician = requestingPhysician; }

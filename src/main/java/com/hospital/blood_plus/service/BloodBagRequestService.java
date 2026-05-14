@@ -79,8 +79,12 @@ public class BloodBagRequestService {
         request.setPatientBirthdate(dto.getPatientBirthdate());
         request.setPatientAge(dto.getPatientAge()); 
         request.setPatientSex(dto.getPatientSex());
-        request.setWardRoom(dto.getWardRoom());
-        request.setRoomNo(dto.getRoomNo());
+        request.setWardRoom(normalizeOptionalText(dto.getWardRoom()));
+        request.setRoomNo(normalizeOptionalText(dto.getRoomNo()));
+        request.setPatientPurok(normalizeOptionalText(dto.getPatientPurok()));
+        request.setPatientBarangay(normalizeOptionalText(dto.getPatientBarangay()));
+        request.setPatientMunicipality(normalizeOptionalText(dto.getPatientMunicipality()));
+        request.setPatientProvince(normalizeOptionalText(dto.getPatientProvince()));
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());
  
         request.setAgeGroup(dto.getAgeGroup() != null
@@ -581,8 +585,12 @@ public class BloodBagRequestService {
         request.setPatientAge(dto.getPatientAge());
         request.setPatientBirthdate(dto.getPatientBirthdate());
         request.setPatientSex(dto.getPatientSex());
-        request.setWardRoom(dto.getWardRoom() != null ? dto.getWardRoom() : "");
-        request.setRoomNo(dto.getRoomNo() != null ? dto.getRoomNo() : "");
+        request.setWardRoom(normalizeOptionalText(dto.getWardRoom()));
+        request.setRoomNo(normalizeOptionalText(dto.getRoomNo()));
+        request.setPatientPurok(normalizeOptionalText(dto.getPatientPurok()));
+        request.setPatientBarangay(normalizeOptionalText(dto.getPatientBarangay()));
+        request.setPatientMunicipality(normalizeOptionalText(dto.getPatientMunicipality()));
+        request.setPatientProvince(normalizeOptionalText(dto.getPatientProvince()));
         request.setRequestingPhysician(dto.getRequestingPhysician().trim());
     
         // ─────────────────────────────────────────────────────────────

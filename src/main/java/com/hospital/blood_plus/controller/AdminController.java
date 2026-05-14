@@ -3,6 +3,7 @@ package com.hospital.blood_plus.controller;
 import com.hospital.blood_plus.dto.request.AllocateRequestDTO;
 import com.hospital.blood_plus.dto.request.AnalyticsDTO;
 import com.hospital.blood_plus.dto.request.ApproveRequestDTO;
+import com.hospital.blood_plus.dto.request.BloodTracerSaveDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
@@ -34,6 +35,7 @@ import com.hospital.blood_plus.service.AdminProfileService;
 import com.hospital.blood_plus.service.AnalyticsService;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
+import com.hospital.blood_plus.service.BloodTracerService;
 import com.hospital.blood_plus.service.DashboardService;
 import com.hospital.blood_plus.service.StaffService;
 
@@ -63,6 +65,7 @@ public class AdminController {
     private final HospitalService         hospitalService;
     private final DashboardService        dashboardService;
     private final AdminProfileService     adminProfileService;
+    private final BloodTracerService      bloodTracerService;
     private AnalyticsService              analyticsService;
     private RequestStatusLogService requestStatusLogService;
     private RequestLogsService requestLogsService;
@@ -74,6 +77,7 @@ public class AdminController {
                            StaffService staffService,
                            DashboardService dashboardService,
                            AdminProfileService adminProfileService,
+                           BloodTracerService bloodTracerService,
                            AnalyticsService analyticsService,
                            RequestStatusLogService requestStatusLogService,
                            RequestLogsService requestLogsService) {
@@ -84,6 +88,7 @@ public class AdminController {
         this.hospitalService = hospitalService;
         this.dashboardService = dashboardService;
         this.adminProfileService = adminProfileService;
+        this.bloodTracerService = bloodTracerService;
         this.analyticsService = analyticsService;
         this.requestStatusLogService = requestStatusLogService;
         this.requestLogsService = requestLogsService;
@@ -466,6 +471,37 @@ public class AdminController {
                     "status",          req.getStatus()
             ));
         } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/blood-requests/{id}/tracer")
+    public ResponseEntity<?> getBloodTracer(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(bloodTracerService.getTracerData(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @PutMapping("/blood-requests/{id}/tracer")
+    public ResponseEntity<?> saveBloodTracer(@PathVariable Long id,
+                                             @RequestBody BloodTracerSaveDTO dto,
+                                             @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            Map<String, Object> tracer = bloodTracerService.saveTracerData(id, dto, user);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Blood tracer saved successfully.",
+                    "tracer", tracer
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

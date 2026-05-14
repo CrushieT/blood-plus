@@ -112,6 +112,10 @@ public class BloodRequestController {
         res.put("reviewedAt", req.getReviewedAt());
         res.put("requestingPhysician", req.getRequestingPhysician());
         res.put("physician", req.getRequestingPhysician());
+        res.put("patientPurok", req.getPatientPurok());
+        res.put("patientBarangay", req.getPatientBarangay());
+        res.put("patientMunicipality", req.getPatientMunicipality());
+        res.put("patientProvince", req.getPatientProvince());
         res.put("requestCategory", req.getRequestCategory());
         res.put("notes", req.getNotes());
         res.put("approvalRemarks", req.getApprovalRemarks());

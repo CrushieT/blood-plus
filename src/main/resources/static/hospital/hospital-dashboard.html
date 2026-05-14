@@ -423,6 +423,28 @@
                                 </div>
                             </div>
 
+                            <div class="form-grid-2">
+                                <div class="fg">
+                                    <label>Purok</label>
+                                    <input type="text" id="pat-purok-hosp" placeholder="e.g. Purok 3" oninput="syncForm()">
+                                </div>
+                                <div class="fg">
+                                    <label>Barangay</label>
+                                    <input type="text" id="pat-barangay-hosp" placeholder="e.g. San Roque" oninput="syncForm()">
+                                </div>
+                            </div>
+
+                            <div class="form-grid-2">
+                                <div class="fg">
+                                    <label>Municipality</label>
+                                    <input type="text" id="pat-municipality-hosp" placeholder="e.g. Daet" oninput="syncForm()">
+                                </div>
+                                <div class="fg">
+                                    <label>Province</label>
+                                    <input type="text" id="pat-province-hosp" placeholder="e.g. Camarines Norte" oninput="syncForm()">
+                                </div>
+                            </div>
+
                             <!-- Requesting Physician -->
                             <div class="form-grid-2">
                                 <div class="fg form-full">
@@ -1336,6 +1358,10 @@
                                         <div style="color:var(--muted);margin-bottom:3px">Sex</div>
                                         <div style="font-weight:600" id="review-pat-sex">—</div>
                                     </div>
+                                    <div style="grid-column: span 2">
+                                        <div style="color:var(--muted);margin-bottom:3px">Address (Purok / Brgy / Municipality / Province)</div>
+                                        <div style="font-weight:600" id="review-pat-address">—</div>
+                                    </div>
                                     <div>
                                         <div style="color:var(--muted);margin-bottom:3px">Requesting Physician</div>
                                         <div style="font-weight:600" id="review-pat-physician">—</div>
@@ -2239,6 +2265,10 @@
                                 <div class="detail-box">
                                     <div class="detail-label">Ward / Room</div>
                                     <div class="detail-val" id="rd-ward-room"></div>
+                                </div>
+                                <div class="detail-box">
+                                    <div class="detail-label">Address</div>
+                                    <div class="detail-val" id="rd-patient-address"></div>
                                 </div>
                                 <div class="detail-box">
                                     <div class="detail-label">Category</div>

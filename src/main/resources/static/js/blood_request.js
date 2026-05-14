@@ -632,6 +632,12 @@ function buildReview() {
   const birthdate = document.getElementById('f-birthdate').value;
   const age = calculateAge(birthdate);
   const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
+  const addressParts = [
+    document.getElementById('f-purok').value.trim(),
+    document.getElementById('f-barangay').value.trim(),
+    document.getElementById('f-municipality').value.trim(),
+    document.getElementById('f-province').value.trim()
+  ].filter(Boolean);
 
   // ── Patient section ──
   document.getElementById('review-patient').innerHTML =
@@ -642,6 +648,7 @@ function buildReview() {
     reviewRow('Sex',         document.getElementById('f-sex').value) +
     reviewRow('Ward',        document.getElementById('f-ward').value.trim() || '—') +
     reviewRow('Room',        document.getElementById('f-room').value.trim() || '—') +
+    reviewRow('Address',     addressParts.length ? addressParts.join(' / ') : '—') +
     reviewRow('Physician',   document.getElementById('f-physician').value.trim()) +
     reviewRow('Patient Type', ageGroup) +
     reviewRow('Category',    catEl ? (CATEGORY_LABELS_R[catEl.value] || catEl.value) : '—');
@@ -820,6 +827,10 @@ async function submitRequest() {
   const patientSex    = document.getElementById('f-sex').value;
   const ward     = document.getElementById('f-ward').value.trim();
   const room      = document.getElementById('f-room').value.trim();
+  const patientPurok = document.getElementById('f-purok').value.trim();
+  const patientBarangay = document.getElementById('f-barangay').value.trim();
+  const patientMunicipality = document.getElementById('f-municipality').value.trim();
+  const patientProvince = document.getElementById('f-province').value.trim();
   const requestingPhysician = document.getElementById('f-physician').value.trim();
 
   // ──────────────────────────────────────────────
@@ -903,8 +914,12 @@ async function submitRequest() {
     patientBirthdate: patientBirthdate ? patientBirthdate : null,
     patientAge: patientAge,
     patientSex: patientSex || null,
-    ward: ward || null,
-    room: room || null,
+    wardRoom: ward || null,
+    roomNo: room || null,
+    patientPurok: patientPurok || null,
+    patientBarangay: patientBarangay || null,
+    patientMunicipality: patientMunicipality || null,
+    patientProvince: patientProvince || null,
     requestingPhysician: requestingPhysician,
 
     // PATIENT TYPE & CATEGORY
@@ -1005,6 +1020,10 @@ async function submitRequest() {
       patientAge: patientAge,
       patientSex: patientSex,
       wardRoom: ward + ' ' + room,
+      patientPurok: patientPurok || null,
+      patientBarangay: patientBarangay || null,
+      patientMunicipality: patientMunicipality || null,
+      patientProvince: patientProvince || null,
       requestingPhysician: requestingPhysician,
       ageGroup: ageGroup,
       requestCategory: requestCategory,
@@ -1050,7 +1069,7 @@ function resetForm() {
   document.getElementById('success-screen').style.display = 'none';
   clearFile();
     [
-      'f-patientName','f-birthdate','f-ward', 'f-room','f-physician',
+      'f-patientName','f-birthdate','f-ward', 'f-room','f-purok','f-barangay','f-municipality','f-province','f-physician',
       'f-diagnosis','f-hemoglobin','f-hematocrit',
       'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
       'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount',
@@ -1188,6 +1207,10 @@ async function trackRequest() {
         ? api.approvedUnits
         : (api.numberOfUnits ?? 0),
       patientName:     api.patientName,
+      patientPurok:    api.patientPurok ?? null,
+      patientBarangay: api.patientBarangay ?? null,
+      patientMunicipality: api.patientMunicipality ?? null,
+      patientProvince: api.patientProvince ?? null,
       submittedAt:     api.requestedAt,
       approvedAt:      api.reviewedAt,
       releasedAt:      null, // Will be added in future updates

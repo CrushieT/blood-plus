@@ -2339,6 +2339,10 @@ window.exportBloodBagsToExcel = function() {
       patientBirthdate: r.patientBirthdate ?? null,
       wardRoom:       r.wardRoom         ?? null,
       roomNo:         r.roomNo           ?? null,
+      patientPurok:   r.patientPurok     ?? null,
+      patientBarangay: r.patientBarangay ?? null,
+      patientMunicipality: r.patientMunicipality ?? null,
+      patientProvince: r.patientProvince ?? null,
       referenceNumber:       r.referenceNumber         ?? null,
       requestingPhysician: r.requestingPhysician ?? null,
       ageGroup:       r.ageGroup         ?? null,
@@ -2350,10 +2354,12 @@ window.exportBloodBagsToExcel = function() {
       units:          workflowUnits,
       requestedUnits,
       approvedUnits,
+      plateletCount:  r.plateletCount    ?? null,
       volumeMl:       r.volumeMl         ?? null,
       urgency:        r.urgencyLevel     ?? 'LOW',
       urgencyLevel:   r.urgencyLevel     ?? 'LOW',
       requiredBy:     r.requiredBy       ?? null,
+      reviewedAt:     r.reviewedAt       ?? null,
       date:           r.requestedAt
         ? new Date(r.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '—',
@@ -2794,7 +2800,8 @@ window.exportBloodBagsToExcel = function() {
       r.status   = data.status ?? next.next;
       reqRender();
       if (endpoint === 'release') {
-        openReleaseReceipt(r, data);
+        r.reviewedAt = data.reviewedAt ?? r.reviewedAt ?? null;
+        openReleaseTracer(r, data);
       }
     } catch (err) {
       console.error('[reqAdvance] failed', err);
@@ -2804,38 +2811,90 @@ window.exportBloodBagsToExcel = function() {
     }
   };
 
-  function openReleaseReceipt(req, data) {
-    console.log(req);
-    console.log(data);
+  function getCurrentReleaseStaffName() {
+    if (currentUserData?.firstName || currentUserData?.lastName) {
+      return `${currentUserData.firstName ?? ''} ${currentUserData.lastName ?? ''}`.trim();
+    }
+    return currentUserData?.username
+      ?? document.getElementById('staff-profile-name-display')?.textContent?.trim()
+      ?? document.getElementById('profile-name-display')?.textContent?.trim()
+      ?? null;
+  }
+
+  function formatDateForTracer(value) {
+    if (!value) return '';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleDateString('en-CA');
+  }
+
+  function formatTimeForTracer(value) {
+    if (!value) return '';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+
+  function encodeTracerPayload(payload) {
+    const json = JSON.stringify(payload);
+    const bytes = new TextEncoder().encode(json);
+    let binary = '';
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return encodeURIComponent(btoa(binary));
+  }
+
+  function openReleaseTracer(req, data) {
+    const releasedAt = req.reviewedAt ?? data.reviewedAt ?? new Date().toISOString();
+    const patientAddress = [
+      req.patientPurok,
+      req.patientBarangay,
+      req.patientMunicipality,
+      req.patientProvince
+    ].filter(Boolean).join(' / ');
+    const rows = (req.allocatedBags ?? []).map((b) => ({
+      aboRh: formatBloodType(b.bloodType ?? req.bloodTypeEnum ?? req.bloodType),
+      componentReleased: COMPONENT_LABEL[b.componentType] ?? b.componentType ?? req.component ?? '',
+      serialNumber: b.serialNumber ?? '',
+      extractionDate: formatDateForTracer(b.collectedAt),
+      expirationDate: formatDateForTracer(b.expiresAt),
+      patientName: req.patient ?? '',
+      address: patientAddress,
+      age: req.patientAge ?? '',
+      sex: req.patientSex ?? '',
+      ward: req.wardRoom ?? '',
+      rmNo: req.roomNo ?? '',
+      indicationCode: req.indication ?? '',
+      transfusionDate: '',
+      comp: '',
+      rxn: '',
+      remarks: 'Released',
+    }));
 
     const payload = {
-      referenceNumber: req.referenceNumber ?? data.referenceNumber,
-      releasedAt:      new Date().toISOString(),
-      patientName:     req.patient,
-      bloodType:       req.bloodTypeEnum,
-      wardRoom:        req.wardRoom ?? null,
-      physician:       req.requestingPhysician ?? null,
-      hospitalName:    req.name,
-      urgency:         req.urgency,
-      releasedBy:      data.releasedBy ?? null,
-      bags:            (req.allocatedBags ?? []).map(b => ({
-        serialNumber:  b.serialNumber,
-        bloodType:     b.bloodType,
-        componentType: b.componentType,
-        volumeMl:      b.volumeMl,
-        expiresAt:     b.expiresAt,
-      })),
+      requestId: req.id,
+      bloodServiceFacility: 'CNPH BSF',
+      preparedBy: 'MARY ANN C. MEJIA, RMT',
+      transactionNumber: req.referenceNumber ?? data.referenceNumber ?? '',
+      releasedAt,
+      dateReleased: formatDateForTracer(releasedAt),
+      timeReleased: formatTimeForTracer(releasedAt),
+      releasedBy: data.releasedBy ?? getCurrentReleaseStaffName() ?? '',
+      qualityManager: 'Mary Ann C. Mejia, RMT',
+      pathologist: 'MONINA CACAWA-MONTENEGRO, MD',
+      rows,
     };
-    
-    const encoded = btoa(JSON.stringify(payload));
-    const url = `receipt/blood-release-receipt.html?data=${encoded}`;
+
+    const encoded = encodeTracerPayload(payload);
+    const url = `receipt/blood-request-tracer.html?data=${encoded}`;
     window.open(url, '_blank');
   }
 
   window.reqPrintReceipt = function(id) {
     const req = reqData.find(x => x.id === id);
     if (!req) return;
-    openReleaseReceipt(req, {});
+    openReleaseTracer(req, {});
   };
 
   function reqOpenApproveWithRemarksLegacy(id) {
@@ -3363,7 +3422,7 @@ window.exportBloodBagsToExcel = function() {
     if (req.status === 'RELEASED') {
       return `<div class="req-action-bar">
         <button class="req-btn req-btn-approve" onclick="reqPrintReceipt(${req.id})">
-          🖨 Print Receipt
+          🖨 Print Tracer
         </button>
       </div>`;
     }
@@ -3650,6 +3709,12 @@ window.exportBloodBagsToExcel = function() {
     const indicationDetailsHtml = renderIndicationDetails(req.indication, req.indicationOtherSpecify);
     const formattedPatientName = formatPatientName(req);
     const formattedBirthdate = formatBirthdate(req.patientBirthdate);
+    const formattedPatientAddress = [
+      req.patientPurok,
+      req.patientBarangay,
+      req.patientMunicipality,
+      req.patientProvince
+    ].filter(Boolean).join(' / ');
 
     return `
       <div class="req-details-sections">
@@ -3715,6 +3780,10 @@ window.exportBloodBagsToExcel = function() {
               <span class="req-details-value">${req.roomNo ?? '—'}</span>
             </div>
             <div class="req-details-field">
+              <span class="req-details-label">Patient Address</span>
+              <span class="req-details-value">${formattedPatientAddress || '—'}</span>
+            </div>
+            <div class="req-details-field">
               <span class="req-details-label">Category</span>
               <span class="req-details-value">${req.requestCategory ?? '—'}</span>
             </div>
@@ -3739,6 +3808,10 @@ window.exportBloodBagsToExcel = function() {
             <div class="req-details-field">
               <span class="req-details-label">Units Needed</span>
               <span class="req-details-value req-details-highlight">${req.units ?? '—'}</span>
+            </div>
+            <div class="req-details-field">
+              <span class="req-details-label">Platelet Count</span>
+              <span class="req-details-value">${req.plateletCount ?? '—'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Notes</span>

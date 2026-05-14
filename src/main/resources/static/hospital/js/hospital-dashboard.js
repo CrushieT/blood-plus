@@ -1066,10 +1066,18 @@ function populateReviewHosp() {
   const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
   const indicationSubmission = buildIndicationSubmissionHosp(selectedComponent);
   const fullName = `${firstName} ${lastName}`.trim();
+  const addressParts = [
+    document.getElementById('pat-purok-hosp').value.trim(),
+    document.getElementById('pat-barangay-hosp').value.trim(),
+    document.getElementById('pat-municipality-hosp').value.trim(),
+    document.getElementById('pat-province-hosp').value.trim()
+  ].filter(Boolean);
+
   document.getElementById('review-pat-name').textContent = fullName || '—';
   document.getElementById('review-pat-dob').textContent = document.getElementById('pat-birthdate-hosp').value || '—';
   document.getElementById('review-pat-type').textContent = document.getElementById('patient-type-display-hosp').textContent || '—';
   document.getElementById('review-pat-sex').textContent = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value || '—';
+  document.getElementById('review-pat-address').textContent = addressParts.length ? addressParts.join(' / ') : '—';
   document.getElementById('review-pat-physician').textContent = document.getElementById('pat-physician-hosp').value || '—';
   document.getElementById('review-req-category').textContent = formatCategoryLabelHosp(selectedCategory);
   
@@ -1325,6 +1333,10 @@ async function submitRequestHosp() {
 
   const ward = document.getElementById('pat-ward-hosp').value.trim();
   const room = document.getElementById('pat-room-hosp').value.trim();
+  const patientPurok = document.getElementById('pat-purok-hosp').value.trim();
+  const patientBarangay = document.getElementById('pat-barangay-hosp').value.trim();
+  const patientMunicipality = document.getElementById('pat-municipality-hosp').value.trim();
+  const patientProvince = document.getElementById('pat-province-hosp').value.trim();
   const requestingPhysician = document.getElementById('pat-physician-hosp').value.trim();
   const diagnosis = document.getElementById('pat-diagnosis-hosp').value.trim();
 
@@ -1367,6 +1379,10 @@ async function submitRequestHosp() {
 
     wardRoom: ward || null,
     roomNo: room || null,
+    patientPurok: patientPurok || null,
+    patientBarangay: patientBarangay || null,
+    patientMunicipality: patientMunicipality || null,
+    patientProvince: patientProvince || null,
 
     requestingPhysician: requestingPhysician,
     clinicalImpression: diagnosis || null,
@@ -1462,7 +1478,8 @@ async function submitRequestHosp() {
 function resetFormHosp() {
   [
     'pat-firstname-hosp', 'pat-middlename-hosp', 'pat-lastname-hosp', 'pat-suffix-hosp',
-    'pat-birthdate-hosp', 'pat-ward-hosp', 'pat-room-hosp', 'pat-physician-hosp', 'pat-diagnosis-hosp',
+    'pat-birthdate-hosp', 'pat-ward-hosp', 'pat-room-hosp', 'pat-purok-hosp', 'pat-barangay-hosp',
+    'pat-municipality-hosp', 'pat-province-hosp', 'pat-physician-hosp', 'pat-diagnosis-hosp',
     'pat-hemoglobin-hosp', 'pat-hematocrit-hosp', 'prev-transfusion-date-hosp', 'prev-transfusion-units-hosp',
     'prev-reaction-date-hosp', 'prev-reaction-details-hosp', 'req-date-needed-hosp',
     'req-platelet-count-hosp', 'req-indication-specify-LEUKOREDUCED_PRBC-hosp',
@@ -1868,6 +1885,11 @@ async function loadHospitalRequests() {
             patientAge: req.patientAge, 
             patientSex: req.patientSex,
             wardRoom: req.wardRoom || '',
+            roomNo: req.roomNo || '',
+            patientPurok: req.patientPurok || '',
+            patientBarangay: req.patientBarangay || '',
+            patientMunicipality: req.patientMunicipality || '',
+            patientProvince: req.patientProvince || '',
             requestingPhysician: req.requestingPhysician,
             ageGroup: req.ageGroup,
             requestCategory: req.requestCategory,
@@ -2341,7 +2363,12 @@ function openRequestDetail(id) {
     document.getElementById('rd-patient-age').textContent = 
         (r.patientAge || '—') + (r.ageGroup ? ` (${r.ageGroup})` : '');
     document.getElementById('rd-patient-sex').textContent = r.patientSex || '—';
-    document.getElementById('rd-ward-room').textContent = r.wardRoom || '—';
+    const wardRoomLabel = [r.wardRoom, r.roomNo].filter(Boolean).join(' / ');
+    document.getElementById('rd-ward-room').textContent = wardRoomLabel || '—';
+    const addressLabel = [r.patientPurok, r.patientBarangay, r.patientMunicipality, r.patientProvince]
+        .filter(Boolean)
+        .join(' / ');
+    document.getElementById('rd-patient-address').textContent = addressLabel || '—';
     document.getElementById('rd-cat').textContent = formatCategoryLabelHosp(r.requestCategory);
     document.getElementById('rd-physician').textContent = r.requestingPhysician || '—';
     

@@ -417,6 +417,11 @@ public class HospitalController {
         res.put("patientAge", req.getPatientAge());
         res.put("patientSex", req.getPatientSex());
         res.put("wardRoom", req.getWardRoom());
+        res.put("roomNo", req.getRoomNo());
+        res.put("patientPurok", req.getPatientPurok());
+        res.put("patientBarangay", req.getPatientBarangay());
+        res.put("patientMunicipality", req.getPatientMunicipality());
+        res.put("patientProvince", req.getPatientProvince());
         res.put("ageGroup", req.getAgeGroup());
         res.put("requestCategory", req.getRequestCategory());
         res.put("requestingPhysician", req.getRequestingPhysician());
