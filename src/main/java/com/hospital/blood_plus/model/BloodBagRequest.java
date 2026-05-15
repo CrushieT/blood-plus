@@ -127,6 +127,9 @@ public class BloodBagRequest {
     @Column(name = "patient_responded_at")
     private LocalDateTime patientRespondedAt;
 
+    @Column(name = "unserved_reason", length = 1000)
+    private String unservedReason;
+
     @Column(name = "confirmation_token", length = 255)
     private String confirmationToken;
 
@@ -406,6 +409,9 @@ public class BloodBagRequest {
     public void setPatientRespondedAt(LocalDateTime patientRespondedAt) {
         this.patientRespondedAt = patientRespondedAt;
     }
+
+    public String getUnservedReason() { return unservedReason; }
+    public void setUnservedReason(String unservedReason) { this.unservedReason = unservedReason; }
 
     public String getConfirmationToken() { return confirmationToken; }
     public void setConfirmationToken(String confirmationToken) { this.confirmationToken = confirmationToken; }
