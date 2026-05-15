@@ -1,6 +1,7 @@
 package com.hospital.blood_plus.controller;
 
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
+import com.hospital.blood_plus.dto.request.EmailConfirmationRequest;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import org.springframework.http.ResponseEntity;
@@ -62,10 +63,33 @@ public class BloodRequestController {
     public ResponseEntity<?> trackRequest(@PathVariable String refNum) {
         try {
             BloodBagRequest req = bloodBagRequestService.getByReferenceNumber(refNum);
-            // return ResponseEntity.ok(buildTrackResponse(req));
             return ResponseEntity.ok(buildTrackResponse(req));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/blood-requests/confirm-remarks")
+    public ResponseEntity<?> confirmApprovalRemarks(@RequestBody EmailConfirmationRequest dto) {
+        try {
+            BloodBagRequest request = bloodBagRequestService.confirmApprovalRemarksByToken(dto);
+            boolean accepted = Boolean.TRUE.equals(dto.getAccepted());
+
+            return ResponseEntity.ok(Map.of(
+                "message",
+                accepted
+                    ? "Thank you. You accepted the updated blood request terms. The blood bank may now proceed."
+                    : "You rejected the updated blood request terms. The request has been marked as rejected.",
+                "status", request.getStatus(),
+                "referenceNumber", request.getReferenceNumber()
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Failed to process the confirmation request. Please contact the blood bank."
+            ));
         }
     }
 
@@ -73,18 +97,32 @@ public class BloodRequestController {
     private Map<String, Object> buildTrackResponse(BloodBagRequest req) {
         Map<String, Object> res = new HashMap<>();
 
+        res.put("referenceNumber", req.getReferenceNumber());
         res.put("refNum", req.getReferenceNumber());
         res.put("patientName", req.getPatientName());
         res.put("bloodType", req.getBloodType());
         res.put("bloodComponent", req.getBloodComponent());
         res.put("numberOfUnits", req.getNumberOfUnits());
+        res.put("approvedUnits", req.getApprovedUnits());
         res.put("plateletCount", req.getPlateletCount());
-        // res.put("urgencyLevel", req.getUrgencyLevel());
+        res.put("urgencyLevel", req.getUrgencyLevel());
         res.put("status", req.getStatus());
         res.put("submittedAt", req.getRequestedAt());
+        res.put("requestedAt", req.getRequestedAt());
         res.put("reviewedAt", req.getReviewedAt());
+        res.put("requestingPhysician", req.getRequestingPhysician());
         res.put("physician", req.getRequestingPhysician());
+        res.put("patientPurok", req.getPatientPurok());
+        res.put("patientBarangay", req.getPatientBarangay());
+        res.put("patientMunicipality", req.getPatientMunicipality());
+        res.put("patientProvince", req.getPatientProvince());
         res.put("requestCategory", req.getRequestCategory());
+        res.put("notes", req.getNotes());
+        res.put("approvalRemarks", req.getApprovalRemarks());
+        res.put("alternativeComponentSuggestion", req.getAlternativeComponentSuggestion());
+        res.put("patientAcceptedRemarks", req.getPatientAcceptedRemarks());
+        res.put("patientRespondedAt", req.getPatientRespondedAt());
+        res.put("confirmationEmailSentAt", req.getConfirmationEmailSentAt());
         res.put("rejectionReason", req.getRejectionReason());
 
         return res;

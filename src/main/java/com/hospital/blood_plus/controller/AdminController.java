@@ -2,6 +2,8 @@ package com.hospital.blood_plus.controller;
 
 import com.hospital.blood_plus.dto.request.AllocateRequestDTO;
 import com.hospital.blood_plus.dto.request.AnalyticsDTO;
+import com.hospital.blood_plus.dto.request.ApproveRequestDTO;
+import com.hospital.blood_plus.dto.request.BloodTracerSaveDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
@@ -33,6 +35,7 @@ import com.hospital.blood_plus.service.AdminProfileService;
 import com.hospital.blood_plus.service.AnalyticsService;
 import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
+import com.hospital.blood_plus.service.BloodTracerService;
 import com.hospital.blood_plus.service.DashboardService;
 import com.hospital.blood_plus.service.StaffService;
 
@@ -41,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -61,6 +65,7 @@ public class AdminController {
     private final HospitalService         hospitalService;
     private final DashboardService        dashboardService;
     private final AdminProfileService     adminProfileService;
+    private final BloodTracerService      bloodTracerService;
     private AnalyticsService              analyticsService;
     private RequestStatusLogService requestStatusLogService;
     private RequestLogsService requestLogsService;
@@ -72,6 +77,7 @@ public class AdminController {
                            StaffService staffService,
                            DashboardService dashboardService,
                            AdminProfileService adminProfileService,
+                           BloodTracerService bloodTracerService,
                            AnalyticsService analyticsService,
                            RequestStatusLogService requestStatusLogService,
                            RequestLogsService requestLogsService) {
@@ -82,6 +88,7 @@ public class AdminController {
         this.hospitalService = hospitalService;
         this.dashboardService = dashboardService;
         this.adminProfileService = adminProfileService;
+        this.bloodTracerService = bloodTracerService;
         this.analyticsService = analyticsService;
         this.requestStatusLogService = requestStatusLogService;
         this.requestLogsService = requestLogsService;
@@ -196,10 +203,10 @@ public class AdminController {
     @GetMapping("/blood-requests")
     public ResponseEntity<List<BloodBagRequest>> getAllRequests(
             @RequestParam(required = false) BloodBagRequest.RequestStatus status) {
-        return ResponseEntity.ok(
-                status != null
-                        ? bloodBagRequestService.getByStatus(status)
-                        : bloodBagRequestService.getAllRequests());
+        List<BloodBagRequest> requests = status != null
+                ? bloodBagRequestService.getByStatus(status)
+                : bloodBagRequestService.getAllRequests();
+        return ResponseEntity.ok(bloodBagRequestService.populateReservedBags(requests));
     }
 
     // PENDING → APPROVED  (no body needed — bag selection happens at allocate)
@@ -240,26 +247,58 @@ public class AdminController {
     // PENDING → REJECTED
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @PutMapping("/blood-requests/{id}/approve-with-remarks")
+    public ResponseEntity<?> approveRequestWithRemarks(
+            @PathVariable Long id,
+            @RequestBody ApproveRequestDTO dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            BloodBagRequest req = bloodBagRequestService.approveRequestWithRemarks(id, dto, user);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Confirmation email sent to requester.",
+                    "referenceNumber", req.getReferenceNumber(),
+                    "status", req.getStatus(),
+                    "approvedUnits", req.getApprovedUnits(),
+                    "approvalRemarks", req.getApprovalRemarks(),
+                    "alternativeComponentSuggestion", req.getAlternativeComponentSuggestion(),
+                    "confirmationEmailSentAt", req.getConfirmationEmailSentAt(),
+                    "requesterEmail", req.getRequesterEmail()
+            ));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/reject")
     public ResponseEntity<?> rejectRequest(
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            String reason = body.getOrDefault("rejectionReason", "").trim();
+            String reason = body.getOrDefault("rejectionReason", body.getOrDefault("notes", "")).trim();
             if (reason.isBlank())
                 return ResponseEntity.badRequest().body(Map.of("error", "Rejection reason is required."));
  
             // Extract user with consistent logic
             AppUser user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
+            BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
  
             BloodBagRequest req = bloodBagRequestService.rejectRequest(id, reason, user);
             
             // Log the status change with rejection reason
             requestStatusLogService.logStatusChange(
                     req,
-                    BloodBagRequest.RequestStatus.PENDING,
+                    statusBefore,
                     BloodBagRequest.RequestStatus.REJECTED,
                     user,
                     "Request rejected. Reason: " + reason
@@ -290,6 +329,9 @@ public class AdminController {
             AppUser user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
 
+            BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
+            BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
+
             BloodBagRequest req = bloodBagRequestService.allocateRequest(id, dto.getBagIds(), user);
             
             // Fetch blood types for allocated bags
@@ -301,7 +343,7 @@ public class AdminController {
             // Log the status change
             requestStatusLogService.logStatusChange(
                     req,
-                    BloodBagRequest.RequestStatus.APPROVED,
+                    statusBefore,
                     BloodBagRequest.RequestStatus.ALLOCATED,
                     user,
                     "Blood bags allocated. Blood Types: " + bloodTypes
@@ -433,13 +475,49 @@ public class AdminController {
         }
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/blood-requests/{id}/tracer")
+    public ResponseEntity<?> getBloodTracer(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(bloodTracerService.getTracerData(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @PutMapping("/blood-requests/{id}/tracer")
+    public ResponseEntity<?> saveBloodTracer(@PathVariable Long id,
+                                             @RequestBody BloodTracerSaveDTO dto,
+                                             @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
+
+            Map<String, Object> tracer = bloodTracerService.saveTracerData(id, dto, user);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Blood tracer saved successfully.",
+                    "tracer", tracer
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PutMapping("/blood-requests/{id}/cancel")
     public ResponseEntity<?> cancelRequest(
             @PathVariable Long id,
+            @RequestBody Map<String, String> body,
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
+            String reason = body.getOrDefault("cancellationReason", body.getOrDefault("notes", "")).trim();
+            if (reason.isBlank())
+                return ResponseEntity.badRequest().body(Map.of("error", "Cancellation note is required."));
+
             // Extract user with consistent logic
             AppUser user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found: " + userDetails.getUsername()));
@@ -447,7 +525,7 @@ public class AdminController {
             BloodBagRequest reqBefore = bloodBagRequestService.getRequestById(id);
             BloodBagRequest.RequestStatus statusBefore = reqBefore.getStatus();
             
-            BloodBagRequest req = bloodBagRequestService.cancelRequest(id);
+            BloodBagRequest req = bloodBagRequestService.cancelRequest(id, reason, user);
             
             // Log the status change
             requestStatusLogService.logStatusChange(
@@ -455,7 +533,7 @@ public class AdminController {
                     statusBefore,
                     BloodBagRequest.RequestStatus.CANCELLED,
                     user,
-                    "Request cancelled"
+                    "Request cancelled. Reason: " + reason
             );
  
             return ResponseEntity.ok(Map.of(
@@ -550,14 +628,21 @@ public class AdminController {
         try {
             if (req.getEmail()     == null || req.getEmail().isBlank() ||
                 req.getFirstName() == null || req.getFirstName().isBlank() ||
-                req.getLastName()  == null || req.getLastName().isBlank()) {
+                req.getLastName()  == null || req.getLastName().isBlank() ||
+                req.getDepartment() == null || req.getDepartment().isBlank()) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Email, first name, and last name are required."));
+                        .body(Map.of("error", "Email, first name, last name, and department are required."));
             }
             StaffResponse created = staffService.createStaff(req);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            String message = "Failed to create staff account due to a database constraint.";
+            if (hasUserIdNullSchemaIssue(e)) {
+                message = "Database schema update required: staff_profiles.user_id must allow NULL values for non-Blood Bank staff.";
+            }
+            return ResponseEntity.internalServerError().body(Map.of("error", message));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError()
@@ -572,9 +657,10 @@ public class AdminController {
                                         @RequestBody UpdateStaffRequest req) {
         try {
             if (req.getFirstName() == null || req.getFirstName().isBlank() ||
-                req.getLastName()  == null || req.getLastName().isBlank()) {
+                req.getLastName()  == null || req.getLastName().isBlank() ||
+                req.getDepartment() == null || req.getDepartment().isBlank()) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "First name and last name are required."));
+                        .body(Map.of("error", "First name, last name, and department are required."));
             }
             return ResponseEntity.ok(staffService.updateStaff(id, req));
         } catch (IllegalArgumentException e) {
@@ -613,6 +699,41 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // POST /api/admin/staff/{id}/regenerate-code
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/staff/{id}/regenerate-code")
+    public ResponseEntity<?> regenerateStaffCode(@PathVariable Long id) {
+        try {
+            staffService.regenerateStaffCode(id);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "New staff authorization code generated and emailed successfully.",
+                "staffId", id
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to regenerate staff authorization code."));
+        }
+    }
+
+    private boolean hasUserIdNullSchemaIssue(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null &&
+                    message.contains("user_id") &&
+                    message.contains("cannot be null")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     
@@ -987,8 +1108,8 @@ public class AdminController {
         dto.setReferenceNumber(log.getRequest().getReferenceNumber());
         dto.setOldStatus(log.getOldStatus());
         dto.setNewStatus(log.getNewStatus());
-        dto.setChangedByEmail(log.getChangedBy().getEmail());
-        dto.setChangedByFullName(log.getChangedBy().getUsername());
+        dto.setChangedByEmail(log.getChangedBy() != null ? log.getChangedBy().getEmail() : null);
+        dto.setChangedByFullName(log.getChangedBy() != null ? log.getChangedBy().getUsername() : "System");
         dto.setChangedAt(log.getChangedAt());
         dto.setNotes(log.getNotes());
         return dto;

@@ -2,39 +2,93 @@ name: Blood Plus CI
 
 on:
   push:
-    branches: [ main, develop, admin/staff]
+    branches:
+      - main
+      - develop
+      - admin/staff
   pull_request:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+      - admin/staff
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  MYSQLHOST: 127.0.0.1
+  MYSQLPORT: 3306
+  MYSQL_DATABASE: blood_plus_ci
+  MYSQLUSER: blood_plus
+  MYSQLPASSWORD: blood_plus
+  BREVO_API: ci-placeholder-key
+  EMAIL: ci@example.com
+  CLOUDINARY_CLOUD_NAME: ci-placeholder-cloud
+  CLOUDINARY_API_KEY: ci-placeholder-key
+  CLOUDINARY_API_SECRET: ci-placeholder-secret
+  SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+  SPRING_TASK_SCHEDULING_ENABLED: false
 
 jobs:
-  build:
+  build-test-package:
+    name: Build, Test, and Package
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: blood_plus_ci
+          MYSQL_USER: blood_plus
+          MYSQL_PASSWORD: blood_plus
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v3
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
 
-    - name: Build with Maven
-      run: mvn clean package -DskipTests
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
 
-    - name: Upload JAR artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: blood-plus-app
-        path: target/*.jar
-        retention-days: 5
+      - name: Verify application
+        run: ./mvnw -B -ntp clean verify
 
-    - name: Build success notification
-      if: success()
-      run: echo "Build completed successfully"
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: |
+            target/surefire-reports/**
+            target/failsafe-reports/**
+          retention-days: 7
+          if-no-files-found: ignore
 
-    - name: Build failure notification
-      if: failure()
-      run: echo "Build failed"
+      - name: Upload packaged application
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blood-plus-jar
+          path: target/*.jar
+          retention-days: 7

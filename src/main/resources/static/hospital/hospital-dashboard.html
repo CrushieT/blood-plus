@@ -423,6 +423,28 @@
                                 </div>
                             </div>
 
+                            <div class="form-grid-2">
+                                <div class="fg">
+                                    <label>Purok</label>
+                                    <input type="text" id="pat-purok-hosp" placeholder="e.g. Purok 3" oninput="syncForm()">
+                                </div>
+                                <div class="fg">
+                                    <label>Barangay</label>
+                                    <input type="text" id="pat-barangay-hosp" placeholder="e.g. San Roque" oninput="syncForm()">
+                                </div>
+                            </div>
+
+                            <div class="form-grid-2">
+                                <div class="fg">
+                                    <label>Municipality</label>
+                                    <input type="text" id="pat-municipality-hosp" placeholder="e.g. Daet" oninput="syncForm()">
+                                </div>
+                                <div class="fg">
+                                    <label>Province</label>
+                                    <input type="text" id="pat-province-hosp" placeholder="e.g. Camarines Norte" oninput="syncForm()">
+                                </div>
+                            </div>
+
                             <!-- Requesting Physician -->
                             <div class="form-grid-2">
                                 <div class="fg form-full">
@@ -1336,6 +1358,10 @@
                                         <div style="color:var(--muted);margin-bottom:3px">Sex</div>
                                         <div style="font-weight:600" id="review-pat-sex">—</div>
                                     </div>
+                                    <div style="grid-column: span 2">
+                                        <div style="color:var(--muted);margin-bottom:3px">Address (Purok / Brgy / Municipality / Province)</div>
+                                        <div style="font-weight:600" id="review-pat-address">—</div>
+                                    </div>
                                     <div>
                                         <div style="color:var(--muted);margin-bottom:3px">Requesting Physician</div>
                                         <div style="font-weight:600" id="review-pat-physician">—</div>
@@ -2241,6 +2267,10 @@
                                     <div class="detail-val" id="rd-ward-room"></div>
                                 </div>
                                 <div class="detail-box">
+                                    <div class="detail-label">Address</div>
+                                    <div class="detail-val" id="rd-patient-address"></div>
+                                </div>
+                                <div class="detail-box">
                                     <div class="detail-label">Category</div>
                                     <div class="detail-val" id="rd-cat"></div>
                                 </div>
@@ -2371,17 +2401,17 @@
                         <!-- SECTION: Rejection Reason (if applicable) -->
                         <div id="rd-rejection-box" style="display:none;background:var(--red-soft);border:1px solid #F5B7B1;
                             border-radius:10px;padding:12px 14px;margin-top:12px">
-                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:5px">Rejection Reason</div>
+                            <div id="rd-rejection-title" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:5px">Rejection Reason</div>
                             <div id="rd-rejection-text" style="font-size:13px;color:var(--navy);line-height:1.6"></div>
                         </div>
  
                         <!-- SECTION: Fulfilled By Bag (if applicable) -->
                         <div id="rd-fulfilled-box" style="display:none;background:var(--green-soft);border:1px solid #A9DFBF;
                             border-radius:10px;padding:12px 14px;margin-top:12px">
-                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:8px">Fulfilled By</div>
+                            <div id="rd-fulfilled-title" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:8px">Fulfilled By</div>
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Bag ID</div><div id="rd-bag-id" style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace"></div></div>
-                                <div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Released</div><div id="rd-released-at" style="font-size:13px;font-weight:600"></div></div>
+                                <div><div id="rd-bag-label" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Bag ID</div><div id="rd-bag-id" style="font-size:13px;font-weight:600;font-family:'DM Mono',monospace"></div></div>
+                                <div><div id="rd-fulfilled-time-label" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px">Released</div><div id="rd-released-at" style="font-size:13px;font-weight:600"></div></div>
                             </div>
                         </div>
  

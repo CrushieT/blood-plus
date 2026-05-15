@@ -16,8 +16,8 @@ import java.util.List;
  * Service to handle status logging for blood bag requests.
  * Automatically logs every status change with user information and notes.
  * 
- * SIMPLIFIED VERSION - Assumes user is always passed from controller
- * (Controller extracts user with: userRepository.findByEmail(userDetails.getUsername()))
+ * Supports both authenticated status changes and system / anonymous changes
+ * such as requester confirmations that arrive through email links.
  */
 @Service
 public class RequestStatusLogService {
@@ -33,7 +33,7 @@ public class RequestStatusLogService {
      * @param request The blood bag request (must not be null)
      * @param oldStatus The previous status (must not be null)
      * @param newStatus The new status (must not be null)
-     * @param changedBy The user who made the change (must not be null)
+     * @param changedBy The user who made the change, or null for system actions
      * @param notes Additional notes about the status change
      * @return The saved RequestStatusLog entity
      * @throws IllegalArgumentException if any required parameter is null
@@ -57,10 +57,6 @@ public class RequestStatusLogService {
             if (newStatus == null) {
                 throw new IllegalArgumentException("New status cannot be null");
             }
-            if (changedBy == null) {
-                throw new IllegalArgumentException("User (changedBy) cannot be null. Extract user in controller with: userRepository.findByEmail(userDetails.getUsername())");
-            }
-
             // Create and populate log entity
             RequestStatusLog log = new RequestStatusLog();
             log.setRequest(request);
@@ -77,7 +73,7 @@ public class RequestStatusLogService {
                     request.getId(),
                     oldStatus,
                     newStatus,
-                    changedBy.getEmail());
+                    changedBy != null ? changedBy.getEmail() : "SYSTEM");
 
             return savedLog;
             
@@ -99,7 +95,7 @@ public class RequestStatusLogService {
      * @param request The blood bag request (must not be null)
      * @param oldStatus The previous status (must not be null)
      * @param newStatus The new status (must not be null)
-     * @param changedBy The user who made the change (must not be null)
+     * @param changedBy The user who made the change, or null for system actions
      * @return The saved RequestStatusLog entity
      */
     @Transactional

@@ -785,13 +785,15 @@
       </div>
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="req-filters">
-        <button class="req-filter-chip active" onclick="reqFilterBy('ALL',this)">All <span class="chip-cnt" id="req-cnt-all">0</span></button>
-        <button class="req-filter-chip" onclick="reqFilterBy('PENDING',this)">Pending <span class="chip-cnt" id="req-cnt-pending">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('ALL',this)">All <span class="chip-cnt" id="req-cnt-all">0</span></button>
+        <button class="req-filter-chip active" onclick="reqFilterBy('PENDING',this)">Pending <span class="chip-cnt" id="req-cnt-pending">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('NEEDS_CONFIRMATION',this)">Waiting for confirmation <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('APPROVED',this)">Approved <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('ALLOCATED',this)">Allocated <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('READY_FOR_RELEASE',this)">Ready for Release <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('RELEASED',this)">Released <span class="chip-cnt">0</span></button>
         <button class="req-filter-chip" onclick="reqFilterBy('REJECTED',this)">Rejected <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('CANCELLED',this)">Cancelled <span class="chip-cnt">0</span></button>
       </div>
 
       <div class="req-results-info" id="req-results-info"></div>
@@ -854,6 +856,76 @@
                   onclick="reqConfirmBagSelection()" disabled>
             Approve & Assign Bags
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="req-remarks-modal">
+      <div class="modal req-remarks-modal-card">
+        <div class="modal-header req-remarks-modal-header">
+          <div class="req-remarks-heading">
+            <div class="req-remarks-kicker">Requester Confirmation Workflow</div>
+            <div class="modal-title">Approve With Remarks</div>
+            <div class="req-remarks-subtitle" id="req-remarks-subtitle"></div>
+          </div>
+          <button class="req-modal-close" onclick="reqCloseApproveWithRemarks()">&times;</button>
+        </div>
+
+        <div class="modal-body req-remarks-modal-body">
+          <div class="req-remarks-banner">
+            <div class="req-remarks-banner-icon">!</div>
+            <div>
+              <div class="req-remarks-banner-title">Send a secure confirmation email</div>
+              <div class="req-remarks-banner-copy">
+                The requester receives a 24-hour confirmation link. Allocation stays locked until the updated terms are accepted.
+              </div>
+            </div>
+          </div>
+
+          <div class="req-remarks-summary-grid">
+            <div class="req-remarks-summary-card">
+              <div class="req-remarks-summary-label">Requester Email</div>
+              <div class="req-remarks-summary-value" id="req-remarks-email"></div>
+              <div class="req-remarks-summary-note">Confirmation destination</div>
+            </div>
+            <div class="req-remarks-summary-card req-remarks-summary-card-accent">
+              <div class="req-remarks-summary-label">Requested Units</div>
+              <div class="req-remarks-summary-value" id="req-remarks-requested-units"></div>
+              <div class="req-remarks-summary-note">Use remarks to explain any partial offer</div>
+            </div>
+          </div>
+
+          <div class="req-remarks-feedback" id="req-remarks-feedback" hidden></div>
+
+          <div class="form-row">
+            <div class="form-group-m">
+              <label for="req-approved-units">Approved Units</label>
+              <input id="req-approved-units" class="req-remarks-input" type="number" min="1" step="1" inputmode="numeric">
+              <div class="req-remarks-field-note">Must be greater than 0 and no more than the requested units.</div>
+            </div>
+            <div class="form-group-m">
+              <label for="req-alternative-component">Alternative Component Suggestion</label>
+              <input id="req-alternative-component" class="req-remarks-input" type="text" placeholder="Optional alternative component suggestion">
+              <div class="req-remarks-field-note">Optional guidance if another component may help the requester.</div>
+            </div>
+          </div>
+
+          <div class="form-row full">
+            <div class="form-group-m">
+              <label for="req-approval-remarks">Approval Remarks</label>
+              <textarea id="req-approval-remarks" class="req-remarks-textarea" placeholder="Explain the available units, what changed, and any instructions the requester should review."></textarea>
+              <div class="req-remarks-field-note">This message is included in the confirmation email the requester receives.</div>
+            </div>
+          </div>
+
+          <div class="req-remarks-footnote">
+            After the email is sent, the request moves to <strong>Waiting for requester confirmation</strong> until the requester responds.
+          </div>
+        </div>
+
+        <div class="req-remarks-modal-footer">
+          <button class="btn-secondary" type="button" onclick="reqCloseApproveWithRemarks()">Cancel</button>
+          <button class="btn-primary req-remarks-submit" type="button" id="req-remarks-submit-btn" onclick="reqSubmitApproveWithRemarks()">Send Confirmation Email</button>
         </div>
       </div>
     </div>
@@ -958,7 +1030,7 @@
     <div class="topbar">
       <div>
         <div class="page-title">Staff Management</div>
-        <div class="page-sub">Create, manage, and deactivate staff accounts</div>
+        <div class="page-sub">Manage Blood Bank dashboard users and staff authorization codes</div>
       </div>
       <div class="topbar-right">
         <button class="btn-primary" onclick="openAddStaffModal()">＋ Add Staff</button>
@@ -969,11 +1041,11 @@
     <div class="bb-summary-strip">
       <div class="bb-strip-item" style="background:var(--green-light)">
         <div class="bb-strip-val" style="color:var(--green)" id="staff-active-count">0</div>
-        <div class="bb-strip-label">Active Staff</div>
+        <div class="bb-strip-label">Dashboard Access</div>
       </div>
       <div class="bb-strip-item" style="background:var(--soft-red)">
         <div class="bb-strip-val" style="color:var(--crimson)" id="staff-inactive-count">0</div>
-        <div class="bb-strip-label">Inactive Staff</div>
+        <div class="bb-strip-label">Request Code Only</div>
       </div>
       <div class="bb-strip-item" style="background:#E8F0FF">
         <div class="bb-strip-val" style="color:var(--blue)" id="staff-total-count">0</div>
@@ -993,9 +1065,9 @@
         <option value="ALL">All Departments</option>
       </select>
       <select class="req-select" id="staff-filter-status" onchange="staffRender()">
-        <option value="ALL">All Status</option>
-        <option value="active">Active</option>
-        <option value="inactive">Inactive</option>
+        <option value="ALL">All Access</option>
+        <option value="dashboard">Dashboard Access</option>
+        <option value="code-only">Request Code Only</option>
       </select>
       <select class="req-select" id="staff-sort" onchange="staffRender()">
         <option value="name_asc">Name A–Z</option>
@@ -1013,15 +1085,15 @@
         <span style="font-size:12px;color:var(--muted)" id="staff-results-info"></span>
       </div>
       <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <table class="data-table" style="min-width:860px">
+        <table class="data-table" style="min-width:980px">
           <thead><tr>
             <th>Staff</th>
             <th>Staff ID</th>
             <th>Department</th>
             <th>Position</th>
             <th>Phone</th>
-            <th>Date Created</th>
-            <th>Status</th>
+            <th>Access</th>
+            <th>Code</th>
             <th>Actions</th>
           </tr></thead>
           <tbody id="staff-tbody"></tbody>
@@ -1104,6 +1176,7 @@
           <option value="ALL">All Status Changes</option>
           <option value="PENDING">→ PENDING</option>
           <option value="APPROVED">→ APPROVED</option>
+          <option value="NEEDS_CONFIRMATION">→ NEEDS_CONFIRMATION</option>
           <option value="ALLOCATED">→ ALLOCATED</option>
           <option value="READY_FOR_RELEASE">→ READY_FOR_RELEASE</option>
           <option value="RELEASED">→ RELEASED</option>
@@ -1790,24 +1863,24 @@
     <div class="modal" style="max-width:480px">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Reject Request</div>
+          <div class="modal-title" id="req-reject-title">Reject Request</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px" id="req-reject-subtitle"></div>
         </div>
         <button class="modal-close" onclick="reqCloseReject()">✕</button>
       </div>
       <div class="modal-body">
-        <div style="background:var(--amber-light);border:1px solid rgba(179,92,0,0.2);border-radius:9px;
+        <div id="req-reject-helper" style="background:var(--amber-light);border:1px solid rgba(179,92,0,0.2);border-radius:9px;
             padding:11px 14px;font-size:13px;color:var(--amber);margin-bottom:14px;display:flex;gap:8px">
           <span>⚠</span><span>This will notify the requester. Provide a clear, specific reason.</span>
         </div>
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px">Reason for Rejection</label>
+        <label id="req-reject-label" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px">Reason for Rejection</label>
         <textarea id="req-reject-reason" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;
             font-family:'DM Sans',sans-serif;font-size:13px;color:var(--charcoal);background:var(--cream);
             resize:vertical;min-height:90px;outline:none;box-sizing:border-box"
           placeholder="e.g. Incompatible blood type on cross-match, insufficient documentation..."></textarea>
         <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
           <button class="btn-ghost" onclick="reqCloseReject()">Cancel</button>
-          <button class="req-btn req-btn-reject" onclick="reqConfirmReject()">Confirm Reject</button>
+          <button class="req-btn req-btn-reject" id="req-reject-confirm" onclick="reqConfirmReject()">Confirm Reject</button>
         </div>
       </div>
     </div>
@@ -1843,37 +1916,35 @@
       <div class="modal-header">
         <div>
           <div class="modal-title">Add Staff Member</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Creates a staff account with login access</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Creates dashboard access for Blood Bank staff or a code-only staff profile for other departments</div>
         </div>
         <button class="modal-close" onclick="closeModal('addStaffModal')">✕</button>
       </div>
       <div class="modal-body">
 
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Account Info</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Staff Info</div>
         <div class="form-row">
           <div class="form-group-m" style="flex:1">
             <label>Email (Login) <span style="color:var(--crimson)">*</span></label>
             <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph">
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;background:var(--blue-light,#E8F0FF);
+        <div id="add-staff-access-note" style="display:flex;align-items:center;gap:8px;background:var(--blue-light,#E8F0FF);
             border:1px solid rgba(59,130,246,0.2);border-radius:9px;padding:10px 14px;
             font-size:12px;color:var(--blue);margin-top:4px">
           <span style="font-size:15px;flex-shrink:0">ℹ️</span>
-          A login password will be auto-generated and sent to the staff member's email.
+          Blood Bank staff receive dashboard credentials and a staff authorization code.
         </div>
 
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Personal Info</div>
         <div class="form-row">
           <div class="form-group-m">
             <label>First Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-first" placeholder="Juan"
-              oninput="staffPreviewPassword()">
+            <input type="text" id="add-staff-first" placeholder="Juan">
           </div>
           <div class="form-group-m">
             <label>Last Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-last" placeholder="Dela Cruz"
-              oninput="staffPreviewPassword()">
+            <input type="text" id="add-staff-last" placeholder="Dela Cruz">
           </div>
         </div>
         <div class="form-row">
@@ -1887,33 +1958,29 @@
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Role Info</div>
         <div class="form-row">
           <div class="form-group-m">
-            <label>Staff ID</label>
-            <input type="text" id="add-staff-id" placeholder="e.g. STF-001" maxlength="20">
-          </div>
-          <div class="form-group-m">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group-m">
             <label>Position</label>
             <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist">
           </div>
           <div class="form-group-m">
-            <label>Status</label>
-            <select id="add-staff-status">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+            <label>Department <span style="color:var(--crimson)">*</span></label>
+            <select id="add-staff-dept-choice" onchange="staffToggleDepartmentInput()">
+              <option value="Blood Bank">Blood Bank</option>
+              <option value="Others">Others</option>
             </select>
           </div>
         </div>
-
-        <div id="add-staff-pass-hint" style="font-size:12px;color:var(--muted);margin-top:6px;min-height:18px"></div>
+        <div class="form-row full" id="add-staff-custom-dept-wrap" style="display:none">
+          <div class="form-group-m" style="flex:1">
+            <label>Custom Department <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="add-staff-custom-dept" placeholder="Emergency Room, Ward, Laboratory">
+          </div>
+        </div>
 
         <div id="add-staff-error" style="display:none;background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
             border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
 
         <div style="display:flex;gap:8px;margin-top:16px">
-          <button class="btn-primary" id="add-staff-submit-btn" style="flex:1;justify-content:center" onclick="submitAddStaff()">Create Staff Account</button>
+          <button class="btn-primary" id="add-staff-submit-btn" style="flex:1;justify-content:center" onclick="submitAddStaff()">Add Staff</button>
           <button class="btn-ghost" onclick="closeModal('addStaffModal')">Cancel</button>
         </div>
       </div>
@@ -1966,7 +2033,7 @@
             <label>Position</label>
             <input type="text" id="edit-staff-position">
           </div>
-          <div class="form-group-m">
+          <div class="form-group-m" id="edit-staff-status-wrap">
             <label>Status</label>
             <select id="edit-staff-status">
               <option value="active">Active</option>
@@ -1975,8 +2042,8 @@
           </div>
         </div>
   
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Reset Password</div>
-        <div class="form-row">
+        <div id="edit-staff-password-title" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Reset Password</div>
+        <div class="form-row" id="edit-staff-password-row">
           <div class="form-group-m" style="flex:1">
             <label>New Password <span style="color:var(--muted);font-weight:400">(leave blank to keep current)</span></label>
             <div style="position:relative">
@@ -1995,7 +2062,7 @@
             border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
   
         <div style="display:flex;gap:8px;margin-top:16px">
-          <button class="btn-primary" style="flex:1;justify-content:center" onclick="submitEditStaff()">Save Changes</button>
+          <button class="btn-primary" id="edit-staff-submit-btn" style="flex:1;justify-content:center" onclick="submitEditStaff()">Save Changes</button>
           <button class="btn-ghost" onclick="closeModal('editStaffModal')">Cancel</button>
         </div>
       </div>
@@ -2047,6 +2114,14 @@
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Email</div>
             <div id="view-staff-email" style="font-size:13px;font-weight:600"></div>
           </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Access</div>
+            <div id="view-staff-access" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Code</div>
+            <div id="view-staff-code" style="font-size:13px;font-weight:600;font-family:monospace"></div>
+          </div>
           <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Account Created</div>
             <div id="view-staff-created" style="font-size:13px;font-weight:600"></div>
@@ -2063,6 +2138,8 @@
     </div>
   </div>
 
+
+  <datalist id="staff-dept-list"></datalist>
 
   
   <!-- Delete Staff Confirm Modal -->

@@ -104,7 +104,8 @@ public class HospitalController {
             HospitalProfile hospital = hospitalProfileRepository.findByUser(currentUser)
                     .orElseThrow(() -> new IllegalArgumentException("No hospital profile found."));
  
-            List<BloodBagRequest> requests = bloodBagRequestService.getByHospital(hospital);
+            List<BloodBagRequest> requests = bloodBagRequestService.populateReservedBags(
+                    bloodBagRequestService.getByHospital(hospital));
  
             return ResponseEntity.ok(requests.stream()
                     .map(this::buildHospitalRequestResponse)
@@ -416,6 +417,11 @@ public class HospitalController {
         res.put("patientAge", req.getPatientAge());
         res.put("patientSex", req.getPatientSex());
         res.put("wardRoom", req.getWardRoom());
+        res.put("roomNo", req.getRoomNo());
+        res.put("patientPurok", req.getPatientPurok());
+        res.put("patientBarangay", req.getPatientBarangay());
+        res.put("patientMunicipality", req.getPatientMunicipality());
+        res.put("patientProvince", req.getPatientProvince());
         res.put("ageGroup", req.getAgeGroup());
         res.put("requestCategory", req.getRequestCategory());
         res.put("requestingPhysician", req.getRequestingPhysician());
@@ -486,7 +492,16 @@ public class HospitalController {
         // ─────────────────────────────────────────────
         // STATUS & RESOLUTION
         // ─────────────────────────────────────────────
+        res.put("approvedUnits", req.getApprovedUnits());
+        res.put("approvalRemarks", req.getApprovalRemarks());
+        res.put("alternativeComponentSuggestion", req.getAlternativeComponentSuggestion());
+        res.put("patientAcceptedRemarks", req.getPatientAcceptedRemarks());
+        res.put("patientRespondedAt", req.getPatientRespondedAt());
+        res.put("confirmationEmailSentAt", req.getConfirmationEmailSentAt());
         res.put("rejectionReason", req.getRejectionReason());
+        res.put("allocatedBagIds", req.getAllocatedBagIds());
+        res.put("fulfilledByBag", req.getFulfilledByBag());
+        res.put("reservedBags", req.getReservedBags());
  
         return res;
     }

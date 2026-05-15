@@ -1,11 +1,32 @@
 package com.hospital.blood_plus.dto.request;
- 
-import java.util.List;
- 
+
 public class ApproveRequestDTO {
- 
-    private List<Long> bagIds;
- 
-    public List<Long> getBagIds() { return bagIds; }
-    public void setBagIds(List<Long> bagIds) { this.bagIds = bagIds; }
+
+    private Integer approvedUnits;
+    private String approvalRemarks;
+    private String alternativeComponentSuggestion;
+
+    public Integer getApprovedUnits() {
+        return approvedUnits;
+    }
+
+    public void setApprovedUnits(Integer approvedUnits) {
+        this.approvedUnits = approvedUnits;
+    }
+
+    public String getApprovalRemarks() {
+        return approvalRemarks;
+    }
+
+    public void setApprovalRemarks(String approvalRemarks) {
+        this.approvalRemarks = approvalRemarks;
+    }
+
+    public String getAlternativeComponentSuggestion() {
+        return alternativeComponentSuggestion;
+    }
+
+    public void setAlternativeComponentSuggestion(String alternativeComponentSuggestion) {
+        this.alternativeComponentSuggestion = alternativeComponentSuggestion;
+    }
 }

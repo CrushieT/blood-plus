@@ -4,10 +4,19 @@ import jakarta.persistence.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import com.hospital.blood_plus.model.BloodBag.ComponentType;
 
 @Entity
-@Table(name = "blood_bag_requests")
+@Table(
+    name = "blood_bag_requests",
+    indexes = {
+        @Index(
+            name = "idx_blood_bag_requests_confirmation_token",
+            columnList = "confirmation_token"
+        )
+    }
+)
 public class BloodBagRequest {
 
     // ─────────────────────────────────────────────
@@ -17,7 +26,14 @@ public class BloodBagRequest {
         LOW, MEDIUM, HIGH, CRITICAL
     }
     public enum RequestStatus {
-        PENDING, APPROVED, ALLOCATED, READY_FOR_RELEASE, RELEASED, REJECTED, CANCELLED
+        PENDING,
+        APPROVED,
+        NEEDS_CONFIRMATION,
+        ALLOCATED,
+        READY_FOR_RELEASE,
+        RELEASED,
+        REJECTED,
+        CANCELLED
     }
 
     public enum RequesterType {
@@ -96,9 +112,39 @@ public class BloodBagRequest {
     @Column(length = 500)
     private String rejectionReason;
 
+    @Column(name = "approved_units")
+    private Integer approvedUnits;
+
+    @Column(name = "approval_remarks", length = 1000)
+    private String approvalRemarks;
+
+    @Column(name = "alternative_component_suggestion", length = 500)
+    private String alternativeComponentSuggestion;
+
+    @Column(name = "patient_accepted_remarks")
+    private Boolean patientAcceptedRemarks;
+
+    @Column(name = "patient_responded_at")
+    private LocalDateTime patientRespondedAt;
+
+    @Column(name = "confirmation_token", length = 255)
+    private String confirmationToken;
+
+    @Column(name = "confirmation_token_expires_at")
+    private LocalDateTime confirmationTokenExpiresAt;
+
+    @Column(name = "confirmation_email_sent_at")
+    private LocalDateTime confirmationEmailSentAt;
+
+    @Column(name = "allocated_bag_ids", length = 500)
+    private String allocatedBagIds;
+
     @ManyToOne
     @JoinColumn(name = "fulfilled_by_bag_id")
     private BloodBag fulfilledByBag;
+
+    @Transient
+    private List<BloodBag> reservedBags;
 
     // ─────────────────────────────────────────────
     // ANONYMOUS — Patient Information (EXISTING)
@@ -130,6 +176,18 @@ public class BloodBagRequest {
 
     @Column(length = 100)
     private String roomNo;
+
+    @Column(length = 120)
+    private String patientPurok;
+
+    @Column(length = 120)
+    private String patientBarangay;
+
+    @Column(length = 120)
+    private String patientMunicipality;
+
+    @Column(length = 120)
+    private String patientProvince;
 
     @Column(length = 100)
     private String requestingPhysician;
@@ -328,8 +386,48 @@ public class BloodBagRequest {
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 
+    public Integer getApprovedUnits() { return approvedUnits; }
+    public void setApprovedUnits(Integer approvedUnits) { this.approvedUnits = approvedUnits; }
+
+    public String getApprovalRemarks() { return approvalRemarks; }
+    public void setApprovalRemarks(String approvalRemarks) { this.approvalRemarks = approvalRemarks; }
+
+    public String getAlternativeComponentSuggestion() { return alternativeComponentSuggestion; }
+    public void setAlternativeComponentSuggestion(String alternativeComponentSuggestion) {
+        this.alternativeComponentSuggestion = alternativeComponentSuggestion;
+    }
+
+    public Boolean getPatientAcceptedRemarks() { return patientAcceptedRemarks; }
+    public void setPatientAcceptedRemarks(Boolean patientAcceptedRemarks) {
+        this.patientAcceptedRemarks = patientAcceptedRemarks;
+    }
+
+    public LocalDateTime getPatientRespondedAt() { return patientRespondedAt; }
+    public void setPatientRespondedAt(LocalDateTime patientRespondedAt) {
+        this.patientRespondedAt = patientRespondedAt;
+    }
+
+    public String getConfirmationToken() { return confirmationToken; }
+    public void setConfirmationToken(String confirmationToken) { this.confirmationToken = confirmationToken; }
+
+    public LocalDateTime getConfirmationTokenExpiresAt() { return confirmationTokenExpiresAt; }
+    public void setConfirmationTokenExpiresAt(LocalDateTime confirmationTokenExpiresAt) {
+        this.confirmationTokenExpiresAt = confirmationTokenExpiresAt;
+    }
+
+    public LocalDateTime getConfirmationEmailSentAt() { return confirmationEmailSentAt; }
+    public void setConfirmationEmailSentAt(LocalDateTime confirmationEmailSentAt) {
+        this.confirmationEmailSentAt = confirmationEmailSentAt;
+    }
+
+    public String getAllocatedBagIds() { return allocatedBagIds; }
+    public void setAllocatedBagIds(String allocatedBagIds) { this.allocatedBagIds = allocatedBagIds; }
+
     public BloodBag getFulfilledByBag() { return fulfilledByBag; }
     public void setFulfilledByBag(BloodBag fulfilledByBag) { this.fulfilledByBag = fulfilledByBag; }
+
+    public List<BloodBag> getReservedBags() { return reservedBags; }
+    public void setReservedBags(List<BloodBag> reservedBags) { this.reservedBags = reservedBags; }
 
     public String getPatientName() { return patientName; }
     public void setPatientName(String patientName) { this.patientName = patientName; }
@@ -357,6 +455,18 @@ public class BloodBagRequest {
 
     public String getRoomNo() { return roomNo; }
     public void setRoomNo(String roomNo) { this.roomNo = roomNo; }
+
+    public String getPatientPurok() { return patientPurok; }
+    public void setPatientPurok(String patientPurok) { this.patientPurok = patientPurok; }
+
+    public String getPatientBarangay() { return patientBarangay; }
+    public void setPatientBarangay(String patientBarangay) { this.patientBarangay = patientBarangay; }
+
+    public String getPatientMunicipality() { return patientMunicipality; }
+    public void setPatientMunicipality(String patientMunicipality) { this.patientMunicipality = patientMunicipality; }
+
+    public String getPatientProvince() { return patientProvince; }
+    public void setPatientProvince(String patientProvince) { this.patientProvince = patientProvince; }
 
     public String getRequestingPhysician() { return requestingPhysician; }
     public void setRequestingPhysician(String requestingPhysician) { this.requestingPhysician = requestingPhysician; }

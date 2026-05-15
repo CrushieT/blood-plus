@@ -60,6 +60,7 @@ public class SecurityConfig {
                     "/",
                     "/favicon.ico", 
                     "/blood-request.html",
+                    "/blood-request-confirmation.html",
                     "/admin-login.html",
                     "/admin-setup.html",
                     "/css/**",
@@ -71,6 +72,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/req/**").permitAll()
+                .requestMatchers("/api/blood-requests/confirm-remarks").permitAll()
 
                 .requestMatchers("/hospital/**").hasRole("HOSPITAL")
                 .requestMatchers("/api/hospital/**").hasAnyRole("HOSPITAL") 
