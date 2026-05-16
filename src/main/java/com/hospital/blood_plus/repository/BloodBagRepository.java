@@ -8,6 +8,7 @@ import com.hospital.blood_plus.model.BloodBag.ComponentType;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -215,4 +216,13 @@ Long countExpired();
     @Query("SELECT b FROM BloodBag b WHERE b.status = :status " +
            "AND b.expiresAt > :now AND b.expiresAt <= :soon")
     List<BloodBag> findExpiringBags(BloodBag.BagStatus status, LocalDateTime now, LocalDateTime soon);
+
+    @Modifying
+        @Query("""
+        UPDATE BloodBag b
+        SET b.status = 'EXPIRED'
+        WHERE b.status = 'AVAILABLE'
+        AND b.expiresAt < :now
+        """)
+        int markExpiredBags(@Param("now") LocalDateTime now);
 }
