@@ -464,7 +464,7 @@ function fullBloodLabel(bloodType, rhType) {
     B_POS:'B', B_NEG:'B', AB_POS:'AB', AB_NEG:'AB'
   };
   const abo = aboMap[bloodType] ?? bloodType ?? '';
-  const rh  = rhType === 'POSITIVE' ? '+' : rhType === 'NEGATIVE' ? '−' : '';
+  const rh  = rhType === 'POSITIVE' ? ' Pos' : rhType === 'NEGATIVE' ? ' Neg' : '';
   return abo + rh;
 }
 
@@ -485,7 +485,7 @@ function sourceLabel(bag) {
 
 function computeBagStatus(bag) {
   const now  = new Date();
-  const soon = new Date(); soon.setDate(soon.getDate() + 7);
+  const soon = new Date(); soon.setDate(soon.getDate() + 10);
   const exp  = new Date(bag.expiresAt);
 
   if (bag.status === 'DISCARDED')    return 'DISCARDED';
@@ -666,6 +666,29 @@ function renderBagsPage() {
   const footer = document.getElementById('bags-footer');
   const total  = bagsCurrent.length;
 
+  const sortedBags = [...bagsCurrent].sort((a, b) => {
+    const statusPriority = {
+      EXPIRING: 1,
+      AVAILABLE: 2,
+      CROSSMATCHED: 3,
+      DISPENSED: 4,
+      EXPIRED: 5,
+      DISCARDED: 6
+    };
+
+    const aPriority = statusPriority[a.computedStatus] || 99;
+    const bPriority = statusPriority[b.computedStatus] || 99;
+
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    const aExpiry = new Date(a.expiresAt || '9999-12-31').getTime();
+    const bExpiry = new Date(b.expiresAt || '9999-12-31').getTime();
+
+    return aExpiry - bExpiry;
+  });
+
   if (!total) {
     tbody.innerHTML      = '';
     empty.style.display  = 'block';
@@ -677,7 +700,7 @@ function renderBagsPage() {
   footer.style.display = 'flex';
 
   const start   = (bagsCurrentPage - 1) * BAGS_PER_PAGE;
-  const page    = bagsCurrent.slice(start, start + BAGS_PER_PAGE);
+  const page    = sortedBags.slice(start, start + BAGS_PER_PAGE);
   const pages   = Math.ceil(total / BAGS_PER_PAGE);
   const now     = new Date();
   const twoDays = new Date(); twoDays.setDate(twoDays.getDate() + 2);
@@ -950,87 +973,560 @@ async function confirmDiscard() {
 }
 
 // ── Add Stock Modal ────────────────────────────────────────────────────────────
+const ADD_STOCK_EXPIRY_DAYS = {
+  WHOLE_BLOOD: 42,
+  PRBC: 42,
+  LEUKOREDUCED_PRBC: 42,
+  ALIQUOTED_PRBC: 42,
+  PLATELET_CONCENTRATE: 5,
+  FRESH_FROZEN_PLASMA: 365,
+  CRYOPRECIPITATE: 365,
+  CRYOSUPERNATANT: 365,
+};
+
+function addStockCalculateExpiry(componentType, collectedAt) {
+  const days = ADD_STOCK_EXPIRY_DAYS[componentType];
+  if (!days || !collectedAt) return '';
+
+  const exp = new Date(collectedAt);
+  exp.setDate(exp.getDate() + days);
+  return exp.toISOString().split('T')[0];
+}
+
 function updateAddExpiry() {
-  const comp        = document.getElementById('add-component-type').value;
+  const comp = document.getElementById('add-component-type').value;
   const collectedEl = document.getElementById('add-collected-at');
-  const expiresEl   = document.getElementById('add-expires-at');
-  const hintEl      = document.getElementById('add-expiry-hint');
+  const expiresEl = document.getElementById('add-expires-at');
+  const hintEl = document.getElementById('add-expiry-hint');
 
-  const EXPIRY_DAYS = {
-    WHOLE_BLOOD: 42, PRBC: 42, LEUKOREDUCED_PRBC: 42, ALIQUOTED_PRBC: 42,
-    PLATELET_CONCENTRATE: 5, FRESH_FROZEN_PLASMA: 365,
-    CRYOPRECIPITATE: 365, CRYOSUPERNATANT: 365,
-  };
-
-  const days = EXPIRY_DAYS[comp];
-  hintEl.textContent = days ? `(${days}-day shelf life)` : '';
+  const days = ADD_STOCK_EXPIRY_DAYS[comp];
+  if (hintEl) hintEl.textContent = days ? `(${days}-day shelf life)` : '';
 
   if (collectedEl.value && days) {
-    const exp = new Date(collectedEl.value);
-    exp.setDate(exp.getDate() + days);
-    expiresEl.value = exp.toISOString().split('T')[0];
+    expiresEl.value = addStockCalculateExpiry(comp, collectedEl.value);
   }
 }
 
 function openAddBloodModal() {
   document.getElementById('add-transaction-number').value = '';
-  document.getElementById('add-serial-number').value      = '';
-  document.getElementById('add-blood-type').value         = '';
-  document.getElementById('add-rh-type').value            = 'POSITIVE';
-  document.getElementById('add-component-type').value     = '';
-  document.getElementById('add-volume-ml').value          = '';
-  document.getElementById('add-collected-at').value       = '';
-  document.getElementById('add-expires-at').value         = '';
-  document.getElementById('add-remarks').value            = '';
+  document.getElementById('add-serial-number').value = '';
+  document.getElementById('add-blood-type').value = '';
+  document.getElementById('add-rh-type').value = 'POSITIVE';
+  document.getElementById('add-component-type').value = '';
+  document.getElementById('add-volume-ml').value = '';
+  document.getElementById('add-collected-at').value = '';
+  document.getElementById('add-expires-at').value = '';
+  document.getElementById('add-remarks').value = '';
+
   const hint = document.getElementById('add-expiry-hint');
   if (hint) hint.textContent = '';
+
+  const rows = document.getElementById('add-stock-rows');
+  if (rows) rows.innerHTML = '';
+
+  updateAddStockValidCount();
   openModal('addBloodModal');
 }
 
-async function submitAddBloodStock() {
-  const serialNumber      = document.getElementById('add-serial-number').value.trim();
-  const transactionNumber = document.getElementById('add-transaction-number').value.trim();
-  const aboType           = document.getElementById('add-blood-type').value;
-  const rhType            = document.getElementById('add-rh-type').value;
-  const componentType     = document.getElementById('add-component-type').value;
-  const volumeMl          = document.getElementById('add-volume-ml').value;
-  const collectedAt       = document.getElementById('add-collected-at').value;
-  const expiresAt         = document.getElementById('add-expires-at').value;
-  const remarks           = document.getElementById('add-remarks').value.trim();
+function getAddStockDefaults() {
+  const aboType = document.getElementById('add-blood-type').value;
+  const rhType = document.getElementById('add-rh-type').value;
 
-  if (!serialNumber || !aboType || !rhType || !componentType || !volumeMl || !collectedAt || !expiresAt) {
-    alert('Please fill in all required fields.');
+  return {
+    serialNumber: document.getElementById('add-serial-number').value.trim(),
+    bloodGroup: aboType ? `${aboType}_${rhType === 'POSITIVE' ? 'POS' : 'NEG'}` : '',
+    componentType: document.getElementById('add-component-type').value,
+    volumeMl: document.getElementById('add-volume-ml').value,
+    collectedAt: document.getElementById('add-collected-at').value,
+    expiresAt: document.getElementById('add-expires-at').value,
+    remarks: document.getElementById('add-remarks').value.trim(),
+  };
+}
+
+function createAddStockSelect(options, value, className) {
+  return `
+    <select class="${className}" onchange="handleAddStockRowChange(this)">
+      ${options.map(opt => `
+        <option value="${opt.value}" ${opt.value === value ? 'selected' : ''}>
+          ${opt.label}
+        </option>
+      `).join('')}
+    </select>`;
+}
+
+function splitBloodGroup(bloodGroup) {
+  if (!bloodGroup) return { aboType: '', rhType: '' };
+
+  const [aboType, rhShort] = bloodGroup.split('_');
+  return {
+    aboType,
+    rhType: rhShort === 'POS' ? 'POSITIVE' : 'NEGATIVE',
+  };
+}
+
+function addStockRow(data = {}) {
+  const tbody = document.getElementById('add-stock-rows');
+  if (!tbody) return;
+
+  const index = tbody.children.length + 1;
+
+  const row = document.createElement('tr');
+  row.className = 'add-stock-row';
+
+  const serialNumber = data.serialNumber || '';
+  const bloodGroup = data.bloodGroup || '';
+  const componentType = data.componentType || '';
+  const volumeMl = data.volumeMl || '';
+  const collectedAt = data.collectedAt || '';
+  const expiresAt = data.expiresAt || '';
+  const remarks = data.remarks || '';
+
+  const bloodGroupOptions = [
+    { value: '', label: 'Select...' },
+    { value: 'A_POS', label: 'A POS' },
+    { value: 'A_NEG', label: 'A NEG' },
+    { value: 'B_POS', label: 'B POS' },
+    { value: 'B_NEG', label: 'B NEG' },
+    { value: 'AB_POS', label: 'AB POS' },
+    { value: 'AB_NEG', label: 'AB NEG' },
+    { value: 'O_POS', label: 'O POS' },
+    { value: 'O_NEG', label: 'O NEG' },
+  ];
+
+  const componentOptions = [
+    { value: '', label: 'Select...' },
+    { value: 'WHOLE_BLOOD', label: 'Whole Blood' },
+    { value: 'PRBC', label: 'PRBC' },
+    { value: 'LEUKOREDUCED_PRBC', label: 'Leukoreduced PRBC' },
+    { value: 'ALIQUOTED_PRBC', label: 'Aliquoted PRBC' },
+    { value: 'PLATELET_CONCENTRATE', label: 'Platelet Concentrate' },
+    { value: 'FRESH_FROZEN_PLASMA', label: 'Fresh Frozen Plasma' },
+    { value: 'CRYOPRECIPITATE', label: 'Cryoprecipitate' },
+    { value: 'CRYOSUPERNATANT', label: 'Cryosupernatant' },
+  ];
+
+  row.innerHTML = `
+    <td style="padding:6px;color:var(--muted);font-weight:700">${index}</td>
+
+    <td style="padding:6px">
+      <div class="form-group-m" style="margin:0">
+        ${createAddStockSelect(bloodGroupOptions, bloodGroup, 'add-stock-blood-group')}
+      </div>
+    </td>
+
+    <td style="padding:6px">
+      <div class="form-group-m" style="margin:0">
+        ${createAddStockSelect(componentOptions, componentType, 'add-stock-component')}
+      </div>
+    </td>
+
+    <td style="padding:6px">
+      <div class="form-group-m" style="margin:0">
+        <input type="text" class="add-stock-serial" value="${serialNumber}" placeholder="SN-00123" oninput="handleAddStockRowChange(this)">
+      </div>
+    </td>
+
+    <td style="padding:6px">
+      <div class="form-group-m" style="margin:0">
+        <input type="date" class="add-stock-collected" value="${collectedAt}" onchange="handleAddStockRowDateChange(this)">
+      </div>
+    </td>
+
+    <td style="padding:6px">
+      <div class="form-group-m" style="margin:0">
+        <input type="date" class="add-stock-expires" value="${expiresAt}" onchange="handleAddStockRowChange(this)">
+      </div>
+    </td>
+
+    <td style="padding:6px">
+      <div class="form-group-m" style="margin:0">
+        <input type="number" class="add-stock-volume" value="${volumeMl}" min="1" placeholder="450" oninput="handleAddStockRowChange(this)">
+      </div>
+    </td>
+
+    <td style="padding:6px">
+      <div class="form-group-m" style="margin:0">
+        <input type="text" class="add-stock-remarks" value="${remarks}" placeholder="Optional" oninput="handleAddStockRowChange(this)">
+      </div>
+    </td>
+
+    <td style="padding:6px">
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn-ghost" type="button" style="font-size:11px;padding:5px 8px" onclick="copyPreviousAddStockRow(${index - 1})">
+          Copy Prev
+        </button>
+        <button class="btn-warning" type="button" style="font-size:11px;padding:5px 8px" onclick="removeAddStockRow(this)">
+          Remove
+        </button>
+      </div>
+    </td>
+  `;
+
+  tbody.appendChild(row);
+  updateAddStockRowNumbers();
+  updateAddStockValidCount();
+}
+
+function generateAddStockRows(count = 10) {
+  const tbody = document.getElementById('add-stock-rows');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  const defaults = getAddStockDefaults();
+
+  for (let i = 0; i < count; i++) {
+    addStockRow({
+      serialNumber: i === 0 ? defaults.serialNumber : '',
+      bloodGroup: defaults.bloodGroup,
+      componentType: defaults.componentType,
+      volumeMl: defaults.volumeMl,
+      collectedAt: defaults.collectedAt,
+      expiresAt: defaults.expiresAt,
+      remarks: defaults.remarks,
+    });
+  }
+
+  updateAddStockValidCount();
+}
+
+function handleAddStockRowDateChange(el) {
+  const row = el.closest('tr');
+  if (!row) return;
+
+  const componentType = row.querySelector('.add-stock-component')?.value;
+  const collectedAt = row.querySelector('.add-stock-collected')?.value;
+  const expiresEl = row.querySelector('.add-stock-expires');
+
+  if (componentType && collectedAt && expiresEl) {
+    expiresEl.value = addStockCalculateExpiry(componentType, collectedAt);
+  }
+
+  updateAddStockValidCount();
+}
+
+function handleAddStockRowChange(el) {
+  const row = el.closest('tr');
+  if (!row) {
+    updateAddStockValidCount();
     return;
   }
 
-  try {
-    const res = await fetch('/api/admin/blood-bank/intake', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        serialNumber,
-        transactionNumber:  transactionNumber || null,
-        aboType, rhType, componentType,
-        volumeMl:    parseInt(volumeMl),
-        collectedAt: collectedAt + 'T00:00:00',
-        expiresAt:   expiresAt   + 'T00:00:00',
-        remarks:     remarks || null,
-        source:      'TRANSFER',
-      })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.message || 'Failed to add blood stock.');
-      return;
+  const componentEl = row.querySelector('.add-stock-component');
+  const collectedEl = row.querySelector('.add-stock-collected');
+  const expiresEl = row.querySelector('.add-stock-expires');
+
+  if (
+    el.classList.contains('add-stock-component') &&
+    componentEl?.value &&
+    collectedEl?.value &&
+    expiresEl
+  ) {
+    expiresEl.value = addStockCalculateExpiry(componentEl.value, collectedEl.value);
+  }
+
+  updateAddStockValidCount();
+}
+
+function getAddStockRowData(row) {
+  const bloodGroup = row.querySelector('.add-stock-blood-group')?.value || '';
+  const split = splitBloodGroup(bloodGroup);
+
+  return {
+    serialNumber: row.querySelector('.add-stock-serial')?.value.trim() || '',
+    bloodGroup,
+    aboType: split.aboType,
+    rhType: split.rhType,
+    componentType: row.querySelector('.add-stock-component')?.value || '',
+    volumeMl: row.querySelector('.add-stock-volume')?.value || '',
+    collectedAt: row.querySelector('.add-stock-collected')?.value || '',
+    expiresAt: row.querySelector('.add-stock-expires')?.value || '',
+    remarks: row.querySelector('.add-stock-remarks')?.value.trim() || '',
+  };
+}
+
+function isAddStockRowEmpty(data) {
+  return !data.serialNumber &&
+    !data.bloodGroup &&
+    !data.componentType &&
+    !data.volumeMl &&
+    !data.collectedAt &&
+    !data.expiresAt &&
+    !data.remarks;
+}
+
+function isAddStockRowComplete(data) {
+  return data.serialNumber &&
+    data.bloodGroup &&
+    data.aboType &&
+    data.rhType &&
+    data.componentType &&
+    data.volumeMl &&
+    data.collectedAt &&
+    data.expiresAt;
+}
+
+function getValidAddStockRows() {
+  const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+  return rows.map(row => getAddStockRowData(row)).filter(data => !isAddStockRowEmpty(data));
+}
+
+function updateAddStockValidCount() {
+  const countEl = document.getElementById('add-stock-valid-count');
+  if (!countEl) return;
+
+  const validRows = getValidAddStockRows().filter(data => isAddStockRowComplete(data));
+  countEl.textContent = validRows.length;
+}
+
+function updateAddStockRowNumbers() {
+  document.querySelectorAll('#add-stock-rows tr').forEach((row, index) => {
+    const firstCell = row.querySelector('td');
+    if (firstCell) firstCell.textContent = index + 1;
+
+    const copyBtn = row.querySelector('button[onclick^="copyPreviousAddStockRow"]');
+    if (copyBtn) {
+      copyBtn.setAttribute('onclick', `copyPreviousAddStockRow(${index})`);
+      copyBtn.disabled = index === 0;
+      copyBtn.style.opacity = index === 0 ? '0.5' : '1';
     }
+  });
+}
+
+function removeAddStockRow(btn) {
+  const row = btn.closest('tr');
+  if (row) row.remove();
+
+  updateAddStockRowNumbers();
+  updateAddStockValidCount();
+}
+
+function copyPreviousAddStockRow(index) {
+  if (index <= 0) return;
+
+  const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+  const current = rows[index];
+  const previous = rows[index - 1];
+
+  if (!current || !previous) return;
+
+  const prevData = getAddStockRowData(previous);
+
+  current.querySelector('.add-stock-blood-group').value = prevData.bloodGroup;
+  current.querySelector('.add-stock-component').value = prevData.componentType;
+  current.querySelector('.add-stock-volume').value = prevData.volumeMl;
+  current.querySelector('.add-stock-collected').value = prevData.collectedAt;
+  current.querySelector('.add-stock-expires').value = prevData.expiresAt;
+
+  updateAddStockValidCount();
+}
+
+function applyAddStockDefaultsToEmptyRows() {
+  const defaults = getAddStockDefaults();
+  const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+
+  rows.forEach((row, index) => {
+    const data = getAddStockRowData(row);
+    if (!isAddStockRowEmpty(data)) return;
+
+    row.querySelector('.add-stock-serial').value = index === 0 ? defaults.serialNumber : '';
+    row.querySelector('.add-stock-blood-group').value = defaults.bloodGroup;
+    row.querySelector('.add-stock-component').value = defaults.componentType;
+    row.querySelector('.add-stock-volume').value = defaults.volumeMl;
+    row.querySelector('.add-stock-collected').value = defaults.collectedAt;
+    row.querySelector('.add-stock-expires').value = defaults.expiresAt;
+    row.querySelector('.add-stock-remarks').value = defaults.remarks;
+  });
+
+  updateAddStockValidCount();
+}
+
+function applyAddStockDefaultsToAllRows() {
+  const confirmed = confirm('Apply defaults to all rows? This will overwrite row values except serial numbers.');
+  if (!confirmed) return;
+
+  const defaults = getAddStockDefaults();
+  const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+
+  rows.forEach(row => {
+    row.querySelector('.add-stock-blood-group').value = defaults.bloodGroup;
+    row.querySelector('.add-stock-component').value = defaults.componentType;
+    row.querySelector('.add-stock-volume').value = defaults.volumeMl;
+    row.querySelector('.add-stock-collected').value = defaults.collectedAt;
+    row.querySelector('.add-stock-expires').value = defaults.expiresAt;
+    row.querySelector('.add-stock-remarks').value = defaults.remarks;
+  });
+
+  updateAddStockValidCount();
+}
+
+function clearEmptyAddStockRows() {
+  const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+
+  rows.forEach(row => {
+    const data = getAddStockRowData(row);
+    if (isAddStockRowEmpty(data)) row.remove();
+  });
+
+  updateAddStockRowNumbers();
+  updateAddStockValidCount();
+}
+
+async function submitAddBloodStock() {
+  const transactionNumber = document.getElementById('add-transaction-number').value.trim();
+  const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+
+  if (!rows.length) {
+    alert('Please add at least one blood bag row.');
+    return;
+  }
+
+  const allRows = rows.map(row => ({
+    element: row,
+    data: getAddStockRowData(row),
+  }));
+
+  const nonEmptyRows = allRows.filter(item => !isAddStockRowEmpty(item.data));
+
+  if (!nonEmptyRows.length) {
+    alert('Please fill in at least one blood bag row.');
+    return;
+  }
+
+  const incomplete = nonEmptyRows.find(item => !isAddStockRowComplete(item.data));
+  if (incomplete) {
+    alert('Please complete all partially filled rows before submitting.');
+    return;
+  }
+
+  const serials = nonEmptyRows.map(item => item.data.serialNumber.toLowerCase());
+  const duplicateSerial = serials.find((serial, index) => serials.indexOf(serial) !== index);
+
+  if (duplicateSerial) {
+    alert('Duplicate serial number found: ' + duplicateSerial);
+    return;
+  }
+
+  const confirmed = confirm(`Receive ${nonEmptyRows.length} blood bag(s) under transaction ${transactionNumber || 'N/A'}?`);
+  if (!confirmed) return;
+
+  try {
+    for (const item of nonEmptyRows) {
+      const data = item.data;
+
+      const res = await fetch('/api/admin/blood-bank/intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          serialNumber: data.serialNumber,
+          transactionNumber: transactionNumber || null,
+          aboType: data.aboType,
+          rhType: data.rhType,
+          componentType: data.componentType,
+          volumeMl: parseInt(data.volumeMl, 10),
+          collectedAt: data.collectedAt + 'T00:00:00',
+          expiresAt: data.expiresAt + 'T00:00:00',
+          remarks: data.remarks || null,
+          source: 'TRANSFER',
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || `Failed to add bag ${data.serialNumber}.`);
+        return;
+      }
+    }
+
     closeModal('addBloodModal');
     await loadBloodBank();
   } catch (err) {
-    console.error('Add stock error:', err);
+    console.error('Add stock batch error:', err);
     alert('Network error. Please try again.');
   }
 }
+
+// ── Add Stock Keyboard Navigation ─────────────────────────────────────────────
+document.addEventListener('keydown', function (e) {
+
+  const active = document.activeElement;
+
+  if (
+    !active ||
+    !active.closest('#add-stock-rows')
+  ) return;
+
+  const row = active.closest('tr');
+  if (!row) return;
+
+  const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+  const currentRowIndex = rows.indexOf(row);
+
+  const inputs = [
+    ...row.querySelectorAll('input, select')
+  ];
+
+  const currentColIndex = inputs.indexOf(active);
+
+  if (currentColIndex === -1) return;
+
+  let target = null;
+
+  // ← LEFT
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+
+    if (currentColIndex > 0) {
+      target = inputs[currentColIndex - 1];
+    }
+  }
+
+  // → RIGHT
+  else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+
+    if (currentColIndex < inputs.length - 1) {
+      target = inputs[currentColIndex + 1];
+    }
+  }
+
+  // ↑ UP
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+
+    if (currentRowIndex > 0) {
+      const prevRow = rows[currentRowIndex - 1];
+      const prevInputs = [
+        ...prevRow.querySelectorAll('input, select')
+      ];
+
+      target = prevInputs[currentColIndex];
+    }
+  }
+
+  // ↓ DOWN
+  else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+
+    if (currentRowIndex < rows.length - 1) {
+      const nextRow = rows[currentRowIndex + 1];
+      const nextInputs = [
+        ...nextRow.querySelectorAll('input, select')
+      ];
+
+      target = nextInputs[currentColIndex];
+    }
+  }
+
+  if (target) {
+    target.focus();
+
+    // highlight text for easier replacement
+    if (target.select) {
+      setTimeout(() => target.select(), 0);
+    }
+  }
+}); 
 
 // ── Sync Helper: Invalidate Blood Request Bag Cache ──────
 function invalidateBagCache() {
@@ -1241,40 +1737,34 @@ const AnalyticsDashboard = {
   renderBloodComponents: function() {
     if (!this.data.bloodComponent) return;
 
-    const componentMap = {
-      'WHOLE_BLOOD': 'whole-blood',
-      'PRBC': 'red-cells',
-      'LEUKOREDUCED_PRBC': 'red-cells',
-      'ALIQUOTED_PRBC': 'red-cells',
-      'FRESH_FROZEN_PLASMA': 'plasma',
-      'PLATELET_CONCENTRATE': 'platelets',
-      'CRYOPRECIPITATE': 'plasma',
-      'CRYOSUPERNATANT': 'plasma'
+    const components = {
+      'whole-blood': this.data.bloodComponent.WHOLE_BLOOD || 0,
+      'prbc': this.data.bloodComponent.PRBC || 0,
+      'leukoreduced-prbc': this.data.bloodComponent.LEUKOREDUCED_PRBC || 0,
+      'aliquoted-prbc': this.data.bloodComponent.ALIQUOTED_PRBC || 0,
+      'ffp': this.data.bloodComponent.FRESH_FROZEN_PLASMA || 0,
+      'platelet-concentrate': this.data.bloodComponent.PLATELET_CONCENTRATE || 0,
+      'cryoprecipitate': this.data.bloodComponent.CRYOPRECIPITATE || 0,
+      'cryosupernatant': this.data.bloodComponent.CRYOSUPERNATANT || 0
     };
 
-    const aggregated = {
-      'whole-blood': 0,
-      'red-cells': 0,
-      'plasma': 0,
-      'platelets': 0
-    };
+    const total = Object.values(components).reduce((a, b) => a + b, 0);
 
-    Object.entries(this.data.bloodComponent).forEach(([key, count]) => {
-      const category = componentMap[key];
-      if (category) {
-        aggregated[category] += count;
+    Object.entries(components).forEach(([key, count]) => {
+      const valueEl = document.querySelector(`[data-metric="component-${key}"]`);
+
+      if (valueEl) {
+        valueEl.textContent = count;
       }
-    });
 
-    const total = Object.values(aggregated).reduce((a, b) => a + b, 0);
+      const pctEl = document.querySelector(`[data-metric="component-${key}-pct"]`);
 
-    Object.entries(aggregated).forEach(([label, count]) => {
-      const el = document.querySelector(`[data-metric="component-${label}"]`);
-      if (el) el.textContent = count;
-
-      const pctEl = document.querySelector(`[data-metric="component-${label}-pct"]`);
       if (pctEl) {
-        pctEl.textContent = total > 0 ? Math.round((count / total) * 100) + '%' : '0%';
+        const pct = total > 0
+          ? Math.round((count / total) * 100)
+          : 0;
+
+        pctEl.textContent = pct + '%';
       }
     });
   },
@@ -1303,7 +1793,7 @@ const AnalyticsDashboard = {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
             <div>
               <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${this.escapeHtml(hospital.name)}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">${hospital.fulfilled}/${hospital.requests} fulfilled</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${hospital.fulfilled}/${hospital.requests} served request</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:16px;font-weight:700;color:var(--charcoal)">${fulfillmentRate}%</div>
@@ -1899,14 +2389,14 @@ window.exportBloodBagsToExcel = function() {
      Preserves original enum for backend while displaying user-friendly text
   ──────────────────────────────────────────────────────────────────────────────── */
   const BLOOD_TYPE_MAP = {
-    'A_POS': 'A+',
-    'A_NEG': 'A−',
-    'B_POS': 'B+',
-    'B_NEG': 'B−',
-    'AB_POS': 'AB+',
-    'AB_NEG': 'AB−',
-    'O_POS': 'O+',
-    'O_NEG': 'O−',
+    'A_POS': 'A Pos',
+    'A_NEG': 'A Neg',
+    'B_POS': 'B Pos',
+    'B_NEG': 'B Neg',
+    'AB_POS': 'AB Pos',
+    'AB_NEG': 'AB Neg',
+    'O_POS': 'O Pos',
+    'O_NEG': 'O Neg',
   };
 
   function formatBloodType(bloodTypeEnum) {
@@ -6707,9 +7197,9 @@ if (!document.getElementById('toast-styles')) {
     document.head.appendChild(style);
 }
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// -----------------------------------------------------------
 // ENHANCED AUTO-REFRESH WITH CHANGE DETECTION (SILENT UPDATES)
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// =============================================================
 
 let autoRefreshIntervals = {};
 let dataSnapshots = {

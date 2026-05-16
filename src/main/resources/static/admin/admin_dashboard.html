@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -701,33 +701,102 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">Requests by Blood Component</div>
-          <span style="font-size:12px;color:var(--muted)">Types of blood products requested</span>
+          <span style="font-size:12px;color:var(--muted)">
+            Types of blood products requested
+          </span>
         </div>
+
         <div class="card-body">
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px">
+
+            <!-- WHOLE BLOOD -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Whole Blood</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-whole-blood">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-whole-blood-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Whole Blood
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-whole-blood">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-whole-blood-pct">-</div>
             </div>
-            
+
+            <!-- PRBC -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Red Cells</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-red-cells">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-red-cells-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                PRBC
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-prbc">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-prbc-pct">-</div>
             </div>
-            
+
+            <!-- LEUKOREDUCED PRBC -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Plasma</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-plasma">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-plasma-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Leukoreduced PRBC
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-leukoreduced-prbc">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-leukoreduced-prbc-pct">-</div>
             </div>
-            
+
+            <!-- ALIQUOTED PRBC -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Platelets</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-platelets">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-platelets-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Aliquoted PRBC
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-aliquoted-prbc">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-aliquoted-prbc-pct">-</div>
             </div>
+
+            <!-- FFP -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Fresh Frozen Plasma
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-ffp">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-ffp-pct">-</div>
+            </div>
+
+            <!-- PLATELET -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Platelet Concentrate
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-platelet-concentrate">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-platelet-concentrate-pct">-</div>
+            </div>
+
+            <!-- CRYOPRECIPITATE -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Cryoprecipitate
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-cryoprecipitate">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-cryoprecipitate-pct">-</div>
+            </div>
+
+            <!-- CRYOSUPERNATANT -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Cryosupernatant
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-cryosupernatant">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-cryosupernatant-pct">-</div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -1722,28 +1791,37 @@
 
   <!-- Add Blood Stock Modal -->
   <div class="modal-overlay" id="addBloodModal">
-    <div class="modal" style="max-width:520px">
+    <div class="modal" style="max-width:1400px">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Receive Blood Stock</div>
+          <div class="modal-title">Receive Blood Stock Batch</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">From Blood Mediation Center (BMC)</div>
         </div>
         <button class="modal-close" onclick="closeModal('addBloodModal')">✕</button>
       </div>
+
       <div class="modal-body">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">BMC Receipt Info</div>
+
         <div class="form-row">
           <div class="form-group-m">
             <label>Transaction #</label>
             <input type="text" id="add-transaction-number" placeholder="e.g. TXN-2025-001">
           </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Batch Defaults</div>
+
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+          Use these values to fill repeated rows faster. Every row can still be edited individually.
+        </div>
+
+        <div class="form-row">
           <div class="form-group-m">
             <label>Serial # <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-serial-number" placeholder="e.g. SN-00123" required>
+            <input type="text" id="add-serial-number" placeholder="Used for first row / single entry" required>
           </div>
-        </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Blood Info</div>
-        <div class="form-row">
+
           <div class="form-group-m">
             <label>ABO Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-blood-type" required>
@@ -1754,6 +1832,7 @@
               <option value="O">O</option>
             </select>
           </div>
+
           <div class="form-group-m">
             <label>Rh Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-rh-type" required>
@@ -1762,6 +1841,7 @@
             </select>
           </div>
         </div>
+
         <div class="form-row">
           <div class="form-group-m">
             <label>Component Type <span style="color:var(--crimson)">*</span></label>
@@ -1777,17 +1857,17 @@
               <option value="CRYOSUPERNATANT">Cryosupernatant</option>
             </select>
           </div>
+
           <div class="form-group-m">
             <label>Volume (mL) <span style="color:var(--crimson)">*</span></label>
             <input type="number" id="add-volume-ml" placeholder="e.g. 450" min="1" required>
           </div>
-        </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Dates</div>
-        <div class="form-row">
+
           <div class="form-group-m">
             <label>Extraction Date <span style="color:var(--crimson)">*</span></label>
             <input type="date" id="add-collected-at" onchange="updateAddExpiry()" required>
           </div>
+
           <div class="form-group-m">
             <label>Expiration Date <span style="color:var(--crimson)">*</span>
               <span id="add-expiry-hint" style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px"></span>
@@ -1795,14 +1875,55 @@
             <input type="date" id="add-expires-at" required>
           </div>
         </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Remarks</div>
+
         <div class="form-group-m" style="margin-bottom:16px">
-          <label>Condition / Notes</label>
+          <label>Remarks</label>
           <input type="text" id="add-remarks" placeholder="e.g. Platelet - Poor, Hemolyzed">
         </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn-secondary" type="button" onclick="applyAddStockDefaultsToEmptyRows()">Apply To Empty Rows</button>
+          <button class="btn-ghost" type="button" onclick="applyAddStockDefaultsToAllRows()">Apply To All Rows</button>
+          <button class="btn-secondary" type="button" onclick="generateAddStockRows(10)">Generate 10 Rows</button>
+          <button class="btn-ghost" type="button" onclick="addStockRow()">+ Add Row</button>
+          <button class="btn-warning" type="button" onclick="clearEmptyAddStockRows()">Clear Empty Rows</button>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Blood Bags / Units</div>
+
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:12px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1150px; table-layout:fixed">
+            <thead style="background:var(--cream)">
+              <tr>
+                <th style="padding:6px;text-align:left;width:36px">#</th>
+                <th style="padding:6px;text-align:left;width:100px">Blood Group</th>
+                <th style="padding:6px;text-align:left;width:140px">Component</th>
+                <th style="padding:6px;text-align:left;width:130px">Unit Serial No.</th>
+                <th style="padding:6px;text-align:left;width:120px">Extraction Date</th>
+                <th style="padding:6px;text-align:left;width:120px">Expiry Date</th>
+                <th style="padding:6px;text-align:left;width:80px">Volume</th>
+                <th style="padding:6px;text-align:left;width:120px">Remarks</th>
+                <th style="padding:6px;text-align:left;width:120px">Action</th>
+              </tr>
+            </thead>
+            <tbody id="add-stock-rows">
+              <!-- Generated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="font-size:12px;color:var(--muted)">
+            Empty rows are ignored. Partially filled rows must be completed.
+          </div>
+          <div style="font-size:13px;font-weight:700;color:var(--charcoal)">
+            Valid bags to add: <span id="add-stock-valid-count">0</span>
+          </div>
+        </div>
+
         <div style="display:flex;gap:8px;margin-top:4px">
           <button class="btn-primary" style="flex:1;justify-content:center" onclick="submitAddBloodStock()">
-            Receive Stock
+            Review / Receive Batch
           </button>
           <button class="btn-ghost" onclick="closeModal('addBloodModal')">Cancel</button>
         </div>
