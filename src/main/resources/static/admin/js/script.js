@@ -1737,40 +1737,34 @@ const AnalyticsDashboard = {
   renderBloodComponents: function() {
     if (!this.data.bloodComponent) return;
 
-    const componentMap = {
-      'WHOLE_BLOOD': 'whole-blood',
-      'PRBC': 'red-cells',
-      'LEUKOREDUCED_PRBC': 'red-cells',
-      'ALIQUOTED_PRBC': 'red-cells',
-      'FRESH_FROZEN_PLASMA': 'plasma',
-      'PLATELET_CONCENTRATE': 'platelets',
-      'CRYOPRECIPITATE': 'plasma',
-      'CRYOSUPERNATANT': 'plasma'
+    const components = {
+      'whole-blood': this.data.bloodComponent.WHOLE_BLOOD || 0,
+      'prbc': this.data.bloodComponent.PRBC || 0,
+      'leukoreduced-prbc': this.data.bloodComponent.LEUKOREDUCED_PRBC || 0,
+      'aliquoted-prbc': this.data.bloodComponent.ALIQUOTED_PRBC || 0,
+      'ffp': this.data.bloodComponent.FRESH_FROZEN_PLASMA || 0,
+      'platelet-concentrate': this.data.bloodComponent.PLATELET_CONCENTRATE || 0,
+      'cryoprecipitate': this.data.bloodComponent.CRYOPRECIPITATE || 0,
+      'cryosupernatant': this.data.bloodComponent.CRYOSUPERNATANT || 0
     };
 
-    const aggregated = {
-      'whole-blood': 0,
-      'red-cells': 0,
-      'plasma': 0,
-      'platelets': 0
-    };
+    const total = Object.values(components).reduce((a, b) => a + b, 0);
 
-    Object.entries(this.data.bloodComponent).forEach(([key, count]) => {
-      const category = componentMap[key];
-      if (category) {
-        aggregated[category] += count;
+    Object.entries(components).forEach(([key, count]) => {
+      const valueEl = document.querySelector(`[data-metric="component-${key}"]`);
+
+      if (valueEl) {
+        valueEl.textContent = count;
       }
-    });
 
-    const total = Object.values(aggregated).reduce((a, b) => a + b, 0);
+      const pctEl = document.querySelector(`[data-metric="component-${key}-pct"]`);
 
-    Object.entries(aggregated).forEach(([label, count]) => {
-      const el = document.querySelector(`[data-metric="component-${label}"]`);
-      if (el) el.textContent = count;
-
-      const pctEl = document.querySelector(`[data-metric="component-${label}-pct"]`);
       if (pctEl) {
-        pctEl.textContent = total > 0 ? Math.round((count / total) * 100) + '%' : '0%';
+        const pct = total > 0
+          ? Math.round((count / total) * 100)
+          : 0;
+
+        pctEl.textContent = pct + '%';
       }
     });
   },
@@ -1799,7 +1793,7 @@ const AnalyticsDashboard = {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
             <div>
               <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${this.escapeHtml(hospital.name)}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">${hospital.fulfilled}/${hospital.requests} fulfilled</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${hospital.fulfilled}/${hospital.requests} served request</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:16px;font-weight:700;color:var(--charcoal)">${fulfillmentRate}%</div>

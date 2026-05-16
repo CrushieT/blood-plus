@@ -70,7 +70,6 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         WHERE bbr.requester_type = 'HOSPITAL'
         GROUP BY hp.id, hp.hospital_name
         ORDER BY total_requests DESC
-        LIMIT 5
         """, nativeQuery = true)
     List<Object[]> getTopRequestingHospitals();
  

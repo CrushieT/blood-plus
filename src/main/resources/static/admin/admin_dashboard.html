@@ -701,33 +701,102 @@
       <div class="card">
         <div class="card-header">
           <div class="card-title">Requests by Blood Component</div>
-          <span style="font-size:12px;color:var(--muted)">Types of blood products requested</span>
+          <span style="font-size:12px;color:var(--muted)">
+            Types of blood products requested
+          </span>
         </div>
+
         <div class="card-body">
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px">
+
+            <!-- WHOLE BLOOD -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Whole Blood</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-whole-blood">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-whole-blood-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Whole Blood
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-whole-blood">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-whole-blood-pct">-</div>
             </div>
-            
+
+            <!-- PRBC -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Red Cells</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-red-cells">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-red-cells-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                PRBC
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-prbc">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-prbc-pct">-</div>
             </div>
-            
+
+            <!-- LEUKOREDUCED PRBC -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Plasma</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-plasma">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-plasma-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Leukoreduced PRBC
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-leukoreduced-prbc">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-leukoreduced-prbc-pct">-</div>
             </div>
-            
+
+            <!-- ALIQUOTED PRBC -->
             <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">Platelets</div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)" data-metric="component-platelets">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px" data-metric="component-platelets-pct">-</div>
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Aliquoted PRBC
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-aliquoted-prbc">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-aliquoted-prbc-pct">-</div>
             </div>
+
+            <!-- FFP -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Fresh Frozen Plasma
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-ffp">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-ffp-pct">-</div>
+            </div>
+
+            <!-- PLATELET -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Platelet Concentrate
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-platelet-concentrate">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-platelet-concentrate-pct">-</div>
+            </div>
+
+            <!-- CRYOPRECIPITATE -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Cryoprecipitate
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-cryoprecipitate">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-cryoprecipitate-pct">-</div>
+            </div>
+
+            <!-- CRYOSUPERNATANT -->
+            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
+                Cryosupernatant
+              </div>
+              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
+                  data-metric="component-cryosupernatant">-</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px"
+                  data-metric="component-cryosupernatant-pct">-</div>
+            </div>
+
           </div>
         </div>
       </div>
