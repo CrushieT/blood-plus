@@ -23,8 +23,11 @@ import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
 import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
 import com.hospital.blood_plus.dto.response.AdminDashboardDTO;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
+import com.hospital.blood_plus.dto.response.InsideServedSummaryRow;
 import com.hospital.blood_plus.dto.response.LogsSummaryResponse;
+import com.hospital.blood_plus.dto.response.OutsideServedSummaryRow;
 import com.hospital.blood_plus.dto.response.PaginatedResponse;
+import com.hospital.blood_plus.dto.response.ServedRequestSummaryResponse;
 import com.hospital.blood_plus.repository.UserRepository;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
@@ -39,6 +42,7 @@ import com.hospital.blood_plus.service.BloodTracerService;
 import com.hospital.blood_plus.service.DashboardService;
 import com.hospital.blood_plus.service.StaffService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -1037,6 +1041,39 @@ public class AdminController {
         }
         return ResponseEntity.ok(fulfillment);
     }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/logs/served")
+    public ResponseEntity<PaginatedResponse<ServedRequestSummaryResponse>> getServedLogs(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "ALL") String requestGroup,
+            @RequestParam(defaultValue = "date_desc") String sort,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        PaginatedResponse<ServedRequestSummaryResponse> servedPage = requestLogsService.getServedRequests(
+                search,
+                startDate,
+                endDate,
+                requestGroup,
+                sort,
+                page,
+                size
+        );
+        return ResponseEntity.ok(servedPage);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/logs/served/{requestId}")
+    public ResponseEntity<ServedRequestSummaryResponse> getServedLogDetail(@PathVariable Long requestId) {
+        ServedRequestSummaryResponse detail = requestLogsService.getServedRequestDetail(requestId);
+        if (detail == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(detail);
+    }
  
     /**
      * GET /api/logs/export/status-logs
@@ -1050,9 +1087,11 @@ public class AdminController {
     @GetMapping("/logs/export/status-logs")
     public ResponseEntity<List<RequestStatusLog>> exportStatusLogs(
             @RequestParam(required = false) String search,
-            @RequestParam(name = "status", defaultValue = "ALL") String statusFilter) {
+            @RequestParam(name = "status", defaultValue = "ALL") String statusFilter,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
  
-        List<RequestStatusLog> logs = requestLogsService.exportStatusLogs(search, statusFilter);
+        List<RequestStatusLog> logs = requestLogsService.exportStatusLogs(search, statusFilter, startDate, endDate);
         return ResponseEntity.ok(logs);
     }
  
@@ -1074,6 +1113,33 @@ public class AdminController {
  
         List<RequestFulfillment> fulfillments = requestLogsService.exportFulfillments(search, dateFrom, dateTo);
         return ResponseEntity.ok(fulfillments);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/logs/export/served/details")
+    public ResponseEntity<List<ServedRequestSummaryResponse>> exportServedDetails(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "ALL") String requestGroup,
+            @RequestParam(defaultValue = "date_desc") String sort) {
+        return ResponseEntity.ok(requestLogsService.exportServedDetails(search, startDate, endDate, requestGroup, sort));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/logs/export/served/inside-summary")
+    public ResponseEntity<List<InsideServedSummaryRow>> exportInsideServedSummary(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(requestLogsService.exportInsideServedSummary(startDate, endDate));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/logs/export/served/outside-summary")
+    public ResponseEntity<List<OutsideServedSummaryRow>> exportOutsideServedSummary(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(requestLogsService.exportOutsideServedSummary(startDate, endDate));
     }
 
 

@@ -1118,24 +1118,19 @@
   <!-- END panel-staff -->
    
   <!-- ═══════════LOGGING PANEL ═══════════ -->
-  <div class="panel" id="panel-logging">
+    <div class="panel" id="panel-logging">
 
     <div class="topbar">
       <div>
         <div class="page-title">Request Logs</div>
-        <div class="page-sub">View status changes and fulfillment history</div>
-      </div>
-      <div class="topbar-right" style="display:flex;gap:8px;">
-        <button class="btn-primary" onclick="exportStatusLogsExcel()">⬇️ Export Status Logs</button>
-        <button class="btn-primary" onclick="exportFulfillmentsExcel()">⬇️ Export Fulfillments</button>
+        <div class="page-sub">View status changes and served/unserved request history</div>
       </div>
     </div>
 
-    <!-- Summary Strip -->
     <div class="bb-summary-strip">
       <div class="bb-strip-item" style="background:var(--green-light)">
-        <div class="bb-strip-val" style="color:var(--green)" id="logging-fulfillments-count">0</div>
-        <div class="bb-strip-label">Total Fulfillments</div>
+        <div class="bb-strip-val" style="color:var(--green)" id="logging-served-units-count">0</div>
+        <div class="bb-strip-label">Total Served Units</div>
       </div>
       <div class="bb-strip-item" style="background:#E8F0FF">
         <div class="bb-strip-val" style="color:var(--blue)" id="logging-status-changes-count">0</div>
@@ -1151,46 +1146,62 @@
       </div>
     </div>
 
-    <!-- Tabs -->
     <div class="logging-tabs" style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
       <button class="logging-tab-btn active" onclick="switchLoggingTab('status-logs', this)">
-        📝 Status Logs
+        Status Logs
       </button>
-      <button class="logging-tab-btn" onclick="switchLoggingTab('fulfillments', this)">
-        ✅ Fulfillments
+      <button class="logging-tab-btn" onclick="switchLoggingTab('served', this)">
+        Served
       </button>
     </div>
 
-    <!-- ═══ STATUS LOGS TAB ═══ -->
     <div id="logging-status-logs-tab" class="logging-tab-content" style="display:block">
-      
-      <!-- Filter Bar -->
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-header">
+          <div class="card-title">Export Status Logs</div>
+        </div>
+        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">Start Date:</label>
+          <input class="req-select" type="date" id="logging-status-date-from"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">End Date:</label>
+          <input class="req-select" type="date" id="logging-status-date-to"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+
+          <button class="btn-ghost" onclick="setStatusRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
+          <button class="btn-ghost" onclick="setStatusRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
+          <button class="btn-ghost" onclick="setStatusRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
+          <button class="btn-ghost" onclick="setStatusRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
+
+          <button class="btn-primary" onclick="exportStatusLogsExcel()">Export Status Logs</button>
+        </div>
+      </div>
+
       <div class="req-filter-bar" style="margin-bottom:10px">
         <div class="req-search-wrap">
-          <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+          <span style="font-size:13px;color:#CCC;flex-shrink:0">Search</span>
           <input class="req-search-input" id="logging-status-search" type="text"
-            placeholder="Search request ID, reference number…"
-            oninput="loggingStatusRender()">
+            placeholder="Search request ID or reference number"
+            oninput="loggingStatusRender(true)">
         </div>
-        <select class="req-select" id="logging-status-filter-status" onchange="loggingStatusRender()">
+        <select class="req-select" id="logging-status-filter-status" onchange="loggingStatusRender(true)">
           <option value="ALL">All Status Changes</option>
-          <option value="PENDING">→ PENDING</option>
-          <option value="APPROVED">→ APPROVED</option>
-          <option value="NEEDS_CONFIRMATION">→ NEEDS_CONFIRMATION</option>
-          <option value="ALLOCATED">→ ALLOCATED</option>
-          <option value="READY_FOR_RELEASE">→ READY_FOR_RELEASE</option>
-          <option value="RELEASED">→ RELEASED</option>
-          <option value="REJECTED">→ REJECTED</option>
-          <option value="CANCELLED">→ CANCELLED</option>
+          <option value="PENDING">PENDING</option>
+          <option value="APPROVED">APPROVED</option>
+          <option value="NEEDS_CONFIRMATION">NEEDS_CONFIRMATION</option>
+          <option value="ALLOCATED">ALLOCATED</option>
+          <option value="READY_FOR_RELEASE">READY_FOR_RELEASE</option>
+          <option value="RELEASED">RELEASED</option>
+          <option value="REJECTED">REJECTED</option>
+          <option value="CANCELLED">CANCELLED</option>
         </select>
-        <select class="req-select" id="logging-status-sort" onchange="loggingStatusRender()">
+        <select class="req-select" id="logging-status-sort" onchange="loggingStatusRender(true)">
           <option value="date_desc">Newest First</option>
           <option value="date_asc">Oldest First</option>
-          <option value="request_id">By Request ID</option>
+          <option value="request_id">By Reference No.</option>
         </select>
       </div>
 
-      <!-- Status Logs Table -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">Status Change History</div>
@@ -1199,7 +1210,7 @@
         <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
           <table class="data-table" style="min-width:980px">
             <thead><tr>
-              <th>Request ID</th>
+              <th>Reference No.</th>
               <th>Reference #</th>
               <th>Old Status</th>
               <th>New Status</th>
@@ -1211,78 +1222,98 @@
             <tbody id="logging-status-tbody"></tbody>
           </table>
           <div id="logging-status-empty" class="bb-empty" style="display:none">
-            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">📋</div>
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">Logs</div>
             No status changes match the current filters.
           </div>
         </div>
-        <!-- Pagination -->
         <div id="logging-status-footer" style="display:flex;align-items:center;justify-content:space-between;
             padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
           <span id="logging-status-showing"></span>
           <div style="display:flex;gap:6px">
-            <button class="btn-ghost" id="logging-status-prev" onclick="loggingStatusPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+            <button class="btn-ghost" id="logging-status-prev" onclick="loggingStatusPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
             <span id="logging-status-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
-            <button class="btn-ghost" id="logging-status-next" onclick="loggingStatusNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+            <button class="btn-ghost" id="logging-status-next" onclick="loggingStatusNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ═══ FULFILLMENTS TAB ═══ -->
-    <div id="logging-fulfillments-tab" class="logging-tab-content" style="display:none">
-      
-      <!-- Filter Bar -->
+    <div id="logging-served-tab" class="logging-tab-content" style="display:none">
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-header">
+          <div class="card-title">Export Range and Report Controls</div>
+        </div>
+        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">Start Date:</label>
+          <input class="req-select" type="date" id="logging-served-date-from" onchange="loggingServedRender(true)"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">End Date:</label>
+          <input class="req-select" type="date" id="logging-served-date-to" onchange="loggingServedRender(true)"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+
+          <button class="btn-ghost" onclick="setServedRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
+          <button class="btn-ghost" onclick="setServedRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
+          <button class="btn-ghost" onclick="setServedRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
+          <button class="btn-ghost" onclick="setServedRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
+
+          <button class="btn-primary" onclick="exportDetailedServedLogs()">Export Detailed Served Logs</button>
+        </div>
+      </div>
+
       <div class="req-filter-bar" style="margin-bottom:10px">
         <div class="req-search-wrap">
-          <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
-          <input class="req-search-input" id="logging-fulfillment-search" type="text"
-            placeholder="Search request ID, blood bag ID…"
-            oninput="loggingFulfillmentRender()">
+          <span style="font-size:13px;color:#CCC;flex-shrink:0">Search</span>
+          <input class="req-search-input" id="logging-served-search" type="text"
+            placeholder="Search reference number, patient, hospital, ward, blood"
+            oninput="loggingServedRender(true)">
         </div>
-        <input class="req-select" type="date" id="logging-fulfillment-date-from" 
-          onchange="loggingFulfillmentRender()" style="padding:8px 12px;border:1px solid var(--border)">
-        <input class="req-select" type="date" id="logging-fulfillment-date-to" 
-          onchange="loggingFulfillmentRender()" style="padding:8px 12px;border:1px solid var(--border)">
-        <select class="req-select" id="logging-fulfillment-sort" onchange="loggingFulfillmentRender()">
+        <select class="req-select" id="logging-served-sort" onchange="loggingServedRender(true)">
           <option value="date_desc">Newest First</option>
           <option value="date_asc">Oldest First</option>
-          <option value="request_id">By Request ID</option>
+          <option value="request_id">By Reference No.</option>
+        </select>
+        <select class="req-select" id="logging-served-request-group" onchange="loggingServedRender(true)">
+          <option value="ALL">All</option>
+          <option value="INHOUSE">INHOUSE only</option>
+          <option value="OPD">OPD only</option>
         </select>
       </div>
 
-      <!-- Fulfillments Table -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Fulfillment Records</div>
-          <span style="font-size:12px;color:var(--muted)" id="logging-fulfillment-results-info"></span>
+          <div class="card-title">Served Request Logs</div>
+          <span style="font-size:12px;color:var(--muted)" id="logging-served-results-info"></span>
         </div>
         <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
-          <table class="data-table" style="min-width:920px">
+          <table class="data-table" style="min-width:1500px">
             <thead><tr>
-              <th>Request ID</th>
-              <th>Blood Bag ID</th>
+              <th>Reference No.</th>
+              <th>Patient</th>
+              <th>Request Category</th>
+              <th>Hospital / Ward</th>
               <th>Blood Type</th>
               <th>Component</th>
-              <th>Fulfilled By</th>
-              <th>Fulfilled At</th>
-              <th>Notes</th>
-              <th>Actions</th>
+              <th>Requested Units</th>
+              <th>Served Units</th>
+              <th>Unserved Units</th>
+              <th>Result</th>
+              <th>Last Served At</th>
+              <th>Action</th>
             </tr></thead>
-            <tbody id="logging-fulfillment-tbody"></tbody>
+            <tbody id="logging-served-tbody"></tbody>
           </table>
-          <div id="logging-fulfillment-empty" class="bb-empty" style="display:none">
-            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">✅</div>
-            No fulfillments match the current filters.
+          <div id="logging-served-empty" class="bb-empty" style="display:none">
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">Served</div>
+            No served request logs match the current filters.
           </div>
         </div>
-        <!-- Pagination -->
-        <div id="logging-fulfillment-footer" style="display:flex;align-items:center;justify-content:space-between;
+        <div id="logging-served-footer" style="display:flex;align-items:center;justify-content:space-between;
             padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
-          <span id="logging-fulfillment-showing"></span>
+          <span id="logging-served-showing"></span>
           <div style="display:flex;gap:6px">
-            <button class="btn-ghost" id="logging-fulfillment-prev" onclick="loggingFulfillmentPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
-            <span id="logging-fulfillment-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
-            <button class="btn-ghost" id="logging-fulfillment-next" onclick="loggingFulfillmentNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+            <button class="btn-ghost" id="logging-served-prev" onclick="loggingServedPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
+            <span id="logging-served-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+            <button class="btn-ghost" id="logging-served-next" onclick="loggingServedNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
           </div>
         </div>
       </div>
@@ -2190,7 +2221,7 @@
       <div class="logging-modal-body">
         
         <div class="logging-field-group">
-          <label class="logging-field-label">Request ID</label>
+          <label class="logging-field-label">Reference No.</label>
           <div id="logging-status-modal-request-id" class="logging-field-value">#N/A</div>
         </div>
 
@@ -2233,62 +2264,90 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- LOGGING PANEL — FULFILLMENT DETAIL MODAL -->
+  <!-- LOGGING PANEL — SERVED DETAIL MODAL -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
 
-  <div id="logging-fulfillment-modal" class="logging-modal" style="display: none;">
-    <div class="logging-modal-backdrop" onclick="closeLoggingFulfillmentModal()"></div>
+    <div id="logging-served-modal" class="logging-modal" style="display: none;">
+    <div class="logging-modal-backdrop" onclick="closeLoggingServedModal()"></div>
     <div class="logging-modal-container">
       <div class="logging-modal-header">
-        <h3 class="logging-modal-title">Fulfillment Details</h3>
-        <button class="logging-modal-close" onclick="closeLoggingFulfillmentModal()">✕</button>
+        <h3 class="logging-modal-title" id="logging-served-modal-title">Served Details</h3>
+        <button class="logging-modal-close" onclick="closeLoggingServedModal()">X</button>
       </div>
       <div class="logging-modal-body">
 
         <div class="logging-field-group">
-          <label class="logging-field-label">Request ID</label>
-          <div id="logging-fulfillment-modal-request-id" class="logging-field-value">#N/A</div>
+          <label class="logging-field-label">Reference No.</label>
+          <div id="logging-served-modal-request-id" class="logging-field-value">N/A</div>
         </div>
 
         <div class="logging-field-group">
-          <label class="logging-field-label">Blood Bag Number</label>
-          <div id="logging-fulfillment-modal-blood-bag-num" class="logging-field-value logging-field-mono">N/A</div>
+          <label class="logging-field-label">Patient</label>
+          <div id="logging-served-modal-patient" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Blood</label>
+          <div id="logging-served-modal-blood" class="logging-field-value">—</div>
         </div>
 
         <div class="logging-field-row">
           <div class="logging-field-group">
-            <label class="logging-field-label">Blood Type</label>
-            <div id="logging-fulfillment-modal-blood-type" class="logging-field-value">—</div>
+            <label class="logging-field-label">Requested</label>
+            <div id="logging-served-modal-requested" class="logging-field-value">0 unit(s)</div>
+          </div>
+        </div>
+
+        <div class="logging-field-row">
+          <div class="logging-field-group">
+            <label class="logging-field-label">Served</label>
+            <div id="logging-served-modal-served" class="logging-field-value">0 unit(s)</div>
           </div>
           <div class="logging-field-group">
-            <label class="logging-field-label">Component</label>
-            <div id="logging-fulfillment-modal-component" class="logging-field-value">—</div>
+            <label class="logging-field-label">Unserved</label>
+            <div id="logging-served-modal-unserved-count" class="logging-field-value">0 unit(s)</div>
           </div>
         </div>
 
         <div class="logging-field-group">
-          <label class="logging-field-label">Fulfilled By</label>
-          <div id="logging-fulfillment-modal-fulfilled-by" class="logging-field-value">System</div>
+          <label class="logging-field-label">Result</label>
+          <div id="logging-served-modal-result" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-row">
+          <div class="logging-field-group">
+            <label class="logging-field-label">Request Category</label>
+            <div id="logging-served-modal-requester-type" class="logging-field-value">—</div>
+          </div>
+          <div class="logging-field-group">
+            <label class="logging-field-label">Hospital / Ward</label>
+            <div id="logging-served-modal-hospital-ward" class="logging-field-value">—</div>
+          </div>
         </div>
 
         <div class="logging-field-group">
-          <label class="logging-field-label">Fulfilled At</label>
-          <div id="logging-fulfillment-modal-fulfilled-at" class="logging-field-value">—</div>
+          <label class="logging-field-label">Last Served At</label>
+          <div id="logging-served-modal-last-served" class="logging-field-value">—</div>
         </div>
 
         <div class="logging-field-group">
-          <label class="logging-field-label">Notes</label>
-          <div id="logging-fulfillment-modal-notes" class="logging-field-notes">—</div>
+          <label class="logging-field-label">Served Blood Bags</label>
+          <div id="logging-served-modal-bags" class="logging-field-notes">No served blood bags recorded.</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Unserved Units</label>
+          <div id="logging-served-modal-unserved-reason" class="logging-field-notes">None</div>
         </div>
 
       </div>
       <div class="logging-modal-footer">
-        <button class="logging-btn-ghost" onclick="closeLoggingFulfillmentModal()">Close</button>
+        <button class="logging-btn-ghost" onclick="closeLoggingServedModal()">Close</button>
       </div>
     </div>
   </div>
 
-    <!-- ═══════════════════════════════════════════
+<!-- ═══════════════════════════════════════════
         REUSABLE SUCCESS MODAL
         Used for: Create, Edit, Delete actions across the system
     ═══════════════════════════════════════════ -->
@@ -2419,3 +2478,4 @@
   <script src="js/script.js"></script>
 </body>
 </html>
+

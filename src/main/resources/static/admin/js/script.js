@@ -1,6 +1,6 @@
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // INIT
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 async function initializeNav() {
   try {
     const res = await fetch('/api/auth/me', {
@@ -19,7 +19,7 @@ async function initializeNav() {
     if (staffNavItem) {
       if (user.role === 'ADMIN') {
         staffNavItem.style.display = 'flex';
-        staffLoadAll();  // ← Only load staff data if admin
+        staffLoadAll();  // ↑ Only load staff data if admin
       } else {
         staffNavItem.style.display = 'none';
       }
@@ -32,12 +32,12 @@ async function initializeNav() {
 // Update your DOMContentLoaded to call this
 document.addEventListener('DOMContentLoaded', () => {
   initializeNav();
-  initializeAutoRefresh();  // ← This replaces the loadBloodBank() and loadDashboard() calls
+  initializeAutoRefresh();  // ↑ This replaces the loadBloodBank() and loadDashboard() calls
   initStaffPanel();
   initializeLoggingPanel();
 });
 
-// ── Panel navigation ───────────────────────────────────────
+// ── Panel navigation ──────────────────────────────────────────────────────────
 function showPanel(id, navEl) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
@@ -48,7 +48,7 @@ function showPanel(id, navEl) {
 }
 
 
-// ── Modal helpers ──────────────────────────────────────────
+// ── Modal helpers ──────────────────────────────────────────────────────────────
 function openModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.add('show');
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// ── Logout ─────────────────────────────────────────────────
+// ── Logout ─────────────────────────────────────────────────────────────────────
 function handleLogout() {
   openModal('logoutModal');
 }
@@ -95,9 +95,9 @@ async function logout() {
 }
 
 
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // ADMIN DASHBOARD - FRONTEND (UPDATED)
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function loadDashboard() {
   try {
@@ -110,7 +110,7 @@ async function loadDashboard() {
       const data = await dashRes.json();
       renderDashboardStats(data);
       renderBloodBankQuickView(data.bloodBankSummary);
-      renderRecentActivities(data.recentActivities);  // ← ADD THIS LINE
+      renderRecentActivities(data.recentActivities);  // ↑ ADD THIS LINE
     }
  
     if (reqRes.ok) {
@@ -268,8 +268,8 @@ function renderPendingRequestsQuickView(requests) {
   const urgencyColor = { CRITICAL:'var(--crimson)', HIGH:'var(--amber)', MEDIUM:'var(--blue)', LOW:'var(--green)' };
 
   container.innerHTML = pending.map(r => {
-    const name    = r.hospitalProfile?.hospitalName ?? r.requesterName ?? '—';
-    const blood   = r.bloodType ?? '—';
+    const name    = r.hospitalProfile?.hospitalName ?? r.requesterName ?? '–';
+    const blood   = r.bloodType ?? '–';
     const units   = r.numberOfUnits ?? 1;
     const urgency = r.urgencyLevel ?? 'LOW';
     const color   = urgencyColor[urgency] || 'var(--muted)';
@@ -354,9 +354,9 @@ function getRelativeTime(timestamp) {
  * Navigation helper for "View all" link
  */
 
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // BLOOD BANK
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
 let BLOOD_BAGS      = [];
 let INVENTORY       = [];
@@ -449,7 +449,7 @@ async function loadBloodBags() {
   }
 }
 
-// ── Helpers ──────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 function getInventoryLevel(units) {
   if (units === 0)  return 'EMPTY';
   if (units <= 5)   return 'CRITICAL';
@@ -469,7 +469,7 @@ function fullBloodLabel(bloodType, rhType) {
 }
 
 function componentLabel(ct) {
-  return COMPONENT_LABELS[ct] ?? ct ?? '—';
+  return COMPONENT_LABELS[ct] ?? ct ?? '–';
 }
 
 function sourceLabel(bag) {
@@ -480,7 +480,7 @@ function sourceLabel(bag) {
     TRANSFER:        '🔄 BMC Transfer',
     EXTERNAL_SUPPLY: '📦 External Supply',
   };
-  return map[bag.source] ?? bag.source ?? '—';
+  return map[bag.source] ?? bag.source ?? '–';
 }
 
 function computeBagStatus(bag) {
@@ -497,14 +497,14 @@ function computeBagStatus(bag) {
 }
 
 function formatBagDate(d) {
-  if (!d) return '—';
+  if (!d) return '–';
   const str = d.includes('T') ? d : d + 'T00:00:00';
   return new Date(str).toLocaleDateString('en-PH', {
     year: 'numeric', month: 'short', day: 'numeric'
   });
 }
 
-// ── Tab Switcher ──────────────────────────────────────
+// ── Tab Switcher ───────────────────────────────────────────────────────────────
 function switchBBTab(tab, btn) {
   ['inventory','bags','analytics'].forEach(t => {
     document.getElementById('bb-tab-' + t).style.display = t === tab ? 'block' : 'none';
@@ -515,7 +515,7 @@ function switchBBTab(tab, btn) {
   if (tab === 'inventory') renderInventoryGrid();
 }
 
-// ── Inventory Grid ────────────────────────────────────
+// ── Inventory Grid ─────────────────────────────────────────────────────────────
 function renderInventoryGrid(apiData) {
   const grid = document.getElementById('inv-grid');
   if (!grid) return;
@@ -573,9 +573,9 @@ function renderInventoryGrid(apiData) {
       alert.style.cssText = `background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
         border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;
         color:var(--crimson);display:flex;gap:10px;align-items:center`;
-      alert.innerHTML = `<span style="font-size:16px">⏰</span>
+      alert.innerHTML = `<span style="font-size:16px">⚠</span>
         <span><strong>${openCount} open system bag${openCount > 1 ? 's' : ''}</strong>
-        converted from Whole Blood — expires in 24 hours. Prioritize immediately.</span>`;
+        converted from Whole Blood – expires in 24 hours. Prioritize immediately.</span>`;
       grid.parentElement.insertBefore(alert, grid);
     }
   } else if (existingAlert) {
@@ -606,7 +606,7 @@ function renderInventoryGrid(apiData) {
     'Updated: ' + new Date().toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
 }
 
-// ── Bags Table ────────────────────────────────────────
+// ── Bags Table ─────────────────────────────────────────────────────────────────
 function renderBagsTable() {
   const q      = (document.getElementById('bags-search')?.value       || '').toLowerCase();
   const bt     = document.getElementById('bags-filter-bt')?.value     || 'ALL';
@@ -712,7 +712,7 @@ function renderBagsPage() {
       AVAILABLE:    `<span class="bag-status bag-status-available">● Available</span>`,
       EXPIRING:     `<span class="bag-status bag-status-expiring">⚠ Expiring</span>`,
       CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">🔒 Reserved for patient </span>`,
-      DISPENSED:    `<span class="bag-status bag-status-dispensed">→ Dispensed</span>`,
+      DISPENSED:    `<span class="bag-status bag-status-dispensed">↗ Dispensed</span>`,
       EXPIRED:      `<span class="bag-status bag-status-expired">✕ Expired</span>`,
       DISCARDED:    `<span class="bag-status bag-status-discarded">✕ Discarded</span>`,
     };
@@ -730,7 +730,7 @@ function renderBagsPage() {
       if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
         actions += `
           <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
-            onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">→ PRBC</button>`;
+            onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">↗ PRBC</button>`;
       }
     }
 
@@ -787,7 +787,7 @@ function bagsNextPage() {
   }
 }
 
-// ── Bag Detail Modal ──────────────────────────────────
+// ── Bag Detail Modal ───────────────────────────────────────────────────────────
 function openBagDetail(id) {
   const bag = BLOOD_BAGS.find(b => b.id === id);
   if (!bag) return;
@@ -797,7 +797,7 @@ function openBagDetail(id) {
     AVAILABLE:    `<span class="bag-status bag-status-available"  style="font-size:13px;padding:5px 14px">● Available</span>`,
     EXPIRING:     `<span class="bag-status bag-status-expiring"   style="font-size:13px;padding:5px 14px">⚠ Expiring Soon</span>`,
     CROSSMATCHED: `<span class="bag-status bag-status-crossmatched" style="font-size:13px;padding:5px 14px">🔒 Crossmatched</span>`,
-    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">→ Dispensed</span>`,
+    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">↗ Dispensed</span>`,
     EXPIRED:      `<span class="bag-status bag-status-expired"    style="font-size:13px;padding:5px 14px">✕ Expired</span>`,
     DISCARDED:    `<span class="bag-status bag-status-discarded"  style="font-size:13px;padding:5px 14px">✕ Discarded</span>`,
   };
@@ -810,15 +810,15 @@ function openBagDetail(id) {
   document.getElementById('bagd-expires').textContent   = formatBagDate(bag.expiresAt);
   document.getElementById('bagd-source').textContent    = sourceLabel(bag);
   document.getElementById('bagd-component').textContent = componentLabel(bag.componentType) + (bag.openSystem ? ' (Open System)' : '');
-  document.getElementById('bagd-txn').textContent       = bag.transactionNumber || '—';
-  document.getElementById('bagd-serial').textContent    = bag.serialNumber      || '—';
-  document.getElementById('bagd-remarks').textContent   = bag.remarks           || '—';
-  document.getElementById('bagd-received-by').textContent = bag.receivedBy      || '—';
+  document.getElementById('bagd-txn').textContent       = bag.transactionNumber || '–';
+  document.getElementById('bagd-serial').textContent    = bag.serialNumber      || '–';
+  document.getElementById('bagd-remarks').textContent   = bag.remarks           || '–';
+  document.getElementById('bagd-received-by').textContent = bag.receivedBy      || '–';
 
   const openWarn = document.getElementById('bagd-open-system-warn');
   if (bag.openSystem) {
     openWarn.style.display = 'block';
-    openWarn.innerHTML = `<span>⏰</span>
+    openWarn.innerHTML = `<span>⚠</span>
       <span>Converted to Open System PRBC on ${formatBagDate(bag.openSystemAt)}. Expires 24hrs after conversion.</span>`;
   } else {
     openWarn.style.display = 'none';
@@ -827,7 +827,7 @@ function openBagDetail(id) {
   const dispSection = document.getElementById('bagd-dispensed-section');
   if (bag.status === 'DISPENSED') {
     dispSection.style.display = 'block';
-    document.getElementById('bagd-dispensed-to').textContent = bag.dispensedTo   || '—';
+    document.getElementById('bagd-dispensed-to').textContent = bag.dispensedTo   || '–';
     document.getElementById('bagd-dispensed-at').textContent = formatBagDate(bag.dispensedAt);
   } else {
     dispSection.style.display = 'none';
@@ -836,7 +836,7 @@ function openBagDetail(id) {
   const discardSection = document.getElementById('bagd-discard-section');
   if (bag.status === 'DISCARDED') {
     discardSection.style.display = 'block';
-    document.getElementById('bagd-discard-reason').textContent = bag.discardReason || '—';
+    document.getElementById('bagd-discard-reason').textContent = bag.discardReason || '–';
   } else {
     discardSection.style.display = 'none';
   }
@@ -846,7 +846,7 @@ function openBagDetail(id) {
     const convertBtn = bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem
       ? `<button class="btn-secondary" style="flex:1;justify-content:center;padding:11px"
            onclick="closeModal('bagDetailModal');confirmOpenSystem(${bag.id},'${bag.serialNumber}')">
-           → Convert to PRBC</button>`
+           ↗ Convert to PRBC</button>`
       : '';
     actionsEl.innerHTML = `
       ${convertBtn}
@@ -864,7 +864,7 @@ function openBagDetail(id) {
   openModal('bagDetailModal');
 }
 
-// ── Open System Conversion ────────────────────────────
+// ── Open System Conversion ─────────────────────────────────────────────────────
 async function confirmOpenSystem(id, bagLabel) {
   const confirmed = confirm(
     `Convert bag ${bagLabel} from Whole Blood to PRBC (Open System)?\n\n` +
@@ -899,7 +899,7 @@ async function confirmOpenSystem(id, bagLabel) {
   }
 }
 
-// ── Discard ───────────────────────────────────────────
+// ── Discard ────────────────────────────────────────────────────────────────────
 function openDiscardModal(id, bagLabel) {
   document.getElementById('discard-bag-id').textContent       = bagLabel || id;
   document.getElementById('discard-bag-target-id').value      = id;
@@ -949,7 +949,7 @@ async function confirmDiscard() {
   }
 }
 
-// ── Add Stock Modal ───────────────────────────────────
+// ── Add Stock Modal ────────────────────────────────────────────────────────────
 function updateAddExpiry() {
   const comp        = document.getElementById('add-component-type').value;
   const collectedEl = document.getElementById('add-collected-at');
@@ -1032,7 +1032,7 @@ async function submitAddBloodStock() {
   }
 }
 
-// ── Sync Helper: Invalidate Blood Request Bag Cache ────
+// ── Sync Helper: Invalidate Blood Request Bag Cache ──────
 function invalidateBagCache() {
   // Call the blood request bag cache invalidation function if it exists
   if (typeof reqInvalidateBagCache === 'function') {
@@ -1364,9 +1364,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.AnalyticsDashboard = AnalyticsDashboard;
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // PRINTING FUNCTIONS - PDF & EXCEL EXPORTS (UPDATED)
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 /**
  * Print Analytics Report (PDF) - Compact Professional Design
  */
@@ -1378,7 +1378,7 @@ window.printAnalytics = function() {
   // Helper function to read metric values from DOM
   const readMetric = (selector) => {
     const el = document.querySelector(selector);
-    return el ? el.textContent.trim() : '—';
+    return el ? el.textContent.trim() : '–';
   };
 
   // Read all metrics from the displayed analytics panel
@@ -1807,7 +1807,7 @@ window.exportBloodBagsToExcel = function() {
       B_POS:'B', B_NEG:'B', AB_POS:'AB', AB_NEG:'AB'
     };
     const abo = aboMap[bloodType] ?? bloodType ?? '';
-    const rh = rhType === 'POSITIVE' ? '+' : rhType === 'NEGATIVE' ? '-' : '';
+    const rh = rhType === 'POSITIVE' ? '+' : rhType === 'NEGATIVE' ? '−' : '';
     return abo + rh;
   }
 
@@ -1889,34 +1889,34 @@ window.exportBloodBagsToExcel = function() {
   URL.revokeObjectURL(url);
 };
 
-// ═══════════════════════════════════════════════════════
-// BLOOD REQUESTS — WITH PRINTING (PDF/EXCEL) FUNCTIONALITY
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// BLOOD REQUESTS – WITH PRINTING (PDF/EXCEL) FUNCTIONALITY
+// ═══════════════════════════════════════════════════════════════════════════════
 
 (function () {
-  /* ─────────────────────────────────────────────────────────
-     BLOOD TYPE MAPPING — Maps enum values to display format
+  /* ────────────────────────────────────────────────────────────────────────────
+     BLOOD TYPE MAPPING – Maps enum values to display format
      Preserves original enum for backend while displaying user-friendly text
-  ───────────────────────────────────────────────────────── */
+  ──────────────────────────────────────────────────────────────────────────────── */
   const BLOOD_TYPE_MAP = {
     'A_POS': 'A+',
-    'A_NEG': 'A-',
+    'A_NEG': 'A−',
     'B_POS': 'B+',
-    'B_NEG': 'B-',
+    'B_NEG': 'B−',
     'AB_POS': 'AB+',
-    'AB_NEG': 'AB-',
+    'AB_NEG': 'AB−',
     'O_POS': 'O+',
-    'O_NEG': 'O-',
+    'O_NEG': 'O−',
   };
 
   function formatBloodType(bloodTypeEnum) {
-    if (!bloodTypeEnum) return '—';
+    if (!bloodTypeEnum) return '–';
     return BLOOD_TYPE_MAP[bloodTypeEnum] || bloodTypeEnum;
   }
 
-  /* ─────────────────────────────────────────────────────────
-     INDICATION MAPPING — Maps indication codes to descriptions
-  ───────────────────────────────────────────────────────── */
+  /* ────────────────────────────────────────────────────────────────────────────
+     INDICATION MAPPING – Maps indication codes to descriptions
+  ──────────────────────────────────────────────────────────────────────────────── */
   const INDICATION_MAP = {
     'WB-1': 'Active bleeding with at least 15% blood volume loss, Hb<90 g/L, or BP drop >20%',
     'WB-1a': 'Loss of over 15% of blood volume',
@@ -2154,16 +2154,16 @@ window.exportBloodBagsToExcel = function() {
     return html;
   }
 
-  /* ─────────────────────────────────────────────────────────
-     PATIENT NAME FORMATTING — Format name parts as: Last, First Middle Suffix
-  ───────────────────────────────────────────────────────── */
+  /* ────────────────────────────────────────────────────────────────────────────
+     PATIENT NAME FORMATTING – Format name parts as: Last, First Middle Suffix
+  ──────────────────────────────────────────────────────────────────────────────── */
   function formatPatientName(req) {
     const first = req.patientName || '';
     const middle = req.patientMiddle || '';
     const last = req.patientLast || '';
     const suffix = req.patientSuffix || '';
 
-    if (!first && !last) return '—';
+    if (!first && !last) return '–';
 
     let formatted = '';
     // Last, First Middle Suffix format
@@ -2182,13 +2182,12 @@ window.exportBloodBagsToExcel = function() {
     return formatted.trim();
   }
 
-
   
-  /* ─────────────────────────────────────────────────────────
+  /* ────────────────────────────────────────────────────────────────────────────
      BIRTHDATE FORMATTING
-  ───────────────────────────────────────────────────────── */
+  ──────────────────────────────────────────────────────────────────────────────── */
   function formatBirthdate(birthdateStr) {
-    if (!birthdateStr) return '—';
+    if (!birthdateStr) return '–';
     try {
       const date = new Date(birthdateStr);
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -2197,9 +2196,9 @@ window.exportBloodBagsToExcel = function() {
     }
   }
 
-  /* ─────────────────────────────────────────────────────────
+  /* ────────────────────────────────────────────────────────────────────────────
      CONSTANTS
-  ───────────────────────────────────────────────────────── */
+  ──────────────────────────────────────────────────────────────────────────────── */
   const REQ_STATUSES = ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
   const REQ_STATUS_LABEL = {
     PENDING: 'Pending',
@@ -2266,9 +2265,9 @@ window.exportBloodBagsToExcel = function() {
  
   const API_BASE = '/api';
  
-  /* ─────────────────────────────────────────────────────────
+  /* ────────────────────────────────────────────────────────────────────────────
      STATE
-  ───────────────────────────────────────────────────────── */
+  ──────────────────────────────────────────────────────────────────────────────── */
   let reqData          = [];
   let reqExpanded      = {};
   let reqCurrentFilter = 'ALL';
@@ -2295,9 +2294,9 @@ window.exportBloodBagsToExcel = function() {
  
   const reqBagCache = {};
  
-  /* ─────────────────────────────────────────────────────────
+  /* ────────────────────────────────────────────────────────────────────────────
      DATA MAPPING
-  ───────────────────────────────────────────────────────── */
+  ──────────────────────────────────────────────────────────────────────────────── */
   function mapRequest(r) {
     const docUrl = r.doctorsNoteUrl ?? '';
     const docLabel = docUrl
@@ -2311,11 +2310,11 @@ window.exportBloodBagsToExcel = function() {
     const name = r.hospitalProfile?.hospitalName
               ?? r.donorProfile?.fullName
               ?? r.requesterName
-              ?? '—';
+              ?? '–';
  
     const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
  
-    const bloodTypeEnum = r.bloodType ?? '—';
+    const bloodTypeEnum = r.bloodType ?? '–';
     const displayBloodType = formatBloodType(bloodTypeEnum);
     const requestedUnits = r.numberOfUnits ?? r.volumeMl ?? 1;
     const approvedUnits = r.approvedUnits ?? null;
@@ -2329,8 +2328,8 @@ window.exportBloodBagsToExcel = function() {
       id:             r.id,
       name,
       type:           r.requesterType    ?? 'ANONYMOUS',
-      patient:        formatPatientName(r) ?? '—',
-      patientName:    r.patientName      ?? '—',
+      patient:        formatPatientName(r) ?? '–',
+      patientName:    r.patientName      ?? '–',
       patientMiddle:  r.patientMiddle    ?? null,
       patientLast:    r.patientLast      ?? null,
       patientSuffix:  r.patientSuffix    ?? null,
@@ -2349,7 +2348,7 @@ window.exportBloodBagsToExcel = function() {
       requestCategory: r.requestCategory ?? null,
       bloodTypeEnum:  bloodTypeEnum,
       bloodType:      displayBloodType,
-      component:      COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '—',
+      component:      COMPONENT_LABEL[r.bloodComponent] ?? r.bloodComponent ?? '–',
       bloodComponent: r.bloodComponent   ?? null,
       units:          workflowUnits,
       requestedUnits,
@@ -2362,7 +2361,7 @@ window.exportBloodBagsToExcel = function() {
       reviewedAt:     r.reviewedAt       ?? null,
       date:           r.requestedAt
         ? new Date(r.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        : '—',
+        : '–',
       status:         r.status           ?? 'PENDING',
       requesterName:  r.requesterName    ?? null,
       requesterRelationship: r.requesterRelationship ?? null,
@@ -2441,9 +2440,10 @@ window.exportBloodBagsToExcel = function() {
       reqUpdateCounts();  
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
-      reqShowError(`Failed to load requests — ${err.message}`);
+      reqShowError(`Failed to load requests – ${err.message}`);
     }
   }
+ 
  
   async function reqFetchByStatus(status) {
     reqShowLoading();
@@ -2459,7 +2459,7 @@ window.exportBloodBagsToExcel = function() {
       reqUpdateCounts();
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
-      reqShowError(`Failed to load requests — ${err.message}`);
+      reqShowError(`Failed to load requests - ${err.message}`);
     }
   }
  
@@ -2500,19 +2500,19 @@ window.exportBloodBagsToExcel = function() {
     if (!cache || cache.loading) {
       return `<div id="${id}" class="req-bag-preview-wrap">
         <div class="req-section-label">Available blood bags</div>
-        <div class="req-bag-preview-loading">⏳ Checking available bags…</div>
+        <div class="req-bag-preview-loading">Checking available bags...</div>
       </div>`;
     }
     if (cache.error) {
       return `<div id="${id}" class="req-bag-preview-wrap">
         <div class="req-section-label">Available blood bags</div>
-        <div class="req-bag-preview-loading" style="color:var(--crimson)">⚠️ ${cache.error}</div>
+        <div class="req-bag-preview-loading" style="color:var(--crimson)">Error: ${cache.error}</div>
       </div>`;
     }
     if (!cache.bags?.length) {
       return `<div id="${id}" class="req-bag-preview-wrap">
         <div class="req-section-label">Available blood bags</div>
-        <div class="req-bag-preview-loading"> No Available bags in stock for ${req.bloodType}.</div>
+        <div class="req-bag-preview-loading">No Available bags in stock for ${req.bloodType}.</div>
       </div>`;
     }
  
@@ -2522,7 +2522,7 @@ window.exportBloodBagsToExcel = function() {
     const now        = Date.now();
  
     function bagRow(b) {
-      const expDate  = b.expiresAt ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+      const expDate  = b.expiresAt ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
       const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - now) / 86400000) : null;
       const warn     = daysLeft !== null && daysLeft <= 7;
       return `<div class="req-bag-preview-row">
@@ -2530,9 +2530,9 @@ window.exportBloodBagsToExcel = function() {
         <div style="flex:1;min-width:0">
           <span class="req-bag-id">${b.serialNumber ?? b.id}</span>
           <span class="req-bag-info" style="margin-left:8px">
-            ${formatBloodType(b.bloodType) ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
-            · Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
-            ${warn ? `<span style="color:var(--amber);font-size:10px"> ⚠ ${daysLeft}d</span>` : ''}
+            ${formatBloodType(b.bloodType) ?? '-'} . ${b.componentType ?? '-'} . ${b.volumeMl ?? '-'} mL
+            . Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
+            ${warn ? `<span style="color:var(--amber);font-size:10px"> ! ${daysLeft}d</span>` : ''}
           </span>
         </div>
         ${b.recommended ? `<span class="req-rec-badge" style="font-size:10px;padding:1px 7px">Recommended</span>` : ''}
@@ -2542,7 +2542,7 @@ window.exportBloodBagsToExcel = function() {
     return `<div id="${id}" class="req-bag-preview-wrap">
       <div class="req-section-label" style="display:flex;align-items:center;gap:8px">
         Available blood bags
-        <span class="req-bag-preview-count">${compatible.length} - compatible · ${cache.bags.length} - total available</span>
+        <span class="req-bag-preview-count">${compatible.length} - compatible . ${cache.bags.length} - total available</span>
       </div>
       <div class="req-bag-preview-list">
         ${compatible.map(bagRow).join('')}
@@ -2571,10 +2571,10 @@ window.exportBloodBagsToExcel = function() {
     const title   = document.getElementById('req-bag-picker-title');
     const confirm = document.getElementById('req-bag-picker-confirm');
  
-    title.textContent   = `Select ${req.units} bag${req.units > 1 ? 's' : ''} · ${req.bloodType} ${req.component}`;
+    title.textContent   = `Select ${req.units} bag${req.units > 1 ? 's' : ''} . ${req.bloodType} ${req.component}`;
     confirm.disabled    = true;
     confirm.textContent = isChange ? 'Change Selection' : 'Confirm & Mark Allocated';
-    inner.innerHTML     = `<div class="req-bag-picker-loading">⏳ Loading available bags…</div>`;
+    inner.innerHTML     = `<div class="req-bag-picker-loading">Loading available bags...</div>`;
     modal.classList.add('open');
  
     if (isChange && req.allocatedBags?.length) {
@@ -2601,7 +2601,7 @@ window.exportBloodBagsToExcel = function() {
       reqBagCache[req.id] = { loading: false, bags: bagPickerData, error: null };
     } catch (err) {
       console.error('[BagPicker] fetch failed', err);
-      inner.innerHTML = `<div class="req-bag-picker-loading">⚠️ Failed to load bags — ${err.message}</div>`;
+      inner.innerHTML = `<div class="req-bag-picker-loading">Error loading bags - ${err.message}</div>`;
       return;
     }
  
@@ -2613,7 +2613,7 @@ window.exportBloodBagsToExcel = function() {
     const confirm = document.getElementById('req-bag-picker-confirm');
  
     if (!bagPickerData.length) {
-      inner.innerHTML  = `<div class="req-bag-picker-loading">📭 No compatible bags available for ${req.bloodType}.</div>`;
+      inner.innerHTML  = `<div class="req-bag-picker-loading">No compatible bags available for ${req.bloodType}.</div>`;
       confirm.disabled = true;
       return;
     }
@@ -2633,24 +2633,24 @@ window.exportBloodBagsToExcel = function() {
           const isCompatible = b.compatible !== false;
           const expDate  = b.expiresAt
             ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : '—';
+            : '-';
           const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - Date.now()) / 86400000) : null;
           const warn     = daysLeft !== null && daysLeft <= 7;
           return `
             <div class="req-bag-row${isSelected ? ' selected' : ''}${!isCompatible ? ' incompatible' : ''}"
                  onclick="reqBagPickerToggle('${b.id}')">
-              <div class="req-bag-check">${isSelected ? '✓' : ''}</div>
+              <div class="req-bag-check">${isSelected ? 'X' : ''}</div>
               <div class="req-bag-dot" style="${!isCompatible ? 'background:var(--crimson);border-color:var(--crimson)' : ''}"></div>
               <div style="flex:1;min-width:0">
                 <div class="req-bag-id">${b.serialNumber ?? b.id}</div>
                 <div class="req-bag-info">
-                  ${formatBloodType(b.bloodType) ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL
-                  · Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
-                  ${warn ? `<span style="color:var(--amber);font-size:11px"> ⚠ ${daysLeft}d left</span>` : ''}
-                  ${!isCompatible ? `<span style="color:var(--crimson)"> · not compatible</span>` : ''}
+                  ${formatBloodType(b.bloodType) ?? '-'} . ${b.componentType ?? '-'} . ${b.volumeMl ?? '-'} mL
+                  . Exp <span style="${warn ? 'color:var(--amber);font-weight:600' : ''}">${expDate}</span>
+                  ${warn ? `<span style="color:var(--amber);font-size:11px"> ! ${daysLeft}d left</span>` : ''}
+                  ${!isCompatible ? `<span style="color:var(--crimson)"> . not compatible</span>` : ''}
                 </div>
                 <div class="req-bag-info" style="margin-top:2px;color:var(--muted)">
-                  Source: ${b.source ?? '—'} · SN: ${b.serialNumber ?? '—'}
+                  Source: ${b.source ?? '-'} . SN: ${b.serialNumber ?? '-'}
                 </div>
               </div>
               ${b.recommended ? `<span class="req-rec-badge">Recommended</span>` : ''}
@@ -2694,7 +2694,7 @@ window.exportBloodBagsToExcel = function() {
     const bagIds = bagPickerSelected.split(',').filter(Boolean);
     const btn    = document.getElementById('req-bag-picker-confirm');
     btn.disabled    = true;
-    btn.textContent = bagPickerIsChange ? 'Changing…' : 'Allocating…';
+    btn.textContent = bagPickerIsChange ? 'Changing...' : 'Allocating...';
  
     const isChange   = bagPickerIsChange;
     const prevStatus = req.status;
@@ -2762,7 +2762,7 @@ window.exportBloodBagsToExcel = function() {
     document.getElementById('req-confirm-title').textContent = copy.title;
     document.getElementById('req-confirm-body').innerHTML    = copy.body;
     document.getElementById('req-confirm-meta').innerHTML    =
-      `<strong>${req.name}</strong> — Patient: ${req.patient} &nbsp;·&nbsp; ${req.bloodType} ${req.component} &nbsp;·&nbsp; ${req.units} unit${req.units > 1 ? 's' : ''}`;
+      `<strong>${req.name}</strong> - Patient: ${req.patient} . ${req.bloodType} ${req.component} . ${req.units} unit${req.units > 1 ? 's' : ''}`;
  
     const btn = document.getElementById('req-confirm-proceed');
     btn.className   = `req-btn ${copy.confirmCls}`;
@@ -2902,8 +2902,8 @@ window.exportBloodBagsToExcel = function() {
     const req = reqData.find(x => x.id === id);
     if (!req) return;
 
-    document.getElementById('req-remarks-subtitle').textContent = `${req.name} — ${req.patient}`;
-    document.getElementById('req-remarks-requested-units').textContent = req.requestedUnits ?? req.units ?? '—';
+    document.getElementById('req-remarks-subtitle').textContent = `${req.name} - ${req.patient}`;
+    document.getElementById('req-remarks-requested-units').textContent = req.requestedUnits ?? req.units ?? '-';
     document.getElementById('req-remarks-email').textContent = req.requesterEmail || 'No requester email on file';
     document.getElementById('req-approved-units').value = req.requestedUnits ?? req.units ?? '';
     document.getElementById('req-approval-remarks').value = '';
@@ -3178,11 +3178,9 @@ window.exportBloodBagsToExcel = function() {
     document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} - ${r.patient}` : '';
     const config = reqGetResolutionConfig(mode);
     document.getElementById('req-reject-title').textContent = config.title;
-    document.getElementById('req-reject-helper').innerHTML = `<span>âš </span><span>${config.helper}</span>`;
+    document.getElementById('req-reject-helper').innerHTML = `<span>!</span><span>${config.helper}</span>`;
     document.getElementById('req-reject-label').textContent = config.label;
     document.getElementById('req-reject-confirm').textContent = config.confirmText;
-    document.getElementById('req-reject-helper').innerHTML = `<span>!</span><span>${config.helper}</span>`;
-    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} - ${r.patient}` : '';
     document.getElementById('req-reject-reason').value = '';
     document.getElementById('req-reject-reason').placeholder = config.placeholder;
     document.getElementById('req-reject-reason').style.borderColor = 'var(--border)';
@@ -3193,7 +3191,6 @@ window.exportBloodBagsToExcel = function() {
     reqOpenResolutionModal(id, 'reject');
     const r = reqData.find(x => x.id === id);
     document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} - ${r.patient}` : '';
-    document.getElementById('req-reject-subtitle').textContent = r ? `${r.name} — ${r.patient}` : '';
   };
 
   window.reqOpenCancel = function (id) {
@@ -3259,7 +3256,7 @@ window.exportBloodBagsToExcel = function() {
     document.getElementById('req-doc-frame').innerHTML = isPdf
       ? `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`
       : `<img src="${url}" style="width:100%;border-radius:10px;display:block"
-           onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable — <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ↗</a></div>'" />`;
+           onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly -></a></div>'" />`;
     document.getElementById('req-doc-modal').classList.add('open');
   };
  
@@ -3377,7 +3374,7 @@ window.exportBloodBagsToExcel = function() {
       const cls = i < idx ? 'done' : i === idx ? 'active' : 'todo';
       h += `<div class="req-sf-step">
               <span class="req-sf-node ${cls}">${REQ_STATUS_LABEL[s]}</span>
-              ${i < flowStatuses.length - 1 ? '<span class="req-sf-arrow">›</span>' : ''}
+              ${i < flowStatuses.length - 1 ? '<span class="req-sf-arrow">></span>' : ''}
             </div>`;
     });
     return h + `</div>`;
@@ -3394,7 +3391,7 @@ window.exportBloodBagsToExcel = function() {
         <span>Allocated blood bag${req.allocatedBags.length > 1 ? 's' : ''}</span>
         ${canChange
           ? `<button class="req-change-bag-btn" onclick="reqOpenChangeBags(${req.id})">
-               ✎ Change selection
+               = Change selection
              </button>`
           : ''}
       </div>
@@ -3402,13 +3399,13 @@ window.exportBloodBagsToExcel = function() {
         ${req.allocatedBags.map(b => {
           const expDate  = b.expiresAt
             ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : b.expiresAt ?? '—';
+            : b.expiresAt ?? '-';
           return `<div class="req-bag-preview-row" style="border-left:3px solid var(--green);padding-left:10px">
             <div class="req-bag-dot" style="background:var(--green);border-color:var(--green)"></div>
             <div style="flex:1;min-width:0">
               <span class="req-bag-id">${b.serialNumber ?? b.id}</span>
               <span class="req-bag-info" style="margin-left:8px">
-                ${formatBloodType(b.bloodType) ?? '—'} · ${b.componentType ?? '—'} · ${b.volumeMl ?? '—'} mL · Exp ${expDate}
+                ${formatBloodType(b.bloodType) ?? '-'} . ${b.componentType ?? '-'} . ${b.volumeMl ?? '-'} mL . Exp ${expDate}
               </span>
             </div>
             <span class="req-rec-badge" >Allocated</span>
@@ -3422,7 +3419,7 @@ window.exportBloodBagsToExcel = function() {
     if (req.status === 'RELEASED') {
       return `<div class="req-action-bar">
         <button class="req-btn req-btn-approve" onclick="reqPrintReceipt(${req.id})">
-          🖨 Print Tracer
+          Print Tracer
         </button>
       </div>`;
     }
@@ -3479,12 +3476,12 @@ window.exportBloodBagsToExcel = function() {
       <div class="req-detail-box" style="margin-bottom:12px;border-left:3px solid #F4A259">
         <div class="req-detail-box-title" style="color:#9A5B13">Approval summary</div>
         ${requestedVsApproved}
-        <div class="req-detail-row"><span class="lbl">Remarks</span><span class="val">${req.approvalRemarks ?? '—'}</span></div>
+        <div class="req-detail-row"><span class="lbl">Remarks</span><span class="val">${req.approvalRemarks ?? '-'}</span></div>
         ${req.alternativeComponentSuggestion
           ? `<div class="req-detail-row"><span class="lbl">Alternative component</span><span class="val">${req.alternativeComponentSuggestion}</span></div>`
           : ''}
-        <div class="req-detail-row"><span class="lbl">Requester email</span><span class="val">${req.requesterEmail ?? 'â€”'}</span></div>
-        <div class="req-detail-row"><span class="lbl">Email sent at</span><span class="val">${req.confirmationEmailSentAt ? formatDateTime(req.confirmationEmailSentAt) : 'â€”'}</span></div>
+        <div class="req-detail-row"><span class="lbl">Requester email</span><span class="val">${req.requesterEmail ?? '-'}</span></div>
+        <div class="req-detail-row"><span class="lbl">Email sent at</span><span class="val">${req.confirmationEmailSentAt ? formatDateTime(req.confirmationEmailSentAt) : '-'}</span></div>
         <div class="req-detail-row"><span class="lbl">Confirmation status</span><span class="val">${responseLabel}</span></div>
         ${req.patientRespondedAt
           ? `<div class="req-detail-row"><span class="lbl">Requester responded at</span><span class="val">${formatDateTime(req.patientRespondedAt)}</span></div>`
@@ -3523,7 +3520,7 @@ window.exportBloodBagsToExcel = function() {
           <span class="req-blood-badge">${req.bloodType}</span>
           <span class="tag ${REQ_URGENCY_TAG[req.urgency]}">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span>
           <span class="tag ${REQ_STATUS_TAG[req.status]}">${REQ_STATUS_LABEL[req.status]}</span>
-          <span class="req-chevron${isExp ? ' open' : ''}">›</span>
+          <span class="req-chevron${isExp ? ' open' : ''}">></span>
         </div>
       </div>
  
@@ -3535,7 +3532,7 @@ window.exportBloodBagsToExcel = function() {
                style="cursor:pointer;transition:all 0.2s ease"
                onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'"
                onmouseout="this.style.boxShadow=''">
-            <div class="req-detail-box-title">Patient info 👁️ <span style="font-size:10px;font-weight:400;color:var(--muted)">click to view</span></div>
+            <div class="req-detail-box-title">Patient info (view)</div>
             <div class="req-detail-row"><span class="lbl">Name</span><span class="val">${req.patient}</span></div>
             <div class="req-detail-row"><span class="lbl">Blood type</span><span class="val">${req.bloodType}</span></div>
             <div class="req-detail-row"><span class="lbl">Component</span><span class="val">${req.component}</span></div>
@@ -3545,7 +3542,7 @@ window.exportBloodBagsToExcel = function() {
                style="cursor:pointer;transition:all 0.2s ease"
                onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'"
                onmouseout="this.style.boxShadow=''">
-            <div class="req-detail-box-title">Requester info 👁️ <span style="font-size:10px;font-weight:400;color:var(--muted)">click to view</span></div>
+            <div class="req-detail-box-title">Requester info (view)</div>
             <div class="req-detail-row"><span class="lbl">From</span><span class="val">${req.name}</span></div>
             <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${req.type[0] + req.type.slice(1).toLowerCase()}</span></div>
             <div class="req-detail-row"><span class="lbl">Urgency</span><span class="val">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span></div>
@@ -3565,9 +3562,9 @@ window.exportBloodBagsToExcel = function() {
           </div>
           <div style="flex:1">
             <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${req.docLabel}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview · stored in Cloudinary</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview . stored in Cloudinary</div>
           </div>
-          <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View ↗</span>
+          <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View -></span>
         </div>
  
         ${['REJECTED', 'CANCELLED'].includes(req.status) && req.rejectionReason
@@ -3594,7 +3591,7 @@ window.exportBloodBagsToExcel = function() {
     const filtered = reqGetFiltered();
     list.innerHTML = filtered.length
       ? filtered.map(reqRenderCard).join('')
-      : `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.35">📋</div>No requests match the current filters.</div>`;
+      : `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.35">No match</div>No requests match the current filters.</div>`;
     if (info) info.textContent = `Showing ${filtered.length} of ${reqData.length} request${reqData.length !== 1 ? 's' : ''}`;
     reqUpdateCounts();
   }
@@ -3637,9 +3634,6 @@ window.exportBloodBagsToExcel = function() {
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
 
-  // ─────────────────────────────────────────────────────────────────
-  // EXPORT TO WINDOW SCOPE (for auto-refresh)
-  // ─────────────────────────────────────────────────────────────────
   window.reqFetchAll = reqFetchAll;
   window.reqFetchByStatus = reqFetchByStatus;
   window.reqFetchCompatibleBags = reqFetchCompatibleBags;
@@ -3691,7 +3685,7 @@ window.exportBloodBagsToExcel = function() {
     const title = document.getElementById('req-details-title');
     const body = document.getElementById('req-details-body');
     
-    title.textContent = `Request #${req.referenceNumber ?? req.id} — ${req.name}`;
+    title.textContent = `Request #${req.referenceNumber ?? req.id} - ${req.name}`;
     body.innerHTML = renderReqDetailsContent(req);
     modal.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -3724,7 +3718,7 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Reference #</span>
-              <span class="req-details-value">${req.referenceNumber ?? req.id ?? '—'}</span>
+              <span class="req-details-value">${req.referenceNumber ?? req.id ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Status</span>
@@ -3735,20 +3729,20 @@ window.exportBloodBagsToExcel = function() {
             <div class="req-details-field">
               <span class="req-details-label">Urgency</span>
               <span class="req-details-value">
-                <span class="tag ${REQ_URGENCY_TAG[req.urgency] ?? ''}">${req.urgency ?? '—'}</span>
+                <span class="tag ${REQ_URGENCY_TAG[req.urgency] ?? ''}">${req.urgency ?? '-'}</span>
               </span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Request Type</span>
-              <span class="req-details-value">${req.requestType ?? '—'}</span>
+              <span class="req-details-value">${req.requestType ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Submitted</span>
-              <span class="req-details-value">${req.date ?? '—'}</span>
+              <span class="req-details-value">${req.date ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Required By</span>
-              <span class="req-details-value">${req.requiredBy ?? '—'}</span>
+              <span class="req-details-value">${req.requiredBy ?? '-'}</span>
             </div>
           </div>
         </div>
@@ -3762,11 +3756,11 @@ window.exportBloodBagsToExcel = function() {
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Age / Age Group</span>
-              <span class="req-details-value">${req.patientAge ?? '—'} ${req.ageGroup ? `(${req.ageGroup})` : ''}</span>
+              <span class="req-details-value">${req.patientAge ?? '-'} ${req.ageGroup ? `(${req.ageGroup})` : ''}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Sex</span>
-              <span class="req-details-value">${req.patientSex ?? '—'}</span>
+              <span class="req-details-value">${req.patientSex ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Date of Birth</span>
@@ -3774,22 +3768,22 @@ window.exportBloodBagsToExcel = function() {
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Location (Ward)</span>
-              <span class="req-details-value">${req.wardRoom ?? '—'}</span>
+              <span class="req-details-value">${req.wardRoom ?? '-'}</span>
             </div><div class="req-details-field">
               <span class="req-details-label">Location (Room)</span>
-              <span class="req-details-value">${req.roomNo ?? '—'}</span>
+              <span class="req-details-value">${req.roomNo ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Patient Address</span>
-              <span class="req-details-value">${formattedPatientAddress || '—'}</span>
+              <span class="req-details-value">${formattedPatientAddress || '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Category</span>
-              <span class="req-details-value">${req.requestCategory ?? '—'}</span>
+              <span class="req-details-value">${req.requestCategory ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Requesting Physician</span>
-              <span class="req-details-value">${req.requestingPhysician ?? '—'}</span>
+              <span class="req-details-value">${req.requestingPhysician ?? '-'}</span>
             </div>
           </div>
         </div>
@@ -3799,23 +3793,23 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Blood Type</span>
-              <span class="req-details-value req-details-highlight">${req.bloodType ?? '—'}</span>
+              <span class="req-details-value req-details-highlight">${req.bloodType ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Component</span>
-              <span class="req-details-value">${req.component ?? '—'}</span>
+              <span class="req-details-value">${req.component ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Units Needed</span>
-              <span class="req-details-value req-details-highlight">${req.units ?? '—'}</span>
+              <span class="req-details-value req-details-highlight">${req.units ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Platelet Count</span>
-              <span class="req-details-value">${req.plateletCount ?? '—'}</span>
+              <span class="req-details-value">${req.plateletCount ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Notes</span>
-              <span class="req-details-value">${req.notes ?? '—'}</span>
+              <span class="req-details-value">${req.notes ?? '-'}</span>
             </div>
           </div>
         </div>
@@ -3841,23 +3835,23 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Clinical Impression</span>
-              <span class="req-details-value">${req.clinicalImpression ?? '—'}</span>
+              <span class="req-details-value">${req.clinicalImpression ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Attending Physician</span>
-              <span class="req-details-value">${req.attendingPhysician ?? '—'}</span>
+              <span class="req-details-value">${req.attendingPhysician ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Contact Number</span>
-              <span class="req-details-value">${req.contactNumber ?? '—'}</span>
+              <span class="req-details-value">${req.contactNumber ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Hemoglobin (g/L)</span>
-              <span class="req-details-value">${req.hemoglobin ?? '—'}</span>
+              <span class="req-details-value">${req.hemoglobin ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Hematocrit (%)</span>
-              <span class="req-details-value">${req.hematocrit ? (req.hematocrit * 100).toFixed(1) : '—'}</span>
+              <span class="req-details-value">${req.hematocrit ? (req.hematocrit * 100).toFixed(1) : '-'}</span>
             </div>
           </div>
         </div>
@@ -3872,11 +3866,11 @@ window.exportBloodBagsToExcel = function() {
             ${req.hadPreviousTransfusion ? `
               <div class="req-details-field">
                 <span class="req-details-label">Last Transfusion Date</span>
-                <span class="req-details-value">${req.previousTransfusionDate ?? '—'}</span>
+                <span class="req-details-value">${req.previousTransfusionDate ?? '-'}</span>
               </div>
               <div class="req-details-field">
                 <span class="req-details-label">Units Transfused</span>
-                <span class="req-details-value">${req.previousTransfusionUnits ?? '—'}</span>
+                <span class="req-details-value">${req.previousTransfusionUnits ?? '-'}</span>
               </div>
             ` : ''}
           </div>
@@ -3892,11 +3886,11 @@ window.exportBloodBagsToExcel = function() {
             ${req.hadPreviousReaction ? `
               <div class="req-details-field">
                 <span class="req-details-label">Reaction Date</span>
-                <span class="req-details-value">${req.previousReactionDate ?? '—'}</span>
+                <span class="req-details-value">${req.previousReactionDate ?? '-'}</span>
               </div>
               <div class="req-details-field">
                 <span class="req-details-label">Reaction Details</span>
-                <span class="req-details-value">${req.previousReactionDetails ?? '—'}</span>
+                <span class="req-details-value">${req.previousReactionDetails ?? '-'}</span>
               </div>
             ` : ''}
           </div>
@@ -3907,23 +3901,23 @@ window.exportBloodBagsToExcel = function() {
           <div class="req-details-grid-2">
             <div class="req-details-field">
               <span class="req-details-label">Requester Name</span>
-              <span class="req-details-value">${req.requesterName ?? req.name ?? '—'}</span>
+              <span class="req-details-value">${req.requesterName ?? req.name ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Relationship</span>
-              <span class="req-details-value">${req.requesterRelationship ?? '—'}</span>
+              <span class="req-details-value">${req.requesterRelationship ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Contact</span>
-              <span class="req-details-value">${req.requesterContact ?? '—'}</span>
+              <span class="req-details-value">${req.requesterContact ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Email</span>
-              <span class="req-details-value">${req.requesterEmail ?? '—'}</span>
+              <span class="req-details-value">${req.requesterEmail ?? '-'}</span>
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Requester Type</span>
-              <span class="req-details-value">${req.type ?? '—'}</span>
+              <span class="req-details-value">${req.type ?? '-'}</span>
             </div>
           </div>
         </div>
@@ -3951,9 +3945,9 @@ let staffPage          = 1;
 const STAFF_PER_PAGE   = 10;
 let staffCurrentViewId = null;
 
-/* ══════════════════════════════════════════════════════════════
+/* ========================================
    API HELPERS
-══════════════════════════════════════════════════════════════ */
+========================================== */
 
 async function staffApiFetch(path, options = {}) {
   const res = await fetch(STAFF_API + path, {
@@ -3975,12 +3969,12 @@ async function staffLoadAll() {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* ========================================
    HELPERS  (unchanged from original)
-══════════════════════════════════════════════════════════════ */
+========================================== */
 
 function staffFmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
   if (isNaN(d)) return iso;
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -4072,9 +4066,9 @@ function staffCloseModals(exceptId = null) {
     });
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* ========================================
    SUMMARY STRIP
-══════════════════════════════════════════════════════════════ */
+========================================== */
 
 function staffUpdateStrip() {
   const dashboardAccess = staffList.filter(staffHasDashboardAccess).length;
@@ -4084,9 +4078,9 @@ function staffUpdateStrip() {
   document.getElementById('staff-total-count').textContent    = staffList.length;
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* ========================================
    RENDER TABLE  (unchanged logic, data now from API)
-══════════════════════════════════════════════════════════════ */
+========================================== */
 
 function staffGetFiltered() {
   const q      = (document.getElementById('staff-search')?.value || '').toLowerCase();
@@ -4145,7 +4139,7 @@ function staffRender() {
     if (info) info.textContent = '';
   } else {
     empty.style.display = 'none';
-    showing.textContent  = `Showing ${start + 1}–${Math.min(start + STAFF_PER_PAGE, total)} of ${total}`;
+    showing.textContent  = `Showing ${start + 1}-${Math.min(start + STAFF_PER_PAGE, total)} of ${total}`;
     if (info) info.textContent = `${total} staff found`;
   }
 
@@ -4169,10 +4163,10 @@ function staffRender() {
             </div>
           </div>
         </td>
-        <td style="font-family:monospace;font-size:12px">${escHtml(s.staffId || '—')}</td>
-        <td style="font-size:12px">${escHtml(s.department || '—')}</td>
-        <td style="font-size:12px">${escHtml(s.position || '—')}</td>
-        <td style="font-size:12px;color:var(--muted)">${escHtml(s.phoneNumber || '—')}</td>
+        <td style="font-family:monospace;font-size:12px">${escHtml(s.staffId || '-')}</td>
+        <td style="font-size:12px">${escHtml(s.department || '-')}</td>
+        <td style="font-size:12px">${escHtml(s.position || '-')}</td>
+        <td style="font-size:12px;color:var(--muted)">${escHtml(s.phoneNumber || '-')}</td>
         <td>${accessTag}</td>
         <td style="font-family:monospace;font-size:12px">${escHtml(staffCodeLabel(s))}</td>
         <td>
@@ -4201,9 +4195,9 @@ function staffNextPage() {
   if (staffPage < pages) { staffPage++; staffRender(); }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ADD STAFF  →  POST /api/admin/staff
-══════════════════════════════════════════════════════════════ */
+/* ========================================
+   ADD STAFF  -> POST /api/admin/staff
+========================================== */
 
 function openAddStaffModal() {
   staffCloseModals('addStaffModal');
@@ -4274,9 +4268,9 @@ async function submitAddStaff() {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   VIEW STAFF  (read-only modal — no API call needed)
-══════════════════════════════════════════════════════════════ */
+/* ========================================
+   VIEW STAFF  (read-only modal - no API call needed)
+========================================== */
 
 function staffOpenView(id) {
   const s = staffList.find(x => x.id === id);
@@ -4288,10 +4282,10 @@ function staffOpenView(id) {
   document.getElementById('view-staff-avatar').textContent         = staffInitials(s.firstName, s.lastName);
   document.getElementById('view-staff-name').textContent           = `${s.firstName} ${s.lastName}`;
   document.getElementById('view-staff-position-label').textContent =
-    [s.position, s.department].filter(Boolean).join(' · ') || '—';
-  document.getElementById('view-staff-staffid').textContent  = s.staffId     || '—';
-  document.getElementById('view-staff-dept').textContent     = s.department  || '—';
-  document.getElementById('view-staff-phone').textContent    = s.phoneNumber || '—';
+    [s.position, s.department].filter(Boolean).join(' . ') || '-';
+  document.getElementById('view-staff-staffid').textContent  = s.staffId     || '-';
+  document.getElementById('view-staff-dept').textContent     = s.department  || '-';
+  document.getElementById('view-staff-phone').textContent    = s.phoneNumber || '-';
   document.getElementById('view-staff-hiredate').textContent = staffFmtDate(s.hireDate);
   document.getElementById('view-staff-email').textContent    = s.email;
   document.getElementById('view-staff-access').textContent   = staffAccessStatus(s);
@@ -4311,9 +4305,9 @@ function staffOpenEditFromView() {
   staffOpenEdit(staffCurrentViewId);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   EDIT STAFF  →  PUT /api/admin/staff/{id}
-══════════════════════════════════════════════════════════════ */
+/* ========================================
+   EDIT STAFF  -> PUT /api/admin/staff/{id}
+========================================== */
 
 function staffOpenEdit(id) {
   const s = staffList.find(x => x.id === id);
@@ -4368,7 +4362,7 @@ async function submitEditStaff() {
   }
 
   const btn = document.getElementById('edit-staff-submit-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
 
   try {
     const updated = await staffApiFetch(`/${id}`, {
@@ -4399,9 +4393,9 @@ async function submitEditStaff() {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   DELETE STAFF  →  DELETE /api/admin/staff/{id}
-══════════════════════════════════════════════════════════════ */
+/* ========================================
+   DELETE STAFF  -> DELETE /api/admin/staff/{id}
+========================================== */
 
 function staffOpenDelete(id) {
   const s = staffList.find(x => x.id === id);
@@ -4443,9 +4437,9 @@ async function staffConfirmDelete() {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   TOGGLE STATUS  →  PATCH /api/admin/staff/{id}/toggle-status
-══════════════════════════════════════════════════════════════ */
+/* ========================================
+   TOGGLE STATUS  -> PATCH /api/admin/staff/{id}/toggle-status
+========================================== */
 
 async function staffRegenerateCode(id) {
   const s = staffList.find(x => x.id === id);
@@ -4486,9 +4480,9 @@ async function staffToggleStatus(id) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* ========================================
    TOAST  (unchanged)
-══════════════════════════════════════════════════════════════ */
+========================================== */
 
 function staffShowToast(msg, type = 'success') {
   if (typeof showToast === 'function') { showToast(msg, type); return; }
@@ -4531,9 +4525,9 @@ function staffShowToast(msg, type = 'success') {
   document.head.appendChild(s);
 })();
 
-/* ══════════════════════════════════════════════════════════════
+/* ========================================
    ERROR HELPERS  (unchanged)
-══════════════════════════════════════════════════════════════ */
+========================================== */
 
 function staffShowError(elId, msg) {
   const el = document.getElementById(elId);
@@ -4547,9 +4541,9 @@ function staffHideError(elId) {
   if (el) el.style.display = 'none';
 }
 
-/* ══════════════════════════════════════════════════════════════
-   INIT  — fetch from API instead of using mock array
-══════════════════════════════════════════════════════════════ */
+/* ========================================
+   INIT  - fetch from API instead of using mock array
+========================================== */
 
 function initStaffPanel() {
   staffPage = 1;
@@ -4584,9 +4578,7 @@ async function hospLoadAll() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
 // FILTER & SORT
-// ──────────────────────────────────────────────────────────────
 function hospFiltered() {
     const q = document.getElementById('hosp-search')?.value.toLowerCase() || '';
     const sort = document.getElementById('hosp-sort')?.value || 'name_asc';
@@ -4606,9 +4598,7 @@ function hospFiltered() {
     return list;
 }
 
-// ──────────────────────────────────────────────────────────────
 // RENDER TABLE
-// ──────────────────────────────────────────────────────────────
 function hospRender() {
     const list = hospFiltered();
     const total = list.length;
@@ -4631,7 +4621,7 @@ function hospRender() {
             <td><strong>${h.hospitalName}</strong></td>
             <td style="font-size:12px;color:var(--muted)">${h.city}<br>${h.province}</td>
             <td style="font-size:12px;color:var(--muted)">${h.email}</td>
-            <td style="font-size:12px;color:var(--muted)">${h.phoneNumber || '—'}</td>
+            <td style="font-size:12px;color:var(--muted)">${h.phoneNumber || '-'}</td>
             <td style="font-weight:700">${h.requestCount || 0}</td>
             <td><span class="tag tag-active">Active</span></td>
             <td>
@@ -4653,7 +4643,7 @@ function hospRender() {
     
     const showingEl = document.getElementById('hosp-showing');
     if (showingEl) {
-        showingEl.textContent = total ? `Showing ${start}–${end} of ${total}` : 'No results';
+        showingEl.textContent = total ? `Showing ${start}-${end} of ${total}` : 'No results';
     }
     
     const pageEl = document.getElementById('hosp-page-label');
@@ -4668,9 +4658,9 @@ function hospRender() {
     hospUpdateStats();
 }
 
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // UPDATE STATS
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function hospUpdateStats() {
     const total = hospData.length;
     const totalReqs = hospData.reduce((s, h) => s + (h.requestCount || 0), 0);
@@ -4688,9 +4678,9 @@ function hospUpdateStats() {
     if (reqsEl) reqsEl.textContent = totalReqs;
 }
 
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PAGINATION
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function hospPrevPage() {
     if (hospPage > 1) {
         hospPage--;
@@ -4708,9 +4698,9 @@ function hospNextPage() {
 
 
 
-// ──────────────────────────────────────────────────────────────
-// CREATE HOSPITAL — Submit form
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CREATE HOSPITAL – Submit form
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function hospCreate() {
     const email = document.getElementById('hosp-add-email')?.value.trim();
     const name = document.getElementById('hosp-add-name')?.value.trim();
@@ -4781,9 +4771,9 @@ async function hospCreate() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// EDIT HOSPITAL — Open modal with data
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EDIT HOSPITAL – Open modal with data
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function hospOpenEdit(id) {
     const h = hospData.find(x => x.id === id);
     if (!h) {
@@ -4806,9 +4796,9 @@ function hospOpenEdit(id) {
     openModal('editHospitalModal');
 }
 
-// ──────────────────────────────────────────────────────────────
-// EDIT HOSPITAL — Save changes
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EDIT HOSPITAL – Save changes
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function hospSaveEdit() {
     const id = document.getElementById('hosp-edit-idx').value;
     const name = document.getElementById('hosp-edit-name')?.value.trim();
@@ -4867,9 +4857,9 @@ async function hospSaveEdit() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // DELETE HOSPITAL
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function hospDelete(id) {
     const h = hospData.find(x => x.id === parseInt(id));
     if (!h) {
@@ -4900,9 +4890,9 @@ async function hospDelete(id) {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// CONFIRM DELETE (from table row) — Uses reusable modal
-// ──────────────────────────────────────────────────────────────
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONFIRM DELETE (from table row) – Uses reusable modal
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function hospConfirmDelete(id) {
     const h = hospData.find(x => x.id === id);
     if (!h) {
@@ -4920,23 +4910,23 @@ function hospConfirmDelete(id) {
 }
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // STAFF PROFILE FUNCTIONS
-// ══════════════════════════════════════════════════════════════
-// ── GLOBAL STATE ──
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ━━ GLOBAL STATE ━━
 let currentUserRole = 'STAFF'; // Set from backend
 let currentUserId = null;
 let currentUserData = {};
 let activePanel = 'dashboard';
 let reqData          = [];
  
-// ── INITIALIZATION ──
+// ━━ INITIALIZATION ━━
 document.addEventListener('DOMContentLoaded', () => {
   loadCurrentUserProfile();
   initializeProfileListeners();
 });
  
-// ── LOAD CURRENT USER PROFILE ──
+// ━━ LOAD CURRENT USER PROFILE ━━
 async function loadCurrentUserProfile() {
   try {
     const response = await fetch('/api/auth/me', {
@@ -4966,9 +4956,9 @@ async function loadCurrentUserProfile() {
   }
 }
  
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // ADMIN PROFILE FUNCTIONS
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 async function loadAdminProfile() {
   try {
@@ -5123,9 +5113,9 @@ function resetAdminProfileForm() {
 }
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // STAFF PROFILE FUNCTIONS
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 async function loadStaffProfile() {
   try {
@@ -5304,9 +5294,9 @@ function updateSidebarUser(initials, name, role) {
 }
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // PASSWORD MANAGEMENT (BOTH ADMIN AND STAFF)
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function checkPasswordStrength() {
   const password = document.getElementById('new-password').value;
@@ -5540,9 +5530,9 @@ function resetStaffPasswordForm() {
 }
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // PROFILE TAB SWITCHING
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function switchProfileTab(tabName, element) {
   // For Admin Profile - Use classes instead of inline styles
@@ -5581,9 +5571,9 @@ function switchStaffProfileTab(tabName, element) {
 }
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // PANEL SWITCHING
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function showPanel(panelName, element) {
   activePanel = panelName; // 👈 ADD THIS
@@ -5609,9 +5599,9 @@ function showPanel(panelName, element) {
 }
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // UTILITY FUNCTIONS
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -5624,9 +5614,9 @@ function formatDate(dateString) {
 }
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // ERROR & SUCCESS MESSAGE HANDLERS
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 // Admin Profile Messages
 function showProfileError(message) {
@@ -5730,9 +5720,9 @@ function showStaffSecuritySuccess(message) {
 
 
 
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // EVENT LISTENERS INITIALIZATION
-// ══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function initializeProfileListeners() {
   // Add any additional event listeners if needed
@@ -5749,89 +5739,84 @@ function initializeProfileListeners() {
 
 //////// LOGS PANEL - API INTEGRATION //////
 
-// ═══════════════════════════════════════════════════════════════
-// CONFIGURATION
-// ═══════════════════════════════════════════════════════════════
+// Configuration
+const API_BASE_URL = '/api/admin/logs';
 
-const API_BASE_URL = '/api/admin/logs'; // Change to your backend URL if different
-
-// ═══════════════════════════════════════════════════════════════
-// STATE MANAGEMENT
-// ═══════════════════════════════════════════════════════════════
-
+// State
 const loggingState = {
-  statusLogs: [],
-  fulfillments: [],
   statusLogsPage: 1,
-  fulfillmentsPage: 1,
+  servedPage: 1,
   itemsPerPage: 10,
   currentTab: 'status-logs',
-  loading: false
+  loading: false,
+  servedFilters: {
+    search: '',
+    startDate: '',
+    endDate: '',
+    requestGroup: 'ALL',
+    sort: 'date_desc',
+  },
+  servedFilteredRows: [],
+  servedFilteredTotal: 0,
 };
 
-// ═══════════════════════════════════════════════════════════════
-// INITIALIZATION & LOADING
-// ═══════════════════════════════════════════════════════════════
-
 function initializeLoggingPanel() {
-  
-  
-  // Check if elements exist
   const requiredElements = [
-    'logging-fulfillments-count',
+    'logging-served-units-count',
     'logging-status-changes-count',
     'logging-pending-requests-count',
     'logging-released-count',
     'logging-status-tbody',
-    'logging-fulfillment-tbody'
+    'logging-served-tbody',
   ];
-  
-  const missingElements = requiredElements.filter(id => !document.getElementById(id));
-  
+
+  const missingElements = requiredElements.filter((id) => !document.getElementById(id));
   if (missingElements.length > 0) {
-    console.error('❌ Missing HTML elements:', missingElements);
+    console.error('Missing logging panel elements:', missingElements);
     return;
   }
-  
-  // Load data from API
+
+  const startEl = document.getElementById('logging-served-date-from');
+  const endEl = document.getElementById('logging-served-date-to');
+  if (startEl && endEl && !startEl.value && !endEl.value) {
+    setServedRange('thisMonth', false);
+  }
+  const statusStartEl = document.getElementById('logging-status-date-from');
+  const statusEndEl = document.getElementById('logging-status-date-to');
+  if (statusStartEl && statusEndEl && !statusStartEl.value && !statusEndEl.value) {
+    setStatusRange('thisMonth');
+  }
+
   loadLoggingData();
 }
 
 function loadLoggingData() {
   loggingState.loading = true;
-  
-  // Load summary
   loadSummary();
-  
-  // Load initial status logs
   loggingStatusRender();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SUMMARY STATS - API CALL
-// ═══════════════════════════════════════════════════════════════
-
 function loadSummary() {
   fetch(`${API_BASE_URL}/summary`)
-    .then(response => {
+    .then((response) => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return response.json();
     })
-    .then(data => {
+    .then((data) => {
       loggingUpdateSummary(data);
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('Error loading summary:', error);
     });
 }
 
 function loggingUpdateSummary(summaryData) {
   try {
-    const fulfillmentsEl = document.getElementById('logging-fulfillments-count');
-    if (fulfillmentsEl) {
-      fulfillmentsEl.textContent = summaryData.totalFulfillments || 0;
+    const servedCountEl = document.getElementById('logging-served-units-count');
+    if (servedCountEl) {
+      servedCountEl.textContent = summaryData.totalFulfillments || 0;
     }
 
     const statusChangesEl = document.getElementById('logging-status-changes-count');
@@ -5853,82 +5838,69 @@ function loggingUpdateSummary(summaryData) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// TAB SWITCHING
-// ═══════════════════════════════════════════════════════════════
-
 function switchLoggingTab(tabName, element) {
-  
-  // Hide all tabs
-  document.querySelectorAll('.logging-tab-content').forEach(tab => {
+  document.querySelectorAll('.logging-tab-content').forEach((tab) => {
     tab.style.display = 'none';
   });
 
-  // Remove active class from all buttons
-  document.querySelectorAll('.logging-tab-btn').forEach(btn => {
+  document.querySelectorAll('.logging-tab-btn').forEach((btn) => {
     btn.classList.remove('active');
   });
 
-  // Show selected tab
   const tabElement = document.getElementById(`logging-${tabName}-tab`);
   if (tabElement) {
     tabElement.style.display = 'block';
-  } else {
-    console.error('Tab not found:', `logging-${tabName}-tab`);
   }
-  
-  element.classList.add('active');
+
+  if (element) {
+    element.classList.add('active');
+  }
   loggingState.currentTab = tabName;
 
-  // Render appropriate data
   if (tabName === 'status-logs') {
     loggingStatusRender();
-  } else {
-    loggingFulfillmentRender();
+    return;
   }
+
+  loggingServedRender();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// STATUS LOGS — API INTEGRATION
-// ═══════════════════════════════════════════════════════════════
-
-function loggingStatusRender() {
+function loggingStatusRender(resetPage = false) {
   try {
+    if (resetPage) {
+      loggingState.statusLogsPage = 1;
+    }
+
     const searchEl = document.getElementById('logging-status-search');
     const statusFilterEl = document.getElementById('logging-status-filter-status');
     const sortEl = document.getElementById('logging-status-sort');
 
-    const search = searchEl ? searchEl.value : '';
+    const search = searchEl ? searchEl.value.trim() : '';
     const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
     const sort = sortEl ? sortEl.value : 'date_desc';
-    const page = loggingState.statusLogsPage;
-    const size = loggingState.itemsPerPage;
 
-    // Build query string
-    let queryParams = new URLSearchParams();
+    const queryParams = new URLSearchParams();
     if (search) queryParams.append('search', search);
     if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
     queryParams.append('sort', sort);
-    queryParams.append('page', page);
-    queryParams.append('size', size);
+    queryParams.append('page', String(loggingState.statusLogsPage));
+    queryParams.append('size', String(loggingState.itemsPerPage));
 
-    const url = `${API_BASE_URL}/status-logs?${queryParams.toString()}`;
+    showLoadingInTable('logging-status-tbody', 8);
 
-    showLoadingInTable('logging-status-tbody', 'status');
-
-    fetch(url)
-      .then(response => {
+    fetch(`${API_BASE_URL}/status-logs?${queryParams.toString()}`)
+      .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
       })
-      .then(data => {
+      .then((data) => {
         renderStatusLogsTable(data);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error('Error fetching status logs:', error);
-        showErrorInTable('logging-status-tbody', 'Failed to load status logs');
+        showErrorInTable('logging-status-tbody', 'Failed to load status logs', 8);
       });
   } catch (error) {
     console.error('Error in loggingStatusRender:', error);
@@ -5941,7 +5913,6 @@ function renderStatusLogsTable(response) {
     const empty = document.getElementById('logging-status-empty');
 
     if (!tbody) {
-      console.error('❌ logging-status-tbody element not found');
       return;
     }
 
@@ -5949,20 +5920,22 @@ function renderStatusLogsTable(response) {
 
     if (!response.data || response.data.length === 0) {
       if (empty) empty.style.display = 'block';
+      updatePaginationControls('status', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
       return;
     }
 
     if (empty) empty.style.display = 'none';
 
-    response.data.forEach(log => {
+    response.data.forEach((log) => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${log.request?.referenceNumber || '—'}</td>
-        <td><span class="status-badge" style="background:#E8F0FF;color:#0066CC">${log.oldStatus || '—'}</span></td>
-        <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus}</span></td>
+        <td>#${log.request?.id || 'N/A'}</td>
+        <td>${log.request?.referenceNumber || '?'}</td>
+        <td><span class="status-badge" style="background:#F8FAFC;color:#475569">${log.oldStatus || '?'}</span></td>
+        <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus || '?'}</span></td>
         <td>${log.changedBy?.username || 'System'}</td>
         <td>${formatDateTime(log.changedAt)}</td>
-        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '—'}</td>
+        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '?'}</td>
         <td>
           <button class="btn-ghost" onclick="viewStatusLogDetail(${log.id})" style="padding:4px 8px;font-size:11px">View</button>
         </td>
@@ -5970,9 +5943,7 @@ function renderStatusLogsTable(response) {
       tbody.appendChild(row);
     });
 
-    // Update pagination
-    updatePaginationControls('status', response.currentPage, response.totalPages, response.totalElements);
-
+    updatePaginationControls('status', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
   } catch (error) {
     console.error('Error rendering status logs table:', error);
   }
@@ -5980,218 +5951,183 @@ function renderStatusLogsTable(response) {
 
 function loggingStatusPrevPage() {
   if (loggingState.statusLogsPage > 1) {
-    loggingState.statusLogsPage--;
+    loggingState.statusLogsPage -= 1;
     loggingStatusRender();
   }
 }
 
 function loggingStatusNextPage() {
-  const searchEl = document.getElementById('logging-status-search');
-  const statusFilterEl = document.getElementById('logging-status-filter-status');
-  const sortEl = document.getElementById('logging-status-sort');
-
-  const search = searchEl ? searchEl.value : '';
-  const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
-  const sort = sortEl ? sortEl.value : 'date_desc';
-  const page = loggingState.statusLogsPage + 1;
-  const size = loggingState.itemsPerPage;
-
-  let queryParams = new URLSearchParams();
-  if (search) queryParams.append('search', search);
-  if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
-  queryParams.append('sort', sort);
-  queryParams.append('page', page);
-  queryParams.append('size', size);
-
-  fetch(`${API_BASE_URL}/status-logs?${queryParams.toString()}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.data && data.data.length > 0) {
-        loggingState.statusLogsPage++;
-        renderStatusLogsTable(data);
-      }
-    })
-    .catch(error => console.error('Error:', error));
+  loggingState.statusLogsPage += 1;
+  loggingStatusRender();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// FULFILLMENTS — API INTEGRATION
-// ═══════════════════════════════════════════════════════════════
+function getServedFilterState() {
+  const searchEl = document.getElementById('logging-served-search');
+  const startEl = document.getElementById('logging-served-date-from');
+  const endEl = document.getElementById('logging-served-date-to');
+  const sortEl = document.getElementById('logging-served-sort');
+  const requestGroupEl = document.getElementById('logging-served-request-group');
 
-function loggingFulfillmentRender() {
+  return {
+    search: searchEl ? searchEl.value.trim() : '',
+    startDate: startEl ? startEl.value : '',
+    endDate: endEl ? endEl.value : '',
+    sort: sortEl ? sortEl.value : 'date_desc',
+    requestGroup: requestGroupEl ? requestGroupEl.value : 'ALL',
+  };
+}
+
+function buildServedQueryParams(filters, options = {}) {
+  const {
+    includePagination = true,
+    page = loggingState.servedPage,
+    size = loggingState.itemsPerPage,
+  } = options;
+
+  const queryParams = new URLSearchParams();
+  if (filters.search) queryParams.append('search', filters.search);
+  if (filters.startDate) queryParams.append('startDate', filters.startDate);
+  if (filters.endDate) queryParams.append('endDate', filters.endDate);
+  if (filters.requestGroup && filters.requestGroup !== 'ALL') queryParams.append('requestGroup', filters.requestGroup);
+  queryParams.append('sort', filters.sort || 'date_desc');
+
+  if (includePagination) {
+    queryParams.append('page', String(page));
+    queryParams.append('size', String(size));
+  }
+
+  return queryParams;
+}
+
+function loggingServedRender(resetPage = false) {
   try {
-    const searchEl = document.getElementById('logging-fulfillment-search');
-    const dateFromEl = document.getElementById('logging-fulfillment-date-from');
-    const dateToEl = document.getElementById('logging-fulfillment-date-to');
-    const sortEl = document.getElementById('logging-fulfillment-sort');
+    if (resetPage) {
+      loggingState.servedPage = 1;
+    }
 
-    const search = searchEl ? searchEl.value : '';
-    const dateFrom = dateFromEl ? dateFromEl.value : '';
-    const dateTo = dateToEl ? dateToEl.value : '';
-    const sort = sortEl ? sortEl.value : 'date_desc';
-    const page = loggingState.fulfillmentsPage;
-    const size = loggingState.itemsPerPage;
+    const filters = getServedFilterState();
+    loggingState.servedFilters = filters;
+    const queryParams = buildServedQueryParams(filters, {
+      includePagination: true,
+      page: loggingState.servedPage,
+      size: loggingState.itemsPerPage,
+    });
 
-    // Build query string
-    let queryParams = new URLSearchParams();
-    if (search) queryParams.append('search', search);
-    if (dateFrom) queryParams.append('dateFrom', dateFrom);
-    if (dateTo) queryParams.append('dateTo', dateTo);
-    queryParams.append('sort', sort);
-    queryParams.append('page', page);
-    queryParams.append('size', size);
+    showLoadingInTable('logging-served-tbody', 12);
 
-    const url = `${API_BASE_URL}/fulfillments?${queryParams.toString()}`;
-
-    showLoadingInTable('logging-fulfillment-tbody', 'fulfillment');
-
-    fetch(url)
-      .then(response => {
+    fetch(`${API_BASE_URL}/served?${queryParams.toString()}`)
+      .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
       })
-      .then(data => {
-        renderFulfillmentsTable(data);
+      .then((data) => {
+        renderServedTable(data);
       })
-      .catch(error => {
-        console.error('Error fetching fulfillments:', error);
-        showErrorInTable('logging-fulfillment-tbody', 'Failed to load fulfillments');
+      .catch((error) => {
+        console.error('Error fetching served logs:', error);
+        showErrorInTable('logging-served-tbody', 'Failed to load served logs', 12);
       });
   } catch (error) {
-    console.error('Error in loggingFulfillmentRender:', error);
+    console.error('Error in loggingServedRender:', error);
   }
 }
 
-function renderFulfillmentsTable(response) {
+function renderServedTable(response) {
   try {
-    const tbody = document.getElementById('logging-fulfillment-tbody');
-    const empty = document.getElementById('logging-fulfillment-empty');
+    const tbody = document.getElementById('logging-served-tbody');
+    const empty = document.getElementById('logging-served-empty');
 
     if (!tbody) {
-      console.error('❌ logging-fulfillment-tbody element not found');
       return;
     }
 
     tbody.innerHTML = '';
 
-    if (!response.data || response.data.length === 0) {
+    const rows = response.data || [];
+    loggingState.servedFilteredRows = rows;
+    loggingState.servedFilteredTotal = Number(response.totalElements || 0);
+
+    if (rows.length === 0) {
       if (empty) empty.style.display = 'block';
+      updatePaginationControls('served', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
       return;
     }
 
     if (empty) empty.style.display = 'none';
 
-    response.data.forEach(fulfillment => {
+    rows.forEach((rowData) => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td><strong>${fulfillment.request?.referenceNumber || 'N/A'}</strong></td>
-        <td><strong>${fulfillment.bloodBag?.serialNumber || 'N/A'}</strong></td>
-        <td>${fulfillment.bloodBag?.bloodType || '—'}</td>
-        <td>${fulfillment.bloodBag?.componentType || '—'}</td>
-        <td>${fulfillment.fulfilledBy?.username || 'System'}</td>
-        <td>${formatDateTime(fulfillment.fulfilledAt)}</td>
-        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${fulfillment.notes || '—'}</td>
+        <td><strong>${rowData.referenceNumber || 'N/A'}</strong></td>
+        <td>${rowData.patientName || '?'}</td>
+        <td>${toDisplayEnum(rowData.requestCategory) || '?'}</td>
+        <td>${resolveHospitalWard(rowData)}</td>
+        <td>${toDisplayEnum(rowData.bloodType) || '?'}</td>
+        <td>${toDisplayEnum(rowData.bloodComponent) || '?'}</td>
+        <td>${safeNumber(rowData.requestedUnits)}</td>
+        <td>${safeNumber(rowData.servedUnits)}</td>
+        <td>${safeNumber(rowData.unservedUnits)}</td>
+        <td>${renderResultBadge(rowData.result)}</td>
+        <td>${formatDateTime(rowData.lastServedAt)}</td>
         <td>
-          <button class="btn-ghost" onclick="viewFulfillmentDetail(${fulfillment.id})" style="padding:4px 8px;font-size:11px">View</button>
+          <button class="btn-ghost" onclick="openServedDetails(${rowData.requestId})" style="padding:4px 8px;font-size:11px">View</button>
         </td>
       `;
       tbody.appendChild(row);
     });
 
-    // Update pagination
-    updatePaginationControls('fulfillment', response.currentPage, response.totalPages, response.totalElements);
-
+    updatePaginationControls('served', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
   } catch (error) {
-    console.error('Error rendering fulfillments table:', error);
+    console.error('Error rendering served table:', error);
   }
 }
 
-function loggingFulfillmentPrevPage() {
-  if (loggingState.fulfillmentsPage > 1) {
-    loggingState.fulfillmentsPage--;
-    loggingFulfillmentRender();
+function loggingServedPrevPage() {
+  if (loggingState.servedPage > 1) {
+    loggingState.servedPage -= 1;
+    loggingServedRender();
   }
 }
 
-function loggingFulfillmentNextPage() {
-  const searchEl = document.getElementById('logging-fulfillment-search');
-  const dateFromEl = document.getElementById('logging-fulfillment-date-from');
-  const dateToEl = document.getElementById('logging-fulfillment-date-to');
-  const sortEl = document.getElementById('logging-fulfillment-sort');
-
-  const search = searchEl ? searchEl.value : '';
-  const dateFrom = dateFromEl ? dateFromEl.value : '';
-  const dateTo = dateToEl ? dateToEl.value : '';
-  const sort = sortEl ? sortEl.value : 'date_desc';
-  const page = loggingState.fulfillmentsPage + 1;
-  const size = loggingState.itemsPerPage;
-
-  let queryParams = new URLSearchParams();
-  if (search) queryParams.append('search', search);
-  if (dateFrom) queryParams.append('dateFrom', dateFrom);
-  if (dateTo) queryParams.append('dateTo', dateTo);
-  queryParams.append('sort', sort);
-  queryParams.append('page', page);
-  queryParams.append('size', size);
-
-  fetch(`${API_BASE_URL}/fulfillments?${queryParams.toString()}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.data && data.data.length > 0) {
-        loggingState.fulfillmentsPage++;
-        renderFulfillmentsTable(data);
-      }
-    })
-    .catch(error => console.error('Error:', error));
+function loggingServedNextPage() {
+  loggingState.servedPage += 1;
+  loggingServedRender();
 }
-
-// ═══════════════════════════════════════════════════════════════
-// STATUS LOG DETAIL VIEW — MODAL
-// ═══════════════════════════════════════════════════════════════
 
 function viewStatusLogDetail(logId) {
   fetch(`${API_BASE_URL}/status-logs/${logId}`)
-    .then(response => {
+    .then((response) => {
       if (!response.ok) {
         throw new Error('Failed to fetch status log detail');
       }
       return response.json();
     })
-    .then(log => {
+    .then((log) => {
       populateLoggingStatusModal(log);
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('Error fetching status log detail:', error);
       alert('Failed to load status log details');
     });
 }
 
-/**
- * Populate the status log modal with data
- * @param {Object} log - The status log data from the API
- */
 function populateLoggingStatusModal(log) {
   try {
     document.getElementById('logging-status-modal-request-id').textContent = `#${log.request?.id || 'N/A'}`;
-    document.getElementById('logging-status-modal-ref-num').textContent = log.request?.referenceNumber || '—';
-    document.getElementById('logging-status-modal-old-status').textContent = log.oldStatus || '—';
-    document.getElementById('logging-status-modal-new-status').textContent = log.newStatus || '—';
-    document.getElementById('logging-status-modal-changed-by').textContent = log.changedBy?.fullName || 'System';
+    document.getElementById('logging-status-modal-ref-num').textContent = log.request?.referenceNumber || '?';
+    document.getElementById('logging-status-modal-old-status').textContent = log.oldStatus || '?';
+    document.getElementById('logging-status-modal-new-status').textContent = log.newStatus || '?';
+    document.getElementById('logging-status-modal-changed-by').textContent = log.changedBy?.fullName || log.changedBy?.username || 'System';
     document.getElementById('logging-status-modal-changed-at').textContent = formatDateTime(log.changedAt);
-    document.getElementById('logging-status-modal-notes').textContent = log.notes || '—';
-
-    // Show the modal
+    document.getElementById('logging-status-modal-notes').textContent = log.notes || '?';
     document.getElementById('logging-status-modal').style.display = 'flex';
   } catch (error) {
     console.error('Error populating status log modal:', error);
   }
 }
 
-/**
- * Close the status log modal
- */
 function closeLoggingStatusModal() {
   const modal = document.getElementById('logging-status-modal');
   if (modal) {
@@ -6199,106 +6135,173 @@ function closeLoggingStatusModal() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// FULFILLMENT DETAIL VIEW — MODAL
-// ═══════════════════════════════════════════════════════════════
-
-function viewFulfillmentDetail(fulfillmentId) {
-  fetch(`${API_BASE_URL}/fulfillments/${fulfillmentId}`)
-    .then(response => {
+function openServedDetails(requestId) {
+  fetch(`${API_BASE_URL}/served/${requestId}`)
+    .then((response) => {
       if (!response.ok) {
-        throw new Error('Failed to fetch fulfillment detail');
+        throw new Error('Failed to fetch served detail');
       }
       return response.json();
     })
-    .then(fulfillment => {
-      populateLoggingFulfillmentModal(fulfillment);
+    .then((detail) => {
+      populateLoggingServedModal(detail);
     })
-    .catch(error => {
-      console.error('Error fetching fulfillment detail:', error);
-      alert('Failed to load fulfillment details');
+    .catch((error) => {
+      console.error('Error fetching served details:', error);
+      alert('Failed to load served details');
     });
 }
 
-/**
- * Populate the fulfillment modal with data
- * @param {Object} fulfillment - The fulfillment data from the API
- */
-function populateLoggingFulfillmentModal(fulfillment) {
+function populateLoggingServedModal(detail) {
   try {
-    document.getElementById('logging-fulfillment-modal-request-id').textContent = `#${fulfillment.request?.id || 'N/A'}`;
-    document.getElementById('logging-fulfillment-modal-blood-bag-num').textContent = fulfillment.bloodBag?.serialNumber || 'N/A';
-    document.getElementById('logging-fulfillment-modal-blood-type').textContent = fulfillment.bloodBag?.bloodType || '—';
-    document.getElementById('logging-fulfillment-modal-component').textContent = fulfillment.bloodBag?.componentType || '—';
-    document.getElementById('logging-fulfillment-modal-fulfilled-by').textContent = fulfillment.fulfilledBy?.username || 'System';
-    document.getElementById('logging-fulfillment-modal-fulfilled-at').textContent = formatDateTime(fulfillment.fulfilledAt);
-    document.getElementById('logging-fulfillment-modal-notes').textContent = fulfillment.notes || '—';
+    const servedUnits = safeNumber(detail.servedUnits);
+    const unservedUnits = safeNumber(detail.unservedUnits);
 
-    // Show the modal
-    document.getElementById('logging-fulfillment-modal').style.display = 'flex';
+    const modalTitle = document.getElementById('logging-served-modal-title');
+    if (modalTitle) {
+      modalTitle.textContent = `Served Details - ${detail.referenceNumber || `#${detail.requestId || 'N/A'}`}`;
+    }
+
+    document.getElementById('logging-served-modal-request-id').textContent = detail.referenceNumber || `#${detail.requestId || 'N/A'}`;
+    document.getElementById('logging-served-modal-patient').textContent = detail.patientName || '?';
+    document.getElementById('logging-served-modal-blood').textContent = `${toDisplayEnum(detail.bloodType) || '?'} / ${toDisplayEnum(detail.bloodComponent) || '?'}`;
+    document.getElementById('logging-served-modal-requested').textContent = `${safeNumber(detail.requestedUnits)} unit(s)`;
+    document.getElementById('logging-served-modal-served').textContent = `${servedUnits} unit(s)`;
+    document.getElementById('logging-served-modal-unserved-count').textContent = `${unservedUnits} unit(s)`;
+    document.getElementById('logging-served-modal-result').textContent = detail.result || '?';
+    document.getElementById('logging-served-modal-requester-type').textContent = toDisplayEnum(detail.requestCategory) || '?';
+    document.getElementById('logging-served-modal-hospital-ward').textContent = resolveHospitalWard(detail);
+    document.getElementById('logging-served-modal-last-served').textContent = formatDateTime(detail.lastServedAt);
+
+    const servedBagsEl = document.getElementById('logging-served-modal-bags');
+    const servedBags = Array.isArray(detail.servedBags) ? detail.servedBags : [];
+    if (servedBagsEl) {
+      if (servedBags.length === 0) {
+        servedBagsEl.innerHTML = '<div>No served blood bags recorded.</div>';
+      } else {
+        servedBagsEl.innerHTML = servedBags
+          .map((bag, idx) => {
+            const serial = bag.serialNumber || 'N/A';
+            const staff = bag.fulfilledBy || 'System';
+            const when = formatDetailedDateTime(bag.fulfilledAt);
+            return `<div>${idx + 1}. ${serial} | 1 unit | ${staff} | ${when}</div>`;
+          })
+          .join('');
+      }
+    }
+
+    const unservedReasonEl = document.getElementById('logging-served-modal-unserved-reason');
+    if (unservedReasonEl) {
+      if (unservedUnits > 0) {
+        unservedReasonEl.textContent = `${unservedUnits} unit(s) - ${detail.unservedReason || 'No compatible stock available.'}`;
+      } else {
+        unservedReasonEl.textContent = 'None';
+      }
+    }
+
+    document.getElementById('logging-served-modal').style.display = 'flex';
   } catch (error) {
-    console.error('Error populating fulfillment modal:', error);
+    console.error('Error populating served modal:', error);
   }
 }
 
-/**
- * Close the fulfillment modal
- */
-function closeLoggingFulfillmentModal() {
-  const modal = document.getElementById('logging-fulfillment-modal');
+function closeLoggingServedModal() {
+  const modal = document.getElementById('logging-served-modal');
   if (modal) {
     modal.style.display = 'none';
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// EXPORT — API INTEGRATION
-// ═══════════════════════════════════════════════════════════════
+function applyQuickDateRange(startEl, endEl, range) {
+  if (!startEl || !endEl) {
+    return;
+  }
+
+  const todayDate = new Date();
+  let start = new Date(todayDate);
+  let end = new Date(todayDate);
+
+  if (range === 'thisMonth') {
+    start = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+  } else if (range === 'lastMonth') {
+    start = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
+    end = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
+  } else if (range === 'last7Days') {
+    start = new Date(todayDate);
+    start.setDate(todayDate.getDate() - 6);
+  } else if (range === 'thisYear') {
+    start = new Date(todayDate.getFullYear(), 0, 1);
+  }
+
+  startEl.value = toInputDate(start);
+  endEl.value = toInputDate(end);
+}
+
+function setServedRange(range, shouldRender = true) {
+  const startEl = document.getElementById('logging-served-date-from');
+  const endEl = document.getElementById('logging-served-date-to');
+  applyQuickDateRange(startEl, endEl, range);
+
+  if (shouldRender) {
+    loggingState.servedPage = 1;
+    loggingServedRender();
+  }
+}
+
+function setStatusRange(range) {
+  const startEl = document.getElementById('logging-status-date-from');
+  const endEl = document.getElementById('logging-status-date-to');
+  applyQuickDateRange(startEl, endEl, range);
+}
 
 function exportStatusLogsExcel() {
   const searchEl = document.getElementById('logging-status-search');
   const statusFilterEl = document.getElementById('logging-status-filter-status');
+  const startEl = document.getElementById('logging-status-date-from');
+  const endEl = document.getElementById('logging-status-date-to');
 
-  const search = searchEl ? searchEl.value : '';
+  const search = searchEl ? searchEl.value.trim() : '';
   const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
+  const startDate = startEl ? startEl.value : '';
+  const endDate = endEl ? endEl.value : '';
 
-  let queryParams = new URLSearchParams();
+  const queryParams = new URLSearchParams();
   if (search) queryParams.append('search', search);
   if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
+  if (startDate) queryParams.append('startDate', startDate);
+  if (endDate) queryParams.append('endDate', endDate);
 
-  const url = `${API_BASE_URL}/export/status-logs?${queryParams.toString()}`;
-
-  fetch(url)
-    .then(response => {
+  fetch(`${API_BASE_URL}/export/status-logs?${queryParams.toString()}`)
+    .then((response) => {
       if (!response.ok) {
         throw new Error('Failed to export data');
       }
       return response.json();
     })
-    .then(data => {
+    .then((data) => {
       if (!data || data.length === 0) {
         alert('No status log data to export.');
         return;
       }
 
-      const rows = data.map(log => ({
-        'Request ID': log.request?.id || '',
+      const rows = data.map((log) => ({
+        'Reference No.': log.request?.id || '',
         'Reference #': log.request?.referenceNumber || '',
         'Old Status': log.oldStatus || '',
         'New Status': log.newStatus || '',
         'Changed By': log.changedBy?.username || 'System',
         'Changed At': formatExcelDate(log.changedAt),
-        'Notes': log.notes || '',
+        Notes: log.notes || '',
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
-        { wch: 12 },
-        { wch: 18 },
-        { wch: 18 },
-        { wch: 22 },
+        { wch: 14 },
         { wch: 20 },
-        { wch: 22 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 32 },
         { wch: 40 },
       ];
 
@@ -6306,95 +6309,117 @@ function exportStatusLogsExcel() {
       XLSX.utils.book_append_sheet(wb, ws, 'Status Logs');
       XLSX.writeFile(wb, `status-logs-${today()}.xlsx`);
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('Error exporting status logs:', error);
       alert('Failed to export status logs');
     });
 }
 
-function exportFulfillmentsExcel() {
-  const searchEl = document.getElementById('logging-fulfillment-search');
-  const dateFromEl = document.getElementById('logging-fulfillment-date-from');
-  const dateToEl = document.getElementById('logging-fulfillment-date-to');
+function exportDetailedServedLogs() {
+  const filters = getServedFilterState();
+  loggingState.servedFilters = filters;
+  const queryParams = buildServedQueryParams(filters, { includePagination: false });
 
-  const search = searchEl ? searchEl.value : '';
-  const dateFrom = dateFromEl ? dateFromEl.value : '';
-  const dateTo = dateToEl ? dateToEl.value : '';
-
-  let queryParams = new URLSearchParams();
-  if (search) queryParams.append('search', search);
-  if (dateFrom) queryParams.append('dateFrom', dateFrom);
-  if (dateTo) queryParams.append('dateTo', dateTo);
-
-  const url = `${API_BASE_URL}/export/fulfillments?${queryParams.toString()}`;
-
-  fetch(url)
-    .then(response => {
+  fetch(`${API_BASE_URL}/export/served/details?${queryParams.toString()}`)
+    .then((response) => {
       if (!response.ok) {
-        throw new Error('Failed to export data');
+        throw new Error('Failed to export served details');
       }
       return response.json();
     })
-    .then(data => {
-      if (!data || data.length === 0) {
-        alert('No fulfillment data to export.');
+    .then((rowsData) => {
+      if (!rowsData || rowsData.length === 0) {
+        alert('No served log data to export for the selected range.');
         return;
       }
 
-      const rows = data.map(f => ({
-        'Request ID': f.request?.id || '',
-        'Blood Bag ID': f.bloodBag?.bagNumber || '',
-        'Blood Type': f.bloodBag?.bloodType || '',
-        'Component': f.bloodBag?.componentType || '',
-        'Fulfilled By': f.fulfilledBy?.fullName || 'System',
-        'Fulfilled At': formatExcelDate(f.fulfilledAt),
-        'Notes': f.notes || '',
+      const rows = rowsData.map((row) => ({
+        'Reference No.': row.referenceNumber || '',
+        Patient: row.patientName || '',
+        'Request Category': toDisplayEnum(row.requestCategory) || '',
+        'Hospital / Ward': resolveHospitalWard(row),
+        'Blood Type': toDisplayEnum(row.bloodType) || '',
+        Component: toDisplayEnum(row.bloodComponent) || '',
+        'Requested Units': safeNumber(row.requestedUnits),
+        'Served Units': safeNumber(row.servedUnits),
+        'Unserved Units': safeNumber(row.unservedUnits),
+        Result: row.result || '',
+        'Served Blood Bags': (row.servedBags || []).map((bag) => bag.serialNumber || 'N/A').join('; '),
+        'Unserved Reason': row.unservedReason || '',
+        'Last Served At': formatDetailedDateTime(row.lastServedAt),
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
+        { wch: 20 },
+        { wch: 24 },
+        { wch: 18 },
+        { wch: 28 },
+        { wch: 14 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 12 },
         { wch: 12 },
         { wch: 18 },
-        { wch: 12 },
-        { wch: 16 },
-        { wch: 20 },
-        { wch: 22 },
-        { wch: 40 },
+        { wch: 32 },
+        { wch: 36 },
+        { wch: 34 },
       ];
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Fulfillments');
-      XLSX.writeFile(wb, `fulfillments-${today()}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, 'Served Details');
+      XLSX.writeFile(wb, `served-details-${today()}.xlsx`);
     })
-    .catch(error => {
-      console.error('Error exporting fulfillments:', error);
-      alert('Failed to export fulfillments');
+    .catch((error) => {
+      console.error('Error exporting served details:', error);
+      alert('Failed to export served details');
     });
 }
-
-// ═══════════════════════════════════════════════════════════════
-// UTILITY FUNCTIONS
-// ═══════════════════════════════════════════════════════════════
 
 function formatDateTime(isoString) {
   if (!isoString) return '—';
   const date = new Date(isoString);
-  return date.toLocaleDateString('en-US', {
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
+}
+
+function formatDetailedDateTime(raw) {
+  if (!raw) return '—';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  const datePart = date.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+  const time = date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  return `${datePart} | ${weekday} | ${time}`;
 }
 
 function formatExcelDate(raw) {
   if (!raw) return '';
-  const d = new Date(raw);
-  if (isNaN(d)) return raw;
-  return d.toLocaleString('en-US', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: true
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
   });
 }
 
@@ -6402,67 +6427,113 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
+function toInputDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function toDisplayEnum(value) {
+  if (!value) return '';
+  return String(value)
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function safeNumber(value) {
+  return Number.isFinite(value) ? value : 0;
+}
+
+function resolveHospitalWard(row) {
+  const requestCategory = String(row.requestCategory || '').toUpperCase();
+  if (requestCategory === 'INPATIENT' || requestCategory === 'INHOUSE') {
+    return row.wardRoom || row.hospitalName || '—';
+  }
+  if (requestCategory === 'OUTPATIENT' || requestCategory === 'OPD' || requestCategory === 'HOSPITAL') {
+    return row.hospitalName || row.wardRoom || '—';
+  }
+  return row.hospitalName || row.wardRoom || '—';
+}
+
+function renderResultBadge(result) {
+  const value = result || 'Unserved';
+  let style = 'background:#FFF4E5;color:#9A6700';
+  if (value === 'Served') {
+    style = 'background:#E8F5E9;color:#22863A';
+  } else if (value === 'Partially Served') {
+    style = 'background:#FFF3E0;color:#B45309';
+  }
+  return `<span class="status-badge" style="${style}">${value}</span>`;
+}
+
 function updatePaginationControls(type, currentPage, totalPages, totalElements) {
-  const prefix = type === 'status' ? 'logging-status' : 'logging-fulfillment';
-  
+  const prefix = type === 'status' ? 'logging-status' : 'logging-served';
+
+  const safeCurrent = Math.max(Number(currentPage) || 1, 1);
+  const safePages = Math.max(Number(totalPages) || 1, 1);
+  const safeTotal = Math.max(Number(totalElements) || 0, 0);
+  const normalizedCurrent = Math.min(safeCurrent, safePages);
+
+  if (type === 'status') {
+    loggingState.statusLogsPage = normalizedCurrent;
+  } else {
+    loggingState.servedPage = normalizedCurrent;
+  }
+
   const showingEl = document.getElementById(`${prefix}-showing`);
   const pageLabelEl = document.getElementById(`${prefix}-page-label`);
   const prevEl = document.getElementById(`${prefix}-prev`);
   const nextEl = document.getElementById(`${prefix}-next`);
   const resultsEl = document.getElementById(`${prefix}-results-info`);
 
-  const startIdx = (currentPage - 1) * loggingState.itemsPerPage + 1;
-  const endIdx = Math.min(currentPage * loggingState.itemsPerPage, totalElements);
+  const startIdx = safeTotal === 0 ? 0 : ((normalizedCurrent - 1) * loggingState.itemsPerPage) + 1;
+  const endIdx = safeTotal === 0 ? 0 : Math.min(normalizedCurrent * loggingState.itemsPerPage, safeTotal);
 
-  if (showingEl) showingEl.textContent = `Showing ${startIdx}–${endIdx} of ${totalElements}`;
-  if (pageLabelEl) pageLabelEl.textContent = `${currentPage} / ${totalPages}`;
-  if (prevEl) prevEl.disabled = currentPage === 1;
-  if (nextEl) nextEl.disabled = currentPage >= totalPages;
-  if (resultsEl) resultsEl.textContent = `${totalElements} result${totalElements !== 1 ? 's' : ''}`;
+  if (showingEl) showingEl.textContent = `Showing ${startIdx}-${endIdx} of ${safeTotal}`;
+  if (pageLabelEl) pageLabelEl.textContent = `${normalizedCurrent} / ${safePages}`;
+  if (prevEl) prevEl.disabled = normalizedCurrent <= 1;
+  if (nextEl) nextEl.disabled = normalizedCurrent >= safePages;
+  if (resultsEl) resultsEl.textContent = `${safeTotal} result${safeTotal !== 1 ? 's' : ''}`;
 }
 
-function showLoadingInTable(tbodyId, type) {
+function showLoadingInTable(tbodyId, colSpan = 8) {
   const tbody = document.getElementById(tbodyId);
   if (tbody) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">⏳ Loading...</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;padding:20px;color:var(--muted)">Loading...</td></tr>`;
   }
 }
 
-function showErrorInTable(tbodyId, message) {
+function showErrorInTable(tbodyId, message, colSpan = 8) {
   const tbody = document.getElementById(tbodyId);
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#E74C3C">${message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;padding:20px;color:#E74C3C">${message}</td></tr>`;
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-// MODAL BACKDROP CLICK HANDLERS
-// ═══════════════════════════════════════════════════════════════
 
 document.addEventListener('click', function(event) {
   const statusModal = document.getElementById('logging-status-modal');
-  const fulfillmentModal = document.getElementById('logging-fulfillment-modal');
+  const servedModal = document.getElementById('logging-served-modal');
 
-  // Close status modal if clicking on backdrop
   if (statusModal && event.target.classList.contains('logging-modal-backdrop') && event.target.parentElement === statusModal) {
     closeLoggingStatusModal();
   }
 
-  // Close fulfillment modal if clicking on backdrop
-  if (fulfillmentModal && event.target.classList.contains('logging-modal-backdrop') && event.target.parentElement === fulfillmentModal) {
-    closeLoggingFulfillmentModal();
+  if (servedModal && event.target.classList.contains('logging-modal-backdrop') && event.target.parentElement === servedModal) {
+    closeLoggingServedModal();
   }
 });
-
 /**
  * REUSABLE MODAL SYSTEM
  * Functions for success and delete confirmation modals
  * Used across the entire system for consistency
  */
 
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // SUCCESS MODAL FUNCTIONS
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 let sysSuccessCallback = null;
 
@@ -6493,9 +6564,9 @@ function closeSysSuccessModal() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // DELETE CONFIRMATION MODAL FUNCTIONS
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 let sysDeleteAction = null;
 
@@ -6550,9 +6621,9 @@ function sysConfirmDeleteAction() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // HELPER: Show toast notification (alternative to modal)
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 function showToast(message, type = 'info', duration = 3000) {
     // Create toast container if it doesn't exist
@@ -6636,9 +6707,9 @@ if (!document.getElementById('toast-styles')) {
     document.head.appendChild(style);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 // ENHANCED AUTO-REFRESH WITH CHANGE DETECTION (SILENT UPDATES)
-// ═══════════════════════════════════════════════════════════════
+// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
 let autoRefreshIntervals = {};
 let dataSnapshots = {
@@ -6733,7 +6804,7 @@ function initializeAutoRefresh() {
   loadBloodBank();
   reqFetchAll();
   loggingStatusRender()
-  loggingFulfillmentRender()
+  loggingServedRender()
 
   // Small delay to ensure initial data is loaded
   setTimeout(() => {
@@ -6811,7 +6882,7 @@ async function checkLoggingUpdates() {
       if (loggingState.currentTab === 'status-logs') {
         loggingStatusRender();
       } else {
-        loggingFulfillmentRender();
+        loggingServedRender();
       }
     }
   } catch (err) {
@@ -6831,7 +6902,11 @@ function forceRefreshAll() {
   loadDashboard();
   loadBloodBank();
   reqFetchAll();
-  
+  loadSummary();
+  if (loggingState.currentTab === 'status-logs') {
+    loggingStatusRender();
+  } else {
+    loggingServedRender();
+  }
   console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }
-
