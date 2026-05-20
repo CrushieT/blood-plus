@@ -435,6 +435,32 @@ html { scroll-behavior: smooth; }
 
   .form-textarea { resize: none; height: 80px; line-height: 1.5; }
 
+  .form-helper-text {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .form-inline-error {
+    display: none;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--crimson);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .form-inline-error.show {
+    display: block;
+  }
+
+  .form-input.input-error {
+    border-color: var(--crimson);
+    box-shadow: 0 0 0 2px rgba(196, 30, 58, 0.1);
+    background: #fff;
+  }
+
   /* Radio group */
   .radio-group {
     display: flex;
@@ -1288,6 +1314,115 @@ html { scroll-behavior: smooth; }
   font-size: 12px;
   color: #C41E3A;
   margin-bottom: 12px;
+}
+
+/* BloodPlus modal */
+.bp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 25, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.bp-modal-overlay.show {
+  display: flex;
+}
+
+.bp-modal {
+  width: min(420px, 100%);
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.15);
+  padding: 20px;
+  position: relative;
+}
+
+.bp-modal-close {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+}
+
+.bp-modal-close:hover {
+  color: var(--charcoal);
+}
+
+.bp-modal-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.bp-modal-info {
+  background: rgba(44, 44, 44, 0.1);
+  color: var(--charcoal);
+}
+
+.bp-modal-success {
+  background: rgba(46, 125, 79, 0.15);
+  color: #2e7d4f;
+}
+
+.bp-modal-warning {
+  background: rgba(176, 106, 0, 0.16);
+  color: #8b5f00;
+}
+
+.bp-modal-error {
+  background: rgba(196, 30, 58, 0.14);
+  color: var(--crimson);
+}
+
+.bp-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--charcoal);
+  margin-bottom: 8px;
+}
+
+.bp-modal-message {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.bp-modal-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bp-modal-ok {
+  border: none;
+  background: var(--crimson);
+  color: #fff;
+  border-radius: 9px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bp-modal-ok:hover {
+  background: var(--crimson-dark);
 }
 
 /* Responsive */

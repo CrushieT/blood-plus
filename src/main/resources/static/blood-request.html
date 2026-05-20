@@ -325,14 +325,6 @@
             </select>
           </div>
           <div class="form-field">
-            <label class="form-label">Ward</label>
-            <input class="form-input" id="f-ward" placeholder="e.g. Ward A - Medical" />
-          </div>
-          <div class="form-field">
-            <label class="form-label">Room No.</label>
-            <input class="form-input" id="f-room" placeholder="e.g. 101, A-5" />
-          </div>
-          <div class="form-field">
             <label class="form-label">Purok</label>
             <input class="form-input" id="f-purok" placeholder="e.g. Purok 3" />
           </div>
@@ -351,6 +343,10 @@
           <div class="form-field">
             <label class="form-label">Requesting Physician <span>*</span></label>
             <input class="form-input" id="f-physician" placeholder="e.g. Dr. Reyes" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Room No.</label>
+            <input class="form-input" id="f-room" placeholder="e.g. 101, A-5" />
           </div>
         </div>
 
@@ -1177,6 +1173,12 @@
               <label class="form-label">Contact Number <span>*</span></label>
               <input class="form-input" id="f-contact" placeholder="e.g. 09xxxxxxxxx" />
             </div>
+            <div class="form-field">
+              <label class="form-label">Staff Authorization Code <span>*</span></label>
+              <input class="form-input" id="f-staffUniqueCode" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off" oninput="handleStaffCodeInput()" />
+              <div class="form-helper-text">Enter the authorization code provided by hospital staff.</div>
+              <div class="form-inline-error" id="f-staffUniqueCode-error"></div>
+            </div>
           </div>
           <input id="f-email" type="hidden" />
         </div>
@@ -1328,6 +1330,18 @@
   <div class="footer-text">Copyright 2026 CNPH Blood Bank - Camarines Norte Provincial Hospital</div>
   <div class="footer-text">Open 24/7 - Blood Bank Window - Ground Floor</div>
 </footer>
+
+<div class="bp-modal-overlay" id="bloodplus-modal-overlay" aria-hidden="true">
+  <div class="bp-modal" role="dialog" aria-modal="true" aria-labelledby="bloodplus-modal-title" aria-describedby="bloodplus-modal-message">
+    <button type="button" class="bp-modal-close" onclick="closeBloodPlusModal()" aria-label="Close">x</button>
+    <div class="bp-modal-icon bp-modal-info" id="bloodplus-modal-icon">i</div>
+    <div class="bp-modal-title" id="bloodplus-modal-title">Notice</div>
+    <div class="bp-modal-message" id="bloodplus-modal-message">Message</div>
+    <div class="bp-modal-actions">
+      <button type="button" class="bp-modal-ok" onclick="closeBloodPlusModal()">OK</button>
+    </div>
+  </div>
+</div>
 
 <script src="js/blood_request.js"></script>
 </body>
