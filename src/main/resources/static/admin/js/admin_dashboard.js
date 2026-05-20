@@ -1,6 +1,6 @@
-// ═══════════════════════════════════════════════════════════════════════════════
+﻿// -------------------------------------------------------------------------------
 // INIT
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 async function initializeNav() {
   try {
     const res = await fetch('/api/auth/me', {
@@ -19,7 +19,7 @@ async function initializeNav() {
     if (staffNavItem) {
       if (user.role === 'ADMIN') {
         staffNavItem.style.display = 'flex';
-        staffLoadAll();  // ↑ Only load staff data if admin
+        staffLoadAll();  // ? Only load staff data if admin
       } else {
         staffNavItem.style.display = 'none';
       }
@@ -32,12 +32,12 @@ async function initializeNav() {
 // Update your DOMContentLoaded to call this
 document.addEventListener('DOMContentLoaded', () => {
   initializeNav();
-  initializeAutoRefresh();  // ↑ This replaces the loadBloodBank() and loadDashboard() calls
+  initializeAutoRefresh();  // ? This replaces the loadBloodBank() and loadDashboard() calls
   initStaffPanel();
   initializeLoggingPanel();
 });
 
-// ── Panel navigation ──────────────────────────────────────────────────────────
+// -- Panel navigation ----------------------------------------------------------
 function showPanel(id, navEl) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
@@ -48,7 +48,7 @@ function showPanel(id, navEl) {
 }
 
 
-// ── Modal helpers ──────────────────────────────────────────────────────────────
+// -- Modal helpers --------------------------------------------------------------
 function openModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.add('show');
@@ -57,6 +57,94 @@ function openModal(id) {
 function closeModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.remove('show');
+}
+
+let bloodPlusConfirmCallback = null;
+
+function getBloodPlusModalTypeConfig(type) {
+  const typeMap = {
+    success: { icon: 'OK', label: 'Success', className: 'bp-type-success' },
+    warning: { icon: '!', label: 'Warning', className: 'bp-type-warning' },
+    error:   { icon: 'X', label: 'Error', className: 'bp-type-error' },
+    info:    { icon: 'i', label: 'Info', className: 'bp-type-info' }
+  };
+  return typeMap[type] || typeMap.info;
+}
+
+function hideBloodPlusModal() {
+  closeModal('bloodPlusActionModal');
+  bloodPlusConfirmCallback = null;
+
+  const confirmBtn = document.getElementById('bp-modal-confirm');
+  if (confirmBtn) {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirm';
+  }
+}
+
+function showBloodPlusMessage(title, message, type = 'info') {
+  const config = getBloodPlusModalTypeConfig(type);
+  const iconEl = document.getElementById('bp-modal-icon');
+  const typeEl = document.getElementById('bp-modal-type');
+  const titleEl = document.getElementById('bp-modal-title');
+  const messageEl = document.getElementById('bp-modal-message');
+  const cancelBtn = document.getElementById('bp-modal-cancel');
+  const confirmBtn = document.getElementById('bp-modal-confirm');
+  const okBtn = document.getElementById('bp-modal-ok');
+
+  if (iconEl) {
+    iconEl.className = `bp-modal-icon ${config.className}`;
+    iconEl.textContent = config.icon;
+  }
+  if (typeEl) typeEl.textContent = config.label;
+  if (titleEl) titleEl.textContent = title || 'Notice';
+  if (messageEl) messageEl.textContent = message || '';
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  if (confirmBtn) confirmBtn.style.display = 'none';
+  if (okBtn) okBtn.style.display = 'inline-flex';
+
+  bloodPlusConfirmCallback = null;
+  openModal('bloodPlusActionModal');
+}
+
+function showBloodPlusConfirm(title, message, onConfirm, type = 'warning') {
+  const config = getBloodPlusModalTypeConfig(type);
+  const iconEl = document.getElementById('bp-modal-icon');
+  const typeEl = document.getElementById('bp-modal-type');
+  const titleEl = document.getElementById('bp-modal-title');
+  const messageEl = document.getElementById('bp-modal-message');
+  const cancelBtn = document.getElementById('bp-modal-cancel');
+  const confirmBtn = document.getElementById('bp-modal-confirm');
+  const okBtn = document.getElementById('bp-modal-ok');
+
+  if (iconEl) {
+    iconEl.className = `bp-modal-icon ${config.className}`;
+    iconEl.textContent = config.icon;
+  }
+  if (typeEl) typeEl.textContent = config.label;
+  if (titleEl) titleEl.textContent = title || 'Confirm Action';
+  if (messageEl) messageEl.textContent = message || '';
+  if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+  if (confirmBtn) {
+    confirmBtn.style.display = 'inline-flex';
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirm';
+  }
+  if (okBtn) okBtn.style.display = 'none';
+
+  bloodPlusConfirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
+  openModal('bloodPlusActionModal');
+}
+
+async function runBloodPlusConfirm() {
+  if (!bloodPlusConfirmCallback) {
+    hideBloodPlusModal();
+    return;
+  }
+
+  const confirmFn = bloodPlusConfirmCallback;
+  hideBloodPlusModal();
+  await Promise.resolve(confirmFn());
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -74,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// ── Logout ─────────────────────────────────────────────────────────────────────
+// -- Logout ---------------------------------------------------------------------
 function handleLogout() {
   openModal('logoutModal');
 }
@@ -95,9 +183,9 @@ async function logout() {
 }
 
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 // ADMIN DASHBOARD - FRONTEND (UPDATED)
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 
 async function loadDashboard() {
   try {
@@ -110,7 +198,7 @@ async function loadDashboard() {
       const data = await dashRes.json();
       renderDashboardStats(data);
       renderBloodBankQuickView(data.bloodBankSummary);
-      renderRecentActivities(data.recentActivities);  // ↑ ADD THIS LINE
+      renderRecentActivities(data.recentActivities);  // ? ADD THIS LINE
     }
  
     if (reqRes.ok) {
@@ -154,8 +242,8 @@ function renderBloodBankQuickView(countByType) {
 
   const ORDER = ['O_NEG','O_POS','A_POS','A_NEG','B_POS','B_NEG','AB_POS','AB_NEG'];
   const LABELS = {
-    O_NEG:'O−', O_POS:'O+', A_POS:'A+', A_NEG:'A−',
-    B_POS:'B+', B_NEG:'B−', AB_POS:'AB+', AB_NEG:'AB−'
+    O_NEG:'O-', O_POS:'O+', A_POS:'A+', A_NEG:'A-',
+    B_POS:'B+', B_NEG:'B-', AB_POS:'AB+', AB_NEG:'AB-'
   };
 
   const max = Math.max(...ORDER.map(t => countByType[t] ?? 0), 1);
@@ -265,11 +353,29 @@ function renderPendingRequestsQuickView(requests) {
     return;
   }
 
-  const urgencyColor = { CRITICAL:'var(--crimson)', HIGH:'var(--amber)', MEDIUM:'var(--blue)', LOW:'var(--green)' };
+  const urgencyColor = {
+    CRITICAL:'var(--crimson)',
+    HIGH:'var(--amber)',
+    MEDIUM:'var(--blue)',
+    LOW:'var(--green)'
+  };
+
+  // Blood type formatter
+  function formatBloodType(type) {
+    if (!type) return '–';
+
+    return type
+      .replace('_POS', ' Pos')
+      .replace('_NEG', ' Neg')
+      .replace(/_/g, ' ');
+  }
 
   container.innerHTML = pending.map(r => {
     const name    = r.hospitalProfile?.hospitalName ?? r.requesterName ?? '–';
-    const blood   = r.bloodType ?? '–';
+
+    // UPDATED
+    const blood   = formatBloodType(r.bloodType);
+
     const units   = r.numberOfUnits ?? 1;
     const urgency = r.urgencyLevel ?? 'LOW';
     const color   = urgencyColor[urgency] || 'var(--muted)';
@@ -277,11 +383,20 @@ function renderPendingRequestsQuickView(requests) {
     return `
       <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
         <div style="width:4px;height:36px;background:${color};border-radius:2px;flex-shrink:0"></div>
+
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:1px">${units} unit${units > 1 ? 's' : ''} · ${urgency[0] + urgency.slice(1).toLowerCase()} urgency</div>
+          <div style="font-size:13px;font-weight:600;color:var(--charcoal)">
+            ${name}
+          </div>
+
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">
+            ${units} unit${units > 1 ? 's' : ''} · ${urgency[0] + urgency.slice(1).toLowerCase()} urgency
+          </div>
         </div>
-        <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--crimson)">${blood}</span>
+
+        <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--crimson)">
+          ${blood}
+        </span>
       </div>`;
   }).join('');
 }
@@ -354,9 +469,9 @@ function getRelativeTime(timestamp) {
  * Navigation helper for "View all" link
  */
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 // BLOOD BANK
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 
 let BLOOD_BAGS      = [];
 let INVENTORY       = [];
@@ -389,10 +504,10 @@ async function loadInventory() {
                    'B_POS_POSITIVE','B_NEG_NEGATIVE','AB_POS_POSITIVE','AB_NEG_NEGATIVE'];
 
     const INVENTORY_LABEL = {
-      'O_NEG_NEGATIVE':  'O−',  'O_POS_POSITIVE':  'O+',
-      'A_POS_POSITIVE':  'A+',  'A_NEG_NEGATIVE':  'A−',
-      'B_POS_POSITIVE':  'B+',  'B_NEG_NEGATIVE':  'B−',
-      'AB_POS_POSITIVE': 'AB+', 'AB_NEG_NEGATIVE': 'AB−',
+      'O_NEG_NEGATIVE':  'O-',  'O_POS_POSITIVE':  'O+',
+      'A_POS_POSITIVE':  'A+',  'A_NEG_NEGATIVE':  'A-',
+      'B_POS_POSITIVE':  'B+',  'B_NEG_NEGATIVE':  'B-',
+      'AB_POS_POSITIVE': 'AB+', 'AB_NEG_NEGATIVE': 'AB-',
     };
 
     INVENTORY = ORDER.map(key => {
@@ -449,7 +564,7 @@ async function loadBloodBags() {
   }
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// -- Helpers --------------------------------------------------------------------
 function getInventoryLevel(units) {
   if (units === 0)  return 'EMPTY';
   if (units <= 5)   return 'CRITICAL';
@@ -473,12 +588,12 @@ function componentLabel(ct) {
 }
 
 function sourceLabel(bag) {
-  if (bag.eventName) return '🩸 ' + bag.eventName;
+  if (bag.eventName) return '?? ' + bag.eventName;
   const map = {
-    DONATION:        '🩸 Blood Drive',
-    WALK_IN:         '🚶 Walk-in Donor',
-    TRANSFER:        '🔄 BMC Transfer',
-    EXTERNAL_SUPPLY: '📦 External Supply',
+    DONATION:        '?? Blood Drive',
+    WALK_IN:         '?? Walk-in Donor',
+    TRANSFER:        '?? BMC Transfer',
+    EXTERNAL_SUPPLY: '?? External Supply',
   };
   return map[bag.source] ?? bag.source ?? '–';
 }
@@ -504,7 +619,7 @@ function formatBagDate(d) {
   });
 }
 
-// ── Tab Switcher ───────────────────────────────────────────────────────────────
+// -- Tab Switcher ---------------------------------------------------------------
 function switchBBTab(tab, btn) {
   ['inventory','bags','analytics'].forEach(t => {
     document.getElementById('bb-tab-' + t).style.display = t === tab ? 'block' : 'none';
@@ -513,19 +628,22 @@ function switchBBTab(tab, btn) {
   if (btn) btn.classList.add('active');
   if (tab === 'bags')      renderBagsTable();
   if (tab === 'inventory') renderInventoryGrid();
+  if (tab === 'analytics' && window.AnalyticsDashboard && typeof window.AnalyticsDashboard.renderWhenVisible === 'function') {
+    window.AnalyticsDashboard.renderWhenVisible();
+  }
 }
 
-// ── Inventory Grid ─────────────────────────────────────────────────────────────
+// -- Inventory Grid -------------------------------------------------------------
 function renderInventoryGrid(apiData) {
   const grid = document.getElementById('inv-grid');
   if (!grid) return;
 
   const levelMap = {
-    EMPTY:    { label:'✕ Empty',    cls:'level-critical' },
-    CRITICAL: { label:'⚠ Critical', cls:'level-critical' },
-    LOW:      { label:'↓ Low',      cls:'level-low' },
-    GOOD:     { label:'✓ Good',     cls:'level-ok' },
-    HIGH:     { label:'↑ High',     cls:'level-high' },
+    EMPTY:    { label:'? Empty',    cls:'level-critical' },
+    CRITICAL: { label:'? Critical', cls:'level-critical' },
+    LOW:      { label:'? Low',      cls:'level-low' },
+    GOOD:     { label:'? Good',     cls:'level-ok' },
+    HIGH:     { label:'? High',     cls:'level-high' },
   };
 
   const barColorMap = {
@@ -573,7 +691,7 @@ function renderInventoryGrid(apiData) {
       alert.style.cssText = `background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
         border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;
         color:var(--crimson);display:flex;gap:10px;align-items:center`;
-      alert.innerHTML = `<span style="font-size:16px">⚠</span>
+      alert.innerHTML = `<span style="font-size:16px">?</span>
         <span><strong>${openCount} open system bag${openCount > 1 ? 's' : ''}</strong>
         converted from Whole Blood – expires in 24 hours. Prioritize immediately.</span>`;
       grid.parentElement.insertBefore(alert, grid);
@@ -606,7 +724,7 @@ function renderInventoryGrid(apiData) {
     'Updated: ' + new Date().toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' });
 }
 
-// ── Bags Table ─────────────────────────────────────────────────────────────────
+// -- Bags Table -----------------------------------------------------------------
 function renderBagsTable() {
   const q      = (document.getElementById('bags-search')?.value       || '').toLowerCase();
   const bt     = document.getElementById('bags-filter-bt')?.value     || 'ALL';
@@ -722,22 +840,22 @@ function renderBagsPage() {
     if (bag.computedStatus === 'EXPIRED') {
       expiryPill = `<span class="expiry-pill expiry-expired">Expired</span>`;
     } else if (bag.openSystem) {
-      expiryPill = `<span class="expiry-pill expiry-critical">⚠ ${daysLeft < 1 ? '<1' : daysLeft}d (open)</span>`;
+      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft < 1 ? '<1' : daysLeft}d (open)</span>`;
     } else if (exp <= twoDays) {
-      expiryPill = `<span class="expiry-pill expiry-critical">⚠ ${daysLeft}d left</span>`;
+      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft}d left</span>`;
     } else if (exp <= soon) {
-      expiryPill = `<span class="expiry-pill expiry-soon">⚠ ${daysLeft}d left</span>`;
+      expiryPill = `<span class="expiry-pill expiry-soon">? ${daysLeft}d left</span>`;
     } else {
       expiryPill = `<span class="expiry-pill expiry-ok">${daysLeft}d left</span>`;
     }
 
     const statusBadgeMap = {
-      AVAILABLE:    `<span class="bag-status bag-status-available">● Available</span>`,
-      EXPIRING:     `<span class="bag-status bag-status-expiring">⚠ Expiring</span>`,
-      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">🔒 Reserved for patient </span>`,
-      DISPENSED:    `<span class="bag-status bag-status-dispensed">↗ Dispensed</span>`,
-      EXPIRED:      `<span class="bag-status bag-status-expired">✕ Expired</span>`,
-      DISCARDED:    `<span class="bag-status bag-status-discarded">✕ Discarded</span>`,
+      AVAILABLE:    `<span class="bag-status bag-status-available">? Available</span>`,
+      EXPIRING:     `<span class="bag-status bag-status-expiring">? Expiring</span>`,
+      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">?? Reserved for patient </span>`,
+      DISPENSED:    `<span class="bag-status bag-status-dispensed">? Dispensed</span>`,
+      EXPIRED:      `<span class="bag-status bag-status-expired">? Expired</span>`,
+      DISCARDED:    `<span class="bag-status bag-status-discarded">? Discarded</span>`,
     };
     const statusBadge = statusBadgeMap[bag.computedStatus] || '';
 
@@ -753,7 +871,7 @@ function renderBagsPage() {
       if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
         actions += `
           <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
-            onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">↗ PRBC</button>`;
+            onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
       }
     }
 
@@ -810,19 +928,19 @@ function bagsNextPage() {
   }
 }
 
-// ── Bag Detail Modal ───────────────────────────────────────────────────────────
+// -- Bag Detail Modal -----------------------------------------------------------
 function openBagDetail(id) {
   const bag = BLOOD_BAGS.find(b => b.id === id);
   if (!bag) return;
   const cs = computeBagStatus(bag);
 
   const statusBadgeMap = {
-    AVAILABLE:    `<span class="bag-status bag-status-available"  style="font-size:13px;padding:5px 14px">● Available</span>`,
-    EXPIRING:     `<span class="bag-status bag-status-expiring"   style="font-size:13px;padding:5px 14px">⚠ Expiring Soon</span>`,
-    CROSSMATCHED: `<span class="bag-status bag-status-crossmatched" style="font-size:13px;padding:5px 14px">🔒 Crossmatched</span>`,
-    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">↗ Dispensed</span>`,
-    EXPIRED:      `<span class="bag-status bag-status-expired"    style="font-size:13px;padding:5px 14px">✕ Expired</span>`,
-    DISCARDED:    `<span class="bag-status bag-status-discarded"  style="font-size:13px;padding:5px 14px">✕ Discarded</span>`,
+    AVAILABLE:    `<span class="bag-status bag-status-available"  style="font-size:13px;padding:5px 14px">? Available</span>`,
+    EXPIRING:     `<span class="bag-status bag-status-expiring"   style="font-size:13px;padding:5px 14px">? Expiring Soon</span>`,
+    CROSSMATCHED: `<span class="bag-status bag-status-crossmatched" style="font-size:13px;padding:5px 14px">?? Crossmatched</span>`,
+    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">? Dispensed</span>`,
+    EXPIRED:      `<span class="bag-status bag-status-expired"    style="font-size:13px;padding:5px 14px">? Expired</span>`,
+    DISCARDED:    `<span class="bag-status bag-status-discarded"  style="font-size:13px;padding:5px 14px">? Discarded</span>`,
   };
 
   document.getElementById('bagd-id').textContent        = bag.serialNumber;
@@ -841,7 +959,7 @@ function openBagDetail(id) {
   const openWarn = document.getElementById('bagd-open-system-warn');
   if (bag.openSystem) {
     openWarn.style.display = 'block';
-    openWarn.innerHTML = `<span>⚠</span>
+    openWarn.innerHTML = `<span>?</span>
       <span>Converted to Open System PRBC on ${formatBagDate(bag.openSystemAt)}. Expires 24hrs after conversion.</span>`;
   } else {
     openWarn.style.display = 'none';
@@ -869,7 +987,7 @@ function openBagDetail(id) {
     const convertBtn = bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem
       ? `<button class="btn-secondary" style="flex:1;justify-content:center;padding:11px"
            onclick="closeModal('bagDetailModal');confirmOpenSystem(${bag.id},'${bag.serialNumber}')">
-           ↗ Convert to PRBC</button>`
+           ? Convert to PRBC</button>`
       : '';
     actionsEl.innerHTML = `
       ${convertBtn}
@@ -887,11 +1005,11 @@ function openBagDetail(id) {
   openModal('bagDetailModal');
 }
 
-// ── Open System Conversion ─────────────────────────────────────────────────────
+// -- Open System Conversion -----------------------------------------------------
 async function confirmOpenSystem(id, bagLabel) {
   const confirmed = confirm(
     `Convert bag ${bagLabel} from Whole Blood to PRBC (Open System)?\n\n` +
-    `⚠ This is irreversible. The expiry will reset to 24 hours from now.\n` +
+    `? This is irreversible. The expiry will reset to 24 hours from now.\n` +
     `Only proceed if the patient is stable and IV line is patent.`
   );
   if (!confirmed) return;
@@ -922,7 +1040,7 @@ async function confirmOpenSystem(id, bagLabel) {
   }
 }
 
-// ── Discard ────────────────────────────────────────────────────────────────────
+// -- Discard --------------------------------------------------------------------
 function openDiscardModal(id, bagLabel) {
   document.getElementById('discard-bag-id').textContent       = bagLabel || id;
   document.getElementById('discard-bag-target-id').value      = id;
@@ -972,7 +1090,7 @@ async function confirmDiscard() {
   }
 }
 
-// ── Add Stock Modal ────────────────────────────────────────────────────────────
+// -- Add Stock Modal ------------------------------------------------------------
 const ADD_STOCK_EXPIRY_DAYS = {
   WHOLE_BLOOD: 42,
   PRBC: 42,
@@ -1341,11 +1459,13 @@ function applyAddStockDefaultsToEmptyRows() {
 }
 
 function applyAddStockDefaultsToAllRows() {
-  const confirmed = confirm('Apply defaults to all rows? This will overwrite row values except serial numbers.');
-  if (!confirmed) return;
-
   const defaults = getAddStockDefaults();
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+
+  if (!rows.length) {
+    showBloodPlusMessage('No Rows Found', 'Please add at least one blood bag row before applying defaults.', 'warning');
+    return;
+  }
 
   rows.forEach(row => {
     row.querySelector('.add-stock-blood-group').value = defaults.bloodGroup;
@@ -1357,6 +1477,7 @@ function applyAddStockDefaultsToAllRows() {
   });
 
   updateAddStockValidCount();
+  showBloodPlusMessage('Defaults Applied', 'Defaults applied to all rows.', 'success');
 }
 
 function clearEmptyAddStockRows() {
@@ -1376,7 +1497,7 @@ async function submitAddBloodStock() {
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
 
   if (!rows.length) {
-    alert('Please add at least one blood bag row.');
+    showBloodPlusMessage('No Rows Added', 'Please add at least one blood bag row.', 'warning');
     return;
   }
 
@@ -1388,13 +1509,13 @@ async function submitAddBloodStock() {
   const nonEmptyRows = allRows.filter(item => !isAddStockRowEmpty(item.data));
 
   if (!nonEmptyRows.length) {
-    alert('Please fill in at least one blood bag row.');
+    showBloodPlusMessage('No Filled Rows', 'Please fill in at least one blood bag row.', 'warning');
     return;
   }
 
   const incomplete = nonEmptyRows.find(item => !isAddStockRowComplete(item.data));
   if (incomplete) {
-    alert('Please complete all partially filled rows before submitting.');
+    showBloodPlusMessage('Incomplete Row', 'Please complete all partially filled rows before submitting.', 'warning');
     return;
   }
 
@@ -1402,135 +1523,105 @@ async function submitAddBloodStock() {
   const duplicateSerial = serials.find((serial, index) => serials.indexOf(serial) !== index);
 
   if (duplicateSerial) {
-    alert('Duplicate serial number found: ' + duplicateSerial);
+    showBloodPlusMessage('Duplicate Serial', 'Duplicate serial number found: ' + duplicateSerial, 'error');
     return;
   }
 
-  const confirmed = confirm(`Receive ${nonEmptyRows.length} blood bag(s) under transaction ${transactionNumber || 'N/A'}?`);
-  if (!confirmed) return;
+  showBloodPlusConfirm(
+    'Receive Blood Bags',
+    `Receive ${nonEmptyRows.length} blood bag(s) under transaction ${transactionNumber || 'N/A'}?`,
+    async () => {
+      try {
+        for (const item of nonEmptyRows) {
+          const data = item.data;
 
-  try {
-    for (const item of nonEmptyRows) {
-      const data = item.data;
+          const res = await fetch('/api/admin/blood-bank/intake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              serialNumber: data.serialNumber,
+              transactionNumber: transactionNumber || null,
+              aboType: data.aboType,
+              rhType: data.rhType,
+              componentType: data.componentType,
+              volumeMl: parseInt(data.volumeMl, 10),
+              collectedAt: data.collectedAt + 'T00:00:00',
+              expiresAt: data.expiresAt + 'T00:00:00',
+              remarks: data.remarks || null,
+              source: 'TRANSFER',
+            })
+          });
 
-      const res = await fetch('/api/admin/blood-bank/intake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          serialNumber: data.serialNumber,
-          transactionNumber: transactionNumber || null,
-          aboType: data.aboType,
-          rhType: data.rhType,
-          componentType: data.componentType,
-          volumeMl: parseInt(data.volumeMl, 10),
-          collectedAt: data.collectedAt + 'T00:00:00',
-          expiresAt: data.expiresAt + 'T00:00:00',
-          remarks: data.remarks || null,
-          source: 'TRANSFER',
-        })
-      });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showBloodPlusMessage('Failed to Add Bag', err.message || `Failed to add bag ${data.serialNumber}.`, 'error');
+            return;
+          }
+        }
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.message || `Failed to add bag ${data.serialNumber}.`);
-        return;
+        closeModal('addBloodModal');
+        await loadBloodBank();
+        showBloodPlusMessage('Batch Received', `${nonEmptyRows.length} blood bag(s) received successfully.`, 'success');
+      } catch (err) {
+        console.error('Add stock batch error:', err);
+        showBloodPlusMessage('Network Error', 'Network error. Please try again.', 'error');
       }
-    }
-
-    closeModal('addBloodModal');
-    await loadBloodBank();
-  } catch (err) {
-    console.error('Add stock batch error:', err);
-    alert('Network error. Please try again.');
-  }
+    },
+    'info'
+  );
 }
 
-// ── Add Stock Keyboard Navigation ─────────────────────────────────────────────
+// -- Add Stock Keyboard Navigation ------------------------------------------------
 document.addEventListener('keydown', function (e) {
-
   const active = document.activeElement;
-
-  if (
-    !active ||
-    !active.closest('#add-stock-rows')
-  ) return;
+  if (!active || !active.closest('#add-stock-rows')) return;
 
   const row = active.closest('tr');
   if (!row) return;
 
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
   const currentRowIndex = rows.indexOf(row);
-
-  const inputs = [
-    ...row.querySelectorAll('input, select')
-  ];
-
+  const inputs = [...row.querySelectorAll('input, select')];
   const currentColIndex = inputs.indexOf(active);
 
   if (currentColIndex === -1) return;
 
   let target = null;
 
-  // ← LEFT
-  if (e.key === 'ArrowLeft') {
-    e.preventDefault();
-
-    if (currentColIndex > 0) {
-      target = inputs[currentColIndex - 1];
-    }
-  }
-
-  // → RIGHT
-  else if (e.key === 'ArrowRight') {
-    e.preventDefault();
-
+  if (e.key === 'ArrowRight') {
     if (currentColIndex < inputs.length - 1) {
       target = inputs[currentColIndex + 1];
     }
-  }
-
-  // ↑ UP
-  else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-
-    if (currentRowIndex > 0) {
-      const prevRow = rows[currentRowIndex - 1];
-      const prevInputs = [
-        ...prevRow.querySelectorAll('input, select')
-      ];
-
-      target = prevInputs[currentColIndex];
+  } else if (e.key === 'ArrowLeft') {
+    if (currentColIndex > 0) {
+      target = inputs[currentColIndex - 1];
+    }
+  } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+    const nextRow = rows[currentRowIndex + 1];
+    if (nextRow) {
+      const nextInputs = [...nextRow.querySelectorAll('input, select')];
+      target = nextInputs[currentColIndex] || nextInputs[0];
+    }
+  } else if (e.key === 'ArrowUp') {
+    const prevRow = rows[currentRowIndex - 1];
+    if (prevRow) {
+      const prevInputs = [...prevRow.querySelectorAll('input, select')];
+      target = prevInputs[currentColIndex] || prevInputs[0];
     }
   }
 
-  // ↓ DOWN
-  else if (e.key === 'ArrowDown') {
-    e.preventDefault();
+  if (!target) return;
 
-    if (currentRowIndex < rows.length - 1) {
-      const nextRow = rows[currentRowIndex + 1];
-      const nextInputs = [
-        ...nextRow.querySelectorAll('input, select')
-      ];
-
-      target = nextInputs[currentColIndex];
-    }
+  e.preventDefault();
+  target.focus();
+  if (target.select) {
+    setTimeout(() => target.select(), 0);
   }
+});
 
-  if (target) {
-    target.focus();
-
-    // highlight text for easier replacement
-    if (target.select) {
-      setTimeout(() => target.select(), 0);
-    }
-  }
-}); 
-
-// ── Sync Helper: Invalidate Blood Request Bag Cache ──────
+// -- Sync Helper: Invalidate Blood Request Bag Cache -----------------------------
 function invalidateBagCache() {
-  // Call the blood request bag cache invalidation function if it exists
   if (typeof reqInvalidateBagCache === 'function') {
     reqInvalidateBagCache();
   }
@@ -1547,16 +1638,39 @@ const AnalyticsDashboard = {
   data: null,
   isLoading: false,
   lastUpdate: null,
+  resizeBound: false,
+  chartAnimations: {},
+  activeChartFilters: {
+    status: null,
+    component: null
+  },
+  activeUrgencyFilters: new Set(),
+  activeCategoryFilters: new Set(),
+  hoveredUrgencyLabel: null,
 
   init: function() {
     this.loadMetrics();
-    setInterval(() => {
-      this.loadMetrics();
-    }, this.apiConfig.refreshInterval);
+    this.bindResize();
+    if (!this._refreshTimer) {
+      this._refreshTimer = setInterval(() => {
+        this.loadMetrics();
+      }, this.apiConfig.refreshInterval);
+    }
+  },
+
+  bindResize: function() {
+    if (this.resizeBound) return;
+    this.resizeBound = true;
+
+    window.addEventListener('resize', () => {
+      clearTimeout(this._resizeTimer);
+      this._resizeTimer = setTimeout(() => {
+        this.renderWhenVisible();
+      }, 140);
+    });
   },
 
   loadMetrics: function() {
-    const self = this;
     if (this.isLoading) return;
     this.isLoading = true;
 
@@ -1568,115 +1682,359 @@ const AnalyticsDashboard = {
         return response.json();
       })
       .then(data => {
-        self.data = data;
-        self.lastUpdate = new Date();
-        self.render();
-        self.isLoading = false;
+        this.data = data;
+        this.lastUpdate = new Date();
+        this.render();
+        this.isLoading = false;
       })
       .catch(error => {
         console.error('Error fetching analytics data:', error);
-        self.isLoading = false;
-        self.showErrorState();
+        this.isLoading = false;
+        this.showErrorState();
       });
   },
 
   render: function() {
-    if (!this.data) return;
+    const hasData = this.data && Object.keys(this.data).length > 0;
+    this.toggleEmptyState(hasData);
+    if (!hasData) return;
 
-    this.renderRequestStatus();
-    this.renderUrgency();
-    this.renderCategory();
-    this.renderBloodTypes();
+    this.renderMetricCards();
+    this.syncChartMetrics();
     this.renderDispatch();
     this.renderAlerts();
     this.renderRequesterType();
-    this.renderBloodComponents();
     this.renderHospitals();
     this.renderFulfillmentMetrics();
+    this.renderWhenVisible();
+  },
+
+  toggleEmptyState: function(hasData) {
+    const emptyEl = document.getElementById('analytics-empty-state');
+    const contentEl = document.getElementById('analytics-content');
+    if (emptyEl) emptyEl.style.display = hasData ? 'none' : 'block';
+    if (contentEl) contentEl.style.display = hasData ? 'block' : 'none';
+  },
+
+  isAnalyticsTabVisible: function() {
+    const tab = document.getElementById('bb-tab-analytics');
+    if (!tab) return false;
+    if (tab.style.display === 'none') return false;
+
+    const rect = tab.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  },
+
+  getChartCanvasHeight: function(canvasId) {
+    const heightMap = {
+      analyticsUrgencyChart: 150
+    };
+    return heightMap[canvasId] || 170;
+  },
+
+  resizeAnalyticsCanvases: function() {
+    const canvasIds = ['analyticsUrgencyChart'];
+    const dpr = window.devicePixelRatio || 1;
+    let readyCount = 0;
+
+    canvasIds.forEach((canvasId) => {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+
+      const parent = canvas.parentElement;
+      const parentWidth = Math.floor(parent ? parent.getBoundingClientRect().width : canvas.getBoundingClientRect().width);
+      const cssWidth = Math.max(0, parentWidth);
+      const cssHeight = this.getChartCanvasHeight(canvasId);
+
+      if (cssWidth <= 0 || cssHeight <= 0) return;
+
+      canvas.style.width = '100%';
+      canvas.style.height = `${cssHeight}px`;
+
+      const targetWidth = Math.floor(cssWidth * dpr);
+      const targetHeight = Math.floor(cssHeight * dpr);
+      if (targetWidth <= 0 || targetHeight <= 0) return;
+
+      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
+      readyCount += 1;
+    });
+
+    return readyCount > 0;
+  },
+
+  renderWhenVisible: function () {
+    const tab = document.getElementById('bb-tab-analytics');
+    if (!tab || tab.style.display === 'none') return;
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        this.renderCharts();
+      }, 80);
+    });
+  },
+
+  toNumber: function(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  },
+
+  setMetric: function(metricKey, value) {
+    const el = document.querySelector(`[data-metric="${metricKey}"]`);
+    if (el) el.textContent = value;
+  },
+
+  readByCandidates: function(obj, candidates) {
+    if (!obj) return 0;
+    for (const key of candidates) {
+      if (obj[key] !== undefined && obj[key] !== null) {
+        return this.toNumber(obj[key]);
+      }
+    }
+    return 0;
+  },
+
+  clamp: function(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  },
+
+  renderMetricCards: function() {
+    const requests = this.data.requests || {};
+    const statuses = ['pending', 'approved', 'allocated', 'released', 'rejected', 'cancelled'];
+
+    statuses.forEach(status => {
+      const value = this.toNumber(requests[status]);
+      this.setMetric(`request-${status}`, value);
+
+      const card = document.querySelector(`[data-status-card="${status}"]`);
+      if (card) {
+        const accent = (status === 'pending' || status === 'rejected') && value > 0;
+        card.classList.toggle('is-accent', accent);
+      }
+    });
+  },
+
+  getStatusItems: function() {
+    const requests = this.data.requests || {};
+    return [
+      { label: 'Pending', value: this.toNumber(requests.pending), emphasis: true },
+      { label: 'Approved', value: this.toNumber(requests.approved) },
+      { label: 'Allocated', value: this.toNumber(requests.allocated) },
+      { label: 'Released', value: this.toNumber(requests.released), emphasis: true },
+      { label: 'Rejected', value: this.toNumber(requests.rejected) },
+      { label: 'Cancelled', value: this.toNumber(requests.cancelled) }
+    ];
+  },
+
+  getUrgencyItems: function() {
+    const urgency = this.data.urgency || {};
+    return [
+      { label: 'Critical', value: this.toNumber(urgency.CRITICAL), metricKey: 'urgency-critical', tone: 'accent', color: 'rgba(196, 30, 58, 0.92)' },
+      { label: 'High', value: this.toNumber(urgency.HIGH), metricKey: 'urgency-high', tone: 'strong', color: 'rgba(43, 46, 52, 0.92)' },
+      { label: 'Medium', value: this.toNumber(urgency.MEDIUM), metricKey: 'urgency-medium', tone: 'muted', color: 'rgba(121, 127, 136, 0.88)' },
+      { label: 'Low', value: this.toNumber(urgency.LOW), metricKey: 'urgency-low', tone: 'soft', color: 'rgba(187, 191, 198, 0.9)' }
+    ];
+  },
+
+  getCategoryItems: function() {
+    const category = this.data.category || {};
+    return [
+      { label: 'Inpatient', value: this.toNumber(category.INPATIENT), metricKey: 'category-inpatient', tone: 'strong', color: 'rgba(43, 46, 52, 0.92)' },
+      { label: 'Outpatient', value: this.toNumber(category.OUTPATIENT), metricKey: 'category-outpatient', tone: 'accent', color: 'rgba(196, 30, 58, 0.88)' }
+    ];
+  },
+
+  getComponentItems: function() {
+    const source = this.data.bloodComponent || {};
+    return [
+      { label: 'WB', fullLabel: 'Whole Blood', value: this.toNumber(source.WHOLE_BLOOD), metricKey: 'component-whole-blood', tone: 'accent', color: 'rgba(196, 30, 58, 0.9)' },
+      { label: 'PRBC', fullLabel: 'Packed Red Blood Cells', value: this.toNumber(source.PRBC), metricKey: 'component-prbc', tone: 'strong', color: 'rgba(43, 46, 52, 0.92)' },
+      { label: 'L-PRBC', fullLabel: 'Leukoreduced PRBC', value: this.toNumber(source.LEUKOREDUCED_PRBC), metricKey: 'component-leukoreduced-prbc', tone: 'muted', color: 'rgba(112, 118, 126, 0.9)' },
+      { label: 'A-PRBC', fullLabel: 'Aliquoted PRBC', value: this.toNumber(source.ALIQUOTED_PRBC), metricKey: 'component-aliquoted-prbc', tone: 'soft', color: 'rgba(171, 176, 184, 0.9)' },
+      { label: 'FFP', fullLabel: 'Fresh Frozen Plasma', value: this.toNumber(source.FRESH_FROZEN_PLASMA), metricKey: 'component-ffp', tone: 'muted', color: 'rgba(121, 127, 136, 0.88)' },
+      { label: 'PLT', fullLabel: 'Platelet Concentrate', value: this.toNumber(source.PLATELET_CONCENTRATE), metricKey: 'component-platelet-concentrate', tone: 'strong', color: 'rgba(74, 79, 88, 0.9)' },
+      { label: 'CRYO', fullLabel: 'Cryoprecipitate', value: this.toNumber(source.CRYOPRECIPITATE), metricKey: 'component-cryoprecipitate', tone: 'muted', color: 'rgba(134, 139, 147, 0.9)' },
+      { label: 'CRYOSUP', fullLabel: 'Cryosupernatant', value: this.toNumber(source.CRYOSUPERNATANT), metricKey: 'component-cryosupernatant', tone: 'soft', color: 'rgba(187, 191, 198, 0.9)' }
+    ];
+  },
+
+  syncChartMetrics: function() {
+    const urgencyItems = this.getUrgencyItems();
+    const categoryItems = this.getCategoryItems();
+    const componentItems = this.getComponentItems();
+
+    const setMetricsWithPct = (items) => {
+      const total = items.reduce((sum, item) => sum + this.toNumber(item.value), 0);
+      items.forEach((item) => {
+        if (!item.metricKey) return;
+        this.setMetric(item.metricKey, this.toNumber(item.value));
+        this.setMetric(`${item.metricKey}-pct`, total > 0 ? `${Math.round((item.value / total) * 100)}%` : '0%');
+      });
+    };
+
+    setMetricsWithPct(urgencyItems);
+    setMetricsWithPct(categoryItems);
+    setMetricsWithPct(componentItems);
+    this.setMetric('category-emergency', 0);
+    this.setMetric('category-hospital', 0);
+    this.setMetric('category-emergency-pct', '0%');
+    this.setMetric('category-hospital-pct', '0%');
+
+    const componentTotal = componentItems.reduce((sum, item) => sum + this.toNumber(item.value), 0);
+    const redCells = this.toNumber(componentItems[1].value) + this.toNumber(componentItems[2].value) + this.toNumber(componentItems[3].value);
+    const plasma = this.toNumber(componentItems[4].value);
+    const platelets = this.toNumber(componentItems[5].value);
+
+    this.setMetric('component-red-cells', redCells);
+    this.setMetric('component-plasma', plasma);
+    this.setMetric('component-platelets', platelets);
+    this.setMetric('component-red-cells-pct', componentTotal > 0 ? `${Math.round((redCells / componentTotal) * 100)}%` : '0%');
+    this.setMetric('component-plasma-pct', componentTotal > 0 ? `${Math.round((plasma / componentTotal) * 100)}%` : '0%');
+    this.setMetric('component-platelets-pct', componentTotal > 0 ? `${Math.round((platelets / componentTotal) * 100)}%` : '0%');
+  },
+
+  renderMiniBars: function(containerId, items, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const rows = (items || []).map(item => ({
+      label: item.label || '',
+      value: this.toNumber(item.value),
+      metricKey: item.metricKey || null,
+      pctMetricKey: item.pctMetricKey || null,
+      tone: item.tone || 'muted',
+      showPercent: item.showPercent !== false
+    }));
+
+    if (!rows.length) {
+      container.innerHTML = '<div class="an-empty-row">No data available.</div>';
+      return;
+    }
+
+    const maxValue = Math.max(...rows.map(row => row.value), 1);
+    const total = rows.reduce((sum, row) => sum + row.value, 0);
+
+    container.innerHTML = rows.map(row => {
+      const width = this.clamp((row.value / maxValue) * 100, 0, 100);
+      const pct = total > 0 ? Math.round((row.value / total) * 100) : 0;
+      const valueAttr = row.metricKey ? ` data-metric="${row.metricKey}"` : '';
+      const pctAttr = row.pctMetricKey ? ` data-metric="${row.pctMetricKey}"` : '';
+      const pctNode = row.showPercent ? `<em${pctAttr}>${pct}%</em>` : '';
+
+      return `
+        <div class="an-mini-stat">
+          <div class="an-mini-stat-top">
+            <span class="an-mini-label">${this.escapeHtml(row.label)}</span>
+            <span class="an-mini-values">
+              <strong${valueAttr}>${row.value}</strong>
+              ${pctNode}
+            </span>
+          </div>
+          <div class="an-mini-track"><div class="an-mini-fill tone-${row.tone}" data-fill-target="${width.toFixed(2)}"></div></div>
+        </div>`;
+    }).join('');
+
+    this.animateFillElements(container);
+  },
+
+  animateFillElements: function(root) {
+    const fills = root.querySelectorAll('[data-fill-target]');
+    fills.forEach(fill => {
+      fill.style.width = '0%';
+      const target = this.clamp(this.toNumber(fill.getAttribute('data-fill-target')), 0, 100);
+      requestAnimationFrame(() => {
+        fill.style.width = `${target}%`;
+      });
+    });
+  },
+
+  renderProgressMetric: function(metricKey, value, options = {}) {
+    const numeric = this.toNumber(value);
+    const decimals = Number.isInteger(options.decimals) ? options.decimals : 1;
+    const suffix = options.suffix || '';
+    const text = options.formatter
+      ? options.formatter(numeric)
+      : `${numeric.toFixed(decimals)}${suffix}`;
+
+    this.setMetric(metricKey, text);
+
+    if (options.barKey) {
+      const bar = document.querySelector(`[data-metric-bar="${options.barKey}"]`);
+      if (bar) {
+        const width = this.clamp(numeric, 0, 100);
+        bar.style.width = '0%';
+        requestAnimationFrame(() => {
+          bar.style.width = `${width}%`;
+        });
+      }
+    }
   },
 
   renderRequestStatus: function() {
-    const statuses = ['pending', 'approved', 'allocated', 'released', 'rejected'];
-    statuses.forEach(status => {
-      const el = document.querySelector(`[data-metric="request-${status}"]`);
-      if (el && this.data.requests) {
-        el.textContent = this.data.requests[status] || 0;
-      }
-    });
+    // Request status values are rendered in top summary cards.
+    return;
   },
 
   renderUrgency: function() {
-    if (!this.data.urgency) return;
-
-    const total = Object.values(this.data.urgency).reduce((a, b) => a + b, 0);
-
-    Object.entries(this.data.urgency).forEach(([level, count]) => {
-      const el = document.querySelector(`[data-metric="urgency-${level.toLowerCase()}"]`);
-      if (el) el.textContent = count;
-      
-      const barEl = document.querySelector(`[data-urgency="${level}"]`);
-      if (barEl) {
-        const percentage = total > 0 ? (count / total) * 100 : 0;
-        barEl.style.width = percentage + '%';
-        barEl.setAttribute('data-width', percentage.toFixed(1));
+    this.renderInteractiveDonutChart(
+      'analyticsUrgencyChart',
+      'analytics-urgency-legend',
+      this.getUrgencyItems(),
+      {
+        unitLabel: 'requests',
+        filterSet: this.activeUrgencyFilters,
+        hoverStateKey: 'hoveredUrgencyLabel'
       }
-    });
+    );
   },
 
   renderCategory: function() {
-    if (!this.data.category) return;
-
-    const total = Object.values(this.data.category).reduce((a, b) => a + b, 0);
-
-    Object.entries(this.data.category).forEach(([cat, count]) => {
-      const el = document.querySelector(`[data-metric="category-${cat.toLowerCase()}"]`);
-      if (el) el.textContent = count;
-      
-      const barEl = document.querySelector(`[data-category="${cat}"]`);
-      if (barEl) {
-        const percentage = total > 0 ? (count / total) * 100 : 0;
-        barEl.style.width = percentage + '%';
-      }
+    this.renderInteractiveBarChart('analytics-category-chart', this.getCategoryItems(), {
+      chartKey: 'category',
+      orientation: 'horizontal',
+      unitLabel: 'requests',
+      showPercent: true,
+      scaleByTotal: true,
+      selectionSet: this.activeCategoryFilters
     });
   },
 
   renderBloodTypes: function() {
-    // Use local INVENTORY data instead of API (INVENTORY is populated by loadInventory)
+    const bloodTypes = this.data.bloodTypes || {};
     const inventoryMap = {
-      'O_POS_POSITIVE':  'o-pos',
-      'O_NEG_NEGATIVE':  'o-neg',
-      'A_POS_POSITIVE':  'a-pos',
-      'A_NEG_NEGATIVE':  'a-neg',
-      'B_POS_POSITIVE':  'b-pos',
-      'B_NEG_NEGATIVE':  'b-neg',
-      'AB_POS_POSITIVE': 'ab-pos',
-      'AB_NEG_NEGATIVE': 'ab-neg'
+      'o-neg': ['O_NEG', 'O_NEG_NEGATIVE', 'O_NEGATIVE', 'O-'],
+      'o-pos': ['O_POS', 'O_POS_POSITIVE', 'O_POSITIVE', 'O+'],
+      'a-neg': ['A_NEG', 'A_NEG_NEGATIVE', 'A_NEGATIVE', 'A-'],
+      'a-pos': ['A_POS', 'A_POS_POSITIVE', 'A_POSITIVE', 'A+'],
+      'b-neg': ['B_NEG', 'B_NEG_NEGATIVE', 'B_NEGATIVE', 'B-'],
+      'b-pos': ['B_POS', 'B_POS_POSITIVE', 'B_POSITIVE', 'B+'],
+      'ab-neg': ['AB_NEG', 'AB_NEG_NEGATIVE', 'AB_NEGATIVE', 'AB-'],
+      'ab-pos': ['AB_POS', 'AB_POS_POSITIVE', 'AB_POSITIVE', 'AB+']
     };
- 
-    Object.entries(inventoryMap).forEach(([inventoryKey, domKey]) => {
-      // Find matching inventory item
-      const invItem = INVENTORY.find(item => item.key === inventoryKey);
-      const count = invItem ? invItem.units : 0;
-      
-      const el = document.querySelector(`[data-metric="blood-${domKey}"]`);
-      if (el) {
-        el.textContent = count;
-      }
- 
-      let status = 'Healthy';
-      let statusColor = 'var(--green)';
-      
+
+    Object.entries(inventoryMap).forEach(([domKey, candidates]) => {
+      const count = this.readByCandidates(bloodTypes, candidates);
+      this.setMetric(`blood-${domKey}`, count);
+
+      let status = 'Available';
+      let statusColor = 'var(--muted)';
+
       if (count === 0) {
-        status = 'Empty';
+        status = 'No stock';
         statusColor = 'var(--crimson)';
       } else if (count < 5) {
-        status = 'Critical';
+        status = 'Low stock';
         statusColor = 'var(--crimson)';
-      } else if (count < 10) {
-        status = 'Low Stock';
-        statusColor = 'var(--amber)';
       }
- 
+
       const statusEl = document.querySelector(`[data-status="blood-${domKey}-status"]`);
       if (statusEl) {
         statusEl.textContent = status;
@@ -1688,157 +2046,546 @@ const AnalyticsDashboard = {
   renderDispatch: function() {
     if (!this.data.dispatch) return;
 
-    const dispatchTypes = ['USED', 'DISCARDED', 'TRANSFERRED'];
-    dispatchTypes.forEach(type => {
-      const el = document.querySelector(`[data-metric="dispatch-${type.toLowerCase()}"]`);
-      if (el) el.textContent = this.data.dispatch[type] || 0;
+    ['USED', 'DISCARDED', 'TRANSFERRED'].forEach(type => {
+      this.setMetric(`dispatch-${type.toLowerCase()}`, this.toNumber(this.data.dispatch[type]));
     });
   },
 
   renderAlerts: function() {
     if (!this.data.alerts) return;
 
-    const alertEl1 = document.querySelector('[data-metric="alert-expiring-soon"]');
-    if (alertEl1) alertEl1.textContent = this.data.alerts.expiringSoon || 0;
-
-    const alertEl2 = document.querySelector('[data-metric="alert-expired"]');
-    if (alertEl2) alertEl2.textContent = this.data.alerts.expired || 0;
-
-    const alertEl3 = document.querySelector('[data-metric="alert-quality-issues"]');
-    if (alertEl3) alertEl3.textContent = this.data.alerts.qualityIssues || 0;
+    this.setMetric('alert-expiring-soon', this.toNumber(this.data.alerts.expiringSoon));
+    this.setMetric('alert-expired', this.toNumber(this.data.alerts.expired));
+    this.setMetric('alert-quality-issues', this.toNumber(this.data.alerts.qualityIssues));
   },
 
   renderRequesterType: function() {
     if (!this.data.requesterType) return;
 
-    const hospital = this.data.requesterType.HOSPITAL || 0;
-    const anonymous = this.data.requesterType.ANONYMOUS || 0;
-    const total = hospital + anonymous;
+    const requester = this.data.requesterType;
+    const hospital = this.toNumber(requester.HOSPITAL);
+    const other = requester.ANONYMOUS !== undefined
+      ? this.toNumber(requester.ANONYMOUS)
+      : Object.entries(requester)
+          .filter(([key]) => key !== 'HOSPITAL')
+          .reduce((sum, [, value]) => sum + this.toNumber(value), 0);
 
-    const hospitalEl = document.querySelector('[data-metric="requester-hospital"]');
-    if (hospitalEl) hospitalEl.textContent = hospital;
-
-    const anonymousEl = document.querySelector('[data-metric="requester-anonymous"]');
-    if (anonymousEl) anonymousEl.textContent = anonymous;
-    
-    if (total > 0) {
-      const hospitalPctEl = document.querySelector('[data-metric="requester-hospital-pct"]');
-      if (hospitalPctEl) {
-        hospitalPctEl.textContent = Math.round((hospital / total) * 100) + '%';
+    this.renderMiniBars('analytics-requester-list', [
+      {
+        label: 'Outpatient',
+        value: hospital,
+        metricKey: 'requester-hospital',
+        pctMetricKey: 'requester-hospital-pct',
+        tone: 'critical'
+      },
+      {
+        label: 'Inpatient',
+        value: other,
+        metricKey: 'requester-anonymous',
+        pctMetricKey: 'requester-anonymous-pct',
+        tone: 'muted'
       }
-
-      const anonymousPctEl = document.querySelector('[data-metric="requester-anonymous-pct"]');
-      if (anonymousPctEl) {
-        anonymousPctEl.textContent = Math.round((anonymous / total) * 100) + '%';
-      }
-    }
+    ]);
   },
 
   renderBloodComponents: function() {
-    if (!this.data.bloodComponent) return;
-
-    const components = {
-      'whole-blood': this.data.bloodComponent.WHOLE_BLOOD || 0,
-      'prbc': this.data.bloodComponent.PRBC || 0,
-      'leukoreduced-prbc': this.data.bloodComponent.LEUKOREDUCED_PRBC || 0,
-      'aliquoted-prbc': this.data.bloodComponent.ALIQUOTED_PRBC || 0,
-      'ffp': this.data.bloodComponent.FRESH_FROZEN_PLASMA || 0,
-      'platelet-concentrate': this.data.bloodComponent.PLATELET_CONCENTRATE || 0,
-      'cryoprecipitate': this.data.bloodComponent.CRYOPRECIPITATE || 0,
-      'cryosupernatant': this.data.bloodComponent.CRYOSUPERNATANT || 0
-    };
-
-    const total = Object.values(components).reduce((a, b) => a + b, 0);
-
-    Object.entries(components).forEach(([key, count]) => {
-      const valueEl = document.querySelector(`[data-metric="component-${key}"]`);
-
-      if (valueEl) {
-        valueEl.textContent = count;
-      }
-
-      const pctEl = document.querySelector(`[data-metric="component-${key}-pct"]`);
-
-      if (pctEl) {
-        const pct = total > 0
-          ? Math.round((count / total) * 100)
-          : 0;
-
-        pctEl.textContent = pct + '%';
-      }
+    this.renderInteractiveBarChart('analytics-component-chart', this.getComponentItems(), {
+      chartKey: 'component',
+      orientation: 'vertical',
+      unitLabel: 'requests',
+      showPercent: false
     });
   },
 
   renderHospitals: function() {
-    if (!this.data.hospitals || this.data.hospitals.length === 0) {
-      return;
-    }
-
     const container = document.getElementById('hospital-list');
     if (!container) return;
 
-    container.innerHTML = this.data.hospitals.map((hospital, idx) => {
-      const fulfillmentRate = hospital.requests > 0 
-        ? Math.round((hospital.fulfilled / hospital.requests) * 100) 
-        : 0;
-      
-      const statusColor = fulfillmentRate >= 90 
-        ? 'var(--green)' 
-        : fulfillmentRate >= 70 
-          ? 'var(--amber)' 
-          : 'var(--crimson)';
+    if (!this.data.hospitals || this.data.hospitals.length === 0) {
+      container.innerHTML = `
+        <div class="an-row an-empty-row">
+          No hospital analytics available.
+        </div>`;
+      return;
+    }
+
+    const hospitals = [...this.data.hospitals]
+      .sort((a, b) => this.toNumber(b.requests) - this.toNumber(a.requests))
+      .slice(0, 6);
+
+    container.innerHTML = hospitals.map(hospital => {
+      const requests = this.toNumber(hospital.requests);
+      const fulfilled = this.toNumber(hospital.fulfilled);
+      const rate = requests > 0 ? Math.round((fulfilled / requests) * 100) : 0;
 
       return `
-        <div style="background:var(--cream);border-radius:10px;padding:12px;border-left:4px solid ${statusColor}">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-            <div>
-              <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${this.escapeHtml(hospital.name)}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">${hospital.fulfilled}/${hospital.requests} served request</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:16px;font-weight:700;color:var(--charcoal)">${fulfillmentRate}%</div>
-            </div>
+        <div class="an-row">
+          <div class="an-row-top">
+            <span>${this.escapeHtml(hospital.name || 'Unknown Hospital')}</span>
+            <span>${rate}%</span>
           </div>
-          <div style="height:4px;background:var(--cream);border-radius:2px;overflow:hidden">
-            <div style="height:100%;background:linear-gradient(90deg, var(--green), #10b981);width:${fulfillmentRate}%"></div>
-          </div>
-        </div>
-      `;
+          <div class="an-row-sub">${fulfilled} / ${requests} fulfilled requests</div>
+          <div class="an-mini-bar"><div data-fill-target="${rate.toFixed(2)}"></div></div>
+        </div>`;
     }).join('');
+
+    this.animateFillElements(container);
   },
 
   renderFulfillmentMetrics: function() {
     if (!this.data.fulfillmentMetrics) return;
 
     const metrics = this.data.fulfillmentMetrics;
+    const rate = this.toNumber(metrics.rate);
+    const totalReleased = this.toNumber(metrics.totalReleased);
+    const avgDays = this.toNumber(metrics.avgDaysToRelease);
 
-    const rateEl = document.querySelector('[data-metric="fulfillment-rate"]');
-    if (rateEl) {
-      rateEl.textContent = metrics.rate.toFixed(1) + '%';
+    this.renderProgressMetric('fulfillment-rate', rate, {
+      barKey: 'fulfillment-rate',
+      suffix: '%',
+      decimals: 1
+    });
+
+    this.setMetric('total-released', totalReleased);
+    this.setMetric('avg-fulfillment-days', `${avgDays.toFixed(1)} days`);
+  },
+
+  // -- Chart Rendering ------------------------------------------------------------
+  renderCharts: function() {
+    if (!this.data) return;
+    if (!this.isAnalyticsTabVisible()) return;
+    this.resizeAnalyticsCanvases();
+    this.hideAnalyticsTooltip();
+
+    this.renderInteractiveBarChart('analytics-status-chart', this.getStatusItems(), {
+      chartKey: 'status',
+      orientation: 'vertical',
+      unitLabel: 'requests',
+      showPercent: false
+    });
+    this.renderUrgency();
+    this.renderCategory();
+    this.renderBloodComponents();
+  },
+
+  getPalette: function() {
+    return {
+      accent: 'rgba(196, 30, 58, 0.92)',
+      strong: 'rgba(43, 46, 52, 0.92)',
+      muted: 'rgba(86, 92, 102, 0.86)',
+      soft: 'rgba(123, 129, 139, 0.78)',
+      inactive: 'rgba(140, 145, 153, 0.36)',
+      track: 'rgba(25, 27, 32, 0.06)',
+      text: '#2d2d31'
+    };
+  },
+
+  prepareCanvas: function(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const cssWidth = Math.floor(rect.width || canvas.clientWidth || 0);
+    const cssHeight = Math.floor(rect.height || canvas.clientHeight || 0);
+    if (cssWidth <= 0 || cssHeight <= 0) return null;
+
+    const dpr = window.devicePixelRatio || 1;
+    const targetWidth = Math.floor(cssWidth * dpr);
+    const targetHeight = Math.floor(cssHeight * dpr);
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
     }
 
-    const barEl = document.querySelector('[data-metric-bar="fulfillment-rate"]');
-    if (barEl) {
-      barEl.style.width = metrics.rate + '%';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    return { canvas, ctx, cssWidth, cssHeight };
+  },
+
+  getChartItemColor: function(item, index, activeLabel, isHovered) {
+    const palette = this.getPalette();
+    if (activeLabel && activeLabel !== item.label) return palette.inactive;
+    if (activeLabel && activeLabel === item.label) return palette.accent;
+    if (isHovered) return 'rgba(75, 79, 88, 0.95)';
+    if (item.tone === 'accent' || item.emphasis) return palette.accent;
+    if (item.tone === 'soft') return palette.soft;
+    if (item.tone === 'muted') return palette.muted;
+    if (item.tone === 'strong') return palette.strong;
+    return index % 2 === 0 ? palette.strong : palette.muted;
+  },
+
+  renderInteractiveBarChart: function(containerId, items, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const chartKey = options.chartKey || containerId;
+    const orientation = options.orientation === 'vertical' ? 'vertical' : 'horizontal';
+    const showPercent = options.showPercent !== false;
+    const unitLabel = options.unitLabel || 'items';
+    const scaleByTotal = options.scaleByTotal === true;
+    const selectionSet = options.selectionSet || null;
+    const hasSelectionSet = selectionSet instanceof Set;
+    const activeLabel = hasSelectionSet ? null : (this.activeChartFilters[chartKey] || null);
+    const hasSelection = hasSelectionSet ? selectionSet.size > 0 : !!activeLabel;
+    const palette = this.getPalette();
+
+    const safeItems = (items || []).map((item, index) => ({
+      ...item,
+      value: this.toNumber(item.value),
+      label: item.label || `Item ${index + 1}`,
+      tooltipLabel: item.fullLabel || item.label || `Item ${index + 1}`
+    }));
+
+    if (!safeItems.length) {
+      container.innerHTML = '<div class="an-empty-row">No data available.</div>';
+      return;
     }
 
-    const releasedEl = document.querySelector('[data-metric="total-released"]');
-    if (releasedEl) {
-      releasedEl.textContent = metrics.totalReleased;
+    const total = safeItems.reduce((sum, item) => sum + item.value, 0);
+    const maxValue = Math.max(...safeItems.map(item => item.value), 1);
+    const scaleBase = scaleByTotal ? total : maxValue;
+
+    container.innerHTML = safeItems.map((item, index) => {
+      const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+      const relative = scaleBase > 0 ? this.clamp((item.value / scaleBase) * 100, 0, 100) : 0;
+      const isActive = hasSelection
+        ? (hasSelectionSet ? selectionSet.has(item.label) : activeLabel === item.label)
+        : false;
+      const isMuted = hasSelection
+        ? (hasSelectionSet ? !selectionSet.has(item.label) : activeLabel !== item.label)
+        : false;
+      const baseColor = item.color || this.getChartItemColor(item, index, null, false);
+      const color = isMuted ? palette.inactive : baseColor;
+
+      const metricAttr = item.metricKey ? ` data-metric="${item.metricKey}"` : '';
+      const pctAttr = item.metricKey ? ` data-metric="${item.metricKey}-pct"` : '';
+      const rowClass = [
+        'an-chart-item',
+        orientation === 'vertical' ? 'an-vbar-item' : 'an-hbar-item',
+        isActive ? 'is-active' : '',
+        isMuted ? 'is-muted' : ''
+      ].filter(Boolean).join(' ');
+
+      if (orientation === 'vertical') {
+        return `
+          <button type="button" class="${rowClass}"
+            data-chart-key="${chartKey}"
+            data-label="${this.escapeHtml(item.label)}"
+            data-tooltip-label="${this.escapeHtml(item.tooltipLabel)}"
+            data-value="${item.value}"
+            data-pct="${pct}">
+            <span class="an-vbar-value"${metricAttr}>${item.value}</span>
+            <span class="an-vbar-track"><span class="an-vbar-fill ${item.value > 0 ? 'has-value' : ''}" data-fill-target="${relative.toFixed(2)}" style="background:${color}"></span></span>
+            <span class="an-vbar-label">${this.escapeHtml(item.label)}</span>
+          </button>`;
+      }
+      console.log({ item, metricAttr, pctAttr, rowClass, color, relative });
+      return `
+        <button type="button" class="${rowClass}"
+          data-chart-key="${chartKey}"
+          data-label="${this.escapeHtml(item.label)}"
+          data-tooltip-label="${this.escapeHtml(item.tooltipLabel)}"
+          data-value="${item.value}"
+          data-pct="${pct}">
+          <span class="an-hbar-top">
+            <span class="an-hbar-label">${this.escapeHtml(item.label)}</span>
+            <span class="an-hbar-values">
+              <strong${metricAttr}>${item.value}</strong>
+              ${showPercent ? `<em${pctAttr}>${pct}%</em>` : ''}
+            </span>
+          </span>
+          <span class="an-hbar-track"><span class="an-hbar-fill ${item.value > 0 ? 'has-value' : ''}" data-fill-target="${relative.toFixed(2)}" style="background:${color}"></span></span>
+        </button>`;
+    }).join('');
+
+    const fills = container.querySelectorAll('[data-fill-target]');
+    fills.forEach(fill => {
+      if (orientation === 'vertical') {
+        fill.style.height = '0%';
+      } else {
+        fill.style.width = '0%';
+      }
+      const target = this.clamp(this.toNumber(fill.getAttribute('data-fill-target')), 0, 100);
+      requestAnimationFrame(() => {
+        if (orientation === 'vertical') {
+          fill.style.height = `${target}%`;
+        } else {
+          fill.style.width = `${target}%`;
+        }
+      });
+    });
+
+    const rows = container.querySelectorAll('.an-chart-item');
+    rows.forEach(row => {
+      const rowLabel = row.getAttribute('data-label') || '';
+      const tooltipLabel = row.getAttribute('data-tooltip-label') || rowLabel;
+      const value = this.toNumber(row.getAttribute('data-value'));
+      const pct = this.toNumber(row.getAttribute('data-pct'));
+      const tooltip = `<strong>${this.escapeHtml(tooltipLabel)}</strong><span>${value} ${unitLabel} (${pct}%)</span>`;
+
+      row.addEventListener('mouseenter', (event) => {
+        row.classList.add('is-hover');
+        this.showAnalyticsTooltip(event, tooltip);
+      });
+      row.addEventListener('mousemove', (event) => {
+        this.showAnalyticsTooltip(event, tooltip);
+      });
+      row.addEventListener('mouseleave', () => {
+        row.classList.remove('is-hover');
+        this.hideAnalyticsTooltip();
+      });
+      row.addEventListener('click', () => {
+        if (hasSelectionSet) {
+          if (selectionSet.has(rowLabel)) {
+            selectionSet.delete(rowLabel);
+          } else {
+            selectionSet.add(rowLabel);
+          }
+        } else {
+          const current = this.activeChartFilters[chartKey];
+          this.activeChartFilters[chartKey] = current === rowLabel ? null : rowLabel;
+        }
+        this.renderCharts();
+      });
+    });
+  },
+
+  renderInteractiveDonutChart: function(canvasId, legendId, items, options = {}) {
+    const prepared = this.prepareCanvas(canvasId);
+    const legend = document.getElementById(legendId);
+    if (!prepared || !legend) return;
+
+    const { canvas, ctx, cssWidth, cssHeight } = prepared;
+    const palette = this.getPalette();
+    const unitLabel = options.unitLabel || 'requests';
+    const filterSet = options.filterSet instanceof Set ? options.filterSet : new Set();
+    const hoverStateKey = options.hoverStateKey || 'hoveredUrgencyLabel';
+    const hoveredLabel = this[hoverStateKey] || null;
+    const hasSelection = filterSet.size > 0;
+    const safeItems = (items || []).map((item, index) => ({
+      ...item,
+      value: this.toNumber(item.value),
+      label: item.label || `Item ${index + 1}`
+    }));
+    const total = safeItems.reduce((sum, item) => sum + item.value, 0);
+
+    const cx = cssWidth / 2;
+    const cy = cssHeight / 2;
+    const outer = Math.min(cssWidth, cssHeight) * 0.43;
+    const inner = outer * 0.62;
+    const baseColors = [palette.accent, palette.strong, palette.muted, palette.soft];
+
+    let cursor = 0;
+    const segments = safeItems.map((item, index) => {
+      const angle = total > 0 ? (item.value / total) * Math.PI * 2 : 0;
+      const startRel = cursor;
+      const endRel = cursor + angle;
+      cursor = endRel;
+
+      const isActive = hasSelection ? filterSet.has(item.label) : false;
+      const isMuted = hasSelection ? !filterSet.has(item.label) : false;
+      const isHover = hoveredLabel === item.label;
+      const baseColor = item.color || baseColors[index % baseColors.length];
+      let color = isMuted ? palette.inactive : baseColor;
+      if (isHover && !isMuted) color = baseColor;
+
+      return {
+        ...item,
+        index,
+        pct: total > 0 ? Math.round((item.value / total) * 100) : 0,
+        startRel,
+        endRel,
+        baseColor,
+        color,
+        isActive,
+        isMuted,
+        isHover
+      };
+    });
+
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+    if (!total) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, outer, 0, Math.PI * 2);
+      ctx.arc(cx, cy, inner, Math.PI * 2, 0, true);
+      ctx.closePath();
+      ctx.fillStyle = palette.track;
+      ctx.fill();
+    } else {
+      segments.forEach(seg => {
+        const start = -Math.PI / 2 + seg.startRel;
+        const end = -Math.PI / 2 + seg.endRel;
+        const ringOuter = seg.isHover ? outer + 3 : outer;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, ringOuter, start, end);
+        ctx.arc(cx, cy, inner, end, start, true);
+        ctx.closePath();
+        ctx.fillStyle = seg.color;
+        ctx.fill();
+      });
     }
 
-    const daysEl = document.querySelector('[data-metric="avg-fulfillment-days"]');
-    if (daysEl) {
-      daysEl.textContent = metrics.avgDaysToRelease.toFixed(1) + ' days';
+    ctx.fillStyle = palette.text;
+    ctx.textAlign = 'center';
+    ctx.font = "700 20px 'Playfair Display', serif";
+    ctx.fillText(String(total), cx, cy + 3);
+    ctx.font = "11px 'DM Sans', sans-serif";
+    ctx.fillStyle = 'rgba(102, 107, 115, 0.95)';
+    ctx.fillText('Total', cx, cy + 19);
+
+    legend.innerHTML = segments.map(seg => {
+      const itemClass = [
+        'an-donut-legend-item',
+        seg.isActive ? 'is-active' : '',
+        seg.isMuted ? 'is-muted' : '',
+        seg.isHover ? 'is-hover' : ''
+      ].filter(Boolean).join(' ');
+      const metricAttr = seg.metricKey ? ` data-metric="${seg.metricKey}"` : '';
+      const pctAttr = seg.metricKey ? ` data-metric="${seg.metricKey}-pct"` : '';
+
+      return `
+        <button type="button" class="${itemClass}"
+          data-label="${this.escapeHtml(seg.label)}"
+          data-value="${seg.value}"
+          data-pct="${seg.pct}">
+          <span class="swatch" style="background:${seg.baseColor}"></span>
+          <span class="lbl">${this.escapeHtml(seg.label)}</span>
+          <span class="vals"><strong${metricAttr}>${seg.value}</strong><em${pctAttr}>${seg.pct}%</em></span>
+        </button>`;
+    }).join('');
+
+    const hitTest = (event) => {
+      if (!total) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < inner || dist > outer + 6) return null;
+
+      let relAngle = Math.atan2(dy, dx) + Math.PI / 2;
+      if (relAngle < 0) relAngle += Math.PI * 2;
+      if (relAngle > Math.PI * 2) relAngle -= Math.PI * 2;
+
+      return segments.find(seg => seg.value > 0 && relAngle >= seg.startRel && relAngle < seg.endRel) || null;
+    };
+
+    const refreshHover = (label) => {
+      if (this[hoverStateKey] === label) return;
+      this[hoverStateKey] = label;
+      this.renderInteractiveDonutChart(canvasId, legendId, items, options);
+    };
+
+    canvas.onmousemove = (event) => {
+      const hit = hitTest(event);
+      if (!hit) {
+        this.hideAnalyticsTooltip();
+        refreshHover(null);
+        return;
+      }
+
+      refreshHover(hit.label);
+      this.showAnalyticsTooltip(
+        event,
+        `<strong>${this.escapeHtml(hit.label)}</strong><span>${hit.value} ${unitLabel} (${hit.pct}%)</span>`
+      );
+    };
+
+    canvas.onmouseleave = () => {
+      this.hideAnalyticsTooltip();
+      refreshHover(null);
+    };
+
+    canvas.onclick = (event) => {
+      const hit = hitTest(event);
+      if (!hit) return;
+      if (filterSet.has(hit.label)) {
+        filterSet.delete(hit.label);
+      } else {
+        filterSet.add(hit.label);
+      }
+      this.renderCharts();
+    };
+
+    legend.querySelectorAll('.an-donut-legend-item').forEach((row) => {
+      const label = row.getAttribute('data-label') || '';
+      const value = this.toNumber(row.getAttribute('data-value'));
+      const pct = this.toNumber(row.getAttribute('data-pct'));
+
+      row.addEventListener('mouseenter', (event) => {
+        refreshHover(label);
+        this.showAnalyticsTooltip(
+          event,
+          `<strong>${this.escapeHtml(label)}</strong><span>${value} ${unitLabel} (${pct}%)</span>`
+        );
+      });
+      row.addEventListener('mousemove', (event) => {
+        this.showAnalyticsTooltip(
+          event,
+          `<strong>${this.escapeHtml(label)}</strong><span>${value} ${unitLabel} (${pct}%)</span>`
+        );
+      });
+      row.addEventListener('mouseleave', () => {
+        this.hideAnalyticsTooltip();
+        refreshHover(null);
+      });
+      row.addEventListener('click', () => {
+        if (filterSet.has(label)) {
+          filterSet.delete(label);
+        } else {
+          filterSet.add(label);
+        }
+        this.renderCharts();
+      });
+    });
+  },
+
+  showAnalyticsTooltip: function(event, content) {
+    const tooltip = document.getElementById('analytics-chart-tooltip');
+    if (!tooltip) return;
+    tooltip.innerHTML = content;
+    tooltip.style.display = 'block';
+    this.positionAnalyticsTooltip(event, tooltip);
+  },
+
+  positionAnalyticsTooltip: function(event, tooltip) {
+    const pad = 12;
+    const tooltipWidth = tooltip.offsetWidth || 160;
+    const tooltipHeight = tooltip.offsetHeight || 42;
+    let left = event.clientX + pad;
+    let top = event.clientY + pad;
+
+    if (left + tooltipWidth > window.innerWidth - 6) {
+      left = event.clientX - tooltipWidth - pad;
     }
+    if (top + tooltipHeight > window.innerHeight - 6) {
+      top = event.clientY - tooltipHeight - pad;
+    }
+
+    tooltip.style.left = `${Math.max(6, left)}px`;
+    tooltip.style.top = `${Math.max(6, top)}px`;
+  },
+
+  hideAnalyticsTooltip: function() {
+    const tooltip = document.getElementById('analytics-chart-tooltip');
+    if (!tooltip) return;
+    tooltip.style.display = 'none';
   },
 
   showErrorState: function() {
     const elements = document.querySelectorAll('[data-metric]');
     elements.forEach(el => {
-      el.textContent = 'Error';
-      el.style.color = 'var(--crimson)';
+      el.textContent = '-';
     });
+    this.toggleEmptyState(false);
   },
 
   escapeHtml: function(text) {
@@ -1854,9 +2601,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.AnalyticsDashboard = AnalyticsDashboard;
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 // PRINTING FUNCTIONS - PDF & EXCEL EXPORTS (UPDATED)
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 /**
  * Print Analytics Report (PDF) - Compact Professional Design
  */
@@ -1865,513 +2612,546 @@ window.AnalyticsDashboard = AnalyticsDashboard;
  * Reads directly from displayed metrics in analytics panel
  */
 window.printAnalytics = function() {
-  // Helper function to read metric values from DOM
-  const readMetric = (selector) => {
-    const el = document.querySelector(selector);
-    return el ? el.textContent.trim() : '–';
+  const analyticsTab = document.getElementById('bb-tab-analytics');
+  const analyticsContent = document.getElementById('analytics-content');
+  if (!analyticsTab || !analyticsContent) return;
+
+  const applyChartFillTargets = (root) => {
+    root.querySelectorAll('[data-fill-target]').forEach((fillEl) => {
+      const target = Number(fillEl.getAttribute('data-fill-target'));
+      const safeTarget = Number.isFinite(target) ? Math.max(0, Math.min(100, target)) : 0;
+      if (fillEl.classList.contains('an-vbar-fill')) {
+        fillEl.style.height = `${safeTarget}%`;
+        fillEl.style.width = '100%';
+      } else {
+        fillEl.style.width = `${safeTarget}%`;
+      }
+    });
   };
 
-  // Read all metrics from the displayed analytics panel
-  const metrics = {
-    // Request Status
-    pending: readMetric('[data-metric="request-pending"]'),
-    approved: readMetric('[data-metric="request-approved"]'),
-    allocated: readMetric('[data-metric="request-allocated"]'),
-    released: readMetric('[data-metric="request-released"]'),
-    rejected: readMetric('[data-metric="request-rejected"]'),
-    
-    // Urgency
-    critical: parseInt(readMetric('[data-metric="urgency-critical"]')) || 0,
-    high: parseInt(readMetric('[data-metric="urgency-high"]')) || 0,
-    medium: parseInt(readMetric('[data-metric="urgency-medium"]')) || 0,
-    low: parseInt(readMetric('[data-metric="urgency-low"]')) || 0,
-    
-    // Category
-    emergency: parseInt(readMetric('[data-metric="category-emergency"]')) || 0,
-    inpatient: parseInt(readMetric('[data-metric="category-inpatient"]')) || 0,
-    outpatient: parseInt(readMetric('[data-metric="category-outpatient"]')) || 0,
-    hospital: parseInt(readMetric('[data-metric="category-hospital"]')) || 0,
-    
-    // Blood Types
-    o_neg: readMetric('[data-metric="blood-o-neg"]'),
-    o_pos: readMetric('[data-metric="blood-o-pos"]'),
-    a_neg: readMetric('[data-metric="blood-a-neg"]'),
-    a_pos: readMetric('[data-metric="blood-a-pos"]'),
-    b_neg: readMetric('[data-metric="blood-b-neg"]'),
-    b_pos: readMetric('[data-metric="blood-b-pos"]'),
-    ab_neg: readMetric('[data-metric="blood-ab-neg"]'),
-    ab_pos: readMetric('[data-metric="blood-ab-pos"]'),
-    
-    // Dispatch
-    used: readMetric('[data-metric="dispatch-used"]'),
-    discarded: readMetric('[data-metric="dispatch-discarded"]'),
-    transferred: readMetric('[data-metric="dispatch-transferred"]'),
-    
-    // Alerts
-    expiringSoon: readMetric('[data-metric="alert-expiring-soon"]'),
-    expired: readMetric('[data-metric="alert-expired"]'),
-    qualityIssues: readMetric('[data-metric="alert-quality-issues"]'),
-    
-    // Fulfillment
-    fulfillmentRate: readMetric('[data-metric="fulfillment-rate"]'),
-    totalReleased: readMetric('[data-metric="total-released"]'),
-    avgDays: readMetric('[data-metric="avg-fulfillment-days"]'),
-    
-    // Requester Type
-    hospital: readMetric('[data-metric="requester-hospital"]'),
-    hospitalPct: readMetric('[data-metric="requester-hospital-pct"]'),
-    anonymous: readMetric('[data-metric="requester-anonymous"]'),
-    anonymousPct: readMetric('[data-metric="requester-anonymous-pct"]'),
-    
-    // Components
-    wholeBlood: readMetric('[data-metric="component-whole-blood"]'),
-    wholeBloodPct: readMetric('[data-metric="component-whole-blood-pct"]'),
-    redCells: readMetric('[data-metric="component-red-cells"]'),
-    redCellsPct: readMetric('[data-metric="component-red-cells-pct"]'),
-    plasma: readMetric('[data-metric="component-plasma"]'),
-    plasmaPct: readMetric('[data-metric="component-plasma-pct"]'),
-    platelets: readMetric('[data-metric="component-platelets"]'),
-    plateletsPct: readMetric('[data-metric="component-platelets-pct"]'),
-  };
-
-  // Helper to draw horizontal bar
-  function getBar(value, max) {
-    const maxVal = 10;
-    const percentage = Math.min((parseInt(value) || 0) / (max || maxVal), 1);
-    const filledWidth = Math.round(percentage * 40);
-    const emptyWidth = 40 - filledWidth;
-    return `<span style="display:inline-flex;gap:2px;align-items:center"><span style="background:#666;height:8px;width:${filledWidth}px;border-radius:2px"></span><span style="background:#e8e8e8;height:8px;width:${emptyWidth}px;border-radius:2px"></span></span>`;
+  if (window.AnalyticsDashboard && typeof window.AnalyticsDashboard.renderWhenVisible === 'function') {
+    window.AnalyticsDashboard.renderWhenVisible();
   }
+  if (window.AnalyticsDashboard && typeof window.AnalyticsDashboard.renderCharts === 'function') {
+    window.AnalyticsDashboard.renderCharts();
+  }
+  applyChartFillTargets(analyticsTab);
 
-  const totalUrgency = metrics.critical + metrics.high + metrics.medium + metrics.low;
-  const totalCategory = metrics.emergency + metrics.inpatient + metrics.outpatient + metrics.hospital;
+  const hasVisibleData = window.getComputedStyle(analyticsContent).display !== 'none';
+  const sourceRoot = hasVisibleData
+    ? analyticsContent.cloneNode(true)
+    : document.getElementById('analytics-empty-state')?.cloneNode(true);
+  if (!sourceRoot) return;
+  sourceRoot.id = hasVisibleData ? 'analytics-content-print' : 'analytics-empty-state-print';
+  applyChartFillTargets(sourceRoot);
+
+  sourceRoot.querySelectorAll('button').forEach((btn) => {
+    const replacement = document.createElement('div');
+    replacement.className = btn.className;
+    replacement.innerHTML = btn.innerHTML;
+    Array.from(btn.attributes).forEach((attr) => {
+      if (attr.name !== 'class') replacement.setAttribute(attr.name, attr.value);
+    });
+    btn.replaceWith(replacement);
+  });
+
+  const originalCanvases = analyticsTab.querySelectorAll('canvas');
+  const clonedCanvases = sourceRoot.querySelectorAll('canvas');
+  clonedCanvases.forEach((clonedCanvas, index) => {
+    const original = originalCanvases[index];
+    if (!original) return;
+
+    const img = document.createElement('img');
+    img.src = original.toDataURL('image/png');
+    img.alt = original.getAttribute('aria-label') || 'Analytics chart';
+    img.className = original.className;
+    img.style.width = '100%';
+    img.style.height = `${original.clientHeight || 150}px`;
+    img.style.display = 'block';
+    img.style.objectFit = 'contain';
+    clonedCanvas.replaceWith(img);
+  });
+
+  const generatedAt = new Date().toLocaleString('en-PH', {
+    year: 'numeric',
+    month: 'long',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const styleNodes = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+    .map((node) => {
+      if (node.tagName === 'LINK') {
+        const href = node.href || node.getAttribute('href') || '';
+        return `<link rel="stylesheet" href="${href}">`;
+      }
+      return node.outerHTML;
+    })
+    .join('\n');
 
   const html = `
+    <!doctype html>
     <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Blood Bank Analytics Report</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          font-size: 10pt;
-          line-height: 1.35;
-          color: #1a1a1a;
-          background: white;
-          padding: 16px 20px;
-        }
-        
-        .header {
-          margin-bottom: 12px;
-          border-bottom: 2px solid #333;
-          padding-bottom: 6px;
-        }
-        
-        h1 { font-size: 16pt; font-weight: 700; margin: 0; }
-        .subtitle { font-size: 8pt; color: #666; margin-top: 2px; }
-        
-        h2 { 
-          font-size: 9pt; 
-          font-weight: 700; 
-          margin: 10px 0 6px 0;
-          color: #000;
-        }
-        
-        .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 6px 0; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 6px 0; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0; }
-        
-        .metric-box { 
-          border: 1px solid #ddd; 
-          padding: 8px 6px; 
-          text-align: center; 
-          background: #fafafa;
-          border-left: 4px solid #999;
-        }
-        
-        .metric-box.pending { border-left-color: #d4a574; background: #fefaf5; }
-        .metric-box.approved { border-left-color: #27ae60; background: #f0fdf4; }
-        .metric-box.allocated { border-left-color: #0066cc; background: #f0f8ff; }
-        .metric-box.released { border-left-color: #8b5cf6; background: #faf5ff; }
-        .metric-box.rejected { border-left-color: #c41e3a; background: #fef5f5; }
-        
-        .metric-val { font-size: 14pt; font-weight: 700; color: #000; margin: 3px 0; }
-        .metric-label { font-size: 7pt; color: #666; text-transform: uppercase; font-weight: 600; }
-        
-        .mini-table { width: 100%; font-size: 8.5pt; border-collapse: collapse; margin: 4px 0; }
-        .mini-table th, .mini-table td { padding: 4px 5px; border: 1px solid #e0e0e0; text-align: left; }
-        .mini-table th { background: #f5f5f5; font-weight: 700; }
-        .mini-table td { font-size: 8.5pt; }
-        .mini-table .num { text-align: right; }
-        
-        .urgency-row {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-          padding: 4px 0;
-          border-bottom: 1px solid #eee;
-          font-size: 8.5pt;
-        }
-        
-        .urgency-row:last-child { border-bottom: none; }
-        .urgency-label { width: 50px; font-weight: 600; text-transform: uppercase; }
-        .urgency-bar { flex: 1; }
-        .urgency-count { width: 20px; text-align: right; font-weight: 700; }
-        
-        .stat-line { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 8.5pt; }
-        .stat-line:last-child { border-bottom: none; }
-        
-        .col { padding: 0; }
-        
-        .footer { font-size: 7pt; color: #999; margin-top: 8px; text-align: right; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Blood Bank Analytics</h1>
-        <div class="subtitle">Generated ${new Date().toLocaleString()}</div>
-      </div>
-      
-      <!-- REQUEST STATUS -->
-      <h2>Request Status Overview</h2>
-      <div class="grid-5">
-        <div class="metric-box pending">
-          <div class="metric-label">Pending</div>
-          <div class="metric-val">${metrics.pending}</div>
-          <div style="font-size:7pt;color:#666">Awaiting review</div>
-        </div>
-        <div class="metric-box approved">
-          <div class="metric-label">Approved</div>
-          <div class="metric-val">${metrics.approved}</div>
-          <div style="font-size:7pt;color:#666">Ready to allocate</div>
-        </div>
-        <div class="metric-box allocated">
-          <div class="metric-label">Allocated</div>
-          <div class="metric-val">${metrics.allocated}</div>
-          <div style="font-size:7pt;color:#666">Bags assigned</div>
-        </div>
-        <div class="metric-box released">
-          <div class="metric-label">Released</div>
-          <div class="metric-val">${metrics.released}</div>
-          <div style="font-size:7pt;color:#666">Delivered</div>
-        </div>
-        <div class="metric-box rejected">
-          <div class="metric-label">Rejected</div>
-          <div class="metric-val">${metrics.rejected}</div>
-          <div style="font-size:7pt;color:#666">Not approved</div>
-        </div>
-      </div>
-      
-      <!-- URGENCY & CATEGORY -->
-      <div class="grid-2">
-        <div class="col">
-          <h2>Requests by Urgency</h2>
-          <div class="urgency-row">
-            <div class="urgency-label">CRITICAL</div>
-            <div class="urgency-bar">${getBar(metrics.critical, totalUrgency)}</div>
-            <div class="urgency-count">${metrics.critical}</div>
+      <head>
+        <meta charset="UTF-8">
+        <title>Blood Bank Analytics Report</title>
+        ${styleNodes}
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 10mm;
+          }
+
+          * {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          body {
+            margin: 0;
+            background: #fff;
+            color: var(--charcoal, #1A1A1A);
+            font-family: 'DM Sans', sans-serif;
+          }
+
+          .analytics-print-shell {
+            padding: 10px;
+          }
+
+          .analytics-print-head {
+            border: 1px solid var(--border, #E8DDD5);
+            border-left: 4px solid var(--crimson, #C41E3A);
+            border-radius: 12px;
+            background: #fff;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+          }
+
+          .analytics-print-title {
+            margin: 0;
+            font-family: 'Playfair Display', serif;
+            color: var(--crimson, #C41E3A);
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.1;
+          }
+
+          .analytics-print-sub {
+            margin-top: 4px;
+            color: var(--muted, #7A7A7A);
+            font-size: 12px;
+          }
+
+          .analytics-print-meta {
+            margin-top: 4px;
+            color: var(--muted, #7A7A7A);
+            font-size: 11px;
+          }
+
+          #analytics-content-print {
+            display: block !important;
+          }
+
+          #analytics-content-print .an-layout,
+          #analytics-content-print .an-metric-grid {
+            gap: 10px !important;
+          }
+
+          #analytics-content-print .an-card,
+          #analytics-content-print .an-summary-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            background: #fff !important;
+          }
+
+          #analytics-content-print .analytics-chart-tooltip,
+          #analytics-content-print .no-print {
+            display: none !important;
+          }
+
+          @media print {
+            body {
+              background: #fff;
+            }
+
+            .no-print {
+              display: none !important;
+            }
+
+            #analytics-content-print .an-card,
+            #analytics-content-print .an-summary-card {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="analytics-print-shell">
+          <div class="analytics-print-head">
+            <h1 class="analytics-print-title">BloodPlus - Blood Bank Analytics Report</h1>
+            <div class="analytics-print-sub">Generated from current analytics dashboard</div>
+            <div class="analytics-print-meta">Generated: ${generatedAt}</div>
           </div>
-          <div class="urgency-row">
-            <div class="urgency-label">HIGH</div>
-            <div class="urgency-bar">${getBar(metrics.high, totalUrgency)}</div>
-            <div class="urgency-count">${metrics.high}</div>
-          </div>
-          <div class="urgency-row">
-            <div class="urgency-label">MEDIUM</div>
-            <div class="urgency-bar">${getBar(metrics.medium, totalUrgency)}</div>
-            <div class="urgency-count">${metrics.medium}</div>
-          </div>
-          <div class="urgency-row">
-            <div class="urgency-label">LOW</div>
-            <div class="urgency-bar">${getBar(metrics.low, totalUrgency)}</div>
-            <div class="urgency-count">${metrics.low}</div>
+          <div id="bb-tab-analytics">
+            ${sourceRoot.outerHTML}
           </div>
         </div>
-        <div class="col">
-          <h2>Requests by Category</h2>
-          <div class="urgency-row">
-            <div class="urgency-label">EMERGENCY</div>
-            <div class="urgency-bar">${getBar(metrics.emergency, totalCategory)}</div>
-            <div class="urgency-count">${metrics.emergency}</div>
+      </body>
+    </html>`;
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 160);
+  };
+};
+
+/**
+ * Blood Bag reporting helpers
+ * Shared by print/export to keep one source of truth.
+ */
+function mapBloodBagStatusLabel(status) {
+  const statusMap = {
+    AVAILABLE: 'Available',
+    EXPIRING: 'Expiring Soon',
+    CROSSMATCHED: 'Crossmatched',
+    DISPENSED: 'Dispensed',
+    EXPIRED: 'Expired',
+    DISCARDED: 'Discarded'
+  };
+  return statusMap[status] || status || '-';
+}
+
+function getBloodBagSourceLabelPlain(bag) {
+  if (bag.eventName) return bag.eventName;
+  const sourceMap = {
+    DONATION: 'Blood Drive',
+    WALK_IN: 'Walk-in Donor',
+    TRANSFER: 'BMC Transfer',
+    EXTERNAL_SUPPLY: 'External Supply'
+  };
+  return sourceMap[bag.source] || bag.source || '-';
+}
+
+function parseBloodBagDateValue(value) {
+  if (!value) return null;
+  const dateString = value.includes('T') ? value : `${value}T00:00:00`;
+  const parsed = new Date(dateString);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatBloodBagReportDate(value) {
+  const parsed = parseBloodBagDateValue(value);
+  if (!parsed) return '-';
+  return parsed.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: '2-digit' });
+}
+
+function sortBloodBagListBySelection(list, sortValue) {
+  list.sort((a, b) => {
+    const aExpiry = parseBloodBagDateValue(a.expiresAt)?.getTime() || 0;
+    const bExpiry = parseBloodBagDateValue(b.expiresAt)?.getTime() || 0;
+    const aCollected = parseBloodBagDateValue(a.collectedAt)?.getTime() || 0;
+    const bCollected = parseBloodBagDateValue(b.collectedAt)?.getTime() || 0;
+
+    if (sortValue === 'expiry_asc') return aExpiry - bExpiry;
+    if (sortValue === 'expiry_desc') return bExpiry - aExpiry;
+    if (sortValue === 'collected_desc') return bCollected - aCollected;
+    if (sortValue === 'collected_asc') return aCollected - bCollected;
+    return 0;
+  });
+}
+
+function escapeBloodBagReportHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+window.getBloodBagsForPrint = function(mode = 'current') {
+  const effectiveMode = mode === 'range' ? 'range' : 'current';
+  const selectedSort = document.getElementById('bags-sort')?.value || 'expiry_asc';
+
+  if (effectiveMode === 'range') {
+    const fromDate = document.getElementById('bags-print-from-date')?.value || '';
+    const toDate = document.getElementById('bags-print-to-date')?.value || '';
+
+    if (!fromDate || !toDate) {
+      showBloodPlusMessage('Date Range Required', 'Please select both From Date and To Date.', 'warning');
+      return { rows: [], mode: effectiveMode, invalid: true };
+    }
+
+    if (fromDate > toDate) {
+      showBloodPlusMessage('Invalid Date Range', 'From Date must be on or before To Date.', 'warning');
+      return { rows: [], mode: effectiveMode, invalid: true };
+    }
+
+    const fromTime = new Date(`${fromDate}T00:00:00`).getTime();
+    const toTime = new Date(`${toDate}T23:59:59`).getTime();
+
+    const rows = BLOOD_BAGS
+      .map(bag => ({ ...bag, computedStatus: bag.computedStatus || computeBagStatus(bag) }))
+      .filter(bag => {
+        const collected = parseBloodBagDateValue(bag.collectedAt);
+        if (!collected) return false;
+        const collectedTime = collected.getTime();
+        return collectedTime >= fromTime && collectedTime <= toTime;
+      });
+
+    sortBloodBagListBySelection(rows, selectedSort);
+
+    return {
+      rows,
+      mode: effectiveMode,
+      invalid: false,
+      scopeLabel: `Collected from ${fromDate} to ${toDate}`,
+      fromDate,
+      toDate
+    };
+  }
+
+  const rows = (Array.isArray(bagsCurrent) ? bagsCurrent : []).map(bag => ({
+    ...bag,
+    computedStatus: bag.computedStatus || computeBagStatus(bag)
+  }));
+
+  sortBloodBagListBySelection(rows, selectedSort);
+
+  return {
+    rows,
+    mode: effectiveMode,
+    invalid: false,
+    scopeLabel: 'Current filtered and sorted results'
+  };
+};
+
+window.printBloodBags = function(mode = 'current') {
+  const result = window.getBloodBagsForPrint(mode);
+  if (!result || result.invalid) return;
+
+  const rows = result.rows || [];
+  if (!rows.length) {
+    showBloodPlusMessage('No Data to Print', 'No blood bags match the selected criteria.', 'info');
+    return;
+  }
+
+  const generatedAt = new Date().toLocaleString('en-PH', {
+    year: 'numeric',
+    month: 'long',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const bodyRows = rows.map((bag, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeBloodBagReportHtml(bag.serialNumber || '-')}</td>
+        <td>${escapeBloodBagReportHtml(fullBloodLabel(bag.bloodType, bag.rhType))}</td>
+        <td>${escapeBloodBagReportHtml(componentLabel(bag.componentType))}</td>
+        <td>${escapeBloodBagReportHtml(bag.volumeMl ? `${bag.volumeMl} mL` : '-')}</td>
+        <td>${escapeBloodBagReportHtml(formatBloodBagReportDate(bag.collectedAt))}</td>
+        <td>${escapeBloodBagReportHtml(formatBloodBagReportDate(bag.expiresAt))}</td>
+        <td>${escapeBloodBagReportHtml(mapBloodBagStatusLabel(bag.computedStatus || computeBagStatus(bag)))}</td>
+        <td>${escapeBloodBagReportHtml(getBloodBagSourceLabelPlain(bag))}</td>
+        <td>${escapeBloodBagReportHtml(bag.transactionNumber || '-')}</td>
+        <td>${escapeBloodBagReportHtml(bag.remarks || '-')}</td>
+      </tr>
+    `).join('');
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Blood Bags Report</title>
+        <style>
+          :root {
+            --crimson: #C41E3A;
+            --charcoal: #1A1A1A;
+            --muted: #6F6F6F;
+            --border: #E8DDD5;
+            --bg: #FDF8F3;
+          }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            padding: 24px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: var(--charcoal);
+            background: white;
+          }
+          .report-shell {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+          }
+          .report-head {
+            padding: 18px 20px;
+            background: linear-gradient(90deg, rgba(196,30,58,0.12) 0%, rgba(253,248,243,1) 100%);
+            border-bottom: 2px solid var(--crimson);
+          }
+          .report-title {
+            margin: 0;
+            font-size: 20px;
+            color: var(--crimson);
+          }
+          .report-sub {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--muted);
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          th, td {
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            font-size: 12px;
+            vertical-align: top;
+          }
+          th {
+            background: var(--bg);
+            text-align: left;
+            color: var(--charcoal);
+            font-weight: 700;
+          }
+          td:first-child, th:first-child {
+            text-align: center;
+            width: 40px;
+          }
+          .report-foot {
+            font-size: 11px;
+            color: var(--muted);
+            padding: 12px 20px 16px;
+          }
+          @media print {
+            body {
+              padding: 0;
+            }
+            .report-shell {
+              border: none;
+              border-radius: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="report-shell">
+          <div class="report-head">
+            <h1 class="report-title">Blood Bags Report</h1>
+            <div class="report-sub">Scope: ${escapeBloodBagReportHtml(result.scopeLabel || '-')}</div>
+            <div class="report-sub">Generated: ${escapeBloodBagReportHtml(generatedAt)}</div>
           </div>
-          <div class="urgency-row">
-            <div class="urgency-label">INPATIENT</div>
-            <div class="urgency-bar">${getBar(metrics.inpatient, totalCategory)}</div>
-            <div class="urgency-count">${metrics.inpatient}</div>
-          </div>
-          <div class="urgency-row">
-            <div class="urgency-label">OUTPATIENT</div>
-            <div class="urgency-bar">${getBar(metrics.outpatient, totalCategory)}</div>
-            <div class="urgency-count">${metrics.outpatient}</div>
-          </div>
-          <div class="urgency-row">
-            <div class="urgency-label">HOSPITAL</div>
-            <div class="urgency-bar">${getBar(metrics.hospital, totalCategory)}</div>
-            <div class="urgency-count">${metrics.hospital}</div>
-          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Serial Number</th>
+                <th>Blood Type</th>
+                <th>Component</th>
+                <th>Volume</th>
+                <th>Collected Date</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
+                <th>Source</th>
+                <th>Transaction Number</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+          <div class="report-foot">BloodPlus Blood Bank Module</div>
         </div>
-      </div>
-      
-      <!-- BLOOD INVENTORY -->
-      <h2>Current Blood Type Inventory</h2>
-      <div class="grid-4">
-        <div class="metric-box">
-          <div class="metric-label">O−</div>
-          <div class="metric-val">${metrics.o_neg}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">O+</div>
-          <div class="metric-val">${metrics.o_pos}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">A−</div>
-          <div class="metric-val">${metrics.a_neg}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">A+</div>
-          <div class="metric-val">${metrics.a_pos}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">B−</div>
-          <div class="metric-val">${metrics.b_neg}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">B+</div>
-          <div class="metric-val">${metrics.b_pos}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">AB−</div>
-          <div class="metric-val">${metrics.ab_neg}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">AB+</div>
-          <div class="metric-val">${metrics.ab_pos}</div>
-          <div style="font-size:7pt;color:#666">units</div>
-        </div>
-      </div>
-      
-      <!-- DISPATCH & ALERTS -->
-      <div class="grid-2">
-        <div class="col">
-          <h2>Bag Dispatch Summary</h2>
-          <div class="stat-line"><span>Used</span><span style="font-weight:700">${metrics.used}</span></div>
-          <div class="stat-line"><span>Discarded</span><span style="font-weight:700">${metrics.discarded}</span></div>
-          <div class="stat-line"><span>Transferred</span><span style="font-weight:700">${metrics.transferred}</span></div>
-        </div>
-        <div class="col">
-          <h2>Expiry & Quality Alerts</h2>
-          <div class="stat-line"><span>Expiring Soon (≤7 days)</span><span style="font-weight:700">${metrics.expiringSoon}</span></div>
-          <div class="stat-line"><span>Expired</span><span style="font-weight:700">${metrics.expired}</span></div>
-          <div class="stat-line"><span>Quality Issues</span><span style="font-weight:700">${metrics.qualityIssues}</span></div>
-        </div>
-      </div>
-      
-      <!-- PERFORMANCE & REQUESTER -->
-      <div class="grid-2">
-        <div class="col">
-          <h2>Request Fulfillment Performance</h2>
-          <div class="stat-line"><span>Fulfillment Rate</span><span style="font-weight:700">${metrics.fulfillmentRate}</span></div>
-          <div class="stat-line"><span>Total Released</span><span style="font-weight:700">${metrics.totalReleased}</span></div>
-          <div class="stat-line"><span>Avg Days to Release</span><span style="font-weight:700">${metrics.avgDays}</span></div>
-        </div>
-        <div class="col">
-          <h2>Requests by Requester Type</h2>
-          <div class="stat-line"><span>Hospital Requests</span><span style="font-weight:700">${metrics.hospital} (${metrics.hospitalPct})</span></div>
-          <div class="stat-line"><span>Anonymous Requests</span><span style="font-weight:700">${metrics.anonymous} (${metrics.anonymousPct})</span></div>
-        </div>
-      </div>
-      
-      <!-- COMPONENTS -->
-      <h2>Requests by Blood Component</h2>
-      <div class="grid-4">
-        <div class="metric-box">
-          <div class="metric-label">Whole Blood</div>
-          <div class="metric-val">${metrics.wholeBlood}</div>
-          <div style="font-size:7pt;color:#666">${metrics.wholeBloodPct}</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Red Cells</div>
-          <div class="metric-val">${metrics.redCells}</div>
-          <div style="font-size:7pt;color:#666">${metrics.redCellsPct}</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Plasma</div>
-          <div class="metric-val">${metrics.plasma}</div>
-          <div style="font-size:7pt;color:#666">${metrics.plasmaPct}</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-label">Platelets</div>
-          <div class="metric-val">${metrics.platelets}</div>
-          <div style="font-size:7pt;color:#666">${metrics.plateletsPct}</div>
-        </div>
-      </div>
-      
-      <div class="footer">End of Report</div>
-    </body>
+      </body>
     </html>
   `;
 
   const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showBloodPlusMessage('Pop-up Blocked', 'Please allow pop-ups to print the blood bag report.', 'warning');
+    return;
+  }
+
   printWindow.document.write(html);
   printWindow.document.close();
   setTimeout(() => printWindow.print(), 250);
 };
 
-/**
- * Export Blood Bags to Excel - Enhanced with complete BloodBag model data
- */
-/**
- * Export Blood Bags to Excel/CSV - Complete bag details
- * Exports from BLOOD_BAGS array with all available information
- */
-window.exportBloodBagsToExcel = function() {
-  // Build comprehensive data for export from BLOOD_BAGS
-  const rows = [
-    [
-      'Serial Number',
-      'Blood Type',
-      'RH Type',
-      'Component Type',
-      'Volume (mL)',
-      'Collected Date',
-      'Expiration Date',
-      'Status',
-      'Source',
-      'Transaction #',
-      'Remarks',
-      'Received By',
-      'Discard Reason',
-      'Open System',
-      'Open System At'
-    ]
-  ];
+window.exportBloodBagsToExcel = function(mode = 'auto') {
+  const hasRangeInputs = Boolean(
+    document.getElementById('bags-print-from-date')?.value &&
+    document.getElementById('bags-print-to-date')?.value
+  );
+  const effectiveMode =
+    mode === 'current' || mode === 'range'
+      ? mode
+      : (hasRangeInputs ? 'range' : 'current');
 
-  const now = new Date();
-  const soon = new Date(); soon.setDate(soon.getDate() + 7);
+  const result = window.getBloodBagsForPrint(effectiveMode);
+  if (!result || result.invalid) return;
 
-  // Helper function to get status label (no emojis)
-  function getStatusLabel(status) {
-    const statusMap = {
-      'AVAILABLE': 'Available',
-      'EXPIRING': 'Expiring',
-      'CROSSMATCHED': 'Crossmatched',
-      'DISPENSED': 'Dispensed',
-      'EXPIRED': 'Expired',
-      'DISCARDED': 'Discarded'
-    };
-    return statusMap[status] || status || '';
+  const rows = result.rows || [];
+  if (!rows.length) {
+    showBloodPlusMessage('No Data to Export', 'No blood bags match the selected criteria.', 'info');
+    return;
   }
 
-  // Helper function to compute bag status
-  function computeStatus(bag) {
-    const exp = new Date(bag.expiresAt);
-    if (bag.status === 'DISCARDED') return 'DISCARDED';
-    if (bag.status === 'DISPENSED') return 'DISPENSED';
-    if (bag.status === 'CROSSMATCHED') return 'CROSSMATCHED';
-    if (bag.status === 'EXPIRED' || (bag.status === 'AVAILABLE' && exp < now)) return 'EXPIRED';
-    if (bag.status === 'AVAILABLE' && exp <= soon) return 'EXPIRING';
-    return 'AVAILABLE';
-  }
+  const csvRows = [[
+    'Serial Number',
+    'Blood Type',
+    'Component',
+    'Volume',
+    'Collected Date',
+    'Expiry Date',
+    'Status',
+    'Source',
+    'Transaction Number',
+    'Remarks'
+  ]];
 
-  // Helper function to format dates - long format to prevent ###
-  function formatDate(d) {
-    if (!d) return '';
-    const str = d.includes('T') ? d : d + 'T00:00:00';
-    return new Date(str).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: '2-digit'
-    });
-  }
-
-  // Helper function to format blood type
-  function fullBloodLabel(bloodType, rhType) {
-    const aboMap = {
-      O_NEG:'O', O_POS:'O', A_POS:'A', A_NEG:'A',
-      B_POS:'B', B_NEG:'B', AB_POS:'AB', AB_NEG:'AB'
-    };
-    const abo = aboMap[bloodType] ?? bloodType ?? '';
-    const rh = rhType === 'POSITIVE' ? '+' : rhType === 'NEGATIVE' ? '−' : '';
-    return abo + rh;
-  }
-
-  // Helper function to get component label
-  function componentLabel(ct) {
-    const map = {
-      WHOLE_BLOOD: 'Whole Blood',
-      PRBC: 'PRBC',
-      LEUKOREDUCED_PRBC: 'Leukoreduced PRBC',
-      ALIQUOTED_PRBC: 'Aliquoted PRBC',
-      PLATELET_CONCENTRATE: 'Platelet',
-      FRESH_FROZEN_PLASMA: 'FFP',
-      CRYOPRECIPITATE: 'Cryoprecipitate',
-      CRYOSUPERNATANT: 'Cryosupernatant',
-    };
-    return map[ct] ?? ct ?? '';
-  }
-
-  // Helper function to get source label (no emojis)
-  function sourceLabel(bag) {
-    if (bag.eventName) return bag.eventName;
-    const map = {
-      DONATION: 'Blood Drive',
-      WALK_IN: 'Walk-in Donor',
-      TRANSFER: 'BMC Transfer',
-      EXTERNAL_SUPPLY: 'External Supply',
-    };
-    return map[bag.source] ?? bag.source ?? '';
-  }
-
-  // Export all BLOOD_BAGS
-  BLOOD_BAGS.forEach(bag => {
-    const computedStatus = computeStatus(bag);
-
-    rows.push([
+  rows.forEach(bag => {
+    csvRows.push([
       bag.serialNumber || '',
       fullBloodLabel(bag.bloodType, bag.rhType),
-      bag.rhType || '',
       componentLabel(bag.componentType),
-      bag.volumeMl || '',
-      formatDate(bag.collectedAt),
-      formatDate(bag.expiresAt),
-      getStatusLabel(computedStatus),
-      sourceLabel(bag),
+      bag.volumeMl ? `${bag.volumeMl} mL` : '',
+      formatBloodBagReportDate(bag.collectedAt),
+      formatBloodBagReportDate(bag.expiresAt),
+      mapBloodBagStatusLabel(bag.computedStatus || computeBagStatus(bag)),
+      getBloodBagSourceLabelPlain(bag),
       bag.transactionNumber || '',
-      bag.remarks || '',
-      bag.receivedBy || '',
-      bag.discardReason || '',
-      bag.openSystem ? 'Yes' : 'No',
-      formatDate(bag.openSystemAt)
+      bag.remarks || ''
     ]);
   });
 
-  // If no bags, add message row
-  if (rows.length === 1) {
-    rows.push(['No blood bags in the system']);
-  }
-
-  // Convert to CSV with proper escaping
-  const csv = rows.map(row => 
+  const csvContent = csvRows.map(row =>
     row.map(cell => {
-      const escaped = String(cell).replace(/"/g, '""');
-      return escaped.includes(',') || escaped.includes('"') || escaped.includes('\n') 
-        ? `"${escaped}"` 
-        : escaped;
+      const escaped = String(cell ?? '').replaceAll('"', '""');
+      return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
     }).join(',')
   ).join('\n');
 
-  // Download as CSV file
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
+  const today = new Date().toISOString().slice(0, 10);
+  const scopeName = result.mode === 'range' ? `${result.fromDate}_to_${result.toDate}` : 'current-results';
   link.setAttribute('href', url);
-  link.setAttribute('download', `blood-bags-${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `blood-bags-${scopeName}-${today}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -2379,15 +3159,15 @@ window.exportBloodBagsToExcel = function() {
   URL.revokeObjectURL(url);
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 // BLOOD REQUESTS – WITH PRINTING (PDF/EXCEL) FUNCTIONALITY
-// ═══════════════════════════════════════════════════════════════════════════════
+// -------------------------------------------------------------------------------
 
 (function () {
-  /* ────────────────────────────────────────────────────────────────────────────
+  /* ----------------------------------------------------------------------------
      BLOOD TYPE MAPPING – Maps enum values to display format
      Preserves original enum for backend while displaying user-friendly text
-  ──────────────────────────────────────────────────────────────────────────────── */
+  -------------------------------------------------------------------------------- */
   const BLOOD_TYPE_MAP = {
     'A_POS': 'A Pos',
     'A_NEG': 'A Neg',
@@ -2404,9 +3184,9 @@ window.exportBloodBagsToExcel = function() {
     return BLOOD_TYPE_MAP[bloodTypeEnum] || bloodTypeEnum;
   }
 
-  /* ────────────────────────────────────────────────────────────────────────────
+  /* ----------------------------------------------------------------------------
      INDICATION MAPPING – Maps indication codes to descriptions
-  ──────────────────────────────────────────────────────────────────────────────── */
+  -------------------------------------------------------------------------------- */
   const INDICATION_MAP = {
     'WB-1': 'Active bleeding with at least 15% blood volume loss, Hb<90 g/L, or BP drop >20%',
     'WB-1a': 'Loss of over 15% of blood volume',
@@ -2443,14 +3223,14 @@ window.exportBloodBagsToExcel = function() {
     'F-5a': 'Massive Transfusion (>20 units of blood in 24 hours)',
     'F-5b': 'Late pregnancy termination or Abruptio Placentae',
     'F-6': 'Other FFP indications (requires review)',
-    'PW-1': 'Exchange transfusion in infant with indirect bilirubin ≥20 mg/dL in first week',
+    'PW-1': 'Exchange transfusion in infant with indirect bilirubin =20 mg/dL in first week',
     'PW-2': 'Hyperbilirubinemia with prematurity/illness (asphyxia, acidosis, sepsis, hemolysis)',
     'PW-3': 'Other whole blood indications (requires review)',
     'PR-1': 'Signs/symptoms of anemia (pallor, etc.)',
     'PR-2': 'Hypovolemia from acute blood loss with shock signs or >10% loss',
     'PR-3': 'Major surgery candidate with Hematocrit < 0.30 or <0.35 (nocturnal)',
     'PR-4': 'Hypertransfusion for chronic hemolytic anemia (Thalassemia)',
-    'PR-5': 'Hemoglobin ≥130 g/L and on assisted ventilation',
+    'PR-5': 'Hemoglobin =130 g/L and on assisted ventilation',
     'PR-6': 'Anemia with Hb < 80 g/L or Hct < 0.25',
     'PR-7': 'Blood volume reduction 10 mL/kg with Hct < 0.45 in newborn <4 months',
     'PR-8': 'Pulmonary disease or CHD with Hct 0.40-0.45',
@@ -2644,9 +3424,9 @@ window.exportBloodBagsToExcel = function() {
     return html;
   }
 
-  /* ────────────────────────────────────────────────────────────────────────────
+  /* ----------------------------------------------------------------------------
      PATIENT NAME FORMATTING – Format name parts as: Last, First Middle Suffix
-  ──────────────────────────────────────────────────────────────────────────────── */
+  -------------------------------------------------------------------------------- */
   function formatPatientName(req) {
     const first = req.patientName || '';
     const middle = req.patientMiddle || '';
@@ -2673,9 +3453,9 @@ window.exportBloodBagsToExcel = function() {
   }
 
   
-  /* ────────────────────────────────────────────────────────────────────────────
+  /* ----------------------------------------------------------------------------
      BIRTHDATE FORMATTING
-  ──────────────────────────────────────────────────────────────────────────────── */
+  -------------------------------------------------------------------------------- */
   function formatBirthdate(birthdateStr) {
     if (!birthdateStr) return '–';
     try {
@@ -2686,9 +3466,9 @@ window.exportBloodBagsToExcel = function() {
     }
   }
 
-  /* ────────────────────────────────────────────────────────────────────────────
+  /* ----------------------------------------------------------------------------
      CONSTANTS
-  ──────────────────────────────────────────────────────────────────────────────── */
+  -------------------------------------------------------------------------------- */
   const REQ_STATUSES = ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED'];
   const REQ_STATUS_LABEL = {
     PENDING: 'Pending',
@@ -2755,9 +3535,9 @@ window.exportBloodBagsToExcel = function() {
  
   const API_BASE = '/api';
  
-  /* ────────────────────────────────────────────────────────────────────────────
+  /* ----------------------------------------------------------------------------
      STATE
-  ──────────────────────────────────────────────────────────────────────────────── */
+  -------------------------------------------------------------------------------- */
   let reqData          = [];
   let reqExpanded      = {};
   let reqCurrentFilter = 'ALL';
@@ -2784,9 +3564,9 @@ window.exportBloodBagsToExcel = function() {
  
   const reqBagCache = {};
  
-  /* ────────────────────────────────────────────────────────────────────────────
+  /* ----------------------------------------------------------------------------
      DATA MAPPING
-  ──────────────────────────────────────────────────────────────────────────────── */
+  -------------------------------------------------------------------------------- */
   function mapRequest(r) {
     const docUrl = r.doctorsNoteUrl ?? '';
     const docLabel = docUrl
@@ -2912,11 +3692,11 @@ window.exportBloodBagsToExcel = function() {
  
   function reqShowLoading() {
     const el = document.getElementById('req-list');
-    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⏳</div>Loading requests…</div>`;
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">?</div>Loading requests…</div>`;
   }
   function reqShowError(msg) {
     const el = document.getElementById('req-list');
-    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">⚠️</div>${msg}</div>`;
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">??</div>${msg}</div>`;
   }
  
   async function reqFetchAll() {
@@ -5148,9 +5928,9 @@ function hospRender() {
     hospUpdateStats();
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 // UPDATE STATS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 function hospUpdateStats() {
     const total = hospData.length;
     const totalReqs = hospData.reduce((s, h) => s + (h.requestCount || 0), 0);
@@ -5168,9 +5948,9 @@ function hospUpdateStats() {
     if (reqsEl) reqsEl.textContent = totalReqs;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 // PAGINATION
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 function hospPrevPage() {
     if (hospPage > 1) {
         hospPage--;
@@ -5188,9 +5968,9 @@ function hospNextPage() {
 
 
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 // CREATE HOSPITAL – Submit form
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 async function hospCreate() {
     const email = document.getElementById('hosp-add-email')?.value.trim();
     const name = document.getElementById('hosp-add-name')?.value.trim();
@@ -5261,9 +6041,9 @@ async function hospCreate() {
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 // EDIT HOSPITAL – Open modal with data
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 function hospOpenEdit(id) {
     const h = hospData.find(x => x.id === id);
     if (!h) {
@@ -5286,9 +6066,9 @@ function hospOpenEdit(id) {
     openModal('editHospitalModal');
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 // EDIT HOSPITAL – Save changes
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 async function hospSaveEdit() {
     const id = document.getElementById('hosp-edit-idx').value;
     const name = document.getElementById('hosp-edit-name')?.value.trim();
@@ -5347,9 +6127,9 @@ async function hospSaveEdit() {
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 // DELETE HOSPITAL
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 async function hospDelete(id) {
     const h = hospData.find(x => x.id === parseInt(id));
     if (!h) {
@@ -5380,9 +6160,9 @@ async function hospDelete(id) {
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 // CONFIRM DELETE (from table row) – Uses reusable modal
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ??????????????????????????????????????????????????????????????????????????
 function hospConfirmDelete(id) {
     const h = hospData.find(x => x.id === id);
     if (!h) {
@@ -5400,23 +6180,23 @@ function hospConfirmDelete(id) {
 }
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // STAFF PROFILE FUNCTIONS
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-// ━━ GLOBAL STATE ━━
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+// ?? GLOBAL STATE ??
 let currentUserRole = 'STAFF'; // Set from backend
 let currentUserId = null;
 let currentUserData = {};
 let activePanel = 'dashboard';
 let reqData          = [];
  
-// ━━ INITIALIZATION ━━
+// ?? INITIALIZATION ??
 document.addEventListener('DOMContentLoaded', () => {
   loadCurrentUserProfile();
   initializeProfileListeners();
 });
  
-// ━━ LOAD CURRENT USER PROFILE ━━
+// ?? LOAD CURRENT USER PROFILE ??
 async function loadCurrentUserProfile() {
   try {
     const response = await fetch('/api/auth/me', {
@@ -5446,9 +6226,9 @@ async function loadCurrentUserProfile() {
   }
 }
  
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // ADMIN PROFILE FUNCTIONS
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 async function loadAdminProfile() {
   try {
@@ -5603,9 +6383,9 @@ function resetAdminProfileForm() {
 }
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // STAFF PROFILE FUNCTIONS
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 async function loadStaffProfile() {
   try {
@@ -5784,9 +6564,9 @@ function updateSidebarUser(initials, name, role) {
 }
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // PASSWORD MANAGEMENT (BOTH ADMIN AND STAFF)
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function checkPasswordStrength() {
   const password = document.getElementById('new-password').value;
@@ -5856,7 +6636,7 @@ function togglePasswordVisibility(fieldId) {
   const field = document.getElementById(fieldId);
   const isPassword = field.type === 'password';
   field.type = isPassword ? 'text' : 'password';
-  event.target.textContent = isPassword ? '🙈' : '👁';
+  event.target.textContent = isPassword ? '??' : '??';
 }
 
 async function submitPasswordChange() {
@@ -6020,9 +6800,9 @@ function resetStaffPasswordForm() {
 }
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // PROFILE TAB SWITCHING
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function switchProfileTab(tabName, element) {
   // For Admin Profile - Use classes instead of inline styles
@@ -6061,12 +6841,12 @@ function switchStaffProfileTab(tabName, element) {
 }
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // PANEL SWITCHING
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function showPanel(panelName, element) {
-  activePanel = panelName; // 👈 ADD THIS
+  activePanel = panelName; // ?? ADD THIS
 
   document.querySelectorAll('.panel').forEach(panel => {
     panel.classList.remove('active');
@@ -6089,9 +6869,9 @@ function showPanel(panelName, element) {
 }
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // UTILITY FUNCTIONS
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -6104,9 +6884,9 @@ function formatDate(dateString) {
 }
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // ERROR & SUCCESS MESSAGE HANDLERS
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 // Admin Profile Messages
 function showProfileError(message) {
@@ -6210,9 +6990,9 @@ function showStaffSecuritySuccess(message) {
 
 
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // EVENT LISTENERS INITIALIZATION
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function initializeProfileListeners() {
   // Add any additional event listeners if needed
@@ -7021,9 +7801,9 @@ document.addEventListener('click', function(event) {
  * Used across the entire system for consistency
  */
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // SUCCESS MODAL FUNCTIONS
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 let sysSuccessCallback = null;
 
@@ -7054,9 +7834,9 @@ function closeSysSuccessModal() {
     }
 }
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // DELETE CONFIRMATION MODAL FUNCTIONS
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 let sysDeleteAction = null;
 
@@ -7111,9 +7891,9 @@ function sysConfirmDeleteAction() {
     }
 }
 
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 // HELPER: Show toast notification (alternative to modal)
-// ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+// ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function showToast(message, type = 'info', duration = 3000) {
     // Create toast container if it doesn't exist
@@ -7141,8 +7921,8 @@ function showToast(message, type = 'info', duration = 3000) {
     const textColor = type === 'success' ? 'var(--green, #2E7D32)' : 
                       type === 'error' ? 'var(--crimson, #C41E3A)' : 
                       'var(--blue, #1E40AF)';
-    const icon = type === 'success' ? '✓' : 
-                 type === 'error' ? '✕' : 'ℹ';
+    const icon = type === 'success' ? '?' : 
+                 type === 'error' ? '?' : '?';
 
     toast.style.cssText = `
         background: ${bgColor};
@@ -7400,3 +8180,8 @@ function forceRefreshAll() {
   }
   console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }
+
+
+
+
+

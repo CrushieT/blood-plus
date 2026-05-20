@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BloodPlus — Admin Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link href="css/styles.css" rel="stylesheet" />
+  <link href="css/admin_dashboard.css" rel="stylesheet" />
   <script src="assets/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -207,12 +207,6 @@
         
       </div>
       
-      <div style="display:flex;gap:10px;margin-bottom:16px;padding:12px;background:var(--subtle,#f9f9f9);border-radius:8px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:12px;font-weight:600;color:var(--muted)">🖨 Reports & Exports</span>
-        <button onclick="printAnalytics()" style="background:var(--blue);color:white;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">📈 Analytics Report</button>
-        <button onclick="exportBloodBagsToExcel()" style="background:var(--amber);color:white;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">📥 Export Blood Bags</button>
-      </div>
-
       <!-- Tab Bar -->
       <div class="bb-tabbar">
         <button class="bb-tab active" onclick="switchBBTab('inventory', this)">🩸 Inventory</button>
@@ -258,6 +252,25 @@
 
       <!-- TAB 2 — BLOOD BAGS -->
       <div id="bb-tab-bags" style="display:none">
+        <div class="bb-tab-actions">
+          <div class="bb-tab-actions-title">Blood Bag Reports</div>
+          <div class="bb-export-controls">
+            <div class="bb-export-field">
+              <label for="bags-print-from-date">From Date</label>
+              <input type="date" id="bags-print-from-date" class="req-select">
+            </div>
+            <div class="bb-export-field">
+              <label for="bags-print-to-date">To Date</label>
+              <input type="date" id="bags-print-to-date" class="req-select">
+            </div>
+            <div class="bb-export-buttons">
+              <button class="btn-secondary" type="button" onclick="printBloodBags('current')">Print Current Results</button>
+              <button class="btn-ghost" type="button" onclick="printBloodBags('range')">Print Date Range</button>
+              <button class="btn-primary" type="button" onclick="exportBloodBagsToExcel()">Export Blood Bags</button>
+            </div>
+          </div>
+        </div>
+
         <div class="bb-bags-stats">
           <div class="bb-bags-stat">
             <div class="bb-bags-stat-val green" id="bags-available-count">0</div>
@@ -344,7 +357,7 @@
           <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
             <table class="data-table" style="min-width:900px">
               <thead><tr>
-                <th>Bag ID</th>
+                <th>Serial Number</th>
                 <th>Blood Type</th>
                 <th>Component</th>
                 <th>Volume</th>
@@ -375,448 +388,173 @@
         </div>
       </div>
 
-      <!-- TAB 3 — ANALYTICS -->
+      <!-- TAB 3 - ANALYTICS -->
       <div id="bb-tab-analytics" style="display:none">
-      <!-- SECTION 1: REQUEST METRICS OVERVIEW -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Request Status Overview</div>
-          <span style="font-size:12px;color:var(--muted)">All blood bag requests across system</span>
-        </div>
-        <div class="card-body">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px">
-            <!-- PENDING -->
-            <div style="background:var(--amber-light);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--amber)">
-              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Pending</div>
-              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--amber)" data-metric="request-pending">-</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:6px">Awaiting review</div>
-            </div>
-            
-            <!-- APPROVED -->
-            <div style="background:var(--green-light);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--green)">
-              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Approved</div>
-              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--green)" data-metric="request-approved">-</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:6px">Ready to allocate</div>
-            </div>
-            
-            <!-- ALLOCATED -->
-            <div style="background:#e3f2fd;border-radius:12px;padding:16px;text-align:center;border-left:4px solid #1976d2">
-              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Allocated</div>
-              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:#1976d2" data-metric="request-allocated">-</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:6px">Bags assigned</div>
-            </div>
-            
-            <!-- RELEASED -->
-            <div style="background:#f0f4ff;border-radius:12px;padding:16px;text-align:center;border-left:4px solid #7c3aed">
-              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Released</div>
-              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:#7c3aed" data-metric="request-released">-</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:6px">Delivered to hospital</div>
-            </div>
-            
-            <!-- REJECTED -->
-            <div style="background:var(--soft-red);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--crimson)">
-              <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Rejected</div>
-              <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--crimson)" data-metric="request-rejected">-</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:6px">Not approved</div>
-            </div>
+        <div class="bb-tab-actions bb-analytics-actions">
+          <div>
+            <div class="bb-tab-actions-title">Analytics Reports</div>
+            <div class="an-actions-sub">Blood bank performance and request activity overview</div>
+          </div>
+          <div class="bb-export-buttons">
+            <button class="btn-ghost an-export-btn" type="button" onclick="printAnalytics()">Export Analytics</button>
           </div>
         </div>
-      </div>
-    
-      <!-- SECTION 2: CRITICAL REQUEST METRICS -->
-      <div class="grid-2">
-        <!-- URGENCY BREAKDOWN -->
-        <div class="card">
-          <div class="card-header"><div class="card-title">Requests by Urgency</div></div>
-          <div class="card-body">
-            <div class="analytic-row">
-              <div class="analytic-label" style="width:80px">CRITICAL</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:#dc2626" data-urgency="CRITICAL" data-width="0"></div>
-              </div>
-              <div class="analytic-val" data-metric="urgency-critical">-</div>
+
+        <div id="analytics-empty-state" class="bb-empty" style="display:none">
+          No analytics data available.
+        </div>
+
+        <div id="analytics-content" class="an-dashboard">
+          <div id="analytics-metric-cards" class="an-metric-grid">
+            <div class="an-summary-card" data-status-card="pending">
+              <div class="an-summary-label">Pending</div>
+              <div class="an-summary-value" data-metric="request-pending">-</div>
             </div>
-            <div class="analytic-row">
-              <div class="analytic-label" style="width:80px">HIGH</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:var(--amber)" data-urgency="HIGH" data-width="0"></div>
-              </div>
-              <div class="analytic-val" data-metric="urgency-high">-</div>
+            <div class="an-summary-card" data-status-card="approved">
+              <div class="an-summary-label">Approved</div>
+              <div class="an-summary-value" data-metric="request-approved">-</div>
             </div>
-            <div class="analytic-row">
-              <div class="analytic-label" style="width:80px">MEDIUM</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:#3b82f6" data-urgency="MEDIUM" data-width="0"></div>
-              </div>
-              <div class="analytic-val" data-metric="urgency-medium">-</div>
+            <div class="an-summary-card" data-status-card="allocated">
+              <div class="an-summary-label">Allocated</div>
+              <div class="an-summary-value" data-metric="request-allocated">-</div>
             </div>
-            <div class="analytic-row" style="margin-bottom:0">
-              <div class="analytic-label" style="width:80px">LOW</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:var(--green)" data-urgency="LOW" data-width="0"></div>
-              </div>
-              <div class="analytic-val" data-metric="urgency-low">-</div>
+            <div class="an-summary-card" data-status-card="released">
+              <div class="an-summary-label">Released</div>
+              <div class="an-summary-value" data-metric="request-released">-</div>
+            </div>
+            <div class="an-summary-card" data-status-card="rejected">
+              <div class="an-summary-label">Rejected</div>
+              <div class="an-summary-value" data-metric="request-rejected">-</div>
+            </div>
+            <div class="an-summary-card" data-status-card="cancelled">
+              <div class="an-summary-label">Cancelled</div>
+              <div class="an-summary-value" data-metric="request-cancelled">-</div>
             </div>
           </div>
-        </div>
-    
-        <!-- REQUEST CATEGORY BREAKDOWN -->
-        <div class="card">
-          <div class="card-header"><div class="card-title">Requests by Category</div></div>
-          <div class="card-body">
-            <div class="analytic-row">
-              <div class="analytic-label" style="width:80px">EMERGENCY</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:#dc2626" data-category="EMERGENCY" data-width="0"></div>
+
+          <div class="an-layout">
+            <div class="an-card an-span-4">
+              <div class="an-card-head">
+                <h4>Fulfillment Performance</h4>
+                <span class="an-sub">Released requests</span>
               </div>
-              <div class="analytic-val" data-metric="category-emergency">-</div>
-            </div>
-            <div class="analytic-row">
-              <div class="analytic-label" style="width:80px">INPATIENT</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:#3b82f6" data-category="INPATIENT" data-width="0"></div>
+              <div class="an-progress-main" data-metric="fulfillment-rate">-</div>
+              <div class="an-progress-track">
+                <div class="an-progress-fill" data-metric-bar="fulfillment-rate"></div>
               </div>
-              <div class="analytic-val" data-metric="category-inpatient">-</div>
-            </div>
-            <div class="analytic-row">
-              <div class="analytic-label" style="width:80px">OUTPATIENT</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:var(--green)" data-category="OUTPATIENT" data-width="0"></div>
-              </div>
-              <div class="analytic-val" data-metric="category-outpatient">-</div>
-            </div>
-            <div class="analytic-row" style="margin-bottom:0">
-              <div class="analytic-label" style="width:80px">HOSPITAL</div>
-              <div class="analytic-bar-wrap">
-                <div class="analytic-bar" style="background:#9333ea" data-category="HOSPITAL" data-width="0"></div>
-              </div>
-              <div class="analytic-val" data-metric="category-hospital">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    
-      <!-- SECTION 3: INVENTORY & STOCK -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Current Blood Type Inventory</div>
-          <span style="font-size:12px;color:var(--muted)">Available units in stock</span>
-        </div>
-        <div class="card-body">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:12px">
-            <!-- O- -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#dc2626"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">O−</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-o-neg">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-o-neg-status">-</div>
-            </div>
-            
-            <!-- O+ -->
-            <div style="background:var(--green-light);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--green)"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">O+</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-o-pos">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-o-pos-status">-</div>
-            </div>
-            
-            <!-- A- -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--amber)"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">A−</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-a-neg">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-a-neg-status">-</div>
-            </div>
-            
-            <!-- A+ -->
-            <div style="background:var(--green-light);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--green)"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">A+</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-a-pos">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-a-pos-status">-</div>
-            </div>
-            
-            <!-- B- -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--amber)"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">B−</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-b-neg">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-b-neg-status">-</div>
-            </div>
-            
-            <!-- B+ -->
-            <div style="background:var(--green-light);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--green)"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">B+</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-b-pos">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-b-pos-status">-</div>
-            </div>
-            
-            <!-- AB- -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#6b7280"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">AB−</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-ab-neg">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-ab-neg-status">-</div>
-            </div>
-            
-            <!-- AB+ -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center;position:relative;overflow:hidden">
-              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#6b7280"></div>
-              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:900;color:#333">AB+</div>
-              <div style="font-size:24px;font-weight:700;margin:6px 0;color:var(--charcoal)" data-metric="blood-ab-pos">-</div>
-              <div style="font-size:10px;color:var(--muted)">units</div>
-              <div style="font-size:9px;color:var(--muted);margin-top:4px" data-status="blood-ab-pos-status">-</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    
-      <!-- SECTION 4: WASTAGE & DISPOSAL -->
-      <div class="grid-2">
-        <!-- DISPATCH OVERVIEW -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Bag Dispatch Summary</div>
-            <span style="font-size:12px;color:var(--muted)">Bags removed from inventory</span>
-          </div>
-          <div class="card-body">
-            <div style="display:grid;gap:10px">
-              <div style="background:#fef2f2;border-radius:10px;padding:12px;border-left:4px solid #dc2626">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Used</span>
-                  <span style="font-size:20px;font-weight:700;color:#dc2626" data-metric="dispatch-used">-</span>
+              <div class="an-kpi-grid">
+                <div class="an-kpi-cell">
+                  <div class="an-kpi-label">Total Released</div>
+                  <div class="an-kpi-value" data-metric="total-released">-</div>
                 </div>
-              </div>
-              <div style="background:#fef3c7;border-radius:10px;padding:12px;border-left:4px solid var(--amber)">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Discarded</span>
-                  <span style="font-size:20px;font-weight:700;color:var(--amber)" data-metric="dispatch-discarded">-</span>
-                </div>
-              </div>
-              <div style="background:#f0fdf4;border-radius:10px;padding:12px;border-left:4px solid var(--green)">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Transferred</span>
-                  <span style="font-size:20px;font-weight:700;color:var(--green)" data-metric="dispatch-transferred">-</span>
+                <div class="an-kpi-cell">
+                  <div class="an-kpi-label">Avg Days to Release</div>
+                  <div class="an-kpi-value" data-metric="avg-fulfillment-days">-</div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-    
-        <!-- EXPIRY & QUALITY ALERTS -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Expiry & Quality Alerts</div>
-            <span style="font-size:12px;color:var(--muted)">Bags requiring attention</span>
-          </div>
-          <div class="card-body">
-            <div style="display:grid;gap:10px">
-              <div style="background:#fef2f2;border-radius:10px;padding:12px;border-left:4px solid #dc2626">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Expiring Soon (≤7 days)</span>
-                  <span style="font-size:20px;font-weight:700;color:#dc2626" data-metric="alert-expiring-soon">-</span>
+
+            <div class="an-card an-span-8">
+              <div class="an-card-head">
+                <h4>Request Status Chart</h4>
+                <span class="an-sub">Current request status counts</span>
+              </div>
+              <div id="analytics-status-chart" class="an-bar-chart an-status-chart" aria-label="Request status chart"></div>
+              <p class="an-chart-note">Shows current request count per status.</p>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Urgency Breakdown</h4>
+                <span class="an-sub">Critical, high, medium, and low requests</span>
+              </div>
+              <div class="an-donut-wrap an-donut-wrap-urgency">
+                <canvas id="analyticsUrgencyChart" class="an-chart-canvas an-chart-compact" aria-label="Urgency breakdown chart"></canvas>
+                <div id="analytics-urgency-legend" class="an-donut-legend"></div>
+              </div>
+              <p class="an-chart-note">Shows how urgent current requests are.</p>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Request Category Breakdown</h4>
+                <span class="an-sub">Inpatient vs outpatient requests</span>
+              </div>
+              <div id="analytics-category-chart" class="an-bar-chart an-horizontal-chart an-category-compare" aria-label="Request category chart"></div>
+              <p class="an-chart-note">Shows inpatient vs outpatient request distribution.</p>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Blood Component Breakdown</h4>
+                <span class="an-sub">Request composition by blood product</span>
+              </div>
+              <div id="analytics-component-chart" class="an-bar-chart an-component-chart" aria-label="Blood component chart"></div>
+              <p class="an-chart-note">Shows requested blood products by component.</p>
+
+              <div class="an-hidden-metrics">
+                <span data-metric="component-whole-blood">-</span>
+                <span data-metric="component-whole-blood-pct">-</span>
+                <span data-metric="component-prbc">-</span>
+                <span data-metric="component-prbc-pct">-</span>
+                <span data-metric="component-leukoreduced-prbc">-</span>
+                <span data-metric="component-leukoreduced-prbc-pct">-</span>
+                <span data-metric="component-aliquoted-prbc">-</span>
+                <span data-metric="component-aliquoted-prbc-pct">-</span>
+                <span data-metric="component-ffp">-</span>
+                <span data-metric="component-ffp-pct">-</span>
+                <span data-metric="component-platelet-concentrate">-</span>
+                <span data-metric="component-platelet-concentrate-pct">-</span>
+                <span data-metric="component-cryoprecipitate">-</span>
+                <span data-metric="component-cryoprecipitate-pct">-</span>
+                <span data-metric="component-cryosupernatant">-</span>
+                <span data-metric="component-cryosupernatant-pct">-</span>
+                <span data-metric="component-red-cells">-</span>
+                <span data-metric="component-red-cells-pct">-</span>
+                <span data-metric="component-plasma">-</span>
+                <span data-metric="component-plasma-pct">-</span>
+                <span data-metric="component-platelets">-</span>
+                <span data-metric="component-platelets-pct">-</span>
+              </div>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Alerts and Dispatch</h4>
+                <span class="an-sub">Actionable inventory movement</span>
+              </div>
+              <div class="an-split-grid">
+                <div class="an-mini-list">
+                  <div class="an-mini-row"><span>Expiring Soon (7d)</span><strong data-metric="alert-expiring-soon">-</strong></div>
+                  <div class="an-mini-row"><span>Expired</span><strong data-metric="alert-expired">-</strong></div>
+                  <div class="an-mini-row"><span>Quality Issues</span><strong data-metric="alert-quality-issues">-</strong></div>
+                </div>
+                <div class="an-mini-list">
+                  <div class="an-mini-row"><span>Used</span><strong data-metric="dispatch-used">-</strong></div>
+                  <div class="an-mini-row"><span>Discarded</span><strong data-metric="dispatch-discarded">-</strong></div>
+                  <div class="an-mini-row"><span>Transferred</span><strong data-metric="dispatch-transferred">-</strong></div>
                 </div>
               </div>
-              <div style="background:#fef3c7;border-radius:10px;padding:12px;border-left:4px solid var(--amber)">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Expired</span>
-                  <span style="font-size:20px;font-weight:700;color:var(--amber)" data-metric="alert-expired">-</span>
-                </div>
+              <div class="an-subsection">
+                <div class="an-subhead">Requester Type</div>
+                <div id="analytics-requester-list" class="an-mini-list an-tight"></div>
               </div>
-              <div style="background:#fef2f2;border-radius:10px;padding:12px;border-left:4px solid #dc2626">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:13px;color:var(--charcoal);font-weight:600">Quality Issues</span>
-                  <span style="font-size:20px;font-weight:700;color:#dc2626" data-metric="alert-quality-issues">-</span>
-                </div>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Top Requesting Hospitals</h4>
+                <span class="an-sub">Fulfilled versus total requests</span>
+              </div>
+              <div id="hospital-list" class="an-list">
+                <div class="an-row an-empty-row">Loading hospital analytics...</div>
               </div>
             </div>
           </div>
         </div>
+
+        <div id="analytics-chart-tooltip" class="analytics-chart-tooltip" style="display:none"></div>
       </div>
-    
-      <!-- SECTION 5: REQUEST FULFILLMENT METRICS -->
-      <div class="grid-2">
-        <!-- FULFILLMENT RATE -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Request Fulfillment Performance</div>
-            <span style="font-size:12px;color:var(--muted)">Based on released requests</span>
-          </div>
-          <div class="card-body">
-            <div style="margin-bottom:16px">
-              <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-                <span style="font-size:12px;color:var(--muted)">Fulfillment Rate</span>
-                <span style="font-size:14px;font-weight:700;color:var(--charcoal)" data-metric="fulfillment-rate">-</span>
-              </div>
-              <div style="height:8px;background:var(--cream);border-radius:4px;overflow:hidden">
-                <div style="height:100%;background:linear-gradient(90deg, var(--green), #10b981);width:0%" data-metric-bar="fulfillment-rate"></div>
-              </div>
-            </div>
-    
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-              <div style="text-align:center">
-                <div style="font-size:20px;font-weight:700;color:var(--charcoal)" data-metric="total-released">-</div>
-                <div style="font-size:11px;color:var(--muted)">Total Released</div>
-              </div>
-              <div style="text-align:center">
-                <div style="font-size:20px;font-weight:700;color:var(--charcoal)" data-metric="avg-fulfillment-days">-</div>
-                <div style="font-size:11px;color:var(--muted)">Avg Days to Release</div>
-              </div>
-            </div>
-          </div>
-        </div>
-    
-        <!-- REQUESTER TYPE BREAKDOWN -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Requests by Requester Type</div>
-            <span style="font-size:12px;color:var(--muted)">Hospital vs Anonymous</span>
-          </div>
-          <div class="card-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-              <div style="background:#e3f2fd;border-radius:10px;padding:16px;text-align:center">
-                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Hospital Requests</div>
-                <div style="font-size:28px;font-weight:700;color:#1976d2" data-metric="requester-hospital">-</div>
-                <div style="font-size:10px;color:var(--muted);margin-top:6px" data-metric="requester-hospital-pct">-</div>
-              </div>
-              <div style="background:#f0fdf4;border-radius:10px;padding:16px;text-align:center">
-                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Anonymous Requests</div>
-                <div style="font-size:28px;font-weight:700;color:var(--green)" data-metric="requester-anonymous">-</div>
-                <div style="font-size:10px;color:var(--muted);margin-top:6px" data-metric="requester-anonymous-pct">-</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    
-      <!-- SECTION 6: BLOOD COMPONENT BREAKDOWN -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Requests by Blood Component</div>
-          <span style="font-size:12px;color:var(--muted)">
-            Types of blood products requested
-          </span>
-        </div>
-
-        <div class="card-body">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px">
-
-            <!-- WHOLE BLOOD -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                Whole Blood
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-whole-blood">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-whole-blood-pct">-</div>
-            </div>
-
-            <!-- PRBC -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                PRBC
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-prbc">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-prbc-pct">-</div>
-            </div>
-
-            <!-- LEUKOREDUCED PRBC -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                Leukoreduced PRBC
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-leukoreduced-prbc">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-leukoreduced-prbc-pct">-</div>
-            </div>
-
-            <!-- ALIQUOTED PRBC -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                Aliquoted PRBC
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-aliquoted-prbc">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-aliquoted-prbc-pct">-</div>
-            </div>
-
-            <!-- FFP -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                Fresh Frozen Plasma
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-ffp">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-ffp-pct">-</div>
-            </div>
-
-            <!-- PLATELET -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                Platelet Concentrate
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-platelet-concentrate">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-platelet-concentrate-pct">-</div>
-            </div>
-
-            <!-- CRYOPRECIPITATE -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                Cryoprecipitate
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-cryoprecipitate">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-cryoprecipitate-pct">-</div>
-            </div>
-
-            <!-- CRYOSUPERNATANT -->
-            <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-              <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px">
-                Cryosupernatant
-              </div>
-              <div style="font-size:24px;font-weight:700;color:var(--charcoal)"
-                  data-metric="component-cryosupernatant">-</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px"
-                  data-metric="component-cryosupernatant-pct">-</div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    
-      <!-- SECTION 7: HOSPITAL PERFORMANCE -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Top Requesting Hospitals</div>
-          <span style="font-size:12px;color:var(--muted)">Hospitals with most active requests</span>
-        </div>
-        <div class="card-body">
-          <div id="hospital-list" style="display:grid;gap:10px">
-            <!-- Populated by JS from API -->
-            <div style="background:var(--cream);border-radius:10px;padding:12px;text-align:center;color:var(--muted);font-size:12px">
-              Loading hospital data...
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
     </div>
     <!-- END panel-bloodbank -->
 
@@ -1932,6 +1670,31 @@
   </div>
 
 
+  <!-- BloodPlus Message / Confirm Modal -->
+  <div class="modal-overlay" id="bloodPlusActionModal">
+    <div class="modal bp-modal" style="max-width:430px">
+      <div class="modal-header">
+        <div class="bp-modal-header-content">
+          <div id="bp-modal-icon" class="bp-modal-icon bp-type-info">i</div>
+          <div>
+            <div class="modal-title" id="bp-modal-title">Notice</div>
+            <div class="bp-modal-type" id="bp-modal-type">Info</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="hideBloodPlusModal()">x</button>
+      </div>
+      <div class="modal-body">
+        <div id="bp-modal-message" class="bp-modal-message">Message details.</div>
+        <div class="bp-modal-actions">
+          <button class="btn-ghost" id="bp-modal-cancel" onclick="hideBloodPlusModal()">Cancel</button>
+          <button class="btn-primary" id="bp-modal-confirm" onclick="runBloodPlusConfirm()">Confirm</button>
+          <button class="btn-primary" id="bp-modal-ok" onclick="hideBloodPlusModal()">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- HOSPITALS MODAL -->
   <!-- ═══════════ CREATE HOSPITAL MODAL ═══════════ -->
   <div class="modal-overlay" id="addHospitalModal">
@@ -2596,7 +2359,7 @@
   });
   </script>
   <!-- <script src="js/auto-refresh-optimization.js"></script> -->
-  <script src="js/script.js"></script>
+  <script src="js/admin_dashboard.js"></script>
 </body>
 </html>
 
