@@ -11,6 +11,44 @@
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- EKG LOADING SCREEN                                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="ekg-loader">
+  <!-- Corner decorations -->
+  <div class="ekg-corner tl"></div>
+  <div class="ekg-corner tr"></div>
+  <div class="ekg-corner bl"></div>
+  <div class="ekg-corner br"></div>
+
+  <!-- Floating particles -->
+  <div class="ekg-particles" id="ekg-particles"></div>
+
+  <!-- Logo -->
+  <div class="ekg-logo-wrap">
+    <div class="ekg-logo-drop"><span>●</span></div>
+    <div class="ekg-logo-text">
+      <div class="ekg-logo-name">CNPH Blood Bank</div>
+      <div class="ekg-logo-sub">Camarines Norte Provincial Hospital</div>
+    </div>
+  </div>
+
+  <!-- EKG Canvas -->
+  <div class="ekg-canvas-wrap">
+    <canvas id="ekg-canvas"></canvas>
+    <div class="ekg-glow-bar"></div>
+    <div class="ekg-scanline"></div>
+  </div>
+
+  <!-- Status -->
+  <div class="ekg-status">Blood Dispensing System &nbsp;<span>●</span>&nbsp; Loading</div>
+
+  <!-- Progress -->
+  <div class="ekg-progress-track">
+    <div class="ekg-progress-fill"></div>
+  </div>
+</div>
+
 <!-- Emergency strip -->
 <div class="emergency-strip">
   ALERT: For life-threatening emergencies, go directly to the Blood Bank window or call the ward nurse immediately.
@@ -103,6 +141,7 @@
     <div class="stat"><div class="stat-num">5</div><div class="stat-label">Components</div></div>
   </div>
 </div>
+
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- STANDALONE FORM SCANNER (OUTSIDE MAIN FORM) -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -469,10 +508,6 @@
               <input type="radio" name="urgency" id="urg-high" value="HIGH">
               <label class="urgency-label" for="urg-high">High<br><span style="font-weight:400;font-size:10px">24hrs</span></label>
             </div>
-            <!-- <div class="urgency-opt">
-              <input type="radio" name="urgency" id="urg-crit" value="CRITICAL">
-              <label class="urgency-label" for="urg-crit">Critical<br><span style="font-weight:400;font-size:10px">Immediately</span></label>
-            </div> -->
           </div>
         </div>
         
@@ -1092,8 +1127,6 @@
           </div>
         </div>
 
-        
-
         <div class="form-field" style="margin-top:14px">
           <label class="form-label">Required By Date</label>
           <input class="form-input" type="date" id="f-requiredBy" />
@@ -1238,7 +1271,6 @@
             I acknowledge that all information provided above is accurate and complete to the best of my knowledge. I understand that any false or misleading information may result in the rejection or cancellation of this blood request.
           </label>
         </div>
-
 
         <button class="btn-submit" id="submit-btn" onclick="submitRequest()">
           Submit Blood Request

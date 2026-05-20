@@ -1,3 +1,611 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// CNPH BLOOD BANK — REQUEST PORTAL
+// Enhanced JS: EKG Animation + UI/UX Improvements
+// All existing functionality preserved. Animation added cleanly on top.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 1: EKG / ECG LOADING SCREEN ANIMATION
+// ══════════════════════════════════════════════════════════════════════
+
+(function initEKGLoader() {
+  // Run as soon as script is parsed — no DOMContentLoaded needed for canvas init
+  // Canvas draw starts after DOM is ready
+
+  // ── ECG waveform definition ─────────────────────────────────────────
+  // A medically-accurate ECG: P-Q-R-S-T complex, flat baseline, repeat
+  function buildECGPath() {
+    // Each segment is [dx, dy] relative — normalized 0-1 horizontally
+    // We build one full beat cycle, then tile it
+    return [
+      // Flat baseline
+      { t: 0.000, y: 0 },
+      { t: 0.080, y: 0 },
+      // P wave (atrial depolarization) — gentle bump
+      { t: 0.100, y: -0.08 },
+      { t: 0.130, y: -0.18 },
+      { t: 0.160, y: -0.08 },
+      // P-R segment (flat)
+      { t: 0.200, y: 0 },
+      { t: 0.240, y: 0 },
+      // Q dip
+      { t: 0.255, y: 0.08 },
+      // R spike — the dramatic peak
+      { t: 0.270, y: -1.0 },
+      // S dip
+      { t: 0.285, y: 0.14 },
+      // S-T segment (flat, slightly elevated)
+      { t: 0.330, y: -0.04 },
+      // T wave (ventricular repolarization) — broad hump
+      { t: 0.380, y: -0.08 },
+      { t: 0.430, y: -0.26 },
+      { t: 0.480, y: -0.28 },
+      { t: 0.530, y: -0.12 },
+      { t: 0.580, y: 0 },
+      // Flat baseline to next beat
+      { t: 1.000, y: 0 },
+    ];
+  }
+
+  // ── Interpolate Y at any t position ─────────────────────────────────
+  function getY(path, t) {
+    t = ((t % 1) + 1) % 1;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1];
+      if (t >= a.t && t <= b.t) {
+        const pct = (t - a.t) / (b.t - a.t);
+        // Cubic ease for smooth curves
+        const ease = pct < 0.5 ? 2 * pct * pct : -1 + (4 - 2 * pct) * pct;
+        return a.y + (b.y - a.y) * ease;
+      }
+    }
+    return 0;
+  }
+
+  // ── Spawn floating particles ─────────────────────────────────────────
+  function spawnParticles() {
+    const container = document.getElementById('ekg-particles');
+    if (!container) return;
+
+    const colors = ['#1F5FBF', '#2D3FA3', '#E5B325', '#2E8B57', '#4A90D9'];
+    const count = 28;
+
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'ekg-particle';
+      const size = Math.random() * 4 + 2;
+      p.style.cssText = `
+        width: ${size}px;
+        height: ${size}px;
+        left: ${Math.random() * 100}%;
+        top: ${Math.random() * 100}%;
+        background: ${colors[Math.floor(Math.random() * colors.length)]};
+        --dur: ${(Math.random() * 4 + 3).toFixed(1)}s;
+        --del: ${(Math.random() * 3).toFixed(1)}s;
+        opacity: 0;
+      `;
+      container.appendChild(p);
+    }
+  }
+
+  // ── Main canvas animation ────────────────────────────────────────────
+  function runEKGCanvas() {
+    const canvas = document.getElementById('ekg-canvas');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const wrap = canvas.parentElement;
+
+    function resize() {
+      canvas.width  = wrap.offsetWidth;
+      canvas.height = wrap.offsetHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const path   = buildECGPath();
+    const W      = () => canvas.width;
+    const H      = () => canvas.height;
+    const MID    = () => H() * 0.55;   // vertical baseline position
+    const AMP    = () => H() * 0.42;   // amplitude
+
+    // Animation state
+    let phase        = 0;          // 0–1, progress through waveform loop
+    const SPEED      = 0.0028;     // phase units per frame (controls scroll speed)
+    const TRAIL      = 0.72;       // fraction of canvas covered by drawn trail
+    let startTime    = null;
+    let raf          = null;
+    let done         = false;
+
+    // Color palette
+    const COL_LINE   = '#4A90D9';   // main trace
+    const COL_GLOW   = 'rgba(31,95,191,0.18)';
+    const COL_PEAK   = '#E5B325';   // peak highlight
+    const COL_HEAD   = '#FFFFFF';   // head dot
+    const COL_GRID   = 'rgba(255,255,255,0.04)';
+
+    function drawGrid() {
+      const w = W(), h = H();
+      ctx.strokeStyle = COL_GRID;
+      ctx.lineWidth = 1;
+      // Horizontal lines
+      const hLines = 6;
+      for (let i = 0; i <= hLines; i++) {
+        const y = (h / hLines) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      // Vertical lines
+      const vLines = 12;
+      for (let i = 0; i <= vLines; i++) {
+        const x = (w / vLines) * i;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+    }
+
+    function drawFrame(ts) {
+      if (done) return;
+      if (!startTime) startTime = ts;
+
+      const w = W(), h = H();
+      const mid = MID(), amp = AMP();
+
+      // Advance phase
+      phase += SPEED;
+
+      // Clear
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid
+      drawGrid();
+
+      // How many points to sample
+      const pts = w * 2;
+      const trailW = w * TRAIL;
+
+      // ── Main trace with gradient glow ──────────────────────────
+      // Shadow / glow pass (thick, blurred)
+      ctx.save();
+      ctx.shadowColor = COL_LINE;
+      ctx.shadowBlur  = 12;
+      ctx.strokeStyle = COL_GLOW;
+      ctx.lineWidth   = 6;
+      ctx.lineJoin    = 'round';
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= pts; i++) {
+        const x   = (i / pts) * trailW;
+        const tVal = phase - (trailW - x) / w * 0.45;
+        const y   = mid + getY(path, tVal) * amp;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Main line (crisp, gradient)
+      const grad = ctx.createLinearGradient(0, 0, trailW, 0);
+      grad.addColorStop(0,    'rgba(31,95,191,0)');
+      grad.addColorStop(0.25, 'rgba(31,95,191,0.4)');
+      grad.addColorStop(0.7,  COL_LINE);
+      grad.addColorStop(1,    '#FFFFFF');
+
+      ctx.save();
+      ctx.shadowColor = '#1F5FBF';
+      ctx.shadowBlur  = 8;
+      ctx.strokeStyle = grad;
+      ctx.lineWidth   = 2.2;
+      ctx.lineJoin    = 'round';
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= pts; i++) {
+        const x   = (i / pts) * trailW;
+        const tVal = phase - (trailW - x) / w * 0.45;
+        const y   = mid + getY(path, tVal) * amp;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // ── Peak highlight marker (R-spike glow) ───────────────────
+      // Find the approximate peak position in current frame
+      let peakX = -1, peakY = mid;
+      for (let i = 0; i <= pts; i++) {
+        const x   = (i / pts) * trailW;
+        const tVal = phase - (trailW - x) / w * 0.45;
+        const yRaw = getY(path, tVal);
+        if (yRaw < -0.85) { // near R-peak
+          const y = mid + yRaw * amp;
+          if (y < peakY) { peakY = y; peakX = x; }
+        }
+      }
+      if (peakX > 0) {
+        // Vertical line at peak
+        ctx.save();
+        ctx.strokeStyle = 'rgba(229,179,37,0.2)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.moveTo(peakX, 0);
+        ctx.lineTo(peakX, h);
+        ctx.stroke();
+        ctx.restore();
+
+        // Glow dot at peak
+        ctx.save();
+        ctx.shadowColor = COL_PEAK;
+        ctx.shadowBlur  = 20;
+        ctx.fillStyle   = COL_PEAK;
+        ctx.beginPath();
+        ctx.arc(peakX, peakY, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // ── Animated head dot ───────────────────────────────────────
+      const headX = trailW;
+      const headT = phase;
+      const headY = mid + getY(path, headT) * amp;
+
+      // Ripple rings
+      const rTime = (ts - startTime) / 1000;
+      for (let r = 0; r < 3; r++) {
+        const rPhase = (rTime * 2.5 + r * 0.33) % 1;
+        const rRadius = 6 + rPhase * 18;
+        const rAlpha  = (1 - rPhase) * 0.5;
+        ctx.save();
+        ctx.strokeStyle = `rgba(255,255,255,${rAlpha})`;
+        ctx.lineWidth   = 1;
+        ctx.beginPath();
+        ctx.arc(headX, headY, rRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Core dot
+      ctx.save();
+      ctx.shadowColor = COL_HEAD;
+      ctx.shadowBlur  = 16;
+      ctx.fillStyle   = COL_HEAD;
+      ctx.beginPath();
+      ctx.arc(headX, headY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // ── Baseline reference line ─────────────────────────────────
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth   = 1;
+      ctx.setLineDash([6, 8]);
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      ctx.lineTo(w, mid);
+      ctx.stroke();
+      ctx.restore();
+
+      raf = requestAnimationFrame(drawFrame);
+    }
+
+    raf = requestAnimationFrame(drawFrame);
+
+    // Return cancel function
+    return function cancel() {
+      done = true;
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }
+
+  // ── Loader dismiss sequence ──────────────────────────────────────────
+  function dismissLoader(cancelCanvas) {
+    const loader = document.getElementById('ekg-loader');
+    if (!loader) return;
+
+    loader.classList.add('fade-out');
+
+    setTimeout(function() {
+      loader.style.display     = 'none';
+      loader.style.pointerEvents = 'none';
+      document.body.style.overflow = '';
+      if (cancelCanvas) cancelCanvas();
+    }, 900);
+  }
+
+  // ── Bootstrap sequence ────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // Lock body scroll during loader
+    document.body.style.overflow = 'hidden';
+
+    spawnParticles();
+
+    // Small delay to let CSS animations kick in, then start canvas
+    const cancelCanvas = runEKGCanvas();
+
+    // Dismiss after 3.2 s (matches CSS progress bar + scanline animations)
+    setTimeout(function() {
+      dismissLoader(cancelCanvas);
+    }, 3200);
+  });
+
+})();
+
+
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 2: ENTRANCE + SCROLL ANIMATIONS (UI/UX Layer)
+// ══════════════════════════════════════════════════════════════════════
+
+(function initEntranceAnimations() {
+  // Inject animation helper styles
+  const style = document.createElement('style');
+  style.textContent = `
+    .reveal-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1),
+                  transform 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .reveal-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-fade {
+      opacity: 0;
+      transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1);
+    }
+    .reveal-fade.visible {
+      opacity: 1;
+    }
+    .step:nth-child(1) { transition-delay: 0ms !important; }
+    .step:nth-child(2) { transition-delay: 100ms !important; }
+    .step:nth-child(3) { transition-delay: 200ms !important; }
+    .step:nth-child(4) { transition-delay: 300ms !important; }
+
+    /* Stat counter animation */
+    @keyframes countUp {
+      from { opacity: 0; transform: translateY(8px) scale(0.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .stat.animated .stat-num {
+      animation: countUp 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+
+    /* Page transition for form pages */
+    .req-page {
+      animation: none;
+    }
+    .req-page.active {
+      animation: pageSlideIn 0.35s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    @keyframes pageSlideIn {
+      from { opacity: 0; transform: translateX(12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Stepper done checkmark pop */
+    .step-circle.done {
+      animation: stepDone 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes stepDone {
+      0%   { transform: scale(0.8); }
+      60%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    /* Track card entrance */
+    .track-card {
+      animation: trackCardIn 0.45s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    @keyframes trackCardIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Timeline item stagger */
+    .tl-item {
+      opacity: 0;
+      animation: tlItemIn 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    .tl-item:nth-child(1) { animation-delay: 0.05s; }
+    .tl-item:nth-child(2) { animation-delay: 0.12s; }
+    .tl-item:nth-child(3) { animation-delay: 0.19s; }
+    .tl-item:nth-child(4) { animation-delay: 0.26s; }
+    .tl-item:nth-child(5) { animation-delay: 0.33s; }
+    @keyframes tlItemIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Submit button pulse on idle */
+    @keyframes subtlePulse {
+      0%, 100% { box-shadow: 0 4px 24px rgba(196,30,58,0.3); }
+      50%       { box-shadow: 0 4px 40px rgba(196,30,58,0.55), 0 0 0 4px rgba(196,30,58,0.08); }
+    }
+    .btn-submit:not(:disabled):hover {
+      animation: subtlePulse 2s ease infinite;
+    }
+
+    /* Error shake */
+    @keyframes shakeX {
+      0%, 100% { transform: translateX(0); }
+      20%       { transform: translateX(-6px); }
+      40%       { transform: translateX(6px); }
+      60%       { transform: translateX(-4px); }
+      80%       { transform: translateX(4px); }
+    }
+    #form-error.shake {
+      animation: shakeX 0.4s cubic-bezier(0.36,0.07,0.19,0.97) both;
+    }
+
+    /* Upload zone hover spark */
+    #upload-zone:hover,
+    #scanner-upload-zone:not(.has-file):hover {
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      transform: translateY(-2px);
+    }
+
+    /* Tab active indicator slide */
+    .tab-btn {
+      position: relative;
+      overflow: hidden;
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 50%;
+      width: 0; height: 2px;
+      background: var(--crimson, #C41E3A);
+      border-radius: 2px;
+      transition: width 0.3s cubic-bezier(0.34,1.56,0.64,1), left 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .tab-btn.active::after {
+      width: 80%; left: 10%;
+    }
+
+    /* Form field focus glow */
+    .form-input:focus,
+    .form-select:focus,
+    .tracker-input:focus {
+      transition: border-color 0.2s, box-shadow 0.25s;
+    }
+
+    /* Review block reveal stagger */
+    .review-block {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .review-block.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // ── IntersectionObserver for scroll reveals ──────────────────
+    const revealEls = document.querySelectorAll('.step, .how-inner, .stats-bar, .scanner-container');
+    revealEls.forEach(el => el.classList.add('reveal-up'));
+
+    const io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    revealEls.forEach(el => io.observe(el));
+
+    // ── Stat counter animation when stats bar is visible ──────────
+    const statItems = document.querySelectorAll('.stat');
+    const statObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          setTimeout(function() {
+            statItems.forEach(function(stat, i) {
+              setTimeout(function() { stat.classList.add('animated'); }, i * 120);
+            });
+          }, 200);
+          statObs.disconnect();
+        }
+      });
+    }, { threshold: 0.5 });
+
+    const statsBar = document.querySelector('.stats-bar');
+    if (statsBar) statObs.observe(statsBar);
+
+    // ── Hero content staggered entrance ──────────────────────────
+    // (Delayed to run after loader dismisses at 3.2s)
+    const heroContent = document.querySelector('.hero-content');
+    const heroEyebrow = document.querySelector('.hero-eyebrow');
+    const heroTitle   = document.querySelector('.hero-title');
+    const heroSub     = document.querySelector('.hero-sub');
+    const heroActions = document.querySelector('.hero-actions');
+
+    [heroEyebrow, heroTitle, heroSub, heroActions].forEach(el => {
+      if (el) { el.style.opacity = '0'; el.style.transform = 'translateY(20px)'; }
+    });
+
+    function revealHero() {
+      var els = [heroEyebrow, heroTitle, heroSub, heroActions];
+      els.forEach(function(el, i) {
+        if (!el) return;
+        setTimeout(function() {
+          el.style.transition = 'opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1)';
+          el.style.opacity    = '1';
+          el.style.transform  = 'translateY(0)';
+        }, 3400 + i * 130);
+      });
+    }
+    revealHero();
+  });
+})();
+
+
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 3: HOSPITAL SESSION MANAGEMENT (nav chip / login state)
+// ══════════════════════════════════════════════════════════════════════
+
+function logoutHospital() {
+  try {
+    sessionStorage.removeItem('hospitalSession');
+    localStorage.removeItem('hospitalSession');
+  } catch (e) {}
+  updateHospitalNavState(null);
+}
+
+function updateHospitalNavState(session) {
+  var loginBtn    = document.getElementById('nav-login-btn');
+  var hospitalChip = document.getElementById('nav-hospital-chip');
+  var nameEl      = document.getElementById('nav-hospital-name');
+  var staffEl     = document.getElementById('nav-hospital-staff');
+
+  if (session && session.hospitalName) {
+    if (loginBtn)     loginBtn.style.display     = 'none';
+    if (hospitalChip) hospitalChip.style.display = 'flex';
+    if (nameEl)       nameEl.textContent          = session.hospitalName;
+    if (staffEl)      staffEl.textContent         = session.staffName || '';
+
+    // Populate hospital contact block in form
+    var chHosp  = document.getElementById('ch-hospital-name');
+    var chStaff = document.getElementById('ch-staff-name');
+    var chEmail = document.getElementById('ch-staff-email');
+    if (chHosp)  chHosp.textContent  = session.hospitalName;
+    if (chStaff) chStaff.textContent = session.staffName || '';
+    if (chEmail) chEmail.textContent = session.email || '';
+
+    var anonDiv  = document.getElementById('contact-anonymous');
+    var hospDiv  = document.getElementById('contact-hospital');
+    if (anonDiv) anonDiv.style.display = 'none';
+    if (hospDiv) hospDiv.style.display = 'block';
+
+    var emailInput = document.getElementById('f-email');
+    if (emailInput && session.email) emailInput.value = session.email;
+
+  } else {
+    if (loginBtn)     loginBtn.style.display     = 'flex';
+    if (hospitalChip) hospitalChip.style.display = 'none';
+
+    var anonDiv = document.getElementById('contact-anonymous');
+    var hospDiv = document.getElementById('contact-hospital');
+    if (anonDiv) anonDiv.style.display = 'block';
+    if (hospDiv) hospDiv.style.display = 'none';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Restore hospital session on load
+  var raw = null;
+  try { raw = sessionStorage.getItem('hospitalSession') || localStorage.getItem('hospitalSession'); } catch (e) {}
+  if (raw) {
+    try { updateHospitalNavState(JSON.parse(raw)); } catch (e) {}
+  }
+});
+
+
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 4: CORE FORM LOGIC (Unchanged from original)
+// ══════════════════════════════════════════════════════════════════════
+
 // ── Tab switching ──────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -30,12 +638,29 @@ function updateStepper(page) {
 }
 
 function goTo(n) {
-  if (n > currentPage && !validate(currentPage)) return;
+  if (n > currentPage && !validate(currentPage)) {
+    // Shake the error box for feedback
+    var errEl = document.getElementById('form-error');
+    if (errEl && errEl.style.display !== 'none') {
+      errEl.classList.remove('shake');
+      void errEl.offsetWidth; // reflow
+      errEl.classList.add('shake');
+    }
+    return;
+  }
   document.getElementById('page-' + currentPage).classList.remove('active');
   currentPage = n;
   document.getElementById('page-' + n).classList.add('active');
   updateStepper(n);
-  if (n === 4) buildReview();
+  if (n === 4) {
+    buildReview();
+    // Animate review blocks
+    setTimeout(function() {
+      document.querySelectorAll('.review-block').forEach(function(el, i) {
+        setTimeout(function() { el.classList.add('revealed'); }, i * 80);
+      });
+    }, 100);
+  }
   window.scrollTo({ top: document.getElementById('form-section').offsetTop - 20, behavior: 'smooth' });
   hideError();
 }
@@ -158,19 +783,16 @@ function validate(page) {
     if (!getRadioVal('urgency'))
       return showError('Please select an urgency level.'), false;
 
-    // Check if indications are required for this component
     const selectedComponent = document.getElementById('f-component').value;
     const birthdate = document.getElementById('f-birthdate').value;
     const age = calculateAge(birthdate);
     const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
     
-    // Components that REQUIRE indications
     const requiresIndications = [
       'WHOLE_BLOOD', 'PRBC', 'WRBC', 'PLATELET_CONCENTRATE', 
       'FRESH_FROZEN_PLASMA', 'CRYOPRECIPITATE'
     ];
     
-    // If component requires indications, validate that at least one is selected
     if (requiresIndications.includes(selectedComponent)) {
       if (!hasSelectedIndications()) {
         return showError('Please select at least one indication for transfusion.'), false;
@@ -183,7 +805,6 @@ function validate(page) {
       }
     }
     
-    // If component is OTHER, require component name and indication text
     if (selectedComponent === 'OTHER') {
       if (!document.getElementById('f-otherComponentName').value.trim())
         return showError('Please enter the component name.'), false;
@@ -287,15 +908,12 @@ function initIndicationHandlers() {
 
     togglePlateletCountField(component);
 
-    // Hide all groups
     document.querySelectorAll('.indication-group').forEach(group => {
       group.style.display = 'none';
     });
 
-    // Show appropriate group
     if (component) {
       let groupId = `group-${component}`;
-      // For pediatric, append -PEDIA to specific components
       if (ageGroup === 'PEDIA' && ['WHOLE_BLOOD', 'PRBC', 'WRBC', 'PLATELET_CONCENTRATE', 'FRESH_FROZEN_PLASMA', 'CRYOPRECIPITATE'].includes(component)) {
         groupId = `group-${component}-PEDIA`;
       }
@@ -311,7 +929,6 @@ function initIndicationHandlers() {
       indicationContainer.style.display = 'none';
     }
 
-    // Clear all checkboxes when component changes
     document.querySelectorAll('.indication-checkbox').forEach(cb => {
       cb.checked = false;
     });
@@ -326,7 +943,6 @@ function initIndicationHandlers() {
   componentSelect.addEventListener('change', updateIndications);
   document.getElementById('f-birthdate').addEventListener('change', updateIndications);
 
-  // Handle parent checkbox expansion (for sub-items)
   document.querySelectorAll('.indication-checkbox:not(.sub)').forEach(checkbox => {
     checkbox.addEventListener('change', function() {
       const subGroupId = `sub-${this.value}`;
@@ -337,8 +953,6 @@ function initIndicationHandlers() {
           subGroup.classList.add('active');
         } else {
           subGroup.classList.remove('active');
-
-          // Uncheck sub-items
           subGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.checked = false;
           });
@@ -347,18 +961,13 @@ function initIndicationHandlers() {
     });
   });
 
-  // ══════════════════════════════════════════════════════════════
-  // HANDLE TEXT INPUT FOR "OTHERS" OPTIONS — WITH VISIBILITY TOGGLE
-  // ══════════════════════════════════════════════════════════════
   document.querySelectorAll('input[type="text"][data-ref]').forEach(input => {
     const checkboxId = `ind-${input.dataset.ref}`;
     const checkbox = document.getElementById(checkboxId);
     
     if (checkbox) {
-      // Start hidden
       input.style.display = 'none';
       
-      // Show when checkbox is checked, hide when unchecked
       checkbox.addEventListener('change', function() {
         if (this.checked) {
           input.style.display = 'inline-block';
@@ -369,7 +978,6 @@ function initIndicationHandlers() {
         }
       });
       
-      // Auto-check box if user types in the field
       input.addEventListener('input', function() {
         if (this.value.trim()) {
           checkbox.checked = true;
@@ -402,11 +1010,6 @@ function getSelectedIndications() {
   return selected;
 }
 
-/**
- * Build the indicationOtherSpecify string for submission.
- * Format: "WB-2:reason1,R-5:reason2,P-6:reason3"
- * Only includes codes that have a text input with content.
- */
 function buildIndicationOtherSpecify() {
   const pairs = [];
   document.querySelectorAll('input[type="text"][data-ref]').forEach(input => {
@@ -447,15 +1050,20 @@ function injectIndicationStyles() {
       align-items: flex-start;
       gap: 10px;
       padding: 10px 0;
+      border-bottom: 1px solid #EFEFEF;
       font-size: 13px;
       line-height: 1.5;
     }
 
+    .indication-item:last-child {
+      border-bottom: none;
+    }
+
     .indication-item input[type="checkbox"] {
-      margin-top: 3px;
+      margin-top: 2px;
       flex-shrink: 0;
-      width: 18px;
-      height: 18px;
+      width: 17px;
+      height: 17px;
       cursor: pointer;
     }
 
@@ -465,10 +1073,10 @@ function injectIndicationStyles() {
     }
 
     .indication-sub-group {
-      margin: -8px 0 12px 28px;
-      padding: 10px 0 0 12px;
-      border-left: 2px solid #C41E3A;
-      background: rgba(196, 30, 58, 0.03);
+      margin-left: 24px;
+      margin-top: 8px;
+      padding-left: 12px;
+      border-left: 3px solid var(--primary-blue, #1F5FBF);
       border-radius: 0 8px 8px 0;
       display: none !important;
     }
@@ -594,22 +1202,13 @@ var BLOOD_LABELS_R = {
 };
 
 var URGENCY_LABELS_R = {
-  LOW: 'Low — Scheduled', MEDIUM: 'Medium — Within a week',
-  HIGH: 'High — 2–3 days', CRITICAL: 'Critical — Immediately'
-};
-
-var CATEGORY_LABELS_R = {
-  INPATIENT: 'Inpatient (CNPH)', OUTPATIENT: 'Outpatient', EMERGENCY: 'Emergency'
-};
-
-URGENCY_LABELS_R = {
   LOW: 'Low — Scheduled / Within a week',
   MEDIUM: 'Medium — 2-3 days',
   HIGH: 'High — 24hrs',
   CRITICAL: 'Critical — Immediately'
 };
 
-CATEGORY_LABELS_R = {
+var CATEGORY_LABELS_R = {
   INPATIENT: 'OPD/ INHOUSE'
 };
 
@@ -628,7 +1227,6 @@ function buildReview() {
   var hospEl = document.getElementById('contact-hospital');
   var isHosp = hospEl && hospEl.style.display !== 'none' && hospEl.style.display !== '';
 
-  // Calculate age from birthdate
   const birthdate = document.getElementById('f-birthdate').value;
   const age = calculateAge(birthdate);
   const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
@@ -639,7 +1237,6 @@ function buildReview() {
     document.getElementById('f-province').value.trim()
   ].filter(Boolean);
 
-  // ── Patient section ──
   document.getElementById('review-patient').innerHTML =
     '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Patient</div>' +
     reviewRow('Name',        document.getElementById('f-patientName').value.trim()) +
@@ -653,17 +1250,13 @@ function buildReview() {
     reviewRow('Patient Type', ageGroup) +
     reviewRow('Category',    catEl ? (CATEGORY_LABELS_R[catEl.value] || catEl.value) : '—');
 
-  // ── Blood details section ──
   const componentVal = document.getElementById('f-component').value;
   const plateletCount = document.getElementById('f-plateletCount').value;
   let componentDisplay = COMPONENT_LABELS_R[componentVal] || componentVal;
   
-  // If OTHER, append the component name
   if (componentVal === 'OTHER') {
     const otherName = document.getElementById('f-otherComponentName').value.trim();
-    if (otherName) {
-      componentDisplay += ` (${otherName})`;
-    }
+    if (otherName) componentDisplay += ` (${otherName})`;
   }
 
   document.getElementById('review-blood').innerHTML =
@@ -676,7 +1269,6 @@ function buildReview() {
     reviewRow('Required By', document.getElementById('f-requiredBy').value || '—') +
     reviewRow('Notes',       document.getElementById('f-notes').value.trim() || '—');
 
-  // ── Clinical section ──
   const diagnosis = document.getElementById('f-diagnosis').value.trim();
   const hemoglobin = document.getElementById('f-hemoglobin').value;
   const hematocrit = document.getElementById('f-hematocrit').value;
@@ -701,10 +1293,8 @@ function buildReview() {
   if (prevReaction === 'YES' && reactionDate) {
     clinicalHtml += reviewRow('  When', reactionDate);
   }
-
   document.getElementById('review-clinical').innerHTML = clinicalHtml;
 
-  // ── Indications section ──
   const indicationSubmission = buildIndicationSubmission(componentVal);
   const indications = indicationSubmission.reviewItems;
   let indicationHtml = '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Indications</div>';
@@ -723,7 +1313,6 @@ function buildReview() {
   }
   document.getElementById('review-indications').innerHTML = indicationHtml;
 
-  // ── Contact section ──
   document.getElementById('review-contact').innerHTML =
     '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Contact</div>' +
     (isHosp
@@ -733,7 +1322,6 @@ function buildReview() {
         reviewRow('Relationship', document.getElementById('f-relationship').value) +
         reviewRow('Contact',      document.getElementById('f-contact').value.trim()));
 
-  // ── Documents section ──
   document.getElementById('review-doc').innerHTML =
     '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Document</div>' +
     reviewRow('File', selectedFile ? selectedFile.name : '— (no file)');
@@ -797,16 +1385,12 @@ function getRequesterEmailValue() {
   if (!emailInput) return null;
   const emailValue = emailInput.value.trim();
   if (!emailValue) return null;
-
   const normalized = emailValue.toLowerCase();
-  if (normalized === 'null' || normalized === 'undefined') {
-    return null;
-  }
-
+  if (normalized === 'null' || normalized === 'undefined') return null;
   return emailValue;
 }
 
-// ── Submit with CALCULATED AGE FROM BIRTHDATE ─────────────────
+// ── Submit ─────────────────────────────────────────────────────
 async function submitRequest() {
   hideError();
   const ackCheckbox = document.getElementById('ack-confirm');
@@ -815,104 +1399,62 @@ async function submitRequest() {
     return;
   }
 
-  // ──────────────────────────────────────────────
-  // PATIENT INFORMATION (PAGE 1)
-  // ──────────────────────────────────────────────
   const patientName   = document.getElementById('f-patientName').value.trim();
-  const patientMiddle   = document.getElementById('f-patientMiddle').value.trim();
+  const patientMiddle = document.getElementById('f-patientMiddle').value.trim();
   const patientLast   = document.getElementById('f-patientLast').value.trim();
-  const patientSuffix   = document.getElementById('f-patientSuffix').value.trim();
+  const patientSuffix = document.getElementById('f-patientSuffix').value.trim();
   const patientBirthdate = document.getElementById('f-birthdate').value;
-  const patientAge = calculateAge(patientBirthdate);
+  const patientAge    = calculateAge(patientBirthdate);
   const patientSex    = document.getElementById('f-sex').value;
-  const ward     = document.getElementById('f-ward').value.trim();
-  const room      = document.getElementById('f-room').value.trim();
-  const patientPurok = document.getElementById('f-purok').value.trim();
+  const ward          = document.getElementById('f-ward').value.trim();
+  const room          = document.getElementById('f-room').value.trim();
+  const patientPurok  = document.getElementById('f-purok').value.trim();
   const patientBarangay = document.getElementById('f-barangay').value.trim();
   const patientMunicipality = document.getElementById('f-municipality').value.trim();
   const patientProvince = document.getElementById('f-province').value.trim();
   const requestingPhysician = document.getElementById('f-physician').value.trim();
 
-  // ──────────────────────────────────────────────
-  // PATIENT TYPE & CATEGORY (PAGE 1)
-  // ──────────────────────────────────────────────
-  const ageGroup      = patientAge !== null && patientAge < 13 ? 'PEDIA' : 'ADULT';
+  const ageGroup        = patientAge !== null && patientAge < 13 ? 'PEDIA' : 'ADULT';
   const requestCategory = getRadioVal('category');
 
-  // ──────────────────────────────────────────────
-  // BLOOD DETAILS (PAGE 2)
-  // ──────────────────────────────────────────────
-  const bloodType     = document.getElementById('f-bloodType').value;
+  const bloodType      = document.getElementById('f-bloodType').value;
   const bloodComponent = document.getElementById('f-component').value;
-  const numberOfUnits = document.getElementById('f-units').value;
-  const plateletCount = document.getElementById('f-plateletCount').value;
+  const numberOfUnits  = document.getElementById('f-units').value;
+  const plateletCount  = document.getElementById('f-plateletCount').value;
 
-  // ──────────────────────────────────────────────
-  // CLINICAL INFORMATION (PAGE 2)
-  // ──────────────────────────────────────────────
   const clinicalImpression = document.getElementById('f-diagnosis').value.trim();
-  const hemoglobin = document.getElementById('f-hemoglobin').value;
-  const hematocrit = document.getElementById('f-hematocrit').value;
+  const hemoglobin  = document.getElementById('f-hemoglobin').value;
+  const hematocrit  = document.getElementById('f-hematocrit').value;
   const requestType = getRadioVal('requestType');
 
-  // ──────────────────────────────────────────────
-  // TRANSFUSION HISTORY (PAGE 2)
-  // ──────────────────────────────────────────────
-  const hadPreviousTransfusion = getRadioVal('prevTransfusion') === 'YES';
+  const hadPreviousTransfusion  = getRadioVal('prevTransfusion') === 'YES';
   const previousTransfusionDate = document.getElementById('f-prevTransDate').value;
   const previousTransfusionUnits = document.getElementById('f-prevUnits').value;
 
-  // ──────────────────────────────────────────────
-  // REACTION HISTORY (PAGE 2)
-  // ──────────────────────────────────────────────
-  const hadPreviousReaction = getRadioVal('prevReaction') === 'YES';
+  const hadPreviousReaction  = getRadioVal('prevReaction') === 'YES';
   const previousReactionDate = document.getElementById('f-reactionDate').value;
   const previousReactionDetails = document.getElementById('f-reactionDetails').value.trim();
 
-  // ──────────────────────────────────────────────
-  // INDICATIONS FOR TRANSFUSION (PAGE 2)
-  // ──────────────────────────────────────────────
-  const indicationSubmission = buildIndicationSubmission(bloodComponent);
-  const indication = indicationSubmission.indication;
+  const indicationSubmission  = buildIndicationSubmission(bloodComponent);
+  const indication            = indicationSubmission.indication;
   const indicationOtherSpecify = indicationSubmission.indicationOtherSpecify;
 
-  // ──────────────────────────────────────────────
-  // URGENCY & TIMING (PAGE 2)
-  // ──────────────────────────────────────────────
-  const urgencyLevel  = getRadioVal('urgency');
-  const requiredBy    = document.getElementById('f-requiredBy').value;
+  const urgencyLevel = getRadioVal('urgency');
+  const requiredBy   = document.getElementById('f-requiredBy').value;
+  const notes        = document.getElementById('f-notes').value.trim();
 
-  // ──────────────────────────────────────────────
-  // NOTES (PAGE 3)
-  // ──────────────────────────────────────────────
-  const notes = document.getElementById('f-notes').value.trim();
-
-  // ──────────────────────────────────────────────
-  // OTHER COMPONENT (if component = OTHER)
-  // ──────────────────────────────────────────────
   const otherComponentName = bloodComponent === 'OTHER' ? document.getElementById('f-otherComponentName').value.trim() : null;
   const otherComponentIndication = bloodComponent === 'OTHER' ? document.getElementById('f-otherComponentIndication').value.trim() : null;
 
-  // ──────────────────────────────────────────────
-  // CONTACT / REQUESTER INFORMATION (PAGE 3)
-  // ──────────────────────────────────────────────
-  const requesterName = document.getElementById('f-requesterName').value.trim();
+  const requesterName         = document.getElementById('f-requesterName').value.trim();
   const requesterRelationship = document.getElementById('f-relationship').value;
-  const requesterContact = document.getElementById('f-contact').value.trim();
-  const requesterEmail = getRequesterEmailValue();
+  const requesterContact      = document.getElementById('f-contact').value.trim();
+  const requesterEmail        = getRequesterEmailValue();
 
-  // ══════════════════════════════════════════════════════════════
-  // BUILD COMPLETE DATA OBJECT (MATCHING BloodBagRequestDTO)
-  // AGE IS CALCULATED FROM BIRTHDATE
-  // ══════════════════════════════════════════════════════════════
   const requestData = {
-    // PATIENT INFO
-    patientName: patientName,
-    patientMiddle: patientMiddle,
-    patientLast: patientLast,
-    patientSuffix: patientSuffix,
-    patientBirthdate: patientBirthdate ? patientBirthdate : null,
-    patientAge: patientAge,
+    patientName, patientMiddle, patientLast, patientSuffix,
+    patientBirthdate: patientBirthdate || null,
+    patientAge,
     patientSex: patientSex || null,
     wardRoom: ward || null,
     roomNo: room || null,
@@ -920,82 +1462,46 @@ async function submitRequest() {
     patientBarangay: patientBarangay || null,
     patientMunicipality: patientMunicipality || null,
     patientProvince: patientProvince || null,
-    requestingPhysician: requestingPhysician,
-
-    // PATIENT TYPE & CATEGORY
-    ageGroup: ageGroup,
-    requestCategory: requestCategory,
-
-    // BLOOD DETAILS
-    bloodType: bloodType,
-    bloodComponent: bloodComponent,
+    requestingPhysician,
+    ageGroup, requestCategory,
+    bloodType, bloodComponent,
     numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : null,
     plateletCount: plateletCount ? parseInt(plateletCount, 10) : null,
-
-    // URGENCY & TIMING
-    urgencyLevel: urgencyLevel,
+    urgencyLevel,
     requiredBy: requiredBy || null,
-
-    // CONTACT / REQUESTER
-    requesterName: requesterName,
-    requesterRelationship: requesterRelationship || null,
-    requesterContact: requesterContact,
-    requesterEmail: requesterEmail,
-
-    // NOTES
+    requesterName, requesterRelationship: requesterRelationship || null,
+    requesterContact, requesterEmail,
     notes: notes || null,
-
-    // CLINICAL INFORMATION
     clinicalImpression: clinicalImpression || null,
     hemoglobin: hemoglobin ? parseFloat(hemoglobin) : null,
     hematocrit: hematocrit ? parseFloat(hematocrit) : null,
     requestType: requestType || 'ROUTINE',
-
-    // TRANSFUSION HISTORY (STRUCTURED)
-    hadPreviousTransfusion: hadPreviousTransfusion,
+    hadPreviousTransfusion,
     previousTransfusionDate: previousTransfusionDate || null,
     previousTransfusionUnits: previousTransfusionUnits ? parseInt(previousTransfusionUnits) : null,
-
-    // REACTION HISTORY (STRUCTURED)
-    hadPreviousReaction: hadPreviousReaction,
+    hadPreviousReaction,
     previousReactionDate: previousReactionDate || null,
     previousReactionDetails: previousReactionDetails || null,
-
-    // INDICATIONS
     indication: indication || null,
-    indicationOtherSpecify: indicationOtherSpecify,
-
-    // OTHER COMPONENT (if applicable)
-    otherComponentName: otherComponentName,
-    otherComponentIndication: otherComponentIndication
+    indicationOtherSpecify,
+    otherComponentName, otherComponentIndication
   };
-  
 
-  // Log to console for development
   console.log('=== BLOOD BAG REQUEST DATA (STRUCTURED) ===');
   console.log(JSON.stringify(requestData, null, 2));
   console.log('=== FILE ATTACHED ===');
   console.log(selectedFile ? `${selectedFile.name} (${selectedFile.size} bytes)` : 'No file');
 
-  // Disable button during submission
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.textContent = 'Submitting...';
 
   try {
-    // Build FormData with JSON data and file
     const formData = new FormData();
     formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
-    if (selectedFile) {
-      formData.append('doctorsNote', selectedFile);
-    }
+    if (selectedFile) formData.append('doctorsNote', selectedFile);
 
-    // Send to backend
-    const res = await fetch('/api/req/blood-requests', {
-      method: 'POST',
-      body: formData
-    });
-
+    const res  = await fetch('/api/req/blood-requests', { method: 'POST', body: formData });
     const json = await res.json();
 
     if (!res.ok) {
@@ -1003,54 +1509,32 @@ async function submitRequest() {
       return;
     }
 
-    // Success: generate/retrieve reference number
     const mockRefNum = json.referenceNumber || 
       ('BR-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 100000)).padStart(5, '0'));
 
-    // Hide form, show success screen
     document.getElementById('request-form-body').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
-    document.getElementById('success-ref').textContent = mockRefNum;
+    document.getElementById('success-ref').textContent  = mockRefNum;
     document.getElementById('success-email').textContent = requesterEmail || '';
 
-    // Store in session for tracker (including all fields)
     sessionStorage.setItem(mockRefNum, JSON.stringify({
       refNum: mockRefNum,
-      patientName: patientName,
-      patientAge: patientAge,
-      patientSex: patientSex,
+      patientName, patientAge, patientSex,
       wardRoom: ward + ' ' + room,
       patientPurok: patientPurok || null,
       patientBarangay: patientBarangay || null,
       patientMunicipality: patientMunicipality || null,
       patientProvince: patientProvince || null,
-      requestingPhysician: requestingPhysician,
-      ageGroup: ageGroup,
-      requestCategory: requestCategory,
-      bloodType: bloodType,
-      bloodComponent: bloodComponent,
-      numberOfUnits: numberOfUnits,
-      requiredBy: requiredBy,
-      requesterName: requesterName,
-      requesterRelationship: requesterRelationship,
-      requesterContact: requesterContact,
-      requesterEmail: requesterEmail,
-      notes: notes,
-      clinicalImpression: clinicalImpression,
-      hemoglobin: hemoglobin,
-      hematocrit: hematocrit,
+      requestingPhysician,
+      ageGroup, requestCategory,
+      bloodType, bloodComponent, numberOfUnits, requiredBy,
+      requesterName, requesterRelationship, requesterContact, requesterEmail,
+      notes, clinicalImpression, hemoglobin, hematocrit,
       plateletCount: plateletCount ? parseInt(plateletCount, 10) : null,
-      requestType: requestType,
-      hadPreviousTransfusion: hadPreviousTransfusion,
-      previousTransfusionDate: previousTransfusionDate,
-      previousTransfusionUnits: previousTransfusionUnits,
-      hadPreviousReaction: hadPreviousReaction,
-      previousReactionDate: previousReactionDate,
-      previousReactionDetails: previousReactionDetails,
-      indication: indication,
-      indicationOtherSpecify: indicationOtherSpecify,
-      otherComponentName: otherComponentName,
-      otherComponentIndication: otherComponentIndication,
+      requestType, hadPreviousTransfusion, previousTransfusionDate,
+      previousTransfusionUnits, hadPreviousReaction, previousReactionDate,
+      previousReactionDetails, indication, indicationOtherSpecify,
+      otherComponentName, otherComponentIndication,
       status: 'PENDING',
       submittedAt: new Date().toISOString()
     }));
@@ -1068,35 +1552,31 @@ function resetForm() {
   document.getElementById('request-form-body').style.display = 'block';
   document.getElementById('success-screen').style.display = 'none';
   clearFile();
-    [
-      'f-patientName','f-birthdate','f-ward', 'f-room','f-purok','f-barangay','f-municipality','f-province','f-physician',
-      'f-diagnosis','f-hemoglobin','f-hematocrit',
-      'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
-      'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount',
-      'f-indicationSpecify-LEUKOREDUCED_PRBC','f-indicationSpecify-ALIQUOTED_PRBC','f-indicationSpecify-CRYOSUPERNATANT',
-      'f-otherComponentName','f-otherComponentIndication'
-    ].forEach(id => { 
-      const el = document.getElementById(id);
-      if (el) el.value = ''; 
-    });
+  [
+    'f-patientName','f-birthdate','f-ward','f-room','f-purok','f-barangay','f-municipality','f-province','f-physician',
+    'f-diagnosis','f-hemoglobin','f-hematocrit',
+    'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
+    'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount',
+    'f-indicationSpecify-LEUKOREDUCED_PRBC','f-indicationSpecify-ALIQUOTED_PRBC','f-indicationSpecify-CRYOSUPERNATANT',
+    'f-otherComponentName','f-otherComponentIndication'
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['f-sex','f-bloodType','f-component','f-units','f-relationship']
-    .forEach(id => { 
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-  // Reset radios
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
   document.getElementById('cat-inpatient').checked = true;
   document.getElementById('urg-med').checked = true;
   document.getElementById('rt-routine').checked = true;
   document.getElementById('pt-no').checked = true;
   document.getElementById('pr-no').checked = true;
   
-    // Hide/reset conditional fields
-    togglePrevTransFields();
-    toggleReactionFields();
-    togglePlateletCountField('');
-    updatePatientTypeAndForms();
-  
+  togglePrevTransFields();
+  toggleReactionFields();
+  togglePlateletCountField('');
+  updatePatientTypeAndForms();
+
+  // Reset review block animations
+  document.querySelectorAll('.review-block').forEach(el => el.classList.remove('revealed'));
+
   hideError();
   goTo(1);
 }
@@ -1118,26 +1598,18 @@ const BLOOD_LABELS = {
 };
 
 const COMPONENT_LABELS = {
-  WHOLE_BLOOD:'Whole Blood', 
-  PRBC:'Packed RBC', 
-  LEUKOREDUCED_PRBC:'Leukoreduced PRBC',
-  ALIQUOTED_PRBC:'Aliquoted PRBC',
-  PLATELET_CONCENTRATE:'Platelet Concentrate',
-  FRESH_FROZEN_PLASMA:'Fresh Frozen Plasma',
-  CRYOPRECIPITATE:'Cryoprecipitate',
-  CRYOSUPERNATANT:'Cryosupernatant',
-  WRBC:'Whole Red Blood Cells',
-  OTHER:'Other'
+  WHOLE_BLOOD:'Whole Blood', PRBC:'Packed RBC', LEUKOREDUCED_PRBC:'Leukoreduced PRBC',
+  ALIQUOTED_PRBC:'Aliquoted PRBC', PLATELET_CONCENTRATE:'Platelet Concentrate',
+  FRESH_FROZEN_PLASMA:'Fresh Frozen Plasma', CRYOPRECIPITATE:'Cryoprecipitate',
+  CRYOSUPERNATANT:'Cryosupernatant', WRBC:'Whole Red Blood Cells', OTHER:'Other'
 };
 
 const URGENCY_LABELS = {
-  LOW:'Low — Scheduled', MEDIUM:'Medium — Within a week',
-  HIGH:'High — 2–3 days', CRITICAL:'Critical — Immediately'
+  LOW:'Low — Scheduled / Within a week',
+  MEDIUM:'Medium — 2-3 days',
+  HIGH:'High — 24hrs',
+  CRITICAL:'Critical — Immediately'
 };
-
-URGENCY_LABELS.LOW = 'Low — Scheduled / Within a week';
-URGENCY_LABELS.MEDIUM = 'Medium — 2-3 days';
-URGENCY_LABELS.HIGH = 'High — 24hrs';
 
 const STATUS_CFG = {
   PENDING:    { label:'Pending Review',       badge:'status-pending',   step:1 },
@@ -1151,30 +1623,20 @@ const STATUS_CFG = {
   CANCELLED:  { label:'Cancelled',            badge:'status-cancelled', step:-1 }
 };
 
-// Demo data for testing tracker
 const DEMO_REQUESTS = {
   'BR-2026-00001': {
-    refNum: 'BR-2026-00001',
-    patientName: 'Reyes, Maria Santos',
-    age: 42, sex: 'FEMALE',
-    bloodType: 'O_POS', component: 'PRBC', units: 2,
-    urgency: 'HIGH', category: 'INPATIENT',
-    physician: 'Dr. Fernandez',
-    requesterName: 'Jose Reyes', email: 'jose@example.com',
-    status: 'APPROVED',
-    submittedAt: '2026-04-10T09:30:00',
-    approvedAt:  '2026-04-10T10:15:00',
+    refNum: 'BR-2026-00001', patientName: 'Reyes, Maria Santos',
+    age: 42, sex: 'FEMALE', bloodType: 'O_POS', component: 'PRBC', units: 2,
+    urgency: 'HIGH', category: 'INPATIENT', physician: 'Dr. Fernandez',
+    requesterName: 'Jose Reyes', email: 'jose@example.com', status: 'APPROVED',
+    submittedAt: '2026-04-10T09:30:00', approvedAt: '2026-04-10T10:15:00',
     adminNotes: 'Stock available. Please proceed to Blood Bank window with transport box.',
   },
   'BR-2026-00002': {
-    refNum: 'BR-2026-00002',
-    patientName: 'Santos, Pedro Cruz',
-    age: 67, sex: 'MALE',
-    bloodType: 'B_NEG', component: 'WHOLE_BLOOD', units: 1,
-    urgency: 'CRITICAL', category: 'EMERGENCY',
-    physician: 'Dr. Villanueva',
-    requesterName: 'Ana Santos', email: 'ana@example.com',
-    status: 'REJECTED',
+    refNum: 'BR-2026-00002', patientName: 'Santos, Pedro Cruz',
+    age: 67, sex: 'MALE', bloodType: 'B_NEG', component: 'WHOLE_BLOOD', units: 1,
+    urgency: 'CRITICAL', category: 'EMERGENCY', physician: 'Dr. Villanueva',
+    requesterName: 'Ana Santos', email: 'ana@example.com', status: 'REJECTED',
     submittedAt: '2026-04-09T14:00:00',
     rejectionReason: 'B− is currently unavailable at CNPH. Please coordinate with Philippine Red Cross CN Chapter or wait for the next BMC stock delivery (estimated 2 days).',
   },
@@ -1182,7 +1644,7 @@ const DEMO_REQUESTS = {
 
 async function trackRequest() {
   const rawInput = document.getElementById('track-input').value.trim();
-  const refNum = rawInput.startsWith('BR-') ? rawInput : ('BR-' + rawInput);
+  const refNum   = rawInput.startsWith('BR-') ? rawInput : ('BR-' + rawInput);
 
   const resultEl  = document.getElementById('track-result');
   const defaultEl = document.getElementById('track-default');
@@ -1204,8 +1666,7 @@ async function trackRequest() {
       requestedUnits:  api.numberOfUnits || 0,
       approvedUnits:   api.approvedUnits ?? null,
       units:           api.patientAcceptedRemarks === true && api.approvedUnits != null
-        ? api.approvedUnits
-        : (api.numberOfUnits ?? 0),
+        ? api.approvedUnits : (api.numberOfUnits ?? 0),
       patientName:     api.patientName,
       patientPurok:    api.patientPurok ?? null,
       patientBarangay: api.patientBarangay ?? null,
@@ -1213,17 +1674,16 @@ async function trackRequest() {
       patientProvince: api.patientProvince ?? null,
       submittedAt:     api.requestedAt,
       approvedAt:      api.reviewedAt,
-      releasedAt:      null, // Will be added in future updates
+      releasedAt:      null,
       transfusedAt:    null,
       adminNotes:      api.notes,
       approvalRemarks: api.approvalRemarks,
       alternativeComponentSuggestion: api.alternativeComponentSuggestion,
       patientAcceptedRemarks: api.patientAcceptedRemarks ?? null,
-      patientRespondedAt: api.patientRespondedAt ?? null,
+      patientRespondedAt:     api.patientRespondedAt ?? null,
       rejectionReason: api.rejectionReason
     };
   } catch (err) {
-    // Fall back to demo or session storage
     data = DEMO_REQUESTS[refNum] ||
       (sessionStorage.getItem(refNum) ? JSON.parse(sessionStorage.getItem(refNum)) : null);
   }
@@ -1245,7 +1705,7 @@ async function trackRequest() {
   const TRACK_STATUS_CFG = {
     PENDING:          { step: 1, label: "Pending",              badge: "pending" },
     APPROVED:         { step: 3, label: "Approved",             badge: "approved" },
-    NEEDS_CONFIRMATION:{ step: 3, label: "Waiting for requester confirmation",  badge: "pending" },
+    NEEDS_CONFIRMATION:{ step: 3, label: "Waiting for requester confirmation", badge: "pending" },
     ALLOCATED:        { step: 3, label: "Allocated",            badge: "approved" },
     READY_FOR_RELEASE:{ step: 4, label: "Ready for Release: Pick up in CNPH", badge: "approved" },
     RELEASED:         { step: 5, label: "Released",             badge: "released" },
@@ -1257,8 +1717,8 @@ async function trackRequest() {
   const currentStep = sc.step;
 
   const steps = [
-    { label: 'Request Submitted',   time: data.submittedAt ? fmtDate(data.submittedAt) : null },
-    { label: 'Under Admin Review',  time: data.approvedAt  ? fmtDate(data.approvedAt)  : null },
+    { label: 'Request Submitted',  time: data.submittedAt ? fmtDate(data.submittedAt) : null },
+    { label: 'Under Admin Review', time: data.approvedAt  ? fmtDate(data.approvedAt)  : null },
     {
       label: data.status === 'NEEDS_CONFIRMATION'
         ? 'Waiting for Requester Confirmation'
@@ -1267,15 +1727,15 @@ async function trackRequest() {
           : 'Approved / Allocated',
       time: data.approvedAt ? fmtDate(data.approvedAt) : null
     },
-    { label: 'Ready for Release',   time: data.releasedAt  ? fmtDate(data.releasedAt)  : null },
-    { label: 'Released',            time: data.releasedAt  ? fmtDate(data.releasedAt)  : null }
+    { label: 'Ready for Release', time: data.releasedAt ? fmtDate(data.releasedAt) : null },
+    { label: 'Released',          time: data.releasedAt ? fmtDate(data.releasedAt) : null }
   ];
 
   function timelineItem(idx, step) {
     const stepNum = idx + 1;
     if (data.status === 'REJECTED' || data.status === 'CANCELLED') {
       if (stepNum > 2) return '';
-      const isDone    = stepNum === 1;
+      const isDone = stepNum === 1;
       return `
         <div class="tl-item">
           <div class="tl-left">
@@ -1402,206 +1862,135 @@ function downloadForm(type) {
   };
   const a = document.createElement('a');
   a.href = links[type];
-  a.download = type === 'adult'
-    ? 'Blood_Request_Form_Adult.pdf'
-    : 'Blood_Request_Form_Pediatric.pdf';
+  a.download = type === 'adult' ? 'Blood_Request_Form_Adult.pdf' : 'Blood_Request_Form_Pediatric.pdf';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
 }
 
-// ── Urgency Level Management (dependent on Request Type) ────────
+// ── Urgency Level Management ────────────────────────────────────
 function updateUrgencyBasedOnRequestType() {
   const requestTypeRadios = document.querySelectorAll('input[name="requestType"]');
-  const urgencyGroup = document.getElementById('urgency-group');
+  const urgencyGroup   = document.getElementById('urgency-group');
   const urgencyDisplay = document.getElementById('urgency-display');
   
-  // Find selected request type
   let selectedType = null;
   requestTypeRadios.forEach(radio => {
-    if (radio.checked) {
-      selectedType = radio.value;
-    }
+    if (radio.checked) selectedType = radio.value;
   });
 
   if (selectedType === 'STAT') {
-    // STAT: Auto-set to HIGH, hide radios, show badge
     urgencyDisplay.style.display = 'block';
-    urgencyGroup.style.display = 'none';
+    urgencyGroup.style.display   = 'none';
     document.getElementById('urg-high').checked = true;
   } else if (selectedType === 'ROUTINE') {
-    // ROUTINE: Show radio options, hide badge
     urgencyDisplay.style.display = 'none';
-    urgencyGroup.style.display = 'grid';
-    // Keep MEDIUM as default for routine (already checked)
+    urgencyGroup.style.display   = 'grid';
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// STANDALONE FORM SCANNER - COMPLETE WORKING VERSION
-// ═══════════════════════════════════════════════════════════════════════════════
 
-// Store detected data from scan
-var scannedData = null;
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 5: STANDALONE FORM SCANNER (Unchanged from original)
+// ══════════════════════════════════════════════════════════════════════
+
+var scannedData    = null;
 var tesseractReady = false;
 
-// ════════════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS (FIRST - No dependencies)
-// ════════════════════════════════════════════════════════════════════════════════
-
-/**
- * Convert file to base64
- */
+// ── Helpers ─────────────────────────────────────────────────────
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload  = () => resolve(reader.result);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
-/**
- * Extract a single field from text using regex
- */
 function extractField(text, regex) {
   try {
     const match = text.match(regex);
-    if (match) {
-      return match[1] || match[0];
-    }
-  } catch (e) {
-    console.warn('Regex error:', e);
-  }
+    if (match) return match[1] || match[0];
+  } catch (e) { console.warn('Regex error:', e); }
   return null;
 }
 
-/**
- * Show error message in scanner
- */
 function showScannerError(msg) {
   const errorDiv = document.getElementById('scanner-error');
-  if (errorDiv) {
-    errorDiv.textContent = '⚠ ' + msg;
-    errorDiv.style.display = 'block';
-  }
+  if (errorDiv) { errorDiv.textContent = '⚠ ' + msg; errorDiv.style.display = 'block'; }
 }
 
-/**
- * Show success message in scanner
- */
 function showScannerSuccess(msg) {
   const errorDiv = document.getElementById('scanner-error');
   if (errorDiv) {
-    errorDiv.textContent = msg;
-    errorDiv.style.background = 'rgba(46, 125, 79, 0.08)';
-    errorDiv.style.borderColor = 'rgba(46, 125, 79, 0.2)';
-    errorDiv.style.color = '#2E7D4F';
-    errorDiv.style.display = 'block';
-    
+    errorDiv.textContent    = msg;
+    errorDiv.style.background   = 'rgba(46, 125, 79, 0.08)';
+    errorDiv.style.borderColor  = 'rgba(46, 125, 79, 0.2)';
+    errorDiv.style.color        = '#2E7D4F';
+    errorDiv.style.display      = 'block';
     setTimeout(() => {
-      errorDiv.style.display = 'none';
+      errorDiv.style.display    = 'none';
       errorDiv.style.background = '';
       errorDiv.style.borderColor = '';
-      errorDiv.style.color = '';
+      errorDiv.style.color      = '';
     }, 4000);
   }
 }
 
-/**
- * Clear scan
- */
 function clearScan() {
   scannedData = null;
-  const scanInput = document.getElementById('scan-input');
-  if (scanInput) scanInput.value = '';
+  const scanInput   = document.getElementById('scan-input');
+  if (scanInput)   scanInput.value = '';
   const placeholder = document.getElementById('scan-placeholder');
   if (placeholder) placeholder.style.display = 'block';
-  const preview = document.getElementById('scan-preview');
-  if (preview) preview.style.display = 'none';
-  const resultsBox = document.getElementById('scanner-results-box');
-  if (resultsBox) resultsBox.style.display = 'none';
-  const uploadZone = document.getElementById('scanner-upload-zone');
-  if (uploadZone) uploadZone.classList.remove('has-file');
+  const preview     = document.getElementById('scan-preview');
+  if (preview)     preview.style.display = 'none';
+  const resultsBox  = document.getElementById('scanner-results-box');
+  if (resultsBox)  resultsBox.style.display = 'none';
+  const uploadZone  = document.getElementById('scanner-upload-zone');
+  if (uploadZone)  uploadZone.classList.remove('has-file');
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// EXTRACTION FUNCTION (SECOND - Calls helpers)
-// ════════════════════════════════════════════════════════════════════════════════
-
-/**
- * Extract form data using Tesseract.js OCR
- */
+// ── OCR Extraction ───────────────────────────────────────────────
 async function extractFormData(base64, fileType) {
   const detected = {};
-
   try {
-    // Check if Tesseract is loaded
     if (typeof Tesseract === 'undefined') {
       console.warn('Tesseract.js library not loaded');
       showScannerError('OCR library loading... Please try again in a moment.');
       return {};
     }
 
-    // Try OCR recognition
     console.log('Starting OCR extraction...');
     const result = await Tesseract.recognize(base64, 'eng');
-
-    const text = result.data.text;
+    const text   = result.data.text;
     console.log('OCR completed, text length:', text.length);
     console.log('Raw OCR text:', text.substring(0, 500));
 
-    if (!text || text.length < 10) {
-      console.warn('OCR returned very little text');
-      return {};
-    }
+    if (!text || text.length < 10) { console.warn('OCR returned very little text'); return {}; }
 
-    // ═══════════════════════════════════════════════════════════════
-    // EXTRACT PATIENT INFORMATION
-    // ═══════════════════════════════════════════════════════════════
-
-    // Patient name - Try multiple patterns
     detected.patientName =
       extractField(text, /Surname\s+([A-Za-z\s]+?)(?=Given|Middle|Age)/i) ||
       extractField(text, /PATIENT\s*:\s*([A-Za-z\s]+?)(?=ADDRESS|$)/i);
-
     detected.patientLast =
       extractField(text, /Given\s+Name\s+([A-Za-z\s]+?)(?=Middle|Age|Sex)/i) ||
       extractField(text, /Given\s+([A-Za-z\s]+?)(?=Middle|Age)/i);
-
     detected.patientMiddle =
       extractField(text, /Middle\s+Name\s+([A-Za-z\s]+?)(?=Age|Sex|DOB)/i) ||
       extractField(text, /Middle\s+([A-Za-z\s]+?)(?=Age|Sex)/i);
-
     detected.patientSuffix = extractField(text, /Suffix\s+([A-Za-z0-9\.]*)/i);
-
-    // Age (if present)
-    detected.age = extractField(text, /Age\s+(\d+)/i);
-
-    // Date of birth - multiple formats
-    detected.birthdate =
+    detected.age           = extractField(text, /Age\s+(\d+)/i);
+    detected.birthdate     =
       extractField(text, /Date\s+of\s+Birth\s*[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i) ||
       extractField(text, /DOB\s*[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i);
-
-    // Sex/Gender
-    detected.sex = extractField(text, /Sex\s+([MF]|Male|Female)/i);
-
-    // Ward and room
-    detected.ward = extractField(text, /Ward[\/\s]*Room\s+([^\n\t,]+?)(?=CLINICAL|$)/i);
-    detected.room = extractField(text, /Room\s+([^\n\t,]+?)(?=Ward|CLINICAL|$)/i);
-
-    // Physician
+    detected.sex      = extractField(text, /Sex\s+([MF]|Male|Female)/i);
+    detected.ward     = extractField(text, /Ward[\/\s]*Room\s+([^\n\t,]+?)(?=CLINICAL|$)/i);
+    detected.room     = extractField(text, /Room\s+([^\n\t,]+?)(?=Ward|CLINICAL|$)/i);
     detected.physician =
       extractField(text, /ATTENDING\s+PHYSICIAN[:\s]+([^\n]+?)(?=$|\n|CONTACT)/i) ||
       extractField(text, /PHYSICIAN[:\s]+([^\n]+?)(?=$|\n)/i);
-
     detected.contactNum = extractField(text, /CONTACT\s+N(?:UM|UMBER)[:\s]+([0-9\s\-\+]+)/i);
 
-    // ═══════════════════════════════════════════════════════════════
-    // EXTRACT BLOOD INFORMATION
-    // ═══════════════════════════════════════════════════════════════
-
-    // Blood type with RH
     const btMatch = text.match(/BLOOD\s+TYPE[:\s]*([OAB]+)\s*([+-]|Negative|Positive)?/i);
     if (btMatch) {
       detected.bloodType = btMatch[1].toUpperCase();
@@ -1609,32 +1998,21 @@ async function extractFormData(base64, fileType) {
       detected.rh = (rh && (rh.toLowerCase().includes('neg') || rh === '-')) ? '-' : '+';
     }
 
-    // Hemoglobin
-    detected.hemoglobin = extractField(text, /HEMOGLOBIN[:\s]*(\d+\.?\d*)/i);
-
-    // Hematocrit
-    detected.hematocrit = extractField(text, /HEMATOCRIT[:\s]*\.?(\d+)/i);
-
-    // ═══════════════════════════════════════════════════════════════
-    // EXTRACT CLINICAL INFORMATION
-    // ═══════════════════════════════════════════════════════════════
-
-    detected.diagnosis =
+    detected.hemoglobin  = extractField(text, /HEMOGLOBIN[:\s]*(\d+\.?\d*)/i);
+    detected.hematocrit  = extractField(text, /HEMATOCRIT[:\s]*\.?(\d+)/i);
+    detected.diagnosis   =
       extractField(text, /CLINICAL\s+IMPRESSION[:\s]+([^\n]+?)(?=$|BLOOD|REQUEST)/i) ||
       extractField(text, /DIAGNOSIS[:\s]+([^\n]+?)(?=$|BLOOD)/i);
-
     detected.requestType = extractField(text, /REQUEST\s+TYPE[:\s]*\(?([A-Za-z]+)\)?/i);
 
-    // Previous transfusion
     if (text.match(/Previous\s+Transfusion.*?Yes/i)) {
       detected.prevTransfusion = 'YES';
-      detected.prevTransDate = extractField(text, /When[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i);
-      detected.prevUnits = extractField(text, /No\.\s+of\s+units[:\s]+(\d+)/i);
+      detected.prevTransDate   = extractField(text, /When[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i);
+      detected.prevUnits       = extractField(text, /No\.\s+of\s+units[:\s]+(\d+)/i);
     } else if (text.match(/Previous\s+Transfusion.*?No/i)) {
       detected.prevTransfusion = 'NO';
     }
 
-    // Previous reaction
     if (text.match(/Previous\s+Reaction.*?Yes/i)) {
       detected.prevReaction = 'YES';
       detected.reactionDate = extractField(text, /When[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i);
@@ -1642,14 +2020,8 @@ async function extractFormData(base64, fileType) {
       detected.prevReaction = 'NO';
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // CLEAN UP
-    // ═══════════════════════════════════════════════════════════════
-
     for (let key in detected) {
-      if (detected[key]) {
-        detected[key] = String(detected[key]).trim();
-      }
+      if (detected[key]) detected[key] = String(detected[key]).trim();
     }
 
     console.log('✓ Extraction complete. Fields found:', Object.keys(detected).filter(k => detected[k]).length);
@@ -1657,43 +2029,24 @@ async function extractFormData(base64, fileType) {
 
   } catch (err) {
     console.error('OCR error details:', err);
-    console.error('Error message:', err.message);
     return {};
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// DISPLAY FUNCTIONS (THIRD - Call helpers)
-// ════════════════════════════════════════════════════════════════════════════════
-
-/**
- * Display scan results
- */
+// ── Display scan results ──────────────────────────────────────────
 function displayScanResults() {
   const resultsDiv = document.getElementById('scanner-results-box');
-  const fieldsDiv = document.getElementById('scanner-fields-found');
+  const fieldsDiv  = document.getElementById('scanner-fields-found');
 
   if (!resultsDiv || !fieldsDiv) return;
 
   let foundFields = [];
   const fieldMap = {
-    patientName: 'Patient Name',
-    patientLast: 'Last Name',
-    patientMiddle: 'Middle Name',
-    age: 'Age',
-    birthdate: 'Date of Birth',
-    sex: 'Sex',
-    ward: 'Ward',
-    room: 'Room',
-    physician: 'Physician',
-    bloodType: 'Blood Type',
-    rh: 'RH',
-    hemoglobin: 'Hemoglobin',
-    hematocrit: 'Hematocrit',
-    diagnosis: 'Diagnosis',
-    requestType: 'Request Type',
-    prevTransfusion: 'Previous Transfusion',
-    prevReaction: 'Previous Reaction',
+    patientName: 'Patient Name', patientLast: 'Last Name', patientMiddle: 'Middle Name',
+    age: 'Age', birthdate: 'Date of Birth', sex: 'Sex', ward: 'Ward', room: 'Room',
+    physician: 'Physician', bloodType: 'Blood Type', rh: 'RH', hemoglobin: 'Hemoglobin',
+    hematocrit: 'Hematocrit', diagnosis: 'Diagnosis', requestType: 'Request Type',
+    prevTransfusion: 'Previous Transfusion', prevReaction: 'Previous Reaction',
     contactNum: 'Contact Number'
   };
 
@@ -1716,33 +2069,20 @@ function displayScanResults() {
 
   fieldsDiv.innerHTML = foundFields.join('');
   const statusEl = document.getElementById('scan-status');
-  if (statusEl) {
-    statusEl.textContent = `✓ Detected ${foundFields.length} field${foundFields.length !== 1 ? 's' : ''}`;
-  }
+  if (statusEl) statusEl.textContent = `✓ Detected ${foundFields.length} field${foundFields.length !== 1 ? 's' : ''}`;
   resultsDiv.style.display = 'block';
 }
 
-/**
- * Apply scanned data to main form
- */
+// ── Apply scan results to form ─────────────────────────────────
 function applyScanResults() {
   if (!scannedData) return;
 
   const mapping = {
-    patientName: 'f-patientName',
-    patientLast: 'f-patientLast',
-    patientMiddle: 'f-patientMiddle',
-    patientSuffix: 'f-patientSuffix',
-    birthdate: 'f-birthdate',
-    sex: 'f-sex',
-    ward: 'f-ward',
-    room: 'f-room',
-    physician: 'f-physician',
-    contactNum: 'f-contact',
-    hemoglobin: 'f-hemoglobin',
-    hematocrit: 'f-hematocrit',
-    diagnosis: 'f-diagnosis',
-    requestType: 'requestType'
+    patientName: 'f-patientName', patientLast: 'f-patientLast', patientMiddle: 'f-patientMiddle',
+    patientSuffix: 'f-patientSuffix', birthdate: 'f-birthdate', sex: 'f-sex',
+    ward: 'f-ward', room: 'f-room', physician: 'f-physician',
+    contactNum: 'f-contact', hemoglobin: 'f-hemoglobin', hematocrit: 'f-hematocrit',
+    diagnosis: 'f-diagnosis', requestType: 'requestType'
   };
 
   let filledCount = 0;
@@ -1750,134 +2090,80 @@ function applyScanResults() {
   for (const [scanKey, htmlId] of Object.entries(mapping)) {
     const value = scannedData[scanKey];
     if (!value) continue;
-
     const element = document.getElementById(htmlId);
-
     try {
-      // Handle radio buttons (request type)
       if (scanKey === 'requestType') {
         const match = value.match(/stat|routine/i);
         if (match) {
           const radioValue = match[0].toUpperCase();
           const radio = document.querySelector(`input[name="requestType"][value="${radioValue}"]`);
-          if (radio) {
-            radio.checked = true;
-            radio.dispatchEvent(new Event('change'));
-            filledCount++;
-          }
+          if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change')); filledCount++; }
         }
-      }
-      // Handle sex dropdown
-      else if (scanKey === 'sex') {
+      } else if (scanKey === 'sex') {
         const match = value.match(/M|F|Male|Female/i);
         if (match) {
           const sexValue = match[0].toUpperCase().startsWith('M') ? 'MALE' : 'FEMALE';
           const sexSelect = document.getElementById('f-sex');
-          if (sexSelect) {
-            sexSelect.value = sexValue;
-            sexSelect.dispatchEvent(new Event('change'));
-            filledCount++;
-          }
+          if (sexSelect) { sexSelect.value = sexValue; sexSelect.dispatchEvent(new Event('change')); filledCount++; }
         }
-      }
-      // Handle blood type dropdown
-      else if (scanKey === 'bloodType') {
+      } else if (scanKey === 'bloodType') {
         const type = value.toUpperCase();
-        const rh = scannedData.rh === '-' ? '_NEG' : '_POS';
-
+        const rh   = scannedData.rh === '-' ? '_NEG' : '_POS';
         let typeCode = '';
-        if (type.includes('O')) {
-          typeCode = 'O' + rh;
-        } else if (type.includes('AB')) {
-          typeCode = 'AB' + rh;
-        } else if (type.includes('A')) {
-          typeCode = 'A' + rh;
-        } else if (type.includes('B')) {
-          typeCode = 'B' + rh;
-        }
-
+        if (type.includes('O'))       typeCode = 'O' + rh;
+        else if (type.includes('AB')) typeCode = 'AB' + rh;
+        else if (type.includes('A')) typeCode = 'A' + rh;
+        else if (type.includes('B')) typeCode = 'B' + rh;
         if (typeCode) {
           const bloodSelect = document.getElementById('f-bloodType');
-          if (bloodSelect) {
-            bloodSelect.value = typeCode;
-            bloodSelect.dispatchEvent(new Event('change'));
-            filledCount++;
-          }
+          if (bloodSelect) { bloodSelect.value = typeCode; bloodSelect.dispatchEvent(new Event('change')); filledCount++; }
         }
-      }
-      // Regular text inputs
-      else if (element) {
+      } else if (element) {
         element.value = value;
         element.dispatchEvent(new Event('change'));
         filledCount++;
       }
-    } catch (e) {
-      console.warn(`Error filling ${scanKey}:`, e);
-    }
+    } catch (e) { console.warn(`Error filling ${scanKey}:`, e); }
   }
 
-  // Scroll to form and show success message
   const formSection = document.getElementById('form-section');
-  if (formSection) {
-    formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  if (formSection) formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   showScannerSuccess(`✓ Filled ${filledCount} field${filledCount !== 1 ? 's' : ''} from scan. Please review and edit as needed.`);
-
-  // Clear scan data
   clearScan();
-
-  // Auto-switch to request tab
   switchTab('request');
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// MAIN HANDLER (FOURTH - Calls display functions)
-// ════════════════════════════════════════════════════════════════════════════════
-
-/**
- * Handle scan file upload
- */
+// ── Handle scan file upload ─────────────────────────────────────
 async function handleScan(file) {
   if (!file) return;
-
   const uploadZone = document.getElementById('scanner-upload-zone');
-  const errorDiv = document.getElementById('scanner-error');
-
+  const errorDiv   = document.getElementById('scanner-error');
   if (!uploadZone || !errorDiv) return;
 
-  // Validation
-  if (file.size > 10 * 1024 * 1024) {
-    showScannerError("File exceeds 10MB limit.");
-    return;
-  }
-
+  if (file.size > 10 * 1024 * 1024) { showScannerError("File exceeds 10MB limit."); return; }
   if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    showScannerError("Only PDF, JPG, PNG, or WebP files are accepted.");
-    return;
+    showScannerError("Only PDF, JPG, PNG, or WebP files are accepted."); return;
   }
 
   errorDiv.style.display = 'none';
 
-  // Show preview
   const placeholder = document.getElementById('scan-placeholder');
-  const preview = document.getElementById('scan-preview');
+  const preview     = document.getElementById('scan-preview');
   if (placeholder) placeholder.style.display = 'none';
-  if (preview) preview.style.display = 'block';
+  if (preview)     preview.style.display = 'block';
 
   const fileName = document.getElementById('scan-file-name');
-  if (fileName) fileName.textContent = file.name;
+  if (fileName)   fileName.textContent = file.name;
 
   const statusEl = document.getElementById('scan-status');
-  if (statusEl) {
-    statusEl.innerHTML = '<span class="scanner-spinner"></span> Processing...';
-  }
+  if (statusEl)   statusEl.innerHTML = '<span class="scanner-spinner"></span> Processing...';
 
   uploadZone.classList.add('has-file');
 
   try {
     const base64 = await fileToBase64(file);
-    scannedData = await extractFormData(base64, file.type);
+    scannedData  = await extractFormData(base64, file.type);
 
     if (scannedData && Object.keys(scannedData).length > 0) {
       displayScanResults();
@@ -1892,21 +2178,10 @@ async function handleScan(file) {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// INITIALIZATION FUNCTIONS (FIFTH - Main setup)
-// ════════════════════════════════════════════════════════════════════════════════
-
-/**
- * Initialize Tesseract.js with proper loading
- */
+// ── Tesseract init ──────────────────────────────────────────────
 async function initTesseractWorker() {
   try {
-    if (typeof Tesseract === 'undefined') {
-      console.warn('Tesseract.js not available, OCR will be limited');
-      return false;
-    }
-
-    // Initialize Tesseract worker
+    if (typeof Tesseract === 'undefined') { console.warn('Tesseract.js not available, OCR will be limited'); return false; }
     const worker = await Tesseract.createWorker('eng');
     tesseractReady = true;
     console.log('✓ Tesseract.js loaded successfully');
@@ -1918,50 +2193,28 @@ async function initTesseractWorker() {
   }
 }
 
-/**
- * Initialize scanner UI
- */
+// ── Scanner UI init ─────────────────────────────────────────────
 function initStandaloneScanner() {
   const uploadZone = document.getElementById('scanner-upload-zone');
   if (uploadZone) {
-    // Make it clickable
     uploadZone.style.cursor = 'pointer';
-    uploadZone.addEventListener('click', function() {
-      document.getElementById('scan-input').click();
-    });
-
-    // Drag & drop support
-    uploadZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadZone.classList.add('drag-over');
-    });
-
-    uploadZone.addEventListener('dragleave', () => {
-      uploadZone.classList.remove('drag-over');
-    });
-
+    uploadZone.addEventListener('click', function() { document.getElementById('scan-input').click(); });
+    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+    uploadZone.addEventListener('dragleave', () => { uploadZone.classList.remove('drag-over'); });
     uploadZone.addEventListener('drop', (e) => {
       e.preventDefault();
       uploadZone.classList.remove('drag-over');
-      if (e.dataTransfer.files[0]) {
-        handleScan(e.dataTransfer.files[0]);
-      }
+      if (e.dataTransfer.files[0]) handleScan(e.dataTransfer.files[0]);
     });
   }
-
-  // Try to initialize Tesseract in the background
   initTesseractWorker();
 }
 
-/**
- * Toggle scanner panel collapse/expand
- */
+// ── Toggle scanner collapse ─────────────────────────────────────
 function toggleScannerPanel() {
   const content = document.getElementById('scanner-content');
-  const btn = document.getElementById('scanner-collapse-btn');
-
+  const btn     = document.getElementById('scanner-collapse-btn');
   if (!content || !btn) return;
-
   if (content.classList.contains('collapsed')) {
     content.classList.remove('collapsed');
     btn.classList.remove('collapsed');
@@ -1972,58 +2225,45 @@ function toggleScannerPanel() {
 }
 
 
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 6: DOMContentLoaded INIT
+// ══════════════════════════════════════════════════════════════════════
 
-// ── Init ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-    injectIndicationStyles();
-    initIndicationHandlers();
-    initStandaloneScanner();
-    
-    // Set minimum date to today for required by field
-    const requiredByInput = document.getElementById('f-requiredBy');
-    if (requiredByInput) {
-      requiredByInput.min = new Date().toISOString().split('T')[0];
-    }
+  injectIndicationStyles();
+  initIndicationHandlers();
+  initStandaloneScanner();
 
-    // Listen to birthdate changes to update patient type and forms
-    document.getElementById('f-birthdate').addEventListener('change', updatePatientTypeAndForms);
+  // Set minimum date to today for required-by field
+  const requiredByInput = document.getElementById('f-requiredBy');
+  if (requiredByInput) requiredByInput.min = new Date().toISOString().split('T')[0];
 
-    // Add event listeners to request type radios
-    const requestTypeRadios = document.querySelectorAll('input[name="requestType"]');
-    requestTypeRadios.forEach(radio => {
-      radio.addEventListener('change', updateUrgencyBasedOnRequestType);
+  // Birthdate change handler
+  document.getElementById('f-birthdate').addEventListener('change', updatePatientTypeAndForms);
+
+  // Request type radios
+  const requestTypeRadios = document.querySelectorAll('input[name="requestType"]');
+  requestTypeRadios.forEach(radio => radio.addEventListener('change', updateUrgencyBasedOnRequestType));
+  updateUrgencyBasedOnRequestType();
+
+  // Birthdate limits
+  const birthdateInput = document.getElementById('f-birthdate');
+  if (birthdateInput) {
+    const today = new Date().toISOString().split('T')[0];
+    const minDate = new Date();
+    minDate.setFullYear(minDate.getFullYear() - 120);
+    birthdateInput.max = today;
+    birthdateInput.min = minDate.toISOString().split('T')[0];
+  }
+
+  // Date validation for prev transfusion / reaction dates
+  ['f-prevTransDate', 'f-reactionDate'].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener('change', function() {
+      const selected = new Date(this.value);
+      const now = new Date();
+      if (selected > now) { alert('Date cannot be in the future.'); this.value = ''; }
     });
-    
-    // Initialize urgency display on page load
-    updateUrgencyBasedOnRequestType();
-});
-
-
-// Date Format
-
-const birthdateInput = document.getElementById("f-birthdate");
-
-// today = latest allowed birthdate
-const today = new Date().toISOString().split("T")[0];
-
-// optional: oldest allowed date (example: max 120 years old)
-const minDate = new Date();
-minDate.setFullYear(minDate.getFullYear() - 120);
-
-birthdateInput.max = today;
-birthdateInput.min = minDate.toISOString().split("T")[0];
-
-["f-prevTransDate", "f-reactionDate"].forEach(id => {
-  const input = document.getElementById(id);
-
-  input.addEventListener("change", function () {
-    const selected = new Date(this.value);
-    const now = new Date();
-
-    if (selected > now) {
-      alert("Date cannot be in the future.");
-      this.value = "";
-    }
   });
 });
-
