@@ -3563,6 +3563,101 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let bagPickerIsChange = false;
  
   const reqBagCache = {};
+  const REQ_NEW_BADGE_STATUSES = new Set(['PENDING', 'NEEDS_CONFIRMATION']);
+  const reqSeenIds = new Set();
+  const reqUnseenIds = new Set();
+  let reqBadgePrimed = false;
+
+  function reqGetIdentity(req) {
+    if (!req) return null;
+    if (req.referenceNumber) return `ref:${String(req.referenceNumber).trim()}`;
+    if (req.id !== null && req.id !== undefined) return `id:${String(req.id).trim()}`;
+    return null;
+  }
+
+  function reqShouldCountAsNew(req) {
+    return REQ_NEW_BADGE_STATUSES.has(req?.status);
+  }
+
+  function isBloodRequestsPanelActive() {
+    const panel = document.getElementById('panel-bloodrequests');
+    return !!(panel && panel.classList.contains('active'));
+  }
+
+  function updateBloodRequestBadge(animate = false) {
+    const badge = document.getElementById('blood-request-nav-badge');
+    if (!badge) return;
+
+    const count = reqUnseenIds.size;
+    const previousCount = Number(badge.dataset.count || '0');
+
+    if (count <= 0) {
+      badge.textContent = '0';
+      badge.dataset.count = '0';
+      badge.hidden = true;
+      badge.classList.remove('is-pulse');
+      return;
+    }
+
+    badge.hidden = false;
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.dataset.count = String(count);
+
+    if (animate && count > previousCount) {
+      badge.classList.remove('is-pulse');
+      void badge.offsetWidth;
+      badge.classList.add('is-pulse');
+    }
+  }
+
+  function markBloodRequestsAsViewed() {
+    reqUnseenIds.clear();
+    reqData.forEach(req => {
+      if (!reqShouldCountAsNew(req)) return;
+      const key = reqGetIdentity(req);
+      if (key) reqSeenIds.add(key);
+    });
+    updateBloodRequestBadge(false);
+  }
+
+  function detectNewBloodRequests(nextReqData) {
+    const rows = Array.isArray(nextReqData) ? nextReqData : [];
+    const currentRelevant = new Set();
+
+    rows.forEach(req => {
+      if (!reqShouldCountAsNew(req)) return;
+      const key = reqGetIdentity(req);
+      if (!key) return;
+
+      currentRelevant.add(key);
+      if (!reqSeenIds.has(key)) {
+        reqSeenIds.add(key);
+        if (reqBadgePrimed) {
+          reqUnseenIds.add(key);
+        }
+      }
+    });
+
+    reqUnseenIds.forEach(key => {
+      if (!currentRelevant.has(key)) {
+        reqUnseenIds.delete(key);
+      }
+    });
+
+    if (!reqBadgePrimed) {
+      reqBadgePrimed = true;
+      reqUnseenIds.clear();
+      updateBloodRequestBadge(false);
+      return;
+    }
+
+    if (isBloodRequestsPanelActive()) {
+      markBloodRequestsAsViewed();
+      return;
+    }
+
+    updateBloodRequestBadge(true);
+  }
  
   /* ----------------------------------------------------------------------------
      DATA MAPPING
@@ -3598,6 +3693,12 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       id:             r.id,
       name,
       type:           r.requesterType    ?? 'ANONYMOUS',
+      requesterType:  r.requesterType    ?? null,
+      hospitalProfile: r.hospitalProfile ?? null,
+      hospitalName:   r.hospitalName ?? r.hospitalProfile?.hospitalName ?? null,
+      hospitalContactName: r.hospitalContactName ?? r.hospitalProfile?.contactPersonName ?? null,
+      hospitalContactEmail: r.hospitalContactEmail ?? r.requesterEmail ?? r.hospitalProfile?.user?.email ?? null,
+      hospitalPhoneNumber: r.hospitalPhoneNumber ?? r.hospitalProfile?.phoneNumber ?? r.hospitalProfile?.contactPersonPhone ?? null,
       patient:        formatPatientName(r) ?? '–',
       patientName:    r.patientName      ?? '–',
       patientMiddle:  r.patientMiddle    ?? null,
@@ -3637,6 +3738,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       requesterRelationship: r.requesterRelationship ?? null,
       requesterContact: r.requesterContact ?? null,
       requesterEmail: r.requesterEmail   ?? null,
+      requesterStaffId: r.requesterStaffId ?? null,
+      requesterStaffName: r.requesterStaffName ?? null,
+      requesterStaffEmail: r.requesterStaffEmail ?? null,
+      requesterStaffPhone: r.requesterStaffPhone ?? null,
       confirmationEmailSentAt: r.confirmationEmailSentAt ?? null,
       approvalRemarks: r.approvalRemarks ?? null,
       alternativeComponentSuggestion: r.alternativeComponentSuggestion ?? null,
@@ -3706,6 +3811,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
+      detectNewBloodRequests(reqData);
       reqRender();
       reqUpdateCounts();  
     } catch (err) {
@@ -3725,6 +3831,9 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
+      if (status === 'ALL') {
+        detectNewBloodRequests(reqData);
+      }
       reqRender();
       reqUpdateCounts();
     } catch (err) {
@@ -4903,6 +5012,9 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
  
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
+  window.updateBloodRequestBadge = updateBloodRequestBadge;
+  window.markBloodRequestsAsViewed = markBloodRequestsAsViewed;
+  window.detectNewBloodRequests = detectNewBloodRequests;
 
   window.reqFetchAll = reqFetchAll;
   window.reqFetchByStatus = reqFetchByStatus;
@@ -4979,6 +5091,20 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       req.patientMunicipality,
       req.patientProvince
     ].filter(Boolean).join(' / ');
+    const normalizedRequesterType = String(req.type ?? req.requesterType ?? '').trim().toUpperCase();
+    const isHospitalRequest =
+      normalizedRequesterType === 'HOSPITAL' ||
+      !!(req.hospitalProfile || req.hospitalName || req.hospitalContactName || req.hospitalPhoneNumber);
+    const hospitalName = req.hospitalName ?? req.hospitalProfile?.hospitalName ?? req.name ?? '-';
+    const hospitalContactName = req.hospitalContactName ?? req.hospitalProfile?.contactPersonName ?? req.requesterName ?? '-';
+    const hospitalContactEmail = req.hospitalContactEmail ?? req.requesterEmail ?? req.hospitalProfile?.user?.email ?? '-';
+    const hospitalPhoneNumber = req.hospitalPhoneNumber ?? req.hospitalProfile?.phoneNumber ?? req.hospitalProfile?.contactPersonPhone ?? req.requesterContact ?? '-';
+    const hasRequesterInfo = [req.requesterName, req.requesterRelationship, req.requesterContact, req.requesterEmail]
+      .some(value => value !== null && value !== undefined && String(value).trim() !== '');
+    const hasStaffAuthorizationInfo =
+      req.type === 'ANONYMOUS' &&
+      [req.requesterStaffId, req.requesterStaffName, req.requesterStaffEmail, req.requesterStaffPhone]
+        .some(value => value !== null && value !== undefined && String(value).trim() !== '');
 
     return `
       <div class="req-details-sections">
@@ -5166,31 +5292,73 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
           </div>
         </div>
 
-        <div class="req-details-section">
-          <div class="req-details-section-title">Requester Information</div>
-          <div class="req-details-grid-2">
-            <div class="req-details-field">
-              <span class="req-details-label">Requester Name</span>
-              <span class="req-details-value">${req.requesterName ?? req.name ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Relationship</span>
-              <span class="req-details-value">${req.requesterRelationship ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Contact</span>
-              <span class="req-details-value">${req.requesterContact ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Email</span>
-              <span class="req-details-value">${req.requesterEmail ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Requester Type</span>
-              <span class="req-details-value">${req.type ?? '-'}</span>
+        ${isHospitalRequest ? `
+          <div class="req-details-section">
+            <div class="req-details-section-title">Hospital Information</div>
+            <div class="req-details-grid-2">
+              <div class="req-details-field">
+                <span class="req-details-label">Hospital Name</span>
+                <span class="req-details-value">${hospitalName}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Contact Name</span>
+                <span class="req-details-value">${hospitalContactName}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Contact Email</span>
+                <span class="req-details-value">${hospitalContactEmail}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Phone Number</span>
+                <span class="req-details-value">${hospitalPhoneNumber}</span>
+              </div>
             </div>
           </div>
-        </div>
+        ` : ''}
+
+        ${(!isHospitalRequest || hasRequesterInfo) ? `
+          <div class="req-details-section">
+            <div class="req-details-section-title">Requester Information</div>
+            <div class="req-details-grid-2">
+              <div class="req-details-field">
+                <span class="req-details-label">Requester Name</span>
+                <span class="req-details-value">${req.requesterName ?? req.name ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Relationship</span>
+                <span class="req-details-value">${req.requesterRelationship ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Contact</span>
+                <span class="req-details-value">${req.requesterContact ?? '-'}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        ${hasStaffAuthorizationInfo ? `
+          <div class="req-details-section">
+            <div class="req-details-section-title">Staff Requestor Information</div>
+            <div class="req-details-grid-2">
+              <div class="req-details-field">
+                <span class="req-details-label">Staff ID</span>
+                <span class="req-details-value">${req.requesterStaffId ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Staff Name</span>
+                <span class="req-details-value">${req.requesterStaffName ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Staff Email</span>
+                <span class="req-details-value">${req.requesterStaffEmail ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Phone Number</span>
+                <span class="req-details-value">${req.requesterStaffPhone ?? '-'}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
 
         ${['REJECTED', 'CANCELLED'].includes(req.status) && req.rejectionReason ? `
           <div class="req-details-section req-details-section-rejected">
@@ -6863,6 +7031,10 @@ function showPanel(panelName, element) {
 
   if (element) {
     element.classList.add('active');
+  }
+
+  if (panelName === 'bloodrequests' && typeof window.markBloodRequestsAsViewed === 'function') {
+    window.markBloodRequestsAsViewed();
   }
 
   window.scrollTo(0, 0);

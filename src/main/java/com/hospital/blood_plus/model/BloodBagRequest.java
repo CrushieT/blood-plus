@@ -237,6 +237,18 @@ public class BloodBagRequest {
     @Column(length = 150)
     private String requesterEmail;
 
+    @Transient
+    private String requesterStaffId;
+
+    @Transient
+    private String requesterStaffName;
+
+    @Transient
+    private String requesterStaffEmail;
+
+    @Transient
+    private String requesterStaffPhone;
+
     // ─────────────────────────────────────────────
     // Reference Number (EXISTING)
     // ─────────────────────────────────────────────
@@ -503,6 +515,18 @@ public class BloodBagRequest {
 
     public String getRequesterEmail() { return requesterEmail; }
     public void setRequesterEmail(String requesterEmail) { this.requesterEmail = requesterEmail; }
+
+    public String getRequesterStaffId() { return requesterStaffId; }
+    public void setRequesterStaffId(String requesterStaffId) { this.requesterStaffId = requesterStaffId; }
+
+    public String getRequesterStaffName() { return requesterStaffName; }
+    public void setRequesterStaffName(String requesterStaffName) { this.requesterStaffName = requesterStaffName; }
+
+    public String getRequesterStaffEmail() { return requesterStaffEmail; }
+    public void setRequesterStaffEmail(String requesterStaffEmail) { this.requesterStaffEmail = requesterStaffEmail; }
+
+    public String getRequesterStaffPhone() { return requesterStaffPhone; }
+    public void setRequesterStaffPhone(String requesterStaffPhone) { this.requesterStaffPhone = requesterStaffPhone; }
 
     public String getReferenceNumber() { return referenceNumber; }
     public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }

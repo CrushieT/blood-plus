@@ -36,8 +36,9 @@
       <div class="nav-item" onclick="showPanel('bloodbank', this)">
         <span class="nav-icon">🩸</span> Blood Bank
       </div>
-      <div class="nav-item" onclick="showPanel('bloodrequests', this)">
+      <div class="nav-item" id="nav-bloodrequests" onclick="showPanel('bloodrequests', this)">
         <span class="nav-icon">📋</span> Blood Requests
+        <span id="blood-request-nav-badge" class="nav-badge nav-badge-requests" hidden>0</span>
       </div>
       <div class="nav-item" onclick="showPanel('hospitals', this)">
         <span class="nav-icon">🏥</span> Hospitals
