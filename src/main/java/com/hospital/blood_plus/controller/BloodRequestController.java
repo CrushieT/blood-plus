@@ -37,6 +37,7 @@ public class BloodRequestController {
             response.put("referenceNumber", saved.getReferenceNumber());
             response.put("status", saved.getStatus());
             response.put("requestedAt", saved.getRequestedAt());
+            response.put("contactEmail", saved.getRequesterEmail());
             response.put(
                 "message",
                 saved.getRequesterEmail() != null && !saved.getRequesterEmail().isBlank()

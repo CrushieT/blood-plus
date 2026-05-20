@@ -10,9 +10,11 @@ import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.model.BloodBagRequest.RequestStatus;
 import com.hospital.blood_plus.model.HospitalProfile;
 import com.hospital.blood_plus.model.RequestFulfillment;
+import com.hospital.blood_plus.model.StaffProfile;
 import com.hospital.blood_plus.repository.BloodBagRepository;
 import com.hospital.blood_plus.repository.BloodBagRequestRepository;
 import com.hospital.blood_plus.repository.RequestFulfillmentRepository;
+import com.hospital.blood_plus.repository.StaffProfileRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,7 @@ public class BloodBagRequestService {
     private final RequestFulfillmentRepository        requestFulfillmentRepository;
     private final EmailService                  emailService;
     private final RequestStatusLogService       requestStatusLogService;
+    private final StaffProfileRepository        staffProfileRepository;
 
     public BloodBagRequestService(BloodBagRequestRepository repository,
                                   CloudinaryService cloudinaryService,
@@ -40,7 +43,8 @@ public class BloodBagRequestService {
                                   BloodBagService bloodBagService,
                                   RequestFulfillmentRepository requestFulfillmentRepository,
                                   EmailService emailService,
-                                  RequestStatusLogService requestStatusLogService) {
+                                  RequestStatusLogService requestStatusLogService,
+                                  StaffProfileRepository staffProfileRepository) {
         this.repository          = repository;
         this.cloudinaryService   = cloudinaryService;
         this.bloodBagRepository  = bloodBagRepository;
@@ -48,6 +52,7 @@ public class BloodBagRequestService {
         this.requestFulfillmentRepository  = requestFulfillmentRepository;
         this.emailService  = emailService;
         this.requestStatusLogService = requestStatusLogService;
+        this.staffProfileRepository = staffProfileRepository;
     }
 
     // ─────────────────────────────────────────────
@@ -56,7 +61,7 @@ public class BloodBagRequestService {
 
     public BloodBagRequest submitAnonymousRequest(BloodBagRequestDTO dto,
                                                   MultipartFile doctorsNote) throws IOException {
-        validate(dto, doctorsNote);
+        StaffProfile authorizedStaff = validate(dto, doctorsNote);
  
         BloodBagRequest request = new BloodBagRequest();
  
@@ -116,7 +121,7 @@ public class BloodBagRequestService {
         request.setRequesterName(dto.getRequesterName().trim());
         request.setRequesterRelationship(dto.getRequesterRelationship());
         request.setRequesterContact(dto.getRequesterContact().trim());
-        request.setRequesterEmail(normalizeOptionalEmail(dto.getRequesterEmail()));
+        request.setRequesterEmail(normalizeOptionalEmail(authorizedStaff.getEmail()));
  
         // ─────────────────────────────────────────────
         // NOTES (EXISTING)
@@ -757,7 +762,9 @@ public class BloodBagRequestService {
     // VALIDATION
     // ─────────────────────────────────────────────
 
-    private void validate(BloodBagRequestDTO dto, MultipartFile doctorsNote) {
+    private StaffProfile validate(BloodBagRequestDTO dto, MultipartFile doctorsNote) {
+        StaffProfile authorizedStaff = resolveAuthorizedStaff(dto.getStaffUniqueCode());
+
         // Required patient fields
         if (dto.getPatientName() == null || dto.getPatientName().trim().isEmpty())
             throw new IllegalArgumentException("Patient name is required.");
@@ -798,6 +805,8 @@ public class BloodBagRequestService {
         // At least one indication must be provided
         if (dto.getIndication() == null || dto.getIndication().trim().isEmpty())
             throw new IllegalArgumentException("At least one indication for transfusion must be selected.");
+
+        return authorizedStaff;
     }
 
     public BloodBagRequest getRequestById(Long id) {
@@ -830,6 +839,33 @@ public class BloodBagRequestService {
         if (value == null) return null;
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeStaffUniqueCode(String uniqueCode) {
+        if (uniqueCode == null) return null;
+        String normalized = uniqueCode.trim().toUpperCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private StaffProfile resolveAuthorizedStaff(String staffUniqueCode) {
+        String normalizedCode = normalizeStaffUniqueCode(staffUniqueCode);
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Staff authorization code is required.");
+        }
+
+        if (!normalizedCode.matches("^[A-Z0-9]{4}-[A-Z0-9]{4}$")) {
+            throw new IllegalArgumentException("Invalid staff authorization code.");
+        }
+
+        StaffProfile staffProfile = staffProfileRepository.findByUniqueCode(normalizedCode)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid staff authorization code."));
+
+        String normalizedEmail = normalizeOptionalEmail(staffProfile.getEmail());
+        if (normalizedEmail == null) {
+            throw new IllegalArgumentException("Invalid staff authorization code.");
+        }
+
+        return staffProfile;
     }
 
     private String normalizeRequiredText(String value, String message) {

@@ -195,8 +195,7 @@ function validate(page) {
   if (page === 3) {
     if (!selectedFile)
       return showError('Please upload the Doctor\'s Note or Blood Request Form.'), false;
-    var hospEl = document.getElementById('contact-hospital');
-    var isHosp = hospEl && hospEl.style.display !== 'none' && hospEl.style.display !== '';
+    var isHosp = isHospitalSubmissionMode();
     if (!isHosp) {
       if (!document.getElementById('f-requesterName').value.trim())
         return showError('Please enter your full name.'), false;
@@ -204,6 +203,8 @@ function validate(page) {
         return showError('Please select your relationship to the patient.'), false;
       if (!document.getElementById('f-contact').value.trim())
         return showError('Please enter your contact number.'), false;
+      if (!ensureValidStaffUniqueCode(false))
+        return false;
     }
   }
 
@@ -731,7 +732,8 @@ function buildReview() {
         reviewRow('Staff',    document.getElementById('ch-staff-name').textContent)
       : reviewRow('Name',         document.getElementById('f-requesterName').value.trim()) +
         reviewRow('Relationship', document.getElementById('f-relationship').value) +
-        reviewRow('Contact',      document.getElementById('f-contact').value.trim()));
+        reviewRow('Contact',      document.getElementById('f-contact').value.trim()) +
+        reviewRow('Staff Authorization Code', normalizeStaffUniqueCode(document.getElementById('f-staffUniqueCode').value || '') || '-'));
 
   // ── Documents section ──
   document.getElementById('review-doc').innerHTML =
@@ -806,9 +808,117 @@ function getRequesterEmailValue() {
   return emailValue;
 }
 
+function isHospitalSubmissionMode() {
+  const hospEl = document.getElementById('contact-hospital');
+  return !!(hospEl && hospEl.style.display !== 'none' && hospEl.style.display !== '');
+}
+
+function normalizeStaffUniqueCode(rawValue) {
+  if (!rawValue) return '';
+  const compact = String(rawValue).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  if (compact.length <= 4) return compact;
+  return `${compact.slice(0, 4)}-${compact.slice(4)}`;
+}
+
+function handleStaffCodeInput() {
+  const input = document.getElementById('f-staffUniqueCode');
+  if (!input) return;
+  input.value = normalizeStaffUniqueCode(input.value);
+  clearStaffCodeError();
+}
+
+function showStaffCodeError(message) {
+  const input = document.getElementById('f-staffUniqueCode');
+  const errEl = document.getElementById('f-staffUniqueCode-error');
+  if (input) input.classList.add('input-error');
+  if (errEl) {
+    errEl.textContent = message || '';
+    errEl.classList.add('show');
+  }
+}
+
+function clearStaffCodeError() {
+  const input = document.getElementById('f-staffUniqueCode');
+  const errEl = document.getElementById('f-staffUniqueCode-error');
+  if (input) input.classList.remove('input-error');
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.classList.remove('show');
+  }
+}
+
+function isStaffCodeErrorMessage(message) {
+  return message === 'Staff authorization code is required.' ||
+         message === 'Invalid staff authorization code.';
+}
+
+function ensureValidStaffUniqueCode(showModal) {
+  const input = document.getElementById('f-staffUniqueCode');
+  if (!input) return true;
+
+  const normalized = normalizeStaffUniqueCode(input.value);
+  input.value = normalized;
+
+  if (!normalized) {
+    const message = 'Staff authorization code is required.';
+    showStaffCodeError(message);
+    if (showModal) {
+      showBloodPlusModal('Authorization Required', message, 'warning');
+    }
+    input.focus();
+    return false;
+  }
+
+  if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalized)) {
+    const message = 'Invalid staff authorization code.';
+    showStaffCodeError(message);
+    if (showModal) {
+      showBloodPlusModal('Invalid Authorization Code', message, 'error');
+    }
+    input.focus();
+    return false;
+  }
+
+  clearStaffCodeError();
+  return true;
+}
+
+function showBloodPlusModal(title, message, type = 'info') {
+  const overlay = document.getElementById('bloodplus-modal-overlay');
+  const titleEl = document.getElementById('bloodplus-modal-title');
+  const messageEl = document.getElementById('bloodplus-modal-message');
+  const iconEl = document.getElementById('bloodplus-modal-icon');
+  if (!overlay || !titleEl || !messageEl || !iconEl) return;
+
+  titleEl.textContent = title || 'Notice';
+  messageEl.textContent = message || '';
+  iconEl.className = 'bp-modal-icon';
+
+  const typeMap = {
+    success: { cls: 'bp-modal-success', icon: 'OK' },
+    error: { cls: 'bp-modal-error', icon: '!' },
+    warning: { cls: 'bp-modal-warning', icon: '!' },
+    info: { cls: 'bp-modal-info', icon: 'i' }
+  };
+  const selectedType = typeMap[type] || typeMap.info;
+  iconEl.classList.add(selectedType.cls);
+  iconEl.textContent = selectedType.icon;
+
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeBloodPlusModal() {
+  const overlay = document.getElementById('bloodplus-modal-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
 // ── Submit with CALCULATED AGE FROM BIRTHDATE ─────────────────
 async function submitRequest() {
   hideError();
+  clearStaffCodeError();
   const ackCheckbox = document.getElementById('ack-confirm');
   if (!ackCheckbox.checked) {
     showError('Please acknowledge that the information provided is accurate before submitting.');
@@ -900,6 +1010,13 @@ async function submitRequest() {
   const requesterRelationship = document.getElementById('f-relationship').value;
   const requesterContact = document.getElementById('f-contact').value.trim();
   const requesterEmail = getRequesterEmailValue();
+  const isHosp = isHospitalSubmissionMode();
+  const staffCodeInput = document.getElementById('f-staffUniqueCode');
+  const staffUniqueCode = isHosp ? null : normalizeStaffUniqueCode(staffCodeInput ? staffCodeInput.value : '');
+
+  if (!isHosp && !ensureValidStaffUniqueCode(true)) {
+    return;
+  }
 
   // ══════════════════════════════════════════════════════════════
   // BUILD COMPLETE DATA OBJECT (MATCHING BloodBagRequestDTO)
@@ -941,6 +1058,7 @@ async function submitRequest() {
     requesterRelationship: requesterRelationship || null,
     requesterContact: requesterContact,
     requesterEmail: requesterEmail,
+    staffUniqueCode: staffUniqueCode || null,
 
     // NOTES
     notes: notes || null,
@@ -999,7 +1117,13 @@ async function submitRequest() {
     const json = await res.json();
 
     if (!res.ok) {
-      showError(json.error || 'Submission failed. Please try again.');
+      const errorMessage = json && json.error ? json.error : 'Submission failed. Please try again.';
+      if (isStaffCodeErrorMessage(errorMessage)) {
+        showStaffCodeError(errorMessage);
+        showBloodPlusModal('Authorization Code Error', errorMessage, 'error');
+      } else {
+        showBloodPlusModal('Submission Failed', errorMessage, 'error');
+      }
       return;
     }
 
@@ -1011,7 +1135,8 @@ async function submitRequest() {
     document.getElementById('request-form-body').style.display = 'none';
     document.getElementById('success-screen').style.display = 'block';
     document.getElementById('success-ref').textContent = mockRefNum;
-    document.getElementById('success-email').textContent = requesterEmail || '';
+    const contactEmail = (json.contactEmail || requesterEmail || '').trim();
+    document.getElementById('success-email').textContent = contactEmail;
 
     // Store in session for tracker (including all fields)
     sessionStorage.setItem(mockRefNum, JSON.stringify({
@@ -1034,7 +1159,8 @@ async function submitRequest() {
       requesterName: requesterName,
       requesterRelationship: requesterRelationship,
       requesterContact: requesterContact,
-      requesterEmail: requesterEmail,
+      requesterEmail: contactEmail,
+      staffUniqueCode: staffUniqueCode,
       notes: notes,
       clinicalImpression: clinicalImpression,
       hemoglobin: hemoglobin,
@@ -1056,7 +1182,7 @@ async function submitRequest() {
     }));
 
   } catch (err) {
-    showError('Error processing request. Please try again.');
+    showBloodPlusModal('Network Error', 'Error processing request. Please try again.', 'error');
     console.error(err);
   } finally {
     btn.disabled = false;
@@ -1072,7 +1198,7 @@ function resetForm() {
       'f-patientName','f-birthdate','f-ward', 'f-room','f-purok','f-barangay','f-municipality','f-province','f-physician',
       'f-diagnosis','f-hemoglobin','f-hematocrit',
       'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
-      'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount',
+      'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount','f-staffUniqueCode',
       'f-indicationSpecify-LEUKOREDUCED_PRBC','f-indicationSpecify-ALIQUOTED_PRBC','f-indicationSpecify-CRYOSUPERNATANT',
       'f-otherComponentName','f-otherComponentIndication'
     ].forEach(id => { 
@@ -1098,6 +1224,8 @@ function resetForm() {
     updatePatientTypeAndForms();
   
   hideError();
+  clearStaffCodeError();
+  closeBloodPlusModal();
   goTo(1);
 }
 
@@ -1996,6 +2124,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize urgency display on page load
     updateUrgencyBasedOnRequestType();
+
+    const staffCodeInput = document.getElementById('f-staffUniqueCode');
+    if (staffCodeInput) {
+      staffCodeInput.addEventListener('blur', handleStaffCodeInput);
+      staffCodeInput.addEventListener('input', clearStaffCodeError);
+    }
+
+    const modalOverlay = document.getElementById('bloodplus-modal-overlay');
+    if (modalOverlay) {
+      modalOverlay.addEventListener('click', function (event) {
+        if (event.target === modalOverlay) {
+          closeBloodPlusModal();
+        }
+      });
+    }
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        closeBloodPlusModal();
+      }
+    });
 });
 
 
@@ -2021,7 +2170,7 @@ birthdateInput.min = minDate.toISOString().split("T")[0];
     const now = new Date();
 
     if (selected > now) {
-      alert("Date cannot be in the future.");
+      showBloodPlusModal('Invalid Date', 'Date cannot be in the future.', 'warning');
       this.value = "";
     }
   });

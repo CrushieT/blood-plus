@@ -5556,7 +5556,7 @@ function staffOpenView(id) {
   document.getElementById('view-staff-staffid').textContent  = s.staffId     || '-';
   document.getElementById('view-staff-dept').textContent     = s.department  || '-';
   document.getElementById('view-staff-phone').textContent    = s.phoneNumber || '-';
-  document.getElementById('view-staff-hiredate').textContent = staffFmtDate(s.hireDate);
+  // document.getElementById('view-staff-hiredate').textContent = staffFmtDate(s.hireDate);
   document.getElementById('view-staff-email').textContent    = s.email;
   document.getElementById('view-staff-access').textContent   = staffAccessStatus(s);
   document.getElementById('view-staff-code').textContent     = staffCodeLabel(s);
