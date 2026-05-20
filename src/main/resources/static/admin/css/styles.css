@@ -644,6 +644,67 @@ body {
 
 .modal-body { padding: 24px 28px; }
 
+.bp-modal {
+  border: 1px solid var(--border);
+}
+
+.bp-modal-header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bp-modal-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.bp-modal-type {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.bp-modal-message {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--charcoal);
+}
+
+.bp-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.bp-type-success {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.bp-type-warning {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+
+.bp-type-error {
+  background: var(--soft-red);
+  color: var(--crimson);
+}
+
+.bp-type-info {
+  background: #E8F0FF;
+  color: var(--blue);
+}
+
 /* ── FORM ELEMENTS ────────────────────────────────────────── */
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
 .form-row.full { flex-direction: column; }
@@ -937,6 +998,59 @@ body {
   cursor: pointer; transition: border-color 0.2s;
 }
 .bb-select:focus { border-color: var(--crimson); }
+
+.bb-tab-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: white;
+}
+
+.bb-tab-actions-title {
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.bb-export-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bb-export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bb-export-field label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.bb-export-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bb-analytics-actions {
+  margin-bottom: 16px;
+  align-items: center;
+}
 
 /* ── EXPIRY PILL ──────────────────────────────────────────── */
 .expiry-pill {
@@ -2454,7 +2568,31 @@ body {
   }
 }
 
-/* ─ Print Styles ─ */
+/* Responsive export controls */
+@media (max-width: 768px) {
+  .bb-tab-actions {
+    align-items: stretch;
+  }
+
+  .bb-export-controls,
+  .bb-export-buttons {
+    width: 100%;
+  }
+
+  .bb-export-field {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .bb-export-buttons .btn-primary,
+  .bb-export-buttons .btn-secondary,
+  .bb-export-buttons .btn-ghost {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* Print styles */
 @media print {
   .logging-modal {
     display: none !important;

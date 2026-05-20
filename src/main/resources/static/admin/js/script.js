@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════════
 async function initializeNav() {
@@ -57,6 +57,94 @@ function openModal(id) {
 function closeModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.remove('show');
+}
+
+let bloodPlusConfirmCallback = null;
+
+function getBloodPlusModalTypeConfig(type) {
+  const typeMap = {
+    success: { icon: 'OK', label: 'Success', className: 'bp-type-success' },
+    warning: { icon: '!', label: 'Warning', className: 'bp-type-warning' },
+    error:   { icon: 'X', label: 'Error', className: 'bp-type-error' },
+    info:    { icon: 'i', label: 'Info', className: 'bp-type-info' }
+  };
+  return typeMap[type] || typeMap.info;
+}
+
+function hideBloodPlusModal() {
+  closeModal('bloodPlusActionModal');
+  bloodPlusConfirmCallback = null;
+
+  const confirmBtn = document.getElementById('bp-modal-confirm');
+  if (confirmBtn) {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirm';
+  }
+}
+
+function showBloodPlusMessage(title, message, type = 'info') {
+  const config = getBloodPlusModalTypeConfig(type);
+  const iconEl = document.getElementById('bp-modal-icon');
+  const typeEl = document.getElementById('bp-modal-type');
+  const titleEl = document.getElementById('bp-modal-title');
+  const messageEl = document.getElementById('bp-modal-message');
+  const cancelBtn = document.getElementById('bp-modal-cancel');
+  const confirmBtn = document.getElementById('bp-modal-confirm');
+  const okBtn = document.getElementById('bp-modal-ok');
+
+  if (iconEl) {
+    iconEl.className = `bp-modal-icon ${config.className}`;
+    iconEl.textContent = config.icon;
+  }
+  if (typeEl) typeEl.textContent = config.label;
+  if (titleEl) titleEl.textContent = title || 'Notice';
+  if (messageEl) messageEl.textContent = message || '';
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  if (confirmBtn) confirmBtn.style.display = 'none';
+  if (okBtn) okBtn.style.display = 'inline-flex';
+
+  bloodPlusConfirmCallback = null;
+  openModal('bloodPlusActionModal');
+}
+
+function showBloodPlusConfirm(title, message, onConfirm, type = 'warning') {
+  const config = getBloodPlusModalTypeConfig(type);
+  const iconEl = document.getElementById('bp-modal-icon');
+  const typeEl = document.getElementById('bp-modal-type');
+  const titleEl = document.getElementById('bp-modal-title');
+  const messageEl = document.getElementById('bp-modal-message');
+  const cancelBtn = document.getElementById('bp-modal-cancel');
+  const confirmBtn = document.getElementById('bp-modal-confirm');
+  const okBtn = document.getElementById('bp-modal-ok');
+
+  if (iconEl) {
+    iconEl.className = `bp-modal-icon ${config.className}`;
+    iconEl.textContent = config.icon;
+  }
+  if (typeEl) typeEl.textContent = config.label;
+  if (titleEl) titleEl.textContent = title || 'Confirm Action';
+  if (messageEl) messageEl.textContent = message || '';
+  if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+  if (confirmBtn) {
+    confirmBtn.style.display = 'inline-flex';
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirm';
+  }
+  if (okBtn) okBtn.style.display = 'none';
+
+  bloodPlusConfirmCallback = typeof onConfirm === 'function' ? onConfirm : null;
+  openModal('bloodPlusActionModal');
+}
+
+async function runBloodPlusConfirm() {
+  if (!bloodPlusConfirmCallback) {
+    hideBloodPlusModal();
+    return;
+  }
+
+  const confirmFn = bloodPlusConfirmCallback;
+  hideBloodPlusModal();
+  await Promise.resolve(confirmFn());
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -265,11 +353,29 @@ function renderPendingRequestsQuickView(requests) {
     return;
   }
 
-  const urgencyColor = { CRITICAL:'var(--crimson)', HIGH:'var(--amber)', MEDIUM:'var(--blue)', LOW:'var(--green)' };
+  const urgencyColor = {
+    CRITICAL:'var(--crimson)',
+    HIGH:'var(--amber)',
+    MEDIUM:'var(--blue)',
+    LOW:'var(--green)'
+  };
+
+  // Blood type formatter
+  function formatBloodType(type) {
+    if (!type) return '–';
+
+    return type
+      .replace('_POS', ' Pos')
+      .replace('_NEG', ' Neg')
+      .replace(/_/g, ' ');
+  }
 
   container.innerHTML = pending.map(r => {
     const name    = r.hospitalProfile?.hospitalName ?? r.requesterName ?? '–';
-    const blood   = r.bloodType ?? '–';
+
+    // UPDATED
+    const blood   = formatBloodType(r.bloodType);
+
     const units   = r.numberOfUnits ?? 1;
     const urgency = r.urgencyLevel ?? 'LOW';
     const color   = urgencyColor[urgency] || 'var(--muted)';
@@ -277,11 +383,20 @@ function renderPendingRequestsQuickView(requests) {
     return `
       <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
         <div style="width:4px;height:36px;background:${color};border-radius:2px;flex-shrink:0"></div>
+
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:1px">${units} unit${units > 1 ? 's' : ''} · ${urgency[0] + urgency.slice(1).toLowerCase()} urgency</div>
+          <div style="font-size:13px;font-weight:600;color:var(--charcoal)">
+            ${name}
+          </div>
+
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">
+            ${units} unit${units > 1 ? 's' : ''} · ${urgency[0] + urgency.slice(1).toLowerCase()} urgency
+          </div>
         </div>
-        <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--crimson)">${blood}</span>
+
+        <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:15px;color:var(--crimson)">
+          ${blood}
+        </span>
       </div>`;
   }).join('');
 }
@@ -1341,11 +1456,13 @@ function applyAddStockDefaultsToEmptyRows() {
 }
 
 function applyAddStockDefaultsToAllRows() {
-  const confirmed = confirm('Apply defaults to all rows? This will overwrite row values except serial numbers.');
-  if (!confirmed) return;
-
   const defaults = getAddStockDefaults();
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
+
+  if (!rows.length) {
+    showBloodPlusMessage('No Rows Found', 'Please add at least one blood bag row before applying defaults.', 'warning');
+    return;
+  }
 
   rows.forEach(row => {
     row.querySelector('.add-stock-blood-group').value = defaults.bloodGroup;
@@ -1357,6 +1474,7 @@ function applyAddStockDefaultsToAllRows() {
   });
 
   updateAddStockValidCount();
+  showBloodPlusMessage('Defaults Applied', 'Defaults applied to all rows.', 'success');
 }
 
 function clearEmptyAddStockRows() {
@@ -1376,7 +1494,7 @@ async function submitAddBloodStock() {
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
 
   if (!rows.length) {
-    alert('Please add at least one blood bag row.');
+    showBloodPlusMessage('No Rows Added', 'Please add at least one blood bag row.', 'warning');
     return;
   }
 
@@ -1388,13 +1506,13 @@ async function submitAddBloodStock() {
   const nonEmptyRows = allRows.filter(item => !isAddStockRowEmpty(item.data));
 
   if (!nonEmptyRows.length) {
-    alert('Please fill in at least one blood bag row.');
+    showBloodPlusMessage('No Filled Rows', 'Please fill in at least one blood bag row.', 'warning');
     return;
   }
 
   const incomplete = nonEmptyRows.find(item => !isAddStockRowComplete(item.data));
   if (incomplete) {
-    alert('Please complete all partially filled rows before submitting.');
+    showBloodPlusMessage('Incomplete Row', 'Please complete all partially filled rows before submitting.', 'warning');
     return;
   }
 
@@ -1402,48 +1520,53 @@ async function submitAddBloodStock() {
   const duplicateSerial = serials.find((serial, index) => serials.indexOf(serial) !== index);
 
   if (duplicateSerial) {
-    alert('Duplicate serial number found: ' + duplicateSerial);
+    showBloodPlusMessage('Duplicate Serial', 'Duplicate serial number found: ' + duplicateSerial, 'error');
     return;
   }
 
-  const confirmed = confirm(`Receive ${nonEmptyRows.length} blood bag(s) under transaction ${transactionNumber || 'N/A'}?`);
-  if (!confirmed) return;
+  showBloodPlusConfirm(
+    'Receive Blood Bags',
+    `Receive ${nonEmptyRows.length} blood bag(s) under transaction ${transactionNumber || 'N/A'}?`,
+    async () => {
+      try {
+        for (const item of nonEmptyRows) {
+          const data = item.data;
 
-  try {
-    for (const item of nonEmptyRows) {
-      const data = item.data;
+          const res = await fetch('/api/admin/blood-bank/intake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              serialNumber: data.serialNumber,
+              transactionNumber: transactionNumber || null,
+              aboType: data.aboType,
+              rhType: data.rhType,
+              componentType: data.componentType,
+              volumeMl: parseInt(data.volumeMl, 10),
+              collectedAt: data.collectedAt + 'T00:00:00',
+              expiresAt: data.expiresAt + 'T00:00:00',
+              remarks: data.remarks || null,
+              source: 'TRANSFER',
+            })
+          });
 
-      const res = await fetch('/api/admin/blood-bank/intake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          serialNumber: data.serialNumber,
-          transactionNumber: transactionNumber || null,
-          aboType: data.aboType,
-          rhType: data.rhType,
-          componentType: data.componentType,
-          volumeMl: parseInt(data.volumeMl, 10),
-          collectedAt: data.collectedAt + 'T00:00:00',
-          expiresAt: data.expiresAt + 'T00:00:00',
-          remarks: data.remarks || null,
-          source: 'TRANSFER',
-        })
-      });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showBloodPlusMessage('Failed to Add Bag', err.message || `Failed to add bag ${data.serialNumber}.`, 'error');
+            return;
+          }
+        }
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.message || `Failed to add bag ${data.serialNumber}.`);
-        return;
+        closeModal('addBloodModal');
+        await loadBloodBank();
+        showBloodPlusMessage('Batch Received', `${nonEmptyRows.length} blood bag(s) received successfully.`, 'success');
+      } catch (err) {
+        console.error('Add stock batch error:', err);
+        showBloodPlusMessage('Network Error', 'Network error. Please try again.', 'error');
       }
-    }
-
-    closeModal('addBloodModal');
-    await loadBloodBank();
-  } catch (err) {
-    console.error('Add stock batch error:', err);
-    alert('Network error. Please try again.');
-  }
+    },
+    'info'
+  );
 }
 
 // ── Add Stock Keyboard Navigation ─────────────────────────────────────────────
@@ -2226,152 +2349,341 @@ window.printAnalytics = function() {
 };
 
 /**
- * Export Blood Bags to Excel - Enhanced with complete BloodBag model data
+ * Blood Bag reporting helpers
+ * Shared by print/export to keep one source of truth.
  */
-/**
- * Export Blood Bags to Excel/CSV - Complete bag details
- * Exports from BLOOD_BAGS array with all available information
- */
-window.exportBloodBagsToExcel = function() {
-  // Build comprehensive data for export from BLOOD_BAGS
-  const rows = [
-    [
-      'Serial Number',
-      'Blood Type',
-      'RH Type',
-      'Component Type',
-      'Volume (mL)',
-      'Collected Date',
-      'Expiration Date',
-      'Status',
-      'Source',
-      'Transaction #',
-      'Remarks',
-      'Received By',
-      'Discard Reason',
-      'Open System',
-      'Open System At'
-    ]
-  ];
+function mapBloodBagStatusLabel(status) {
+  const statusMap = {
+    AVAILABLE: 'Available',
+    EXPIRING: 'Expiring Soon',
+    CROSSMATCHED: 'Crossmatched',
+    DISPENSED: 'Dispensed',
+    EXPIRED: 'Expired',
+    DISCARDED: 'Discarded'
+  };
+  return statusMap[status] || status || '-';
+}
 
-  const now = new Date();
-  const soon = new Date(); soon.setDate(soon.getDate() + 7);
+function getBloodBagSourceLabelPlain(bag) {
+  if (bag.eventName) return bag.eventName;
+  const sourceMap = {
+    DONATION: 'Blood Drive',
+    WALK_IN: 'Walk-in Donor',
+    TRANSFER: 'BMC Transfer',
+    EXTERNAL_SUPPLY: 'External Supply'
+  };
+  return sourceMap[bag.source] || bag.source || '-';
+}
 
-  // Helper function to get status label (no emojis)
-  function getStatusLabel(status) {
-    const statusMap = {
-      'AVAILABLE': 'Available',
-      'EXPIRING': 'Expiring',
-      'CROSSMATCHED': 'Crossmatched',
-      'DISPENSED': 'Dispensed',
-      'EXPIRED': 'Expired',
-      'DISCARDED': 'Discarded'
+function parseBloodBagDateValue(value) {
+  if (!value) return null;
+  const dateString = value.includes('T') ? value : `${value}T00:00:00`;
+  const parsed = new Date(dateString);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatBloodBagReportDate(value) {
+  const parsed = parseBloodBagDateValue(value);
+  if (!parsed) return '-';
+  return parsed.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: '2-digit' });
+}
+
+function sortBloodBagListBySelection(list, sortValue) {
+  list.sort((a, b) => {
+    const aExpiry = parseBloodBagDateValue(a.expiresAt)?.getTime() || 0;
+    const bExpiry = parseBloodBagDateValue(b.expiresAt)?.getTime() || 0;
+    const aCollected = parseBloodBagDateValue(a.collectedAt)?.getTime() || 0;
+    const bCollected = parseBloodBagDateValue(b.collectedAt)?.getTime() || 0;
+
+    if (sortValue === 'expiry_asc') return aExpiry - bExpiry;
+    if (sortValue === 'expiry_desc') return bExpiry - aExpiry;
+    if (sortValue === 'collected_desc') return bCollected - aCollected;
+    if (sortValue === 'collected_asc') return aCollected - bCollected;
+    return 0;
+  });
+}
+
+function escapeBloodBagReportHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+window.getBloodBagsForPrint = function(mode = 'current') {
+  const effectiveMode = mode === 'range' ? 'range' : 'current';
+  const selectedSort = document.getElementById('bags-sort')?.value || 'expiry_asc';
+
+  if (effectiveMode === 'range') {
+    const fromDate = document.getElementById('bags-print-from-date')?.value || '';
+    const toDate = document.getElementById('bags-print-to-date')?.value || '';
+
+    if (!fromDate || !toDate) {
+      showBloodPlusMessage('Date Range Required', 'Please select both From Date and To Date.', 'warning');
+      return { rows: [], mode: effectiveMode, invalid: true };
+    }
+
+    if (fromDate > toDate) {
+      showBloodPlusMessage('Invalid Date Range', 'From Date must be on or before To Date.', 'warning');
+      return { rows: [], mode: effectiveMode, invalid: true };
+    }
+
+    const fromTime = new Date(`${fromDate}T00:00:00`).getTime();
+    const toTime = new Date(`${toDate}T23:59:59`).getTime();
+
+    const rows = BLOOD_BAGS
+      .map(bag => ({ ...bag, computedStatus: bag.computedStatus || computeBagStatus(bag) }))
+      .filter(bag => {
+        const collected = parseBloodBagDateValue(bag.collectedAt);
+        if (!collected) return false;
+        const collectedTime = collected.getTime();
+        return collectedTime >= fromTime && collectedTime <= toTime;
+      });
+
+    sortBloodBagListBySelection(rows, selectedSort);
+
+    return {
+      rows,
+      mode: effectiveMode,
+      invalid: false,
+      scopeLabel: `Collected from ${fromDate} to ${toDate}`,
+      fromDate,
+      toDate
     };
-    return statusMap[status] || status || '';
   }
 
-  // Helper function to compute bag status
-  function computeStatus(bag) {
-    const exp = new Date(bag.expiresAt);
-    if (bag.status === 'DISCARDED') return 'DISCARDED';
-    if (bag.status === 'DISPENSED') return 'DISPENSED';
-    if (bag.status === 'CROSSMATCHED') return 'CROSSMATCHED';
-    if (bag.status === 'EXPIRED' || (bag.status === 'AVAILABLE' && exp < now)) return 'EXPIRED';
-    if (bag.status === 'AVAILABLE' && exp <= soon) return 'EXPIRING';
-    return 'AVAILABLE';
+  const rows = (Array.isArray(bagsCurrent) ? bagsCurrent : []).map(bag => ({
+    ...bag,
+    computedStatus: bag.computedStatus || computeBagStatus(bag)
+  }));
+
+  sortBloodBagListBySelection(rows, selectedSort);
+
+  return {
+    rows,
+    mode: effectiveMode,
+    invalid: false,
+    scopeLabel: 'Current filtered and sorted results'
+  };
+};
+
+window.printBloodBags = function(mode = 'current') {
+  const result = window.getBloodBagsForPrint(mode);
+  if (!result || result.invalid) return;
+
+  const rows = result.rows || [];
+  if (!rows.length) {
+    showBloodPlusMessage('No Data to Print', 'No blood bags match the selected criteria.', 'info');
+    return;
   }
 
-  // Helper function to format dates - long format to prevent ###
-  function formatDate(d) {
-    if (!d) return '';
-    const str = d.includes('T') ? d : d + 'T00:00:00';
-    return new Date(str).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: '2-digit'
-    });
+  const generatedAt = new Date().toLocaleString('en-PH', {
+    year: 'numeric',
+    month: 'long',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const bodyRows = rows.map((bag, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeBloodBagReportHtml(bag.serialNumber || '-')}</td>
+        <td>${escapeBloodBagReportHtml(fullBloodLabel(bag.bloodType, bag.rhType))}</td>
+        <td>${escapeBloodBagReportHtml(componentLabel(bag.componentType))}</td>
+        <td>${escapeBloodBagReportHtml(bag.volumeMl ? `${bag.volumeMl} mL` : '-')}</td>
+        <td>${escapeBloodBagReportHtml(formatBloodBagReportDate(bag.collectedAt))}</td>
+        <td>${escapeBloodBagReportHtml(formatBloodBagReportDate(bag.expiresAt))}</td>
+        <td>${escapeBloodBagReportHtml(mapBloodBagStatusLabel(bag.computedStatus || computeBagStatus(bag)))}</td>
+        <td>${escapeBloodBagReportHtml(getBloodBagSourceLabelPlain(bag))}</td>
+        <td>${escapeBloodBagReportHtml(bag.transactionNumber || '-')}</td>
+        <td>${escapeBloodBagReportHtml(bag.remarks || '-')}</td>
+      </tr>
+    `).join('');
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Blood Bags Report</title>
+        <style>
+          :root {
+            --crimson: #C41E3A;
+            --charcoal: #1A1A1A;
+            --muted: #6F6F6F;
+            --border: #E8DDD5;
+            --bg: #FDF8F3;
+          }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            padding: 24px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: var(--charcoal);
+            background: white;
+          }
+          .report-shell {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+          }
+          .report-head {
+            padding: 18px 20px;
+            background: linear-gradient(90deg, rgba(196,30,58,0.12) 0%, rgba(253,248,243,1) 100%);
+            border-bottom: 2px solid var(--crimson);
+          }
+          .report-title {
+            margin: 0;
+            font-size: 20px;
+            color: var(--crimson);
+          }
+          .report-sub {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--muted);
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          th, td {
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            font-size: 12px;
+            vertical-align: top;
+          }
+          th {
+            background: var(--bg);
+            text-align: left;
+            color: var(--charcoal);
+            font-weight: 700;
+          }
+          td:first-child, th:first-child {
+            text-align: center;
+            width: 40px;
+          }
+          .report-foot {
+            font-size: 11px;
+            color: var(--muted);
+            padding: 12px 20px 16px;
+          }
+          @media print {
+            body {
+              padding: 0;
+            }
+            .report-shell {
+              border: none;
+              border-radius: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="report-shell">
+          <div class="report-head">
+            <h1 class="report-title">Blood Bags Report</h1>
+            <div class="report-sub">Scope: ${escapeBloodBagReportHtml(result.scopeLabel || '-')}</div>
+            <div class="report-sub">Generated: ${escapeBloodBagReportHtml(generatedAt)}</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Serial Number</th>
+                <th>Blood Type</th>
+                <th>Component</th>
+                <th>Volume</th>
+                <th>Collected Date</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
+                <th>Source</th>
+                <th>Transaction Number</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+          <div class="report-foot">BloodPlus Blood Bank Module</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showBloodPlusMessage('Pop-up Blocked', 'Please allow pop-ups to print the blood bag report.', 'warning');
+    return;
   }
 
-  // Helper function to format blood type
-  function fullBloodLabel(bloodType, rhType) {
-    const aboMap = {
-      O_NEG:'O', O_POS:'O', A_POS:'A', A_NEG:'A',
-      B_POS:'B', B_NEG:'B', AB_POS:'AB', AB_NEG:'AB'
-    };
-    const abo = aboMap[bloodType] ?? bloodType ?? '';
-    const rh = rhType === 'POSITIVE' ? '+' : rhType === 'NEGATIVE' ? '−' : '';
-    return abo + rh;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  setTimeout(() => printWindow.print(), 250);
+};
+
+window.exportBloodBagsToExcel = function(mode = 'auto') {
+  const hasRangeInputs = Boolean(
+    document.getElementById('bags-print-from-date')?.value &&
+    document.getElementById('bags-print-to-date')?.value
+  );
+  const effectiveMode =
+    mode === 'current' || mode === 'range'
+      ? mode
+      : (hasRangeInputs ? 'range' : 'current');
+
+  const result = window.getBloodBagsForPrint(effectiveMode);
+  if (!result || result.invalid) return;
+
+  const rows = result.rows || [];
+  if (!rows.length) {
+    showBloodPlusMessage('No Data to Export', 'No blood bags match the selected criteria.', 'info');
+    return;
   }
 
-  // Helper function to get component label
-  function componentLabel(ct) {
-    const map = {
-      WHOLE_BLOOD: 'Whole Blood',
-      PRBC: 'PRBC',
-      LEUKOREDUCED_PRBC: 'Leukoreduced PRBC',
-      ALIQUOTED_PRBC: 'Aliquoted PRBC',
-      PLATELET_CONCENTRATE: 'Platelet',
-      FRESH_FROZEN_PLASMA: 'FFP',
-      CRYOPRECIPITATE: 'Cryoprecipitate',
-      CRYOSUPERNATANT: 'Cryosupernatant',
-    };
-    return map[ct] ?? ct ?? '';
-  }
+  const csvRows = [[
+    'Serial Number',
+    'Blood Type',
+    'Component',
+    'Volume',
+    'Collected Date',
+    'Expiry Date',
+    'Status',
+    'Source',
+    'Transaction Number',
+    'Remarks'
+  ]];
 
-  // Helper function to get source label (no emojis)
-  function sourceLabel(bag) {
-    if (bag.eventName) return bag.eventName;
-    const map = {
-      DONATION: 'Blood Drive',
-      WALK_IN: 'Walk-in Donor',
-      TRANSFER: 'BMC Transfer',
-      EXTERNAL_SUPPLY: 'External Supply',
-    };
-    return map[bag.source] ?? bag.source ?? '';
-  }
-
-  // Export all BLOOD_BAGS
-  BLOOD_BAGS.forEach(bag => {
-    const computedStatus = computeStatus(bag);
-
-    rows.push([
+  rows.forEach(bag => {
+    csvRows.push([
       bag.serialNumber || '',
       fullBloodLabel(bag.bloodType, bag.rhType),
-      bag.rhType || '',
       componentLabel(bag.componentType),
-      bag.volumeMl || '',
-      formatDate(bag.collectedAt),
-      formatDate(bag.expiresAt),
-      getStatusLabel(computedStatus),
-      sourceLabel(bag),
+      bag.volumeMl ? `${bag.volumeMl} mL` : '',
+      formatBloodBagReportDate(bag.collectedAt),
+      formatBloodBagReportDate(bag.expiresAt),
+      mapBloodBagStatusLabel(bag.computedStatus || computeBagStatus(bag)),
+      getBloodBagSourceLabelPlain(bag),
       bag.transactionNumber || '',
-      bag.remarks || '',
-      bag.receivedBy || '',
-      bag.discardReason || '',
-      bag.openSystem ? 'Yes' : 'No',
-      formatDate(bag.openSystemAt)
+      bag.remarks || ''
     ]);
   });
 
-  // If no bags, add message row
-  if (rows.length === 1) {
-    rows.push(['No blood bags in the system']);
-  }
-
-  // Convert to CSV with proper escaping
-  const csv = rows.map(row => 
+  const csvContent = csvRows.map(row =>
     row.map(cell => {
-      const escaped = String(cell).replace(/"/g, '""');
-      return escaped.includes(',') || escaped.includes('"') || escaped.includes('\n') 
-        ? `"${escaped}"` 
-        : escaped;
+      const escaped = String(cell ?? '').replaceAll('"', '""');
+      return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
     }).join(',')
   ).join('\n');
 
-  // Download as CSV file
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
+  const today = new Date().toISOString().slice(0, 10);
+  const scopeName = result.mode === 'range' ? `${result.fromDate}_to_${result.toDate}` : 'current-results';
   link.setAttribute('href', url);
-  link.setAttribute('download', `blood-bags-${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `blood-bags-${scopeName}-${today}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -7400,3 +7712,4 @@ function forceRefreshAll() {
   }
   console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }
+

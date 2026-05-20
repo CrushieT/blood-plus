@@ -207,12 +207,6 @@
         
       </div>
       
-      <div style="display:flex;gap:10px;margin-bottom:16px;padding:12px;background:var(--subtle,#f9f9f9);border-radius:8px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:12px;font-weight:600;color:var(--muted)">🖨 Reports & Exports</span>
-        <button onclick="printAnalytics()" style="background:var(--blue);color:white;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">📈 Analytics Report</button>
-        <button onclick="exportBloodBagsToExcel()" style="background:var(--amber);color:white;padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">📥 Export Blood Bags</button>
-      </div>
-
       <!-- Tab Bar -->
       <div class="bb-tabbar">
         <button class="bb-tab active" onclick="switchBBTab('inventory', this)">🩸 Inventory</button>
@@ -258,6 +252,25 @@
 
       <!-- TAB 2 — BLOOD BAGS -->
       <div id="bb-tab-bags" style="display:none">
+        <div class="bb-tab-actions">
+          <div class="bb-tab-actions-title">Blood Bag Reports</div>
+          <div class="bb-export-controls">
+            <div class="bb-export-field">
+              <label for="bags-print-from-date">From Date</label>
+              <input type="date" id="bags-print-from-date" class="req-select">
+            </div>
+            <div class="bb-export-field">
+              <label for="bags-print-to-date">To Date</label>
+              <input type="date" id="bags-print-to-date" class="req-select">
+            </div>
+            <div class="bb-export-buttons">
+              <button class="btn-secondary" type="button" onclick="printBloodBags('current')">Print Current Results</button>
+              <button class="btn-ghost" type="button" onclick="printBloodBags('range')">Print Date Range</button>
+              <button class="btn-primary" type="button" onclick="exportBloodBagsToExcel()">Export Blood Bags</button>
+            </div>
+          </div>
+        </div>
+
         <div class="bb-bags-stats">
           <div class="bb-bags-stat">
             <div class="bb-bags-stat-val green" id="bags-available-count">0</div>
@@ -344,7 +357,7 @@
           <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
             <table class="data-table" style="min-width:900px">
               <thead><tr>
-                <th>Bag ID</th>
+                <th>Serial Number</th>
                 <th>Blood Type</th>
                 <th>Component</th>
                 <th>Volume</th>
@@ -377,6 +390,12 @@
 
       <!-- TAB 3 — ANALYTICS -->
       <div id="bb-tab-analytics" style="display:none">
+      <div class="bb-tab-actions bb-analytics-actions">
+        <div class="bb-tab-actions-title">Analytics Reports</div>
+        <div class="bb-export-buttons">
+          <button class="btn-primary" type="button" onclick="printAnalytics()">Export Analytics</button>
+        </div>
+      </div>
       <!-- SECTION 1: REQUEST METRICS OVERVIEW -->
       <div class="card">
         <div class="card-header">
@@ -1926,6 +1945,31 @@
             Review / Receive Batch
           </button>
           <button class="btn-ghost" onclick="closeModal('addBloodModal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- BloodPlus Message / Confirm Modal -->
+  <div class="modal-overlay" id="bloodPlusActionModal">
+    <div class="modal bp-modal" style="max-width:430px">
+      <div class="modal-header">
+        <div class="bp-modal-header-content">
+          <div id="bp-modal-icon" class="bp-modal-icon bp-type-info">i</div>
+          <div>
+            <div class="modal-title" id="bp-modal-title">Notice</div>
+            <div class="bp-modal-type" id="bp-modal-type">Info</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="hideBloodPlusModal()">x</button>
+      </div>
+      <div class="modal-body">
+        <div id="bp-modal-message" class="bp-modal-message">Message details.</div>
+        <div class="bp-modal-actions">
+          <button class="btn-ghost" id="bp-modal-cancel" onclick="hideBloodPlusModal()">Cancel</button>
+          <button class="btn-primary" id="bp-modal-confirm" onclick="runBloodPlusConfirm()">Confirm</button>
+          <button class="btn-primary" id="bp-modal-ok" onclick="hideBloodPlusModal()">OK</button>
         </div>
       </div>
     </div>
