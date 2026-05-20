@@ -515,46 +515,6 @@ function injectIndicationStyles() {
       box-shadow: 0 0 0 2px rgba(196,30,58,0.1) !important;
     }
 
-    .ward-dropdown {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: white;
-      border: 1px solid #E4E4E7;
-      border-top: none;
-      border-radius: 0 0 10px 10px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 100;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-
-    .ward-dropdown-list {
-      padding: 4px 0;
-    }
-
-    .ward-dropdown-item {
-      padding: 10px 14px;
-      font-size: 13px;
-      color: var(--charcoal);
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    .ward-dropdown-item:hover:not(.disabled) {
-      background: #F0F0F0;
-    }
-
-    .ward-dropdown-item.disabled {
-      color: var(--muted);
-      cursor: not-allowed;
-    }
-
-    .ward-search-container {
-      position: relative;
-    }
-
     .btn-form-download {
       background: #C41E3A;
       color: white;
@@ -626,8 +586,10 @@ function buildReview() {
   var catEl  = document.querySelector('input[name="category"]:checked');
   var urgEl  = document.querySelector('input[name="urgency"]:checked');
   var reqTypeEl = document.querySelector('input[name="requestType"]:checked');
-  var hospEl = document.getElementById('contact-hospital');
-  var isHosp = hospEl && hospEl.style.display !== 'none' && hospEl.style.display !== '';
+  var isHosp = isHospitalSubmissionMode();
+  const departmentPreview = isHosp
+    ? 'Linked to hospital account'
+    : 'Auto-detected from Staff Authorization Code';
 
   // Calculate age from birthdate
   const birthdate = document.getElementById('f-birthdate').value;
@@ -647,7 +609,7 @@ function buildReview() {
     reviewRow('Date of Birth', birthdate) +
     reviewRow('Age', age + ' years') +
     reviewRow('Sex',         document.getElementById('f-sex').value) +
-    reviewRow('Ward',        document.getElementById('f-ward').value.trim() || '—') +
+    reviewRow('Department',  departmentPreview) +
     reviewRow('Room',        document.getElementById('f-room').value.trim() || '—') +
     reviewRow('Address',     addressParts.length ? addressParts.join(' / ') : '—') +
     reviewRow('Physician',   document.getElementById('f-physician').value.trim()) +
@@ -935,7 +897,6 @@ async function submitRequest() {
   const patientBirthdate = document.getElementById('f-birthdate').value;
   const patientAge = calculateAge(patientBirthdate);
   const patientSex    = document.getElementById('f-sex').value;
-  const ward     = document.getElementById('f-ward').value.trim();
   const room      = document.getElementById('f-room').value.trim();
   const patientPurok = document.getElementById('f-purok').value.trim();
   const patientBarangay = document.getElementById('f-barangay').value.trim();
@@ -1031,7 +992,6 @@ async function submitRequest() {
     patientBirthdate: patientBirthdate ? patientBirthdate : null,
     patientAge: patientAge,
     patientSex: patientSex || null,
-    wardRoom: ward || null,
     roomNo: room || null,
     patientPurok: patientPurok || null,
     patientBarangay: patientBarangay || null,
@@ -1144,7 +1104,7 @@ async function submitRequest() {
       patientName: patientName,
       patientAge: patientAge,
       patientSex: patientSex,
-      wardRoom: ward + ' ' + room,
+      roomNo: room || null,
       patientPurok: patientPurok || null,
       patientBarangay: patientBarangay || null,
       patientMunicipality: patientMunicipality || null,
@@ -1195,7 +1155,7 @@ function resetForm() {
   document.getElementById('success-screen').style.display = 'none';
   clearFile();
     [
-      'f-patientName','f-birthdate','f-ward', 'f-room','f-purok','f-barangay','f-municipality','f-province','f-physician',
+      'f-patientName','f-birthdate','f-room','f-purok','f-barangay','f-municipality','f-province','f-physician',
       'f-diagnosis','f-hemoglobin','f-hematocrit',
       'f-prevTransDate','f-prevUnits','f-reactionDate','f-reactionDetails',
       'f-requiredBy','f-notes','f-requesterName','f-contact','f-email','f-plateletCount','f-staffUniqueCode',
@@ -1714,9 +1674,8 @@ async function extractFormData(base64, fileType) {
     // Sex/Gender
     detected.sex = extractField(text, /Sex\s+([MF]|Male|Female)/i);
 
-    // Ward and room
-    detected.ward = extractField(text, /Ward[\/\s]*Room\s+([^\n\t,]+?)(?=CLINICAL|$)/i);
-    detected.room = extractField(text, /Room\s+([^\n\t,]+?)(?=Ward|CLINICAL|$)/i);
+    // Room
+    detected.room = extractField(text, /Room\s+([^\n\t,]+?)(?=CLINICAL|$)/i);
 
     // Physician
     detected.physician =
@@ -1811,7 +1770,6 @@ function displayScanResults() {
     age: 'Age',
     birthdate: 'Date of Birth',
     sex: 'Sex',
-    ward: 'Ward',
     room: 'Room',
     physician: 'Physician',
     bloodType: 'Blood Type',
@@ -1863,7 +1821,6 @@ function applyScanResults() {
     patientSuffix: 'f-patientSuffix',
     birthdate: 'f-birthdate',
     sex: 'f-sex',
-    ward: 'f-ward',
     room: 'f-room',
     physician: 'f-physician',
     contactNum: 'f-contact',

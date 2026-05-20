@@ -84,7 +84,7 @@ public class BloodBagRequestService {
         request.setPatientBirthdate(dto.getPatientBirthdate());
         request.setPatientAge(dto.getPatientAge()); 
         request.setPatientSex(dto.getPatientSex());
-        request.setWardRoom(normalizeOptionalText(dto.getWardRoom()));
+        request.setWardRoom(resolveRequiredStaffDepartment(authorizedStaff));
         request.setRoomNo(normalizeOptionalText(dto.getRoomNo()));
         request.setPatientPurok(normalizeOptionalText(dto.getPatientPurok()));
         request.setPatientBarangay(normalizeOptionalText(dto.getPatientBarangay()));
@@ -764,6 +764,7 @@ public class BloodBagRequestService {
 
     private StaffProfile validate(BloodBagRequestDTO dto, MultipartFile doctorsNote) {
         StaffProfile authorizedStaff = resolveAuthorizedStaff(dto.getStaffUniqueCode());
+        resolveRequiredStaffDepartment(authorizedStaff);
 
         // Required patient fields
         if (dto.getPatientName() == null || dto.getPatientName().trim().isEmpty())
@@ -866,6 +867,17 @@ public class BloodBagRequestService {
         }
 
         return staffProfile;
+    }
+
+    private String resolveRequiredStaffDepartment(StaffProfile staffProfile) {
+        if (staffProfile == null) {
+            throw new IllegalArgumentException("Staff department could not be determined.");
+        }
+        String normalizedDepartment = normalizeOptionalText(staffProfile.getDepartment());
+        if (normalizedDepartment == null) {
+            throw new IllegalArgumentException("Staff department could not be determined.");
+        }
+        return normalizedDepartment;
     }
 
     private String normalizeRequiredText(String value, String message) {
