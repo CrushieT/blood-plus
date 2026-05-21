@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeAutoRefresh();  // ? This replaces the loadBloodBank() and loadDashboard() calls
   initStaffPanel();
   initializeLoggingPanel();
+  initAddStockScanner();
 });
 
 // -- Panel navigation ----------------------------------------------------------
@@ -588,12 +589,12 @@ function componentLabel(ct) {
 }
 
 function sourceLabel(bag) {
-  if (bag.eventName) return '?? ' + bag.eventName;
+  if (bag.eventName) return '\uD83E\uDE78 ' + bag.eventName;
   const map = {
-    DONATION:        '?? Blood Drive',
-    WALK_IN:         '?? Walk-in Donor',
-    TRANSFER:        '?? BMC Transfer',
-    EXTERNAL_SUPPLY: '?? External Supply',
+    DONATION:        '\uD83E\uDE78 Blood Drive',
+    WALK_IN:         '\uD83D\uDEB6 Walk-in Donor',
+    TRANSFER:        '\uD83D\uDE9A BMC Transfer',
+    EXTERNAL_SUPPLY: '\uD83D\uDCE6 External Supply',
   };
   return map[bag.source] ?? bag.source ?? '–';
 }
@@ -601,20 +602,20 @@ function sourceLabel(bag) {
 function computeBagStatus(bag) {
   const now  = new Date();
   const soon = new Date(); soon.setDate(soon.getDate() + 10);
-  const exp  = new Date(bag.expiresAt);
+  const exp  = parseBloodBagDateValue(bag.expiresAt);
 
   if (bag.status === 'DISCARDED')    return 'DISCARDED';
   if (bag.status === 'DISPENSED')    return 'DISPENSED';
   if (bag.status === 'CROSSMATCHED') return 'CROSSMATCHED';
-  if (bag.status === 'EXPIRED' || (bag.status === 'AVAILABLE' && exp < now)) return 'EXPIRED';
-  if (bag.status === 'AVAILABLE' && exp <= soon) return 'EXPIRING';
+  if (bag.status === 'EXPIRED' || (bag.status === 'AVAILABLE' && exp && exp < now)) return 'EXPIRED';
+  if (bag.status === 'AVAILABLE' && exp && exp <= soon) return 'EXPIRING';
   return 'AVAILABLE';
 }
 
 function formatBagDate(d) {
-  if (!d) return '–';
-  const str = d.includes('T') ? d : d + 'T00:00:00';
-  return new Date(str).toLocaleDateString('en-PH', {
+  const parsed = parseBloodBagDateValue(d);
+  if (!parsed) return '–';
+  return parsed.toLocaleDateString('en-PH', {
     year: 'numeric', month: 'short', day: 'numeric'
   });
 }
@@ -704,11 +705,10 @@ function renderInventoryGrid(apiData) {
   const now  = new Date();
   const soon = new Date(); soon.setDate(soon.getDate() + 7);
   const expiringSoon = apiData?.expiringSoon
-    ?? BLOOD_BAGS.filter(b =>
-        b.status === 'AVAILABLE' &&
-        new Date(b.expiresAt) <= soon &&
-        new Date(b.expiresAt) > now
-      ).length;
+    ?? BLOOD_BAGS.filter(b => {
+        const expDate = parseBloodBagDateValue(b.expiresAt);
+        return b.status === 'AVAILABLE' && expDate && expDate <= soon && expDate > now;
+      }).length;
 
   document.getElementById('inv-critical-count').textContent =
     INVENTORY.filter(i => i.level === 'CRITICAL' || i.level === 'EMPTY').length;
@@ -749,10 +749,15 @@ function renderBagsTable() {
   );
 
   list.sort((a, b) => {
-    if (sort === 'expiry_asc')     return new Date(a.expiresAt)   - new Date(b.expiresAt);
-    if (sort === 'expiry_desc')    return new Date(b.expiresAt)   - new Date(a.expiresAt);
-    if (sort === 'collected_desc') return new Date(b.collectedAt) - new Date(a.collectedAt);
-    if (sort === 'collected_asc')  return new Date(a.collectedAt) - new Date(b.collectedAt);
+    const aExpiry = parseBloodBagDateValue(a.expiresAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const bExpiry = parseBloodBagDateValue(b.expiresAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const aCollected = parseBloodBagDateValue(a.collectedAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const bCollected = parseBloodBagDateValue(b.collectedAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+
+    if (sort === 'expiry_asc')     return aExpiry - bExpiry;
+    if (sort === 'expiry_desc')    return bExpiry - aExpiry;
+    if (sort === 'collected_desc') return bCollected - aCollected;
+    if (sort === 'collected_asc')  return aCollected - bCollected;
     return 0;
   });
 
@@ -825,8 +830,8 @@ function renderBagsPage() {
   const soon    = new Date(); soon.setDate(soon.getDate() + 7);
 
   tbody.innerHTML = page.map(bag => {
-    const exp      = new Date(bag.expiresAt);
-    const daysLeft = Math.ceil((exp - now) / 86400000);
+    const exp      = parseBloodBagDateValue(bag.expiresAt);
+    const daysLeft = calculateBloodBagDaysLeft(bag.expiresAt, now);
     const btLabel  = fullBloodLabel(bag.bloodType, bag.rhType);
     const compLbl  = componentLabel(bag.componentType);
 
@@ -840,10 +845,10 @@ function renderBagsPage() {
     if (bag.computedStatus === 'EXPIRED') {
       expiryPill = `<span class="expiry-pill expiry-expired">Expired</span>`;
     } else if (bag.openSystem) {
-      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft < 1 ? '<1' : daysLeft}d (open)</span>`;
-    } else if (exp <= twoDays) {
+      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft <= 0 ? '<1' : daysLeft}d (open)</span>`;
+    } else if (exp && exp <= twoDays) {
       expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft}d left</span>`;
-    } else if (exp <= soon) {
+    } else if (exp && exp <= soon) {
       expiryPill = `<span class="expiry-pill expiry-soon">? ${daysLeft}d left</span>`;
     } else {
       expiryPill = `<span class="expiry-pill expiry-ok">${daysLeft}d left</span>`;
@@ -1101,6 +1106,1885 @@ const ADD_STOCK_EXPIRY_DAYS = {
   CRYOPRECIPITATE: 365,
   CRYOSUPERNATANT: 365,
 };
+const ADD_STOCK_SCAN_MAX_ROWS = 10;
+const ADD_STOCK_OCR_LOW_CONFIDENCE = 60;
+const TRACER_OCR_ROTATIONS = [0, -90, 90];
+const TRACER_OCR_CROP_PRESETS = [
+  { id: 'table-primary', x: 0.08, y: 0.24, w: 0.74, h: 0.64, priority: 6 },
+  { id: 'table-secondary', x: 0.04, y: 0.22, w: 0.8, h: 0.66, priority: 5 },
+  { id: 'table-tight', x: 0.12, y: 0.26, w: 0.66, h: 0.6, priority: 4 },
+  { id: 'table-wide', x: 0.02, y: 0.2, w: 0.9, h: 0.68, priority: 3 },
+];
+
+const TRACER_COMPONENT_MAP = {
+  WB: 'WHOLE_BLOOD',
+  'W B': 'WHOLE_BLOOD',
+  WS: 'WHOLE_BLOOD',
+  W8: 'WHOLE_BLOOD',
+  WR: 'WHOLE_BLOOD',
+  WHOLE: 'WHOLE_BLOOD',
+  'WHOLE BLOOD': 'WHOLE_BLOOD',
+  PRBC: 'PRBC',
+  'P RBC': 'PRBC',
+  'P R B C': 'PRBC',
+  LPRBC: 'LEUKOREDUCED_PRBC',
+  'L-PRBC': 'LEUKOREDUCED_PRBC',
+  LEUKOREDUCED: 'LEUKOREDUCED_PRBC',
+  APRBC: 'ALIQUOTED_PRBC',
+  'A-PRBC': 'ALIQUOTED_PRBC',
+  ALIQUOTED: 'ALIQUOTED_PRBC',
+  FFP: 'FRESH_FROZEN_PLASMA',
+  PLT: 'PLATELET_CONCENTRATE',
+  PLATELET: 'PLATELET_CONCENTRATE',
+  CRYO: 'CRYOPRECIPITATE',
+  CRYOPRECIPITATE: 'CRYOPRECIPITATE',
+  CRYOSUP: 'CRYOSUPERNATANT',
+  CRYOSUPERNATANT: 'CRYOSUPERNATANT',
+};
+
+const TRACER_COLUMN_SPLITS = {
+  bloodGroup: [0.00, 0.10],
+  component:  [0.10, 0.19],
+  serial:     [0.19, 0.33],
+  extraction: [0.33, 0.47],
+  expiry:     [0.47, 0.60],
+};
+
+const TRACER_TABLE_GEOMETRY = {
+  bodyStartX: 0.00,
+  bodyEndX: 1.00,
+  bodyStartY: 0.44,
+  bodyEndY: 0.955,
+  rowCount: 10,
+  columnPaddingRatio: 0.006,
+  rowPaddingRatio: 0.02,
+};
+
+const TRACER_COLUMN_OCR_OPTIONS = {
+  bloodGroup: { whitelist: 'ABOPOSNEG- ', psm: '6' },
+  component: { whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ- ', psm: '6' },
+  serial: { whitelist: 'V0123456789', psm: '6' },
+  extraction: { whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ', psm: '6' },
+  expiry: { whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ', psm: '6' },
+};
+
+const TRACER_COMPONENT_LOOKUP = buildTracerComponentLookup(TRACER_COMPONENT_MAP);
+const TRACER_ROW_NOISE_TOKENS = [
+  'BLOOD RELEASING', 'BLOOD TRACER', 'CHECKLIST', 'REMARKS', 'SIGNATURE',
+  'BICOL MEDICAL', 'RESULT OF TEST', 'PATIENT', 'CONTACT', 'TRANSPORT',
+  'ADDRESS', 'QC STAFF', 'DATE RELEASED', 'TIME RELEASED'
+];
+const TRACER_OCR_API_ENDPOINT = '/api/admin/blood-bank/tracer-ocr';
+const TRACER_REVIEW_BLOOD_GROUP_OPTIONS = [
+  { value: '', label: '-' },
+  { value: 'A_POS', label: 'A POS' },
+  { value: 'A_NEG', label: 'A NEG' },
+  { value: 'B_POS', label: 'B POS' },
+  { value: 'B_NEG', label: 'B NEG' },
+  { value: 'AB_POS', label: 'AB POS' },
+  { value: 'AB_NEG', label: 'AB NEG' },
+  { value: 'O_POS', label: 'O POS' },
+  { value: 'O_NEG', label: 'O NEG' },
+];
+const TRACER_REVIEW_COMPONENT_OPTIONS = [
+  { value: '', label: '-' },
+  { value: 'WHOLE_BLOOD', label: 'Whole Blood' },
+  { value: 'PRBC', label: 'PRBC' },
+  { value: 'LEUKOREDUCED_PRBC', label: 'Leukoreduced PRBC' },
+  { value: 'ALIQUOTED_PRBC', label: 'Aliquoted PRBC' },
+  { value: 'FRESH_FROZEN_PLASMA', label: 'Fresh Frozen Plasma' },
+  { value: 'PLATELET_CONCENTRATE', label: 'Platelet Concentrate' },
+  { value: 'CRYOPRECIPITATE', label: 'Cryoprecipitate' },
+  { value: 'CRYOSUPERNATANT', label: 'Cryosupernatant' },
+];
+
+let addStockScanBound = false;
+let addStockScanPreviewUrl = null;
+let pendingTracerReviewRows = [];
+let pendingTracerScanMeta = null;
+
+function initAddStockScanner() {
+  if (addStockScanBound) return;
+  addStockScanBound = true;
+
+  const uploadInput = document.getElementById('scan-tracer-upload');
+  const cameraInput = document.getElementById('scan-tracer-camera');
+  const cameraBtn = document.getElementById('scan-tracer-camera-btn');
+
+  if (cameraBtn) {
+    cameraBtn.addEventListener('click', () => {
+      if (!cameraInput) {
+        showBloodPlusMessage('Camera Unavailable', 'Camera capture is not available on this device.', 'warning');
+        return;
+      }
+      cameraInput.click();
+    });
+  }
+
+  if (uploadInput) uploadInput.addEventListener('change', handleTracerFilePicked);
+  if (cameraInput) cameraInput.addEventListener('change', handleTracerFilePicked);
+}
+
+function resetAddStockScannerUI() {
+  const previewEl = document.getElementById('scan-tracer-preview');
+  if (previewEl) {
+    previewEl.innerHTML = '';
+    previewEl.classList.remove('has-image');
+  }
+
+  if (addStockScanPreviewUrl) {
+    URL.revokeObjectURL(addStockScanPreviewUrl);
+    addStockScanPreviewUrl = null;
+  }
+
+  pendingTracerReviewRows = [];
+  pendingTracerScanMeta = null;
+
+  setTracerScanStatus('No tracer form imported yet.', 'info');
+  closeTracerOcrReviewModal();
+
+  const uploadInput = document.getElementById('scan-tracer-upload');
+  const cameraInput = document.getElementById('scan-tracer-camera');
+  if (uploadInput) uploadInput.value = '';
+  if (cameraInput) cameraInput.value = '';
+}
+
+function setTracerScanStatus(message, tone = 'info') {
+  const statusEl = document.getElementById('scan-tracer-status');
+  if (!statusEl) return;
+
+  statusEl.textContent = message || '';
+  statusEl.classList.remove('is-loading', 'is-success', 'is-warning', 'is-error');
+
+  if (tone === 'loading') statusEl.classList.add('is-loading');
+  if (tone === 'success') statusEl.classList.add('is-success');
+  if (tone === 'warning') statusEl.classList.add('is-warning');
+  if (tone === 'error') statusEl.classList.add('is-error');
+}
+
+function setTracerPreviewImage(file) {
+  const previewEl = document.getElementById('scan-tracer-preview');
+  if (!previewEl || !file) return;
+
+  if (addStockScanPreviewUrl) {
+    URL.revokeObjectURL(addStockScanPreviewUrl);
+    addStockScanPreviewUrl = null;
+  }
+
+  addStockScanPreviewUrl = URL.createObjectURL(file);
+  previewEl.innerHTML = `<img src="${addStockScanPreviewUrl}" alt="Tracer form preview">`;
+  previewEl.classList.add('has-image');
+}
+
+async function handleTracerFilePicked(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  if (!file) return;
+
+  const sourceName = input?.id === 'scan-tracer-camera' ? 'camera' : 'upload';
+  await processTracerScanFile(file, sourceName);
+  if (input) input.value = '';
+}
+
+async function processTracerScanFile(file, sourceName = 'upload') {
+  if (!file || !file.type || !file.type.startsWith('image/')) {
+    setTracerScanStatus('Unsupported image format.', 'error');
+    showBloodPlusMessage('Unsupported Image', 'Please upload or capture a valid image file.', 'warning');
+    return;
+  }
+
+  setTracerPreviewImage(file);
+  setTracerScanStatus('Preparing tracer OCR...', 'loading');
+
+  try {
+    let scanResult = null;
+    setTracerScanStatus('Uploading to secure OCR service...', 'loading');
+    try {
+      scanResult = await scanBloodTracerFormViaBackend(file);
+    } catch (backendError) {
+      if (backendError?.code === 'DUPLICATE_SERIALS') {
+        const duplicates = Array.isArray(backendError?.duplicateSerials) ? backendError.duplicateSerials : [];
+        setTracerScanStatus('Duplicate serial numbers detected. Import blocked.', 'error');
+        openTracerDuplicateErrorModal(duplicates);
+        return;
+      }
+      throw backendError;
+    }
+
+    logTracerScanResult(scanResult, file, sourceName);
+    const rows = Array.isArray(scanResult?.entries) ? scanResult.entries : [];
+
+    if (!rows.length) {
+      setTracerScanStatus('No valid blood bag rows detected.', 'warning');
+      showBloodPlusMessage(
+        'No Valid Rows',
+        'No valid blood bag rows were detected. Try a clearer photo or crop the table area.',
+        'warning'
+      );
+      return;
+    }
+
+    const warningMessages = [];
+    if (Array.isArray(scanResult?.warnings) && scanResult.warnings.length) {
+      warningMessages.push(...scanResult.warnings);
+    }
+    if (rows.length > ADD_STOCK_SCAN_MAX_ROWS) {
+      warningMessages.push(`Detected ${rows.length} rows. Only the first ${ADD_STOCK_SCAN_MAX_ROWS} rows are available for import.`);
+    }
+    if (scanResult.confidence < ADD_STOCK_OCR_LOW_CONFIDENCE) {
+      warningMessages.push('OCR confidence is low. Please review detected rows before importing.');
+    }
+    const unknownComponentRows = rows.filter(row => !row.componentType).length;
+    if (unknownComponentRows > 0) {
+      warningMessages.push(`${unknownComponentRows} row(s) have unrecognized component labels and were marked as Needs Review.`);
+    }
+    const reviewStates = buildTracerReviewStates(rows);
+    const duplicateRows = reviewStates.filter(state => state.duplicateSerial).length;
+    if (duplicateRows > 0) {
+      warningMessages.push(`${duplicateRows} duplicate serial row(s) were detected and flagged.`);
+    }
+    const invalidDateRows = reviewStates.filter(state => state.invalidDate).length;
+    if (invalidDateRows > 0) {
+      warningMessages.push(`${invalidDateRows} row(s) have invalid date ranges and were flagged.`);
+    }
+    if (warningMessages.length) {
+      showBloodPlusMessage('OCR Review Notice', warningMessages.join(' '), 'warning');
+    }
+
+    openTracerOcrReviewModal(rows, scanResult, sourceName);
+    setTracerScanStatus(`${rows.length} row(s) detected. Review and confirm import.`, 'success');
+  } catch (error) {
+    console.error('[Tracer OCR] Scan failed:', error);
+    setTracerScanStatus('OCR failed. Please try another image.', 'error');
+    showBloodPlusMessage(
+      'OCR Failed',
+      error?.message || 'Unable to scan this tracer form image. Please retake the photo and try again.',
+      'error'
+    );
+  }
+}
+
+async function scanBloodTracerFormViaBackend(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(TRACER_OCR_API_ENDPOINT, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload?.error || payload?.message || 'OCR service failed.';
+    const error = new Error(message);
+    error.code = payload?.errorCode || '';
+    error.duplicateSerials = Array.isArray(payload?.duplicateSerials) ? payload.duplicateSerials : [];
+    throw error;
+  }
+
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  return {
+    text: payload?.rawText || '',
+    confidence: Number(payload?.confidence || 0),
+    entries: rows,
+    transactionNumber: String(payload?.transactionNumber || '').trim(),
+    warnings: Array.isArray(payload?.warnings) ? payload.warnings : [],
+    attempt: 'backend-ocr-space',
+    score: scoreTracerOcrCandidate(rows, Number(payload?.confidence || 0), 0),
+  };
+}
+
+function openTracerOcrReviewModal(rows, scanResult, sourceName) {
+  const limitedRows = rows.slice(0, ADD_STOCK_SCAN_MAX_ROWS);
+  pendingTracerReviewRows = limitedRows;
+  pendingTracerScanMeta = {
+    ...scanResult,
+    sourceName,
+    totalDetected: rows.length,
+  };
+
+  const summaryEl = document.getElementById('tracer-ocr-review-summary');
+  const tbody = document.getElementById('tracer-ocr-review-rows');
+  const duplicateEl = document.getElementById('tracer-ocr-duplicate-error');
+  const importBtn = document.getElementById('tracer-ocr-import-btn');
+  const txnInput = document.getElementById('tracer-ocr-transaction-number');
+  if (!summaryEl || !tbody) return;
+
+  if (duplicateEl) {
+    duplicateEl.style.display = 'none';
+    duplicateEl.innerHTML = '';
+  }
+  if (importBtn) importBtn.disabled = false;
+  if (txnInput) {
+    txnInput.value = String(scanResult?.transactionNumber || document.getElementById('add-transaction-number')?.value || '').trim();
+  }
+
+  const overLimit = rows.length > ADD_STOCK_SCAN_MAX_ROWS;
+  const reviewStates = buildTracerReviewStates(limitedRows);
+  const validCount = reviewStates.filter(state => state.importReady).length;
+  summaryEl.innerHTML = `
+    <strong>Source:</strong> ${sourceName} |
+    <strong>OCR confidence:</strong> ${Math.round(Number(scanResult?.confidence || 0))}% |
+    <strong>Detected:</strong> ${rows.length} row(s) |
+    <strong>Review list:</strong> ${limitedRows.length} row(s)
+    ${overLimit ? `<br><span style="color:var(--amber);font-weight:700">Only first ${ADD_STOCK_SCAN_MAX_ROWS} rows are available due to batch limit.</span>` : ''}
+    ${validCount === 0 ? `<br><span style="color:var(--crimson);font-weight:700">No fully valid rows detected. You may include rows for manual correction.</span>` : ''}
+  `;
+
+  tbody.innerHTML = limitedRows.map((row, index) => {
+    const assessment = reviewStates[index];
+    let statusClass = 'status-good';
+    let statusLabel = 'Ready';
+    if (assessment.duplicateSerial) {
+      statusClass = 'status-review';
+      statusLabel = 'Duplicate Serial';
+    } else if (assessment.invalidDate) {
+      statusClass = 'status-review';
+      statusLabel = 'Invalid Date';
+    } else if (assessment.isLowConfidence) {
+      statusClass = 'status-low';
+      statusLabel = 'Low Confidence';
+    } else if (assessment.bloodGroupInferred) {
+      statusClass = 'status-review';
+      statusLabel = 'Blood Group Inferred';
+    } else if (assessment.needsReview) {
+      statusClass = 'status-review';
+      statusLabel = 'Needs Review';
+    }
+    const checked = (assessment.importReady && !assessment.needsReview) ? 'checked' : '';
+    const rowClass = `${assessment.needsReview ? 'needs-review' : ''} ${assessment.isLowConfidence ? 'low-confidence' : ''}`.trim();
+    const bloodGroupOptions = renderTracerReviewSelectOptions(TRACER_REVIEW_BLOOD_GROUP_OPTIONS, row.bloodGroup || '');
+    const componentOptions = renderTracerReviewSelectOptions(TRACER_REVIEW_COMPONENT_OPTIONS, row.componentType || '');
+
+    return `
+      <tr class="${rowClass}">
+        <td>${index + 1}</td>
+        <td><input type="checkbox" class="tracer-ocr-row-check" data-row-index="${index}" ${checked}></td>
+        <td>
+          <select class="tracer-ocr-edit tracer-ocr-edit-blood-group" data-row-index="${index}">
+            ${bloodGroupOptions}
+          </select>
+        </td>
+        <td>
+          <select class="tracer-ocr-edit tracer-ocr-edit-component" data-row-index="${index}">
+            ${componentOptions}
+          </select>
+        </td>
+        <td>
+          <input type="text" class="tracer-ocr-edit tracer-ocr-edit-serial" data-row-index="${index}" value="${escapeHtml(row.serialNumber || '')}" placeholder="V123456">
+        </td>
+        <td>
+          <input type="date" class="tracer-ocr-edit tracer-ocr-edit-collected" data-row-index="${index}" value="${escapeHtml(row.collectedAt || '')}">
+        </td>
+        <td>
+          <input type="date" class="tracer-ocr-edit tracer-ocr-edit-expires" data-row-index="${index}" value="${escapeHtml(row.expiresAt || '')}">
+        </td>
+        <td>
+          <span class="tracer-ocr-status-chip ${statusClass}">${statusLabel}</span>
+          ${assessment.reasons.length ? `<div style="margin-top:4px;font-size:10px;color:var(--muted)">${assessment.reasons.join(', ')}</div>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  openModal('tracerOcrReviewModal');
+}
+
+function openTracerDuplicateErrorModal(duplicateSerials) {
+  const summaryEl = document.getElementById('tracer-ocr-review-summary');
+  const tbody = document.getElementById('tracer-ocr-review-rows');
+  const duplicateEl = document.getElementById('tracer-ocr-duplicate-error');
+  const importBtn = document.getElementById('tracer-ocr-import-btn');
+  const txnInput = document.getElementById('tracer-ocr-transaction-number');
+  const list = (Array.isArray(duplicateSerials) ? duplicateSerials : [])
+    .map(serial => String(serial || '').trim())
+    .filter(Boolean);
+
+  pendingTracerReviewRows = [];
+  pendingTracerScanMeta = {
+    sourceName: 'upload',
+    totalDetected: 0,
+    confidence: 0,
+    duplicateSerials: list,
+  };
+
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <strong>Import blocked:</strong> Duplicate serial numbers were found in inventory.
+      <br><span style="color:var(--crimson);font-weight:700">No rows were imported.</span>
+    `;
+  }
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr class="needs-review">
+        <td>1</td>
+        <td>-</td>
+        <td colspan="6">Duplicate serials detected. Resolve duplicates before scanning/importing again.</td>
+      </tr>
+    `;
+  }
+  if (duplicateEl) {
+    duplicateEl.style.display = 'block';
+    duplicateEl.innerHTML = `
+      <strong>Some serial numbers already exist.</strong><br>
+      ${list.length ? list.map(serial => `• ${escapeHtml(serial)}`).join('<br>') : 'No duplicate list provided.'}
+    `;
+  }
+  if (txnInput) txnInput.value = '';
+  if (importBtn) importBtn.disabled = true;
+
+  openModal('tracerOcrReviewModal');
+}
+
+function renderTracerReviewSelectOptions(options, selectedValue) {
+  const selected = String(selectedValue || '');
+  return (Array.isArray(options) ? options : []).map(option => {
+    const value = String(option?.value ?? '');
+    const label = String(option?.label ?? value);
+    return `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+}
+
+function closeTracerOcrReviewModal() {
+  closeModal('tracerOcrReviewModal');
+}
+
+function printTracerScannedData() {
+  pendingTracerReviewRows = collectTracerReviewRowsFromTable(pendingTracerReviewRows);
+  if (!Array.isArray(pendingTracerReviewRows) || pendingTracerReviewRows.length === 0) {
+    showBloodPlusMessage('No Scanned Data', 'There is no scanned OCR data to print yet.', 'warning');
+    return;
+  }
+
+  const reviewStates = buildTracerReviewStates(pendingTracerReviewRows);
+  const now = new Date();
+  const generatedAt = now.toLocaleString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const source = pendingTracerScanMeta?.sourceName || 'scan';
+  const confidence = Math.round(Number(pendingTracerScanMeta?.confidence || 0));
+  const detected = Number(pendingTracerScanMeta?.totalDetected || pendingTracerReviewRows.length);
+  const transactionNumber = String(document.getElementById('tracer-ocr-transaction-number')?.value || '').trim();
+
+  const rowsHtml = pendingTracerReviewRows.map((row, index) => {
+    const state = reviewStates[index];
+    const status = state?.importReady ? 'READY' : 'NEEDS REVIEW';
+    const reasons = Array.isArray(state?.reasons) && state.reasons.length
+      ? state.reasons.join(', ')
+      : '-';
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(row?.bloodGroup || '-')}</td>
+        <td>${escapeHtml(row?.componentType || row?.unknownComponentLabel || '-')}</td>
+        <td>${escapeHtml(row?.serialNumber || '-')}</td>
+        <td>${escapeHtml(row?.collectedAt || '-')}</td>
+        <td>${escapeHtml(row?.expiresAt || '-')}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${escapeHtml(reasons)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const reportHtml = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BloodPlus - OCR Scanned Data</title>
+  <style>
+    :root { --crimson:#c41e3a; --charcoal:#1f2a37; --muted:#6b7280; --border:#e5d7cf; --cream:#f8f4f1; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:20px; font-family:Arial, sans-serif; color:var(--charcoal); background:#fff; }
+    .header { border:1px solid var(--border); border-left:4px solid var(--crimson); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+    .title { margin:0 0 4px; font-size:22px; font-weight:700; color:var(--crimson); }
+    .meta { margin:2px 0; font-size:12px; color:var(--muted); }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    thead th { background:var(--cream); border:1px solid var(--border); text-align:left; padding:8px; }
+    tbody td { border:1px solid var(--border); padding:7px; vertical-align:top; }
+    .note { margin-top:10px; font-size:11px; color:var(--muted); }
+    @page { size: A4 landscape; margin: 10mm; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 class="title">BloodPlus - Tracer OCR Scanned Data</h1>
+    <p class="meta">Source: ${escapeHtml(source)} | OCR Confidence: ${confidence}% | Detected Rows: ${detected}</p>
+    <p class="meta">Transaction Number: ${escapeHtml(transactionNumber || '-')}</p>
+    <p class="meta">Generated: ${escapeHtml(generatedAt)}</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Blood Group</th>
+        <th>Component</th>
+        <th>Serial Number</th>
+        <th>Extraction Date</th>
+        <th>Expiry Date</th>
+        <th>Status</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+  <p class="note">This report reflects OCR-detected rows before final stock submission.</p>
+  <script>
+    window.onload = function () { window.print(); };
+  </script>
+</body>
+</html>
+  `;
+
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
+  if (!printWindow) {
+    showBloodPlusMessage('Print Blocked', 'Please allow popups in your browser to print scanned OCR data.', 'warning');
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(reportHtml);
+  printWindow.document.close();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function confirmTracerOcrImport() {
+  pendingTracerReviewRows = collectTracerReviewRowsFromTable(pendingTracerReviewRows);
+  const duplicateEl = document.getElementById('tracer-ocr-duplicate-error');
+  if (duplicateEl && duplicateEl.style.display !== 'none') {
+    showBloodPlusMessage('Import Blocked', 'Duplicate serial numbers were detected. Resolve duplicates before importing.', 'error');
+    return;
+  }
+
+  const transactionInput = document.getElementById('tracer-ocr-transaction-number');
+  const transactionNumber = String(transactionInput?.value || '').trim();
+  if (!transactionNumber) {
+    showBloodPlusMessage('Transaction Number Required', 'Transaction number is required.', 'warning');
+    if (transactionInput) transactionInput.focus();
+    return;
+  }
+
+  const mainTxnInput = document.getElementById('add-transaction-number');
+  if (mainTxnInput) mainTxnInput.value = transactionNumber;
+
+  const selectedIndices = [...document.querySelectorAll('#tracer-ocr-review-rows .tracer-ocr-row-check:checked')]
+    .map(el => Number(el.getAttribute('data-row-index')))
+    .filter(Number.isFinite);
+
+  if (!selectedIndices.length) {
+    showBloodPlusMessage('No Rows Selected', 'Please select at least one row to import.', 'warning');
+    return;
+  }
+
+  const selectedRows = selectedIndices.map(index => pendingTracerReviewRows[index]).filter(Boolean);
+  const selectedSerials = selectedRows
+    .map(row => String(row?.serialNumber || '').trim().toUpperCase())
+    .filter(Boolean);
+  const duplicateSerialInSelection = selectedSerials.find((serial, idx) => selectedSerials.indexOf(serial) !== idx);
+  if (duplicateSerialInSelection) {
+    showBloodPlusMessage('Duplicate Serial', `Duplicate serial number selected: ${duplicateSerialInSelection}. Remove duplicates before importing.`, 'error');
+    return;
+  }
+
+  const reviewStates = buildTracerReviewStates(selectedRows);
+  const needsReviewCount = reviewStates.filter(state => state.needsReview).length;
+
+  const proceed = () => {
+    const stats = applyScannedRowsToAddStock(selectedRows, pendingTracerScanMeta || {});
+    closeTracerOcrReviewModal();
+    setTracerScanStatus(`Imported ${stats.importedCount} row(s). Review highlighted rows before submit.`, 'success');
+
+    const warningBits = [];
+    if (stats.unknownCount > 0) warningBits.push(`${stats.unknownCount} row(s) have unknown components.`);
+    if (stats.lowConfidenceCount > 0) warningBits.push(`${stats.lowConfidenceCount} row(s) were low confidence.`);
+    const extra = warningBits.length ? ` ${warningBits.join(' ')}` : '';
+
+    showBloodPlusMessage(
+      'Scan Imported',
+      `Imported ${stats.importedCount} row(s) into intake rows.${extra}`,
+      warningBits.length ? 'warning' : 'success'
+    );
+  };
+
+  if (needsReviewCount > 0) {
+    showBloodPlusConfirm(
+      'Import Needs-Review Rows?',
+      `${needsReviewCount} selected row(s) need review. You can still edit all values after import. Continue?`,
+      proceed,
+      'warning'
+    );
+    return;
+  }
+
+  proceed();
+}
+
+function collectTracerReviewRowsFromTable(baseRows) {
+  const sourceRows = Array.isArray(baseRows) ? baseRows : [];
+  const rows = sourceRows.map((row, index) => {
+    const bloodGroup = document.querySelector(`.tracer-ocr-edit-blood-group[data-row-index="${index}"]`)?.value || '';
+    const componentType = document.querySelector(`.tracer-ocr-edit-component[data-row-index="${index}"]`)?.value || '';
+    const serialNumber = (document.querySelector(`.tracer-ocr-edit-serial[data-row-index="${index}"]`)?.value || '').trim().toUpperCase();
+    const collectedAt = (document.querySelector(`.tracer-ocr-edit-collected[data-row-index="${index}"]`)?.value || '').trim();
+    const expiresAt = (document.querySelector(`.tracer-ocr-edit-expires[data-row-index="${index}"]`)?.value || '').trim();
+
+    return {
+      ...row,
+      bloodGroup,
+      componentType,
+      serialNumber,
+      collectedAt,
+      expiresAt,
+    };
+  });
+  return rows;
+}
+
+function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
+  const rowsToApply = Array.isArray(scannedRows) ? scannedRows.slice(0, ADD_STOCK_SCAN_MAX_ROWS) : [];
+  if (!rowsToApply.length) {
+    return { importedCount: 0, unknownCount: 0, lowConfidenceCount: 0 };
+  }
+
+  generateAddStockRows(rowsToApply.length);
+  const reviewStates = buildTracerReviewStates(rowsToApply);
+
+  const rowEls = [...document.querySelectorAll('#add-stock-rows tr')];
+  const defaultVolume = document.getElementById('add-volume-ml')?.value || '';
+  let unknownCount = 0;
+  let lowConfidenceCount = 0;
+
+  rowEls.forEach((row, index) => {
+    const parsed = rowsToApply[index];
+    if (!row || !parsed) return;
+
+    const assessment = reviewStates[index] || evaluateTracerRow(parsed);
+    row.dataset.ocrImported = 'true';
+    row.dataset.lowConfidence = assessment.isLowConfidence ? 'true' : 'false';
+    row.dataset.unknownComponent = parsed.componentType ? 'false' : 'true';
+
+    const bloodGroupEl = row.querySelector('.add-stock-blood-group');
+    const componentEl = row.querySelector('.add-stock-component');
+    const serialEl = row.querySelector('.add-stock-serial');
+    const collectedEl = row.querySelector('.add-stock-collected');
+    const expiresEl = row.querySelector('.add-stock-expires');
+    const volumeEl = row.querySelector('.add-stock-volume');
+    const remarksEl = row.querySelector('.add-stock-remarks');
+
+    if (bloodGroupEl) bloodGroupEl.value = parsed.bloodGroup || '';
+    if (componentEl) componentEl.value = parsed.componentType || '';
+    if (serialEl) serialEl.value = parsed.serialNumber || '';
+    if (collectedEl) collectedEl.value = parsed.collectedAt || '';
+    if (expiresEl) expiresEl.value = parsed.expiresAt || '';
+    if (volumeEl && !volumeEl.value) volumeEl.value = defaultVolume;
+    if (remarksEl) remarksEl.value = '';
+
+    if (!parsed.componentType && parsed.unknownComponentLabel) {
+      unknownCount += 1;
+    }
+    if (assessment.isLowConfidence) {
+      lowConfidenceCount += 1;
+    }
+
+    refreshImportedRowReviewState(row);
+  });
+
+  updateAddStockValidCount();
+
+  return {
+    importedCount: rowsToApply.length,
+    unknownCount,
+    lowConfidenceCount,
+    sourceConfidence: Math.round(Number(scanResult?.confidence || 0)),
+  };
+}
+
+function buildTracerReviewStates(rows) {
+  const seenSerials = new Set();
+  return (Array.isArray(rows) ? rows : []).map(row => evaluateTracerRow(row, { seenSerials }));
+}
+
+function evaluateTracerRow(row, context = {}) {
+  const reasons = [];
+  const seenSerials = context?.seenSerials instanceof Set ? context.seenSerials : null;
+  const bloodGroupOk = !!row?.bloodGroup;
+  const bloodGroupInferred = !!row?.bloodGroupInferred;
+  const componentOk = !!row?.componentType;
+  const serialPatternOk = /^V\d{6}$/.test(String(row?.serialNumber || '').toUpperCase());
+  const serialOk = !!row?.serialNumber && serialPatternOk;
+  const hasDate = !!(row?.collectedAt && row?.expiresAt);
+  const lowConfidence = Number(row?.confidence || 0) < ADD_STOCK_OCR_LOW_CONFIDENCE;
+  const invalidDate = !!row?.dateIssue;
+  const externalNeedsReview = !!row?.needsReview;
+  const externalIssues = Array.isArray(row?.issues) ? row.issues.filter(Boolean) : [];
+
+  let duplicateSerial = false;
+  const normalizedSerial = String(row?.serialNumber || '').toUpperCase();
+  if (normalizedSerial && seenSerials) {
+    if (seenSerials.has(normalizedSerial)) {
+      duplicateSerial = true;
+    } else {
+      seenSerials.add(normalizedSerial);
+    }
+  }
+
+  if (!bloodGroupOk) reasons.push('Missing blood group');
+  if (bloodGroupInferred) reasons.push('Blood Group Inferred');
+  if (!componentOk) reasons.push('Unknown component');
+  if (!row?.serialNumber) reasons.push('Missing serial number');
+  if (row?.serialNumber && !serialPatternOk) reasons.push('Invalid serial format');
+  if (duplicateSerial) reasons.push('Duplicate Serial');
+  if (!hasDate) reasons.push('Missing Field: Date');
+  if (invalidDate) reasons.push('Invalid Date');
+  if (lowConfidence) reasons.push('Low Confidence');
+  externalIssues.forEach(issue => reasons.push(issue));
+  if (externalNeedsReview && !externalIssues.length) reasons.push('Needs Review');
+
+  const critical = !bloodGroupOk || !componentOk || !serialOk || !hasDate || duplicateSerial || invalidDate || externalNeedsReview;
+  return {
+    reasons: [...new Set(reasons)],
+    importReady: !critical,
+    needsReview: reasons.length > 0,
+    isLowConfidence: lowConfidence,
+    duplicateSerial,
+    invalidDate,
+    bloodGroupInferred,
+  };
+}
+
+function isTracerRowImportReady(row) {
+  return evaluateTracerRow(row).importReady;
+}
+
+function markAddStockRowNeedsReview(row, reasons) {
+  if (!row) return;
+  const normalizedReasons = (Array.isArray(reasons) ? reasons : []).filter(Boolean);
+  row.classList.add('needs-review');
+  row.title = normalizedReasons.join(' | ');
+
+  if (row.dataset.unknownComponent === 'true') {
+    row.classList.add('has-unknown-component');
+  }
+
+  const actionCellContent = row.querySelector('td:last-child > div') || row.querySelector('td:last-child');
+  if (!actionCellContent) return;
+
+  let noteEl = row.querySelector('.add-stock-review-note');
+  if (!noteEl) {
+    noteEl = document.createElement('div');
+    noteEl.className = 'add-stock-review-note';
+    actionCellContent.appendChild(noteEl);
+  }
+  noteEl.textContent = normalizedReasons[0] || 'Needs review';
+}
+
+function clearAddStockRowReview(row) {
+  if (!row) return;
+  row.classList.remove('needs-review', 'has-unknown-component');
+  row.removeAttribute('title');
+  const noteEl = row.querySelector('.add-stock-review-note');
+  if (noteEl) noteEl.remove();
+}
+
+function markImportedRowTouched(row) {
+  if (!row || row.dataset.ocrImported !== 'true') return;
+  row.dataset.lowConfidence = 'false';
+  const componentEl = row.querySelector('.add-stock-component');
+  if (componentEl && componentEl.value) {
+    row.dataset.unknownComponent = 'false';
+  }
+}
+
+function refreshImportedRowReviewState(row) {
+  if (!row || row.dataset.ocrImported !== 'true') return;
+
+  const data = getAddStockRowData(row);
+  const reasons = [];
+  if (!data.bloodGroup) reasons.push('Missing blood group');
+  if (!data.componentType) reasons.push('Unknown component detected');
+  if (!data.serialNumber) reasons.push('Missing serial number');
+  if (!data.collectedAt && !data.expiresAt) reasons.push('Missing extraction/expiry date');
+  if (row.dataset.lowConfidence === 'true') reasons.push('Low OCR confidence');
+
+  if (!reasons.length) {
+    clearAddStockRowReview(row);
+    row.dataset.ocrImported = 'false';
+    row.dataset.unknownComponent = 'false';
+    return;
+  }
+
+  markAddStockRowNeedsReview(row, reasons);
+}
+
+async function scanBloodTracerForm(file) {
+  if (typeof Tesseract === 'undefined') {
+    throw new Error('OCR library is not available. Please refresh and try again.');
+  }
+
+  const image = await loadImageFromFile(file);
+  const candidates = buildTracerOcrCandidates(image);
+  if (!candidates.length) {
+    throw new Error('Could not prepare OCR candidates from the image.');
+  }
+
+  let best = null;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    const label = `${candidate.rotationLabel} / ${candidate.cropLabel}`;
+    setTracerScanStatus(`Scanning table region ${index + 1}/${candidates.length} (${label})...`, 'loading');
+
+    const ocrResult = await runTracerOcrCandidate(candidate, label);
+    const parsedRows = parseTracerRowsFromGeometryWords(candidate, ocrResult, ocrResult.confidence);
+    const score = scoreTracerOcrCandidate(parsedRows, ocrResult.confidence, candidate.priority);
+
+    const candidateResult = {
+      text: ocrResult.text,
+      confidence: ocrResult.confidence,
+      entries: parsedRows,
+      attempt: label,
+      candidateId: candidate.id,
+      candidate,
+      score,
+    };
+
+    if (!best || candidateResult.score > best.score) {
+      best = candidateResult;
+    }
+  }
+
+  if (!best) {
+    return { text: '', confidence: 0, entries: [], attempt: 'none', score: 0 };
+  }
+
+  setTracerScanStatus(`Refining rows by fixed columns (${best.attempt})...`, 'loading');
+  const refined = await refineTracerRowsByColumns(best.candidate, best.attempt, best.text);
+  const refinedRows = Array.isArray(refined?.entries) ? refined.entries : [];
+
+  if (refinedRows.length) {
+    const refinedConfidence = Number(refined?.confidence || best.confidence || 0);
+    return {
+      text: refined?.text || best.text,
+      confidence: refinedConfidence,
+      entries: refinedRows,
+      attempt: `${best.attempt} | column-refined`,
+      score: scoreTracerOcrCandidate(refinedRows, refinedConfidence, best.candidate?.priority || 0),
+    };
+  }
+
+  const fallbackRows = parseTracerRowsFromRawTextWithOrder(best.text, best.confidence);
+  if (fallbackRows.length) {
+    return {
+      text: best.text,
+      confidence: best.confidence,
+      entries: fallbackRows,
+      attempt: `${best.attempt} | raw-text-fallback`,
+      score: scoreTracerOcrCandidate(fallbackRows, best.confidence, best.candidate?.priority || 0),
+    };
+  }
+
+  return best;
+}
+
+function logTracerScanResult(scanResult, file, sourceName) {
+  try {
+    const fileName = file?.name || 'captured-image';
+    const fileSizeKb = file?.size ? (file.size / 1024).toFixed(1) : 'unknown';
+    const attempt = scanResult?.attempt || 'none';
+    const confidence = Math.round(Number(scanResult?.confidence || 0));
+    const rows = Array.isArray(scanResult?.entries) ? scanResult.entries : [];
+    const rawText = scanResult?.text || '';
+
+    if (typeof console.groupCollapsed === 'function') {
+      console.groupCollapsed(`[Tracer OCR] ${fileName} (${sourceName})`);
+    }
+
+    console.log('Source:', sourceName);
+    console.log('File:', { name: fileName, sizeKb: fileSizeKb, type: file?.type || 'unknown' });
+    console.log('Selected OCR candidate:', attempt, '| score:', scanResult?.score || 0);
+    console.log('OCR confidence:', confidence);
+    console.log('Raw OCR text:\n', rawText);
+    console.log('Parsed tracer rows:', rows);
+
+    if (typeof console.groupEnd === 'function') {
+      console.groupEnd();
+    }
+  } catch (error) {
+    console.log('[Tracer OCR] Logging failed:', error);
+  }
+}
+
+function buildTracerComponentLookup(componentMap) {
+  const list = Object.entries(componentMap).map(([alias, componentType]) => ({
+    alias,
+    componentType,
+    normalized: normalizeComponentMatchText(alias),
+  }));
+  list.sort((a, b) => b.normalized.length - a.normalized.length);
+  return list;
+}
+
+function buildTracerOcrCandidates(image) {
+  const candidates = [];
+  let candidateIndex = 0;
+  const presets = TRACER_OCR_CROP_PRESETS.slice(0, 2);
+
+  TRACER_OCR_ROTATIONS.forEach((angle) => {
+    const rotatedCanvas = createRotatedCanvas(image, angle);
+    const preprocessed = preprocessTracerCanvas(rotatedCanvas);
+
+    presets.forEach((preset) => {
+      const cropped = cropCanvasByRatio(preprocessed, preset);
+      if (!cropped) return;
+      candidates.push({
+        id: `candidate-${candidateIndex++}`,
+        canvas: cropped,
+        priority: preset.priority || 0,
+        rotationLabel: `${angle}deg`,
+        cropLabel: preset.id,
+      });
+    });
+  });
+
+  return candidates;
+}
+
+function createRotatedCanvas(image, angleDegrees) {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+
+  const scaleBase = 2200 / Math.max(sourceWidth, sourceHeight);
+  const scale = Math.max(1, Math.min(1.8, scaleBase));
+  const drawWidth = Math.round(sourceWidth * scale);
+  const drawHeight = Math.round(sourceHeight * scale);
+
+  const radians = (angleDegrees * Math.PI) / 180;
+  const swap = Math.abs(angleDegrees) === 90 || Math.abs(angleDegrees) === 270;
+  const canvas = document.createElement('canvas');
+  canvas.width = swap ? drawHeight : drawWidth;
+  canvas.height = swap ? drawWidth : drawHeight;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return canvas;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(radians);
+  ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return canvas;
+}
+
+function preprocessTracerCanvas(sourceCanvas) {
+  const upscale = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(sourceCanvas.width * upscale);
+  canvas.height = Math.round(sourceCanvas.height * upscale);
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return sourceCanvas;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  let minGray = 255;
+  let maxGray = 0;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const gray = (0.299 * pixels[i]) + (0.587 * pixels[i + 1]) + (0.114 * pixels[i + 2]);
+    minGray = Math.min(minGray, gray);
+    maxGray = Math.max(maxGray, gray);
+    pixels[i] = gray;
+    pixels[i + 1] = gray;
+    pixels[i + 2] = gray;
+  }
+
+  const spread = Math.max(1, maxGray - minGray);
+  const contrast = 255 / spread;
+  let luminanceSum = 0;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const normalized = (pixels[i] - minGray) * contrast;
+    const boosted = ((normalized - 128) * 1.25) + 128;
+    const clamped = Math.max(0, Math.min(255, boosted));
+    pixels[i] = clamped;
+    pixels[i + 1] = clamped;
+    pixels[i + 2] = clamped;
+    luminanceSum += clamped;
+  }
+
+  const average = luminanceSum / (pixels.length / 4);
+  const threshold = Math.max(120, Math.min(205, average * 0.94));
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const value = pixels[i] >= threshold ? 255 : 0;
+    pixels[i] = value;
+    pixels[i + 1] = value;
+    pixels[i + 2] = value;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+function cropCanvasByRatio(sourceCanvas, preset) {
+  const sx = Math.max(0, Math.floor(sourceCanvas.width * preset.x));
+  const sy = Math.max(0, Math.floor(sourceCanvas.height * preset.y));
+  const sw = Math.floor(sourceCanvas.width * preset.w);
+  const sh = Math.floor(sourceCanvas.height * preset.h);
+
+  if (sw < 80 || sh < 80) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, sw, sh);
+  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return canvas;
+}
+
+async function runTracerOcrCandidate(candidate, stageLabel) {
+  const logger = createTracerOcrLogger(stageLabel);
+  const result = await Tesseract.recognize(candidate.canvas.toDataURL('image/png'), 'eng', {
+    logger,
+    tessedit_pageseg_mode: '6',
+    preserve_interword_spaces: '1',
+  });
+
+  const rawWords = Array.isArray(result?.data?.words) ? result.data.words : [];
+  const words = rawWords
+    .map(word => ({
+      text: String(word?.text || '').trim(),
+      confidence: Number(word?.confidence || 0),
+      x0: Number(word?.bbox?.x0 || 0),
+      y0: Number(word?.bbox?.y0 || 0),
+      x1: Number(word?.bbox?.x1 || 0),
+      y1: Number(word?.bbox?.y1 || 0),
+    }))
+    .filter(word => word.text.length > 0 && (word.x1 > word.x0) && (word.y1 > word.y0));
+
+  return {
+    text: result?.data?.text || '',
+    confidence: Number(result?.data?.confidence || 0),
+    words,
+  };
+}
+
+function getTracerGeometryBounds(canvas) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const bodyStartX = Number(TRACER_TABLE_GEOMETRY.bodyStartX ?? 0);
+  const bodyEndX = Number(TRACER_TABLE_GEOMETRY.bodyEndX ?? 1);
+  const bodyStartY = Number(TRACER_TABLE_GEOMETRY.bodyStartY ?? 0);
+  const bodyEndY = Number(TRACER_TABLE_GEOMETRY.bodyEndY ?? 1);
+
+  const x0 = Math.max(0, Math.floor(w * bodyStartX));
+  const x1 = Math.min(w, Math.ceil(w * bodyEndX));
+  const y0 = Math.max(0, Math.floor(h * bodyStartY));
+  const y1 = Math.min(h, Math.ceil(h * bodyEndY));
+
+  return {
+    x0,
+    y0,
+    x1,
+    y1,
+    width: Math.max(1, x1 - x0),
+    height: Math.max(1, y1 - y0),
+  };
+}
+
+function buildTracerColumnBounds(bounds) {
+  const pad = Math.max(1, Math.floor(bounds.width * (TRACER_TABLE_GEOMETRY.columnPaddingRatio || 0)));
+  const columns = {};
+  Object.keys(TRACER_COLUMN_SPLITS).forEach((key) => {
+    const split = TRACER_COLUMN_SPLITS[key];
+    const start = bounds.x0 + Math.floor(bounds.width * split[0]) + pad;
+    const end = bounds.x0 + Math.ceil(bounds.width * split[1]) - pad;
+    columns[key] = {
+      x0: Math.max(bounds.x0, start),
+      x1: Math.min(bounds.x1, Math.max(start + 2, end)),
+      y0: bounds.y0,
+      y1: bounds.y1,
+    };
+  });
+  return columns;
+}
+
+function pickTracerColumnByX(x, columnBounds) {
+  const keys = Object.keys(columnBounds);
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i];
+    const bounds = columnBounds[key];
+    if (x >= bounds.x0 && x <= bounds.x1) return key;
+  }
+  return '';
+}
+
+function parseTracerRowsFromGeometryWords(candidate, ocrResult, globalConfidence = 0) {
+  const words = Array.isArray(ocrResult?.words) ? ocrResult.words : [];
+  const bounds = getTracerGeometryBounds(candidate.canvas);
+  const columnBounds = buildTracerColumnBounds(bounds);
+  const rowCount = Number(TRACER_TABLE_GEOMETRY.rowCount || 10);
+  const rowHeight = bounds.height / rowCount;
+  const rowCells = Array.from({ length: rowCount }, () => ({
+    bloodGroup: [],
+    component: [],
+    serial: [],
+    extraction: [],
+    expiry: [],
+  }));
+
+  words
+    .filter(word => word && word.text && word.confidence >= 10)
+    .forEach((word) => {
+      const cy = (word.y0 + word.y1) / 2;
+      if (cy < bounds.y0 || cy > bounds.y1) return;
+      const rowIndex = Math.max(0, Math.min(rowCount - 1, Math.floor((cy - bounds.y0) / rowHeight)));
+      const cx = (word.x0 + word.x1) / 2;
+      const key = pickTracerColumnByX(cx, columnBounds);
+      if (!key) return;
+      rowCells[rowIndex][key].push(word);
+    });
+
+  const rows = rowCells
+    .map((cell, index) => {
+      const normalizedCells = {};
+      Object.keys(cell).forEach((key) => {
+        normalizedCells[key] = cell[key]
+          .sort((a, b) => a.x0 - b.x0)
+          .map(word => word.text)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      });
+      return parseTracerRowFromCells(normalizedCells, globalConfidence, index);
+    });
+
+  return finalizeTracerRows(trimTracerRowsToSignalSpan(rows), ocrResult?.text || '');
+}
+
+function hasTracerRowSignal(row) {
+  if (!row) return false;
+  return !!(row.bloodGroup || row.componentType || row.unknownComponentLabel || row.serialNumber || row.collectedAt || row.expiresAt);
+}
+
+function trimTracerRowsToSignalSpan(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return [];
+
+  let first = -1;
+  let last = -1;
+  for (let i = 0; i < list.length; i += 1) {
+    if (!hasTracerRowSignal(list[i])) continue;
+    if (first === -1) first = i;
+    last = i;
+  }
+
+  if (first === -1 || last === -1) return [];
+  return list.slice(first, last + 1);
+}
+
+function parseTracerRowFromCells(cells, globalConfidence, rowIndex = 0) {
+  const bloodText = cells?.bloodGroup || '';
+  const componentText = cells?.component || '';
+  const serialText = cells?.serial || '';
+  const extractionText = cells?.extraction || '';
+  const expiryText = cells?.expiry || '';
+
+  const bloodGroup = parseBloodGroupFromText(bloodText);
+  const component = parseComponentFromText(componentText);
+  const serialMeta = parseTracerSerialFromCell(serialText);
+  const collectedAt = parseTracerDateFromCell(extractionText);
+  const expiresAt = parseTracerDateFromCell(expiryText);
+  const dateValidation = normalizeTracerDateRange(collectedAt, expiresAt);
+
+  return {
+    bloodGroup,
+    bloodGroupInferred: false,
+    componentType: component.componentType || '',
+    unknownComponentLabel: component.componentType ? '' : component.rawLabel,
+    serialNumber: serialMeta.serialNumber,
+    serialDigitsRaw: serialMeta.serialDigitsRaw,
+    serialRawText: serialMeta.serialRawText,
+    collectedAt: dateValidation.collectedAt,
+    expiresAt: dateValidation.expiresAt,
+    confidence: Math.round(Number(globalConfidence || 0)),
+    sourceText: [
+      bloodText,
+      componentText,
+      serialText,
+      extractionText,
+      expiryText,
+    ].filter(Boolean).join(' | '),
+    rowOrder: Number.isFinite(rowIndex) ? rowIndex : 0,
+    dateIssue: dateValidation.invalid,
+    dateSwapped: dateValidation.swapped,
+    rowBand: null,
+  };
+}
+
+function parseTracerSerialFromCell(text) {
+  const source = String(text || '')
+    .toUpperCase()
+    .replace(/[|]/g, ' ')
+    .replace(/\s+/g, '');
+
+  if (!source) {
+    return { serialNumber: '', serialDigitsRaw: '', serialRawText: '' };
+  }
+
+  const corrected = source
+    .replace(/O/g, '0')
+    .replace(/[IL]/g, '1')
+    .replace(/B/g, '8');
+
+  const fromV = corrected.match(/V[A-Z0-9]{4,10}/);
+  const fromLoose = corrected.match(/[A-Z]?\d{5,8}/);
+  let token = fromV ? fromV[0] : (fromLoose ? fromLoose[0] : '');
+
+  if (!token) {
+    return { serialNumber: '', serialDigitsRaw: '', serialRawText: source };
+  }
+
+  token = token.replace(/^VA(?=\d)/, 'V');
+  if (!token.startsWith('V')) {
+    token = `V${token.replace(/^[A-Z]/, '')}`;
+  }
+
+  const digitsRaw = token.replace(/^V/, '').replace(/[^0-9]/g, '');
+  if (!digitsRaw) {
+    return { serialNumber: '', serialDigitsRaw: '', serialRawText: source };
+  }
+
+  let digitsNormalized = digitsRaw;
+  if (digitsNormalized.length > 6) {
+    digitsNormalized = digitsNormalized.slice(0, 6);
+  }
+
+  const serialNumber = digitsNormalized.length >= 5 ? `V${digitsNormalized}` : '';
+  return {
+    serialNumber,
+    serialDigitsRaw: digitsRaw,
+    serialRawText: source,
+  };
+}
+
+function parseTracerDateFromCell(text) {
+  if (!text) return '';
+  const normalized = String(text || '')
+    .toUpperCase()
+    .replace(/O(?=\d)/g, '0')
+    .replace(/I(?=\d)/g, '1')
+    .replace(/%/g, '6')
+    .replace(/S0(?=\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC))/g, '30')
+    .replace(/TU?0?2(?=\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC))/g, '02')
+    .replace(/U0?2(?=\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC))/g, '02')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const values = extractDateValuesFromText(normalized);
+  return values[0] || '';
+}
+
+function finalizeTracerRows(rows, sourceText = '') {
+  const ordered = (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({ ...row, rowOrder: index }))
+    .sort((a, b) => (a.rowOrder ?? 0) - (b.rowOrder ?? 0));
+
+  const majorPrefix = detectTracerMajorSerialPrefix(ordered);
+  const fixedRows = ordered.map((row) => {
+    const fixedSerial = normalizeTracerSerialWithContext(row, majorPrefix);
+    return {
+      ...row,
+      serialNumber: fixedSerial,
+    };
+  });
+  return applyTracerBloodGroupInference(fixedRows, sourceText);
+}
+
+function detectTracerMajorSerialPrefix(rows) {
+  const freq = new Map();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const serial = String(row?.serialNumber || '').toUpperCase();
+    if (!/^V\d{6}$/.test(serial)) return;
+    const prefix = serial.slice(1, 4);
+    freq.set(prefix, (freq.get(prefix) || 0) + 1);
+  });
+
+  let bestPrefix = '';
+  let bestCount = 0;
+  [...freq.entries()].forEach(([prefix, count]) => {
+    if (count > bestCount) {
+      bestPrefix = prefix;
+      bestCount = count;
+    }
+  });
+  return bestCount >= 2 ? bestPrefix : '';
+}
+
+function normalizeTracerSerialWithContext(row, majorPrefix) {
+  const current = String(row?.serialNumber || '').toUpperCase();
+  const digitsRaw = String(row?.serialDigitsRaw || '').replace(/[^0-9]/g, '');
+  let digits = current.replace(/^V/, '').replace(/[^0-9]/g, '');
+
+  if (!digits && digitsRaw) {
+    digits = digitsRaw;
+  }
+  if (!digits) return '';
+
+  if (digits.length > 6) {
+    if (majorPrefix && digits.startsWith(majorPrefix)) {
+      digits = digits.slice(0, 6);
+    } else if (majorPrefix && digits.length >= 5) {
+      digits = `${majorPrefix}${digits.slice(2, 5)}`;
+    } else {
+      digits = digits.slice(0, 6);
+    }
+  }
+
+  if (digits.length === 5 && majorPrefix) {
+    digits = `${majorPrefix}${digits.slice(-3)}`;
+  }
+
+  if (digits.length === 6 && majorPrefix && !digits.startsWith(majorPrefix)) {
+    const raw = digitsRaw || digits;
+    if (raw.length >= 7) {
+      digits = `${majorPrefix}${raw.slice(2, 5)}`;
+    } else if (raw.length === 6) {
+      digits = `${majorPrefix}${raw.slice(-3)}`;
+    }
+  }
+
+  if (!/^\d{6}$/.test(digits)) {
+    return '';
+  }
+  return `V${digits}`;
+}
+
+async function refineTracerRowsByColumns(candidate, stageLabel, sourceText = '') {
+  if (!candidate?.canvas) {
+    return { text: '', confidence: 0, entries: [] };
+  }
+
+  const bounds = getTracerGeometryBounds(candidate.canvas);
+  const bodyCanvas = cropCanvasRect(candidate.canvas, bounds.x0, bounds.y0, bounds.width, bounds.height);
+  if (!bodyCanvas) {
+    return { text: '', confidence: 0, entries: [] };
+  }
+
+  const rowCount = Number(TRACER_TABLE_GEOMETRY.rowCount || 10);
+  const columnTexts = {};
+  const confidences = [];
+  const keys = Object.keys(TRACER_COLUMN_SPLITS);
+  const padY = Math.max(0, Math.floor(bodyCanvas.height * (TRACER_TABLE_GEOMETRY.rowPaddingRatio || 0)));
+
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i];
+    const split = TRACER_COLUMN_SPLITS[key];
+    const padX = Math.max(1, Math.floor(bodyCanvas.width * (TRACER_TABLE_GEOMETRY.columnPaddingRatio || 0)));
+    const x0 = Math.max(0, Math.floor(bodyCanvas.width * split[0]) + padX);
+    const x1 = Math.min(bodyCanvas.width, Math.ceil(bodyCanvas.width * split[1]) - padX);
+    const y0 = Math.max(0, padY);
+    const y1 = Math.min(bodyCanvas.height, bodyCanvas.height - padY);
+    const colCanvas = cropCanvasRect(bodyCanvas, x0, y0, Math.max(2, x1 - x0), Math.max(2, y1 - y0));
+    if (!colCanvas) {
+      columnTexts[key] = Array.from({ length: rowCount }, () => '');
+      continue;
+    }
+
+    const ocr = await runTracerOcrColumnCanvas(colCanvas, key, `${stageLabel} | ${key}`);
+    confidences.push(Number(ocr?.confidence || 0));
+    columnTexts[key] = mapColumnWordsToRows(ocr, rowCount);
+  }
+
+  const columnShift = detectTracerColumnShift(columnTexts, rowCount);
+  const rows = [];
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    let cells = {
+      bloodGroup: columnTexts.bloodGroup?.[rowIndex] || '',
+      component: columnTexts.component?.[rowIndex] || '',
+      serial: columnTexts.serial?.[rowIndex] || '',
+      extraction: columnTexts.extraction?.[rowIndex] || '',
+      expiry: columnTexts.expiry?.[rowIndex] || '',
+    };
+    if (columnShift === 1) {
+      cells = {
+        bloodGroup: '',
+        component: columnTexts.bloodGroup?.[rowIndex] || '',
+        serial: columnTexts.component?.[rowIndex] || '',
+        extraction: columnTexts.serial?.[rowIndex] || '',
+        expiry: columnTexts.extraction?.[rowIndex] || columnTexts.expiry?.[rowIndex] || '',
+      };
+    }
+    const row = parseTracerRowFromCells(cells, averageTracerConfidence(confidences), rowIndex);
+    if (row) rows.push(row);
+  }
+
+  const entries = finalizeTracerRows(trimTracerRowsToSignalSpan(rows), sourceText);
+  const text = entries.map(row => row.sourceText || '').join('\n');
+  return {
+    text,
+    confidence: averageTracerConfidence(confidences),
+    entries,
+  };
+}
+
+function detectTracerColumnShift(columnTexts, rowCount) {
+  const size = Math.max(1, Number(rowCount || 0));
+  let componentInBloodCol = 0;
+  let serialInComponentCol = 0;
+  let dateInSerialCol = 0;
+
+  for (let i = 0; i < size; i += 1) {
+    const bloodCol = String(columnTexts?.bloodGroup?.[i] || '');
+    const componentCol = String(columnTexts?.component?.[i] || '');
+    const serialCol = String(columnTexts?.serial?.[i] || '');
+
+    if (parseComponentFromText(bloodCol).componentType) componentInBloodCol += 1;
+    if (parseTracerSerialFromCell(componentCol).serialNumber) serialInComponentCol += 1;
+    if (extractDateValuesFromText(serialCol).length >= 1) dateInSerialCol += 1;
+  }
+
+  if (componentInBloodCol >= 3 && serialInComponentCol >= 3 && dateInSerialCol >= 3) {
+    return 1;
+  }
+  return 0;
+}
+
+function detectTracerFormLevelBloodGroup(sourceText) {
+  const normalized = String(sourceText || '')
+    .toUpperCase()
+    .replace(/[|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/P0S/g, 'POS')
+    .replace(/N3G/g, 'NEG')
+    .replace(/NE6/g, 'NEG');
+
+  const match = normalized.match(/\b(AB|A|B|O|0)\s*(POSITIVE|POS|\+|NEGATIVE|NEG|-)\b/);
+  if (!match) return '';
+  const abo = match[1] === '0' ? 'O' : match[1];
+  const rh = match[2].includes('NEG') || match[2] === '-' ? 'NEG' : 'POS';
+  return `${abo}_${rh}`;
+}
+
+function applyTracerBloodGroupInference(rows, sourceText = '') {
+  const list = Array.isArray(rows) ? rows.map(row => ({ ...row })) : [];
+  if (!list.length) return list;
+
+  const formLevel = detectTracerFormLevelBloodGroup(sourceText);
+  const counts = new Map();
+  list.forEach((row) => {
+    const bg = String(row?.bloodGroup || '');
+    if (!bg) return;
+    counts.set(bg, (counts.get(bg) || 0) + 1);
+  });
+
+  let majority = '';
+  let max = 0;
+  [...counts.entries()].forEach(([key, count]) => {
+    if (count > max) {
+      max = count;
+      majority = key;
+    }
+  });
+
+  const inferred = formLevel || (max >= 2 ? majority : '');
+  if (!inferred) return list;
+
+  return list.map((row) => {
+    if (row.bloodGroup) return { ...row, bloodGroupInferred: !!row.bloodGroupInferred };
+    return {
+      ...row,
+      bloodGroup: inferred,
+      bloodGroupInferred: true,
+    };
+  });
+}
+
+function parseTracerRowsFromRawTextWithOrder(rawText, globalConfidence = 0) {
+  const normalized = String(rawText || '')
+    .toUpperCase()
+    .replace(/\r/g, '\n')
+    .replace(/P0S/g, 'POS')
+    .replace(/N3G/g, 'NEG')
+    .replace(/NE6/g, 'NEG');
+
+  const lines = normalized
+    .split('\n')
+    .map(line => line.replace(/[|]/g, ' | ').replace(/\s+/g, ' ').trim())
+    .filter(line => line.length >= 8);
+
+  const rows = [];
+  lines.forEach((line, index) => {
+    const component = parseComponentFromText(line);
+    const serialMeta = parseTracerSerialFromCell(line);
+    const dates = extractDateValuesFromText(line);
+    if (!component.componentType) return;
+    if (!serialMeta.serialNumber) return;
+    if (dates.length < 2) return;
+
+    const dateValidation = normalizeTracerDateRange(dates[0], dates[1]);
+    const bloodGroup = parseBloodGroupFromText(line);
+    rows.push({
+      bloodGroup,
+      bloodGroupInferred: false,
+      componentType: component.componentType || '',
+      unknownComponentLabel: component.componentType ? '' : component.rawLabel,
+      serialNumber: serialMeta.serialNumber,
+      serialDigitsRaw: serialMeta.serialDigitsRaw,
+      serialRawText: serialMeta.serialRawText,
+      collectedAt: dateValidation.collectedAt,
+      expiresAt: dateValidation.expiresAt,
+      confidence: Math.round(Number(globalConfidence || 0)),
+      sourceText: line,
+      rowOrder: index,
+      dateIssue: dateValidation.invalid,
+      dateSwapped: dateValidation.swapped,
+      rowBand: null,
+    });
+  });
+
+  return finalizeTracerRows(rows, rawText);
+}
+
+async function runTracerOcrColumnCanvas(canvas, columnKey, stageLabel) {
+  const options = TRACER_COLUMN_OCR_OPTIONS[columnKey] || {};
+  const logger = createTracerOcrLogger(stageLabel);
+  const result = await Tesseract.recognize(canvas.toDataURL('image/png'), 'eng', {
+    logger,
+    tessedit_pageseg_mode: options.psm || '6',
+    preserve_interword_spaces: '1',
+    tessedit_char_whitelist: options.whitelist || undefined,
+  });
+
+  const words = (Array.isArray(result?.data?.words) ? result.data.words : [])
+    .map(word => ({
+      text: String(word?.text || '').trim(),
+      confidence: Number(word?.confidence || 0),
+      x0: Number(word?.bbox?.x0 || 0),
+      y0: Number(word?.bbox?.y0 || 0),
+      x1: Number(word?.bbox?.x1 || 0),
+      y1: Number(word?.bbox?.y1 || 0),
+    }))
+    .filter(word => word.text.length > 0 && word.x1 > word.x0 && word.y1 > word.y0);
+
+  return {
+    text: String(result?.data?.text || ''),
+    confidence: Number(result?.data?.confidence || 0),
+    words,
+    canvasHeight: canvas.height,
+  };
+}
+
+function mapColumnWordsToRows(ocrResult, rowCount) {
+  const words = Array.isArray(ocrResult?.words) ? ocrResult.words : [];
+  const canvasHeight = Number(ocrResult?.canvasHeight || 0) || 1;
+  const rowHeight = canvasHeight / rowCount;
+  const rows = Array.from({ length: rowCount }, () => []);
+
+  words
+    .filter(word => word.confidence >= 8)
+    .forEach((word) => {
+      const cy = (word.y0 + word.y1) / 2;
+      const rowIndex = Math.max(0, Math.min(rowCount - 1, Math.floor(cy / rowHeight)));
+      rows[rowIndex].push(word);
+    });
+
+  return rows.map((rowWords) => rowWords
+    .sort((a, b) => a.x0 - b.x0)
+    .map(word => word.text)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim());
+}
+
+function cropCanvasRect(sourceCanvas, x, y, w, h) {
+  if (!sourceCanvas || w < 2 || h < 2) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(2, Math.floor(w));
+  canvas.height = Math.max(2, Math.floor(h));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(sourceCanvas, Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h), 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+function averageTracerConfidence(values) {
+  const nums = (Array.isArray(values) ? values : []).map(Number).filter(Number.isFinite);
+  if (!nums.length) return 0;
+  return nums.reduce((sum, value) => sum + value, 0) / nums.length;
+}
+
+function createTracerOcrLogger(stageLabel) {
+  return function onOcrProgress(message) {
+    if (!message || !message.status) return;
+    if (message.status === 'recognizing text') {
+      const percent = Math.round((message.progress || 0) * 100);
+      setTracerScanStatus(`${stageLabel}: ${percent}%`, 'loading');
+      return;
+    }
+
+    if (message.status === 'loading tesseract core' || message.status === 'initializing tesseract') {
+      setTracerScanStatus(`${stageLabel}: initializing OCR...`, 'loading');
+    }
+  };
+}
+
+function scoreTracerOcrCandidate(rows, confidence, priority) {
+  const parsedRows = Array.isArray(rows) ? rows : [];
+  if (!parsedRows.length) return (confidence / 12) + priority;
+
+  const strictRows = parsedRows.filter(isTracerRowImportReady).length;
+  const unknownRows = parsedRows.filter(row => !row.componentType).length;
+  const missingSerialRows = parsedRows.filter(row => !/^V\d{6}$/.test(String(row?.serialNumber || ''))).length;
+  return (strictRows * 12) + (parsedRows.length * 5) + (confidence / 7) + priority - (unknownRows * 2.5) - (missingSerialRows * 2);
+}
+
+function parseBloodGroupFromText(text) {
+  if (!text) return '';
+
+  const normalized = String(text)
+    .toUpperCase()
+    .replace(/P0S/g, 'POS')
+    .replace(/N3G/g, 'NEG')
+    .replace(/NE6/g, 'NEG')
+    .replace(/\s+/g, ' ');
+
+  const match = normalized.match(/\b(AB|A|B|O|0)\s*(POSITIVE|POS|\+|NEGATIVE|NEG|-)\b/);
+  if (!match) return '';
+
+  const abo = match[1] === '0' ? 'O' : match[1];
+  const rh = match[2].includes('NEG') || match[2] === '-' ? 'NEG' : 'POS';
+  return `${abo}_${rh}`;
+}
+
+function parseComponentFromText(text) {
+  if (!text) return { componentType: '', rawLabel: '' };
+
+  const normalized = normalizeComponentMatchText(text);
+  for (const alias of TRACER_COMPONENT_LOOKUP) {
+    if (normalized.includes(alias.normalized)) {
+      return { componentType: alias.componentType, rawLabel: '' };
+    }
+  }
+
+  const fallbackToken = findUnknownComponentToken(text);
+  return { componentType: '', rawLabel: fallbackToken };
+}
+
+function normalizeComponentMatchText(text) {
+  return String(text || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function findUnknownComponentToken(text) {
+  const stripped = String(text || '')
+    .toUpperCase()
+    .replace(/\b(AB|A|B|O|0)\s*(POSITIVE|POS|\+|NEGATIVE|NEG|-)\b/g, ' ')
+    .replace(/\b\d{1,4}\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s*\d{2,4}\b/g, ' ')
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const ignore = new Set([
+    'DATE', 'UNIT', 'SERIAL', 'NO', 'NUMBER', 'EXTRACTION', 'EXPIRY',
+    'BLOOD', 'GROUP', 'COMPONENT', 'PATIENT', 'RELEASED', 'BAG', 'BLOODSTOCK'
+  ]);
+
+  const token = stripped.split(' ').find(part => {
+    if (!part || part.length < 2 || part.length > 16) return false;
+    if (!/[A-Z]/.test(part)) return false;
+    if (ignore.has(part)) return false;
+    if (/^\d+$/.test(part)) return false;
+    if (/^[A-Z]?\d{4,}$/.test(part)) return false;
+    return true;
+  });
+
+  return token || '';
+}
+
+function parseSerialFromText(text) {
+  if (!text) return '';
+  const normalized = String(text).toUpperCase().replace(/\s+/g, ' ');
+
+  const explicit = normalized.match(/\b(?:S\/N|SN|SERIAL(?:\s*NO)?|UNIT(?:\s*SERIAL)?)(?:\s*NO)?\s*[:#-]?\s*([A-Z0-9-]{5,10})\b/);
+  if (explicit) {
+    const fixed = normalizeTracerSerialCandidate(explicit[1]);
+    if (fixed) return fixed;
+  }
+
+  const compact = normalized.replace(/\s+/g, '');
+  const direct = compact.match(/V[A-Z]?\d{5,7}/g) || [];
+  for (const candidate of direct) {
+    const fixed = normalizeTracerSerialCandidate(candidate);
+    if (fixed) return fixed;
+  }
+
+  const fallback = normalized.match(/\b[A-Z]{1,2}\d{5,8}\b/g) || [];
+  for (const candidate of fallback) {
+    const fixed = normalizeTracerSerialCandidate(candidate);
+    if (fixed) return fixed;
+  }
+
+  return '';
+}
+
+function sanitizeSerial(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function normalizeTracerSerialCandidate(value) {
+  const cleaned = sanitizeSerial(value).replace(/_/g, '');
+  if (!cleaned) return '';
+
+  // Common OCR drift: VA457679 -> V457679
+  let normalized = cleaned.replace(/^VA(?=\d{5,7}$)/, 'V');
+  normalized = normalized.replace(/^V0(?=\d{4,6}$)/, 'V');
+
+  if (/^V\d{5,7}$/.test(normalized)) {
+    return normalized;
+  }
+
+  return '';
+}
+
+function extractDateValuesFromText(text) {
+  if (!text) return [];
+
+  const source = String(text).toUpperCase().replace(/O(?=\d)/g, '0');
+  const found = [];
+
+  const monthRegex = /\b([0-3]?\d)\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)\s*,?\s*([12]\d{3}|\d{2})\b/g;
+  const ymdRegex = /\b([12]\d{3})[\/-]([01]?\d)[\/-]([0-3]?\d)\b/g;
+  const dmyRegex = /\b([0-3]?\d)[\/-]([01]?\d)[\/-]([12]\d{3}|\d{2})\b/g;
+
+  const collectMatches = (regex, transform) => {
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      const parsed = transform(match);
+      if (parsed && !found.includes(parsed)) found.push(parsed);
+    }
+  };
+
+  collectMatches(monthRegex, m => parseDateParts(m[3], monthNameToNumber(m[2]), m[1]));
+  collectMatches(ymdRegex, m => parseDateParts(m[1], m[2], m[3]));
+  collectMatches(dmyRegex, m => parseDateParts(m[3], m[2], m[1]));
+
+  return found.slice(0, 2);
+}
+
+function normalizeTracerDateRange(collectedAt, expiresAt) {
+  let extraction = collectedAt || '';
+  let expiry = expiresAt || '';
+  let swapped = false;
+  let invalid = false;
+
+  const extractionDate = extraction ? new Date(extraction) : null;
+  const expiryDate = expiry ? new Date(expiry) : null;
+
+  if (extractionDate && expiryDate && extractionDate > expiryDate) {
+    const temp = extraction;
+    extraction = expiry;
+    expiry = temp;
+    swapped = true;
+  }
+
+  const extractionYear = extraction ? Number(String(extraction).slice(0, 4)) : null;
+  const expiryYear = expiry ? Number(String(expiry).slice(0, 4)) : null;
+  if ((extractionYear && (extractionYear < 2024 || extractionYear > 2035)) ||
+      (expiryYear && (expiryYear < 2024 || expiryYear > 2035))) {
+    invalid = true;
+  }
+
+  return { collectedAt: extraction, expiresAt: expiry, swapped, invalid };
+}
+
+function monthNameToNumber(name) {
+  const map = {
+    JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, SEPT: 9, OCT: 10, NOV: 11, DEC: 12
+  };
+  return map[String(name || '').toUpperCase()] || 0;
+}
+
+function parseDateParts(yearToken, monthToken, dayToken) {
+  let year = Number(String(yearToken).replace(/O/g, '0'));
+  let month = Number(String(monthToken).replace(/O/g, '0'));
+  let day = Number(String(dayToken).replace(/O/g, '0'));
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
+  if (String(yearToken).length === 2) year += year >= 70 ? 1900 : 2000;
+
+  return formatDateInput(year, month, day);
+}
+
+function parseDateCandidate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  if (/^\d{8}$/.test(raw)) {
+    const y = Number(raw.slice(0, 4));
+    const m = Number(raw.slice(4, 6));
+    const d = Number(raw.slice(6, 8));
+    return formatDateInput(y, m, d);
+  }
+
+  const asDate = new Date(raw);
+  if (!Number.isNaN(asDate.getTime())) {
+    return formatDateInput(asDate.getFullYear(), asDate.getMonth() + 1, asDate.getDate());
+  }
+  return '';
+}
+
+function formatDateInput(year, month, day) {
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
+  if (year < 1990 || year > 2100) return '';
+  if (month < 1 || month > 12) return '';
+  if (day < 1 || day > 31) return '';
+
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Unable to load tracer image for OCR.'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('Failed to read tracer image file.'));
+    reader.readAsDataURL(file);
+  });
+}
 
 function addStockCalculateExpiry(componentType, collectedAt) {
   const days = ADD_STOCK_EXPIRY_DAYS[componentType];
@@ -1126,6 +3010,8 @@ function updateAddExpiry() {
 }
 
 function openAddBloodModal() {
+  initAddStockScanner();
+
   document.getElementById('add-transaction-number').value = '';
   document.getElementById('add-serial-number').value = '';
   document.getElementById('add-blood-type').value = '';
@@ -1142,6 +3028,7 @@ function openAddBloodModal() {
   const rows = document.getElementById('add-stock-rows');
   if (rows) rows.innerHTML = '';
 
+  resetAddStockScannerUI();
   updateAddStockValidCount();
   openModal('addBloodModal');
 }
@@ -1319,6 +3206,8 @@ function handleAddStockRowDateChange(el) {
     expiresEl.value = addStockCalculateExpiry(componentType, collectedAt);
   }
 
+  markImportedRowTouched(row);
+  refreshImportedRowReviewState(row);
   updateAddStockValidCount();
 }
 
@@ -1342,6 +3231,8 @@ function handleAddStockRowChange(el) {
     expiresEl.value = addStockCalculateExpiry(componentEl.value, collectedEl.value);
   }
 
+  markImportedRowTouched(row);
+  refreshImportedRowReviewState(row);
   updateAddStockValidCount();
 }
 
@@ -2845,9 +4736,50 @@ function getBloodBagSourceLabelPlain(bag) {
 
 function parseBloodBagDateValue(value) {
   if (!value) return null;
-  const dateString = value.includes('T') ? value : `${value}T00:00:00`;
-  const parsed = new Date(dateString);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Parse SQL/ISO prefixes as local wall-clock date/time and ignore timezone tails.
+  // This preserves the stored calendar date (prevents client-side +1 day shifts).
+  const datePrefixMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2})(?::?(\d{2}))?(?::?(\d{2}))?)?/i);
+  if (datePrefixMatch) {
+    const [, year, month, day, hour = '00', minute = '00', second = '00'] = datePrefixMatch;
+    const fractionMatch = raw.match(/\.(\d{1,9})/);
+    const fraction = fractionMatch ? fractionMatch[1] : '0';
+    const ms = Number(String(fraction).padEnd(3, '0').slice(0, 3));
+    const parsedLocal = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+      Number.isFinite(ms) ? ms : 0
+    );
+    return Number.isNaN(parsedLocal.getTime()) ? null : parsedLocal;
+  }
+
+  const fallback = new Date(raw);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function calculateBloodBagDaysLeft(expiresAtValue, reference = new Date()) {
+  const expiry = parseBloodBagDateValue(expiresAtValue);
+  const base = reference instanceof Date ? reference : new Date(reference);
+  if (!expiry || Number.isNaN(base.getTime())) return 0;
+
+  const expiryStart = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+  const baseStart = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const dayDiff = Math.round((expiryStart - baseStart) / 86400000);
+  return Number.isFinite(dayDiff) ? dayDiff : 0;
+}
+
+function formatBloodBagShortDate(value) {
+  const parsed = parseBloodBagDateValue(value);
+  if (!parsed) return '-';
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatBloodBagReportDate(value) {
@@ -3898,11 +5830,11 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     const compatible = cache.bags.filter(b => b.compatible !== false);
     const others     = cache.bags.filter(b => b.compatible === false);
     const availability = reqGetAvailabilitySnapshot(req);
-    const now        = Date.now();
+    const now          = new Date();
  
     function bagRow(b) {
-      const expDate  = b.expiresAt ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
-      const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - now) / 86400000) : null;
+      const expDate  = formatBloodBagShortDate(b.expiresAt);
+      const daysLeft = b.expiresAt ? calculateBloodBagDaysLeft(b.expiresAt, now) : null;
       const warn     = daysLeft !== null && daysLeft <= 7;
       return `<div class="req-bag-preview-row">
         <div class="req-bag-dot" style="${b.compatible === false ? 'background:var(--crimson);border-color:var(--crimson)' : ''}"></div>
@@ -4010,10 +5942,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         ${bagPickerData.map(b => {
           const isSelected   = selected.includes(String(b.id));
           const isCompatible = b.compatible !== false;
-          const expDate  = b.expiresAt
-            ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : '-';
-          const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - Date.now()) / 86400000) : null;
+          const expDate  = formatBloodBagShortDate(b.expiresAt);
+          const daysLeft = b.expiresAt ? calculateBloodBagDaysLeft(b.expiresAt) : null;
           const warn     = daysLeft !== null && daysLeft <= 7;
           return `
             <div class="req-bag-row${isSelected ? ' selected' : ''}${!isCompatible ? ' incompatible' : ''}"
@@ -4776,9 +6706,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       </div>
       <div class="req-bag-preview-list">
         ${req.allocatedBags.map(b => {
-          const expDate  = b.expiresAt
-            ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : b.expiresAt ?? '-';
+          const expDate = formatBloodBagShortDate(b.expiresAt);
           return `<div class="req-bag-preview-row" style="border-left:3px solid var(--green);padding-left:10px">
             <div class="req-bag-dot" style="background:var(--green);border-color:var(--green)"></div>
             <div style="flex:1;min-width:0">

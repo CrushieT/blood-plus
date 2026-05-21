@@ -22,6 +22,13 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
 
     Optional<BloodBag> findBySerialNumber(String serialNumber);
 
+    @Query("""
+        SELECT b.serialNumber
+        FROM BloodBag b
+        WHERE b.serialNumber IN :serials
+    """)
+    List<String> findExistingSerialNumbers(@Param("serials") List<String> serials);
+
     List<BloodBag> findByStatus(BagStatus status);
 
     List<BloodBag> findByBloodTypeAndStatus(BloodType bloodType, BagStatus status);
