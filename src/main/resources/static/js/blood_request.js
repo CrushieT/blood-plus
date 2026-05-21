@@ -1270,7 +1270,7 @@ const DEMO_REQUESTS = {
 
 async function trackRequest() {
   const rawInput = document.getElementById('track-input').value.trim();
-  const refNum = rawInput.startsWith('BR-') ? rawInput : ('BR-' + rawInput);
+  const refNum = rawInput.startsWith('') ? rawInput : ('' + rawInput);
 
   const resultEl  = document.getElementById('track-result');
   const defaultEl = document.getElementById('track-default');

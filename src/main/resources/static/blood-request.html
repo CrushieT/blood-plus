@@ -1,15 +1,45 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CNPH Blood Bank — Request Portal</title>
+  <title>CNPH Blood Bank - Request Portal</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="js/AuthGuard.js"></script>
   <link href="css/blood_request.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
 </head>
 <body>
+
+<!-- EKG LOADING SCREEN -->
+<div id="ekg-loader">
+  <div class="ekg-corner tl"></div>
+  <div class="ekg-corner tr"></div>
+  <div class="ekg-corner bl"></div>
+  <div class="ekg-corner br"></div>
+
+  <div class="ekg-particles" id="ekg-particles"></div>
+
+  <div class="ekg-logo-wrap">
+    <div class="ekg-logo-drop"><span>&#9679;</span></div>
+    <div class="ekg-logo-text">
+      <div class="ekg-logo-name">CNPH Blood Bank</div>
+      <div class="ekg-logo-sub">Camarines Norte Provincial Hospital</div>
+    </div>
+  </div>
+
+  <div class="ekg-canvas-wrap">
+    <canvas id="ekg-canvas"></canvas>
+    <div class="ekg-glow-bar"></div>
+    <div class="ekg-scanline"></div>
+  </div>
+
+  <div class="ekg-status">Blood Dispensing System <span>&#9679;</span> Loading</div>
+
+  <div class="ekg-progress-track">
+    <div class="ekg-progress-fill"></div>
+  </div>
+</div>
 
 <!-- Emergency strip -->
 <div class="emergency-strip">
@@ -27,7 +57,7 @@
 
   <nav>
     <div class="logo">
-      <div class="logo-drop"><span>●</span></div>
+      <div class="logo-drop"><span>&#9679;</span></div>
       <div>
         <div class="logo-text">CNPH Blood Bank</div>
         <div class="logo-sub">Camarines Norte Provincial Hospital</div>
@@ -48,7 +78,7 @@
         Hospital Login
       </a>
 
-      <!-- Shown when logged in as hospital — hidden by default -->
+      <!-- Shown when logged in as hospital - hidden by default -->
       <div id="nav-hospital-chip"
            style="display:none;align-items:center;gap:10px;
                   background:rgba(196,30,58,0.18);border:1.5px solid rgba(196,30,58,0.35);
@@ -110,7 +140,7 @@
 <div class="scanner-container" id="scanner-container">
   <div class="scanner-header">
     <div class="scanner-title-section">
-      <div class="scanner-icon">📋</div>
+      <div class="scanner-icon">&#128203;</div>
       <div>
         <div class="scanner-title">Quick Scan</div>
         <div class="scanner-subtitle">Scan your blood request form to auto-fill</div>
@@ -119,7 +149,7 @@
     <button class="scanner-collapse-btn" id="scanner-collapse-btn" 
       onclick="toggleScannerPanel()" 
       title="Collapse scanner">
-      ↑
+      &#8593;
     </button>
   </div>
  
@@ -131,22 +161,22 @@
         onchange="handleScan(this.files[0])" />
       
       <div id="scan-placeholder" class="scan-state">
-        <div class="scan-placeholder-icon">📄</div>
+        <div class="scan-placeholder-icon">&#128196;</div>
         <div class="scan-placeholder-text">
           <div class="scan-placeholder-title">Click to scan form</div>
-          <div class="scan-placeholder-subtitle">PDF, JPG, or PNG — Max 10MB</div>
+          <div class="scan-placeholder-subtitle">PDF, JPG, or PNG - Max 10MB</div>
         </div>
       </div>
       
       <div id="scan-preview" class="scan-state" style="display:none">
         <div style="display:flex;align-items:center;gap:12px;width:100%">
-          <div class="scan-success-icon">✓</div>
+          <div class="scan-success-icon">&#10003;</div>
           <div style="flex:1;min-width:0">
             <div id="scan-file-name" class="scan-filename"></div>
             <div id="scan-status" class="scan-status">Processing...</div>
           </div>
           <button type="button" onclick="event.stopPropagation();clearScan()" 
-            class="scan-clear-btn">×</button>
+            class="scan-clear-btn">&times;</button>
         </div>
       </div>
     </div>
@@ -154,7 +184,7 @@
     <!-- Scanner results -->
     <div id="scanner-results-box" class="scanner-results-box" style="display:none">
       <div class="results-header">
-        <span class="results-icon">✓</span>
+        <span class="results-icon">&#10003;</span>
         <span class="results-title">Form detected</span>
       </div>
       
@@ -1272,17 +1302,17 @@
 
         <div class="tracker-search">
           <div class="tracker-input-wrap">
-            <span class="input-prefix">BR-</span>
+            <span class="input-prefix">IP</span>
             <input class="tracker-input" id="track-input" placeholder="2026-00123" maxlength="20"
               onkeydown="if(event.key==='Enter') trackRequest()" />
           </div>
-          <button class="btn-search" onclick="trackRequest()">🔍 Track</button>
+          <button class="btn-search" onclick="trackRequest()">&#128269; Track</button>
         </div>
 
         <div id="track-result" class="track-result"></div>
 
         <div id="track-default" class="track-empty">
-          <div class="track-empty-icon">🔍</div>
+          <div class="track-empty-icon">&#128269;</div>
           <div class="track-empty-title">Enter your reference number</div>
           <div style="font-size:13px;color:var(--muted);max-width:300px;margin:6px auto 0;line-height:1.6">
             Your reference number was sent to your email when you submitted the request. It looks like <strong>BR-2026-00123</strong>.
@@ -1343,6 +1373,110 @@
   </div>
 </div>
 
+<script>
+  (function initEkgLoader() {
+    const loader = document.getElementById('ekg-loader');
+    const canvas = document.getElementById('ekg-canvas');
+    const particles = document.getElementById('ekg-particles');
+    if (!loader || !canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    function resizeCanvas() {
+      const wrap = canvas.parentElement;
+      if (!wrap) return;
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const cssW = Math.max(280, Math.floor(wrap.clientWidth || 700));
+      const cssH = Math.max(80, Math.floor(wrap.clientHeight || 100));
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      canvas.style.width = cssW + 'px';
+      canvas.style.height = cssH + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function makeParticles() {
+      if (!particles || particles.children.length > 0) return;
+      const total = 18;
+      for (let i = 0; i < total; i++) {
+        const p = document.createElement('span');
+        p.className = 'ekg-particle';
+        const size = Math.random() * 4 + 2;
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+        p.style.left = (Math.random() * 100).toFixed(2) + '%';
+        p.style.bottom = (Math.random() * 20).toFixed(2) + '%';
+        p.style.setProperty('--dur', (2.2 + Math.random() * 2.8).toFixed(2) + 's');
+        p.style.setProperty('--del', (Math.random() * 1.2).toFixed(2) + 's');
+        particles.appendChild(p);
+      }
+    }
+
+    function drawFrame(t) {
+      const w = canvas.clientWidth || 700;
+      const h = canvas.clientHeight || 100;
+      ctx.clearRect(0, 0, w, h);
+
+      // baseline
+      ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.62);
+      ctx.lineTo(w, h * 0.62);
+      ctx.stroke();
+
+      // ekg trace
+      const progress = Math.min(1, (t % 2200) / 2200);
+      const xMax = w * progress;
+      const yBase = h * 0.62;
+      const amp = h * 0.17;
+
+      ctx.strokeStyle = '#1f5fbf';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(0, yBase);
+      for (let x = 0; x <= xMax; x += 2) {
+        const pulseCenter = ((x / w) * 6) % 1;
+        let y = yBase;
+        if (pulseCenter > 0.45 && pulseCenter < 0.55) {
+          const p = (pulseCenter - 0.45) / 0.10;
+          y = yBase - amp * Math.sin(Math.PI * p);
+        } else {
+          y = yBase + Math.sin((x + t * 0.06) * 0.045) * 1.3;
+        }
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      requestAnimationFrame(drawFrame);
+    }
+
+    function hideLoader() {
+      loader.classList.add('fade-out');
+      window.setTimeout(() => {
+        loader.style.display = 'none';
+      }, 850);
+    }
+
+    resizeCanvas();
+    makeParticles();
+    requestAnimationFrame(drawFrame);
+    window.addEventListener('resize', resizeCanvas);
+
+    const minVisibleMs = 2200;
+    const start = Date.now();
+    const finish = () => {
+      const elapsed = Date.now() - start;
+      window.setTimeout(hideLoader, Math.max(0, minVisibleMs - elapsed));
+    };
+    if (document.readyState === 'complete') finish();
+    else window.addEventListener('load', finish, { once: true });
+  })();
+</script>
+
 <script src="js/blood_request.js"></script>
 </body>
 </html>
+
