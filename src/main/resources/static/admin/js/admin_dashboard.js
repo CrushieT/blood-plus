@@ -8306,9 +8306,13 @@ const HOSPITAL_API = '/api/admin/hospitals';
 let hospData = [];
 let hospPage = 1;
 const hospPerPage = 5;
+let hospCreateValidationBound = false;
+let hospEditValidationBound = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     hospLoadAll();
+    initHospitalCreateValidation();
+    initHospitalEditValidation();
 });
 
 async function hospLoadAll() {
@@ -8444,27 +8448,459 @@ function hospNextPage() {
     }
 }
 
+function setHospitalFieldError(inputId, message) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(`${inputId}-error`);
+    if (input) {
+        input.classList.add('field-error');
+        input.setAttribute('aria-invalid', 'true');
+    }
+    if (error) {
+        error.textContent = message || '';
+        error.style.display = message ? 'block' : 'none';
+    }
+    return false;
+}
+
+function clearHospitalFieldError(inputId) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(`${inputId}-error`);
+    if (input) {
+        input.classList.remove('field-error');
+        input.removeAttribute('aria-invalid');
+    }
+    if (error) {
+        error.textContent = '';
+        error.style.display = 'none';
+    }
+    return true;
+}
+
+function enforceHospitalTextLimit(inputId, maxLength) {
+    const input = document.getElementById(inputId);
+    if (!input) return '';
+    const cleaned = String(input.value || '')
+        .replace(/<[^>]*>/g, '')
+        .slice(0, maxLength);
+    if (input.value !== cleaned) input.value = cleaned;
+    return cleaned;
+}
+
+function validateHospitalName(commitTrim = true) {
+    const inputId = 'hosp-add-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9 .'-]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Hospital name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalCity(commitTrim = true) {
+    const inputId = 'hosp-add-city';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'City is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalProvince(commitTrim = true) {
+    const inputId = 'hosp-add-province';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Province is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalAddress(commitTrim = true) {
+    const inputId = 'hosp-add-address';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9\s,.\-#]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Address is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEmail(commitTrim = true) {
+    const inputId = 'hosp-add-email';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const noSpaces = String(input.value || '').replace(/\s+/g, '');
+    if (input.value !== noSpaces) input.value = noSpaces;
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Enter a valid email address.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function lockPhilippinePhoneInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return '';
+    const raw = String(input.value || '');
+    const digits = raw.replace(/\D/g, '');
+    let local = digits.startsWith('63') ? digits.slice(2) : digits;
+    local = local.slice(0, 10);
+    input.value = `+63${local}`;
+    return input.value;
+}
+
+function validatePhilippinePhone(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    const value = lockPhilippinePhoneInput(inputId);
+    if (!/^\+63\d{10}$/.test(value)) {
+        return setHospitalFieldError(inputId, 'Phone number must start with +63 followed by exactly 10 digits.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalContactName(commitTrim = true) {
+    const inputId = 'hosp-add-contact-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 40);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 40 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Contact person name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditName(commitTrim = true) {
+    const inputId = 'hosp-edit-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9 .'-]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Hospital name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditCity(commitTrim = true) {
+    const inputId = 'hosp-edit-city';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'City is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditProvince(commitTrim = true) {
+    const inputId = 'hosp-edit-province';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Province is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditAddress(commitTrim = true) {
+    const inputId = 'hosp-edit-address';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9\s,.\-#]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Address is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditEmail(commitTrim = true) {
+    const inputId = 'hosp-edit-email';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const noSpaces = String(input.value || '').replace(/\s+/g, '');
+    if (input.value !== noSpaces) input.value = noSpaces;
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Enter a valid email address.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditContactName(commitTrim = true) {
+    const inputId = 'hosp-edit-contact-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 40);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 40 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Contact person name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalCreateForm() {
+    const checks = [
+        { id: 'hosp-add-name', fn: validateHospitalName },
+        { id: 'hosp-add-city', fn: validateHospitalCity },
+        { id: 'hosp-add-province', fn: validateHospitalProvince },
+        { id: 'hosp-add-address', fn: validateHospitalAddress },
+        { id: 'hosp-add-email', fn: validateHospitalEmail },
+        { id: 'hosp-add-phone', fn: () => validatePhilippinePhone('hosp-add-phone') },
+        { id: 'hosp-add-contact-name', fn: validateHospitalContactName },
+        { id: 'hosp-add-contact-phone', fn: () => validatePhilippinePhone('hosp-add-contact-phone') },
+    ];
+
+    let firstInvalidId = '';
+    checks.forEach(check => {
+        const valid = check.fn();
+        if (!valid && !firstInvalidId) firstInvalidId = check.id;
+    });
+
+    if (firstInvalidId) {
+        const firstEl = document.getElementById(firstInvalidId);
+        if (firstEl) {
+            firstEl.focus();
+            firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+    }
+    return true;
+}
+
+function validateHospitalEditForm() {
+    const checks = [
+        { id: 'hosp-edit-name', fn: validateHospitalEditName },
+        { id: 'hosp-edit-city', fn: validateHospitalEditCity },
+        { id: 'hosp-edit-province', fn: validateHospitalEditProvince },
+        { id: 'hosp-edit-address', fn: validateHospitalEditAddress },
+        { id: 'hosp-edit-email', fn: validateHospitalEditEmail },
+        { id: 'hosp-edit-phone', fn: () => validatePhilippinePhone('hosp-edit-phone') },
+        { id: 'hosp-edit-contact-name', fn: validateHospitalEditContactName },
+        { id: 'hosp-edit-contact-phone', fn: () => validatePhilippinePhone('hosp-edit-contact-phone') },
+    ];
+
+    let firstInvalidId = '';
+    checks.forEach(check => {
+        const valid = check.fn();
+        if (!valid && !firstInvalidId) firstInvalidId = check.id;
+    });
+
+    if (firstInvalidId) {
+        const firstEl = document.getElementById(firstInvalidId);
+        if (firstEl) {
+            firstEl.focus();
+            firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+    }
+    return true;
+}
+
+function initHospitalCreateValidation() {
+    if (hospCreateValidationBound) return;
+    hospCreateValidationBound = true;
+
+    const textLimits = [
+        ['hosp-add-name', 50, validateHospitalName],
+        ['hosp-add-city', 25, validateHospitalCity],
+        ['hosp-add-province', 25, validateHospitalProvince],
+        ['hosp-add-address', 50, validateHospitalAddress],
+        ['hosp-add-email', 50, validateHospitalEmail],
+        ['hosp-add-contact-name', 40, validateHospitalContactName],
+    ];
+
+    textLimits.forEach(([id, max, validator]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            enforceHospitalTextLimit(id, max);
+            validator(false);
+        });
+        el.addEventListener('blur', () => validator(true));
+        if (id === 'hosp-add-email' || id === 'hosp-edit-email') {
+            el.addEventListener('keydown', (event) => {
+                if (event.key === ' ') event.preventDefault();
+            });
+        }
+    });
+
+    ['hosp-add-phone', 'hosp-add-contact-phone'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('focus', () => {
+            if (!el.value.trim()) {
+                el.value = '+63';
+            } else {
+                lockPhilippinePhoneInput(id);
+            }
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('input', () => {
+            lockPhilippinePhoneInput(id);
+            validatePhilippinePhone(id);
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('blur', () => validatePhilippinePhone(id));
+        el.addEventListener('keydown', (event) => {
+            const selectionStart = el.selectionStart ?? 0;
+            const selectionEnd = el.selectionEnd ?? 0;
+            const isBackspace = event.key === 'Backspace';
+            const isDelete = event.key === 'Delete';
+            if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && /\d/.test(event.key)) {
+                const localDigits = el.value.slice(3).replace(/\D/g, '');
+                const selectedPrefix = el.value.slice(selectionStart, selectionEnd);
+                const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+                if (localDigits.length - selectedLocalDigits.length >= 10) {
+                    event.preventDefault();
+                }
+            }
+        });
+    });
+}
+
+function initHospitalEditValidation() {
+    if (hospEditValidationBound) return;
+    hospEditValidationBound = true;
+
+    const textLimits = [
+        ['hosp-edit-name', 50, validateHospitalEditName],
+        ['hosp-edit-city', 25, validateHospitalEditCity],
+        ['hosp-edit-province', 25, validateHospitalEditProvince],
+        ['hosp-edit-address', 50, validateHospitalEditAddress],
+        ['hosp-edit-email', 50, validateHospitalEditEmail],
+        ['hosp-edit-contact-name', 40, validateHospitalEditContactName],
+    ];
+
+    textLimits.forEach(([id, max, validator]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            enforceHospitalTextLimit(id, max);
+            validator(false);
+        });
+        el.addEventListener('blur', () => validator(true));
+        if (id === 'hosp-edit-email') {
+            el.addEventListener('keydown', (event) => {
+                if (event.key === ' ') event.preventDefault();
+            });
+        }
+    });
+
+    ['hosp-edit-phone', 'hosp-edit-contact-phone'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('focus', () => {
+            if (!el.value.trim()) {
+                el.value = '+63';
+            } else {
+                lockPhilippinePhoneInput(id);
+            }
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('input', () => {
+            lockPhilippinePhoneInput(id);
+            validatePhilippinePhone(id);
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('blur', () => validatePhilippinePhone(id));
+        el.addEventListener('keydown', (event) => {
+            const selectionStart = el.selectionStart ?? 0;
+            const selectionEnd = el.selectionEnd ?? 0;
+            const isBackspace = event.key === 'Backspace';
+            const isDelete = event.key === 'Delete';
+            if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && /\d/.test(event.key)) {
+                const localDigits = el.value.slice(3).replace(/\D/g, '');
+                const selectedPrefix = el.value.slice(selectionStart, selectionEnd);
+                const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+                if (localDigits.length - selectedLocalDigits.length >= 10) {
+                    event.preventDefault();
+                }
+            }
+        });
+    });
+}
+
 
 
 // ??????????????????????????????????????????????????????????????????????????
 // CREATE HOSPITAL – Submit form
 // ??????????????????????????????????????????????????????????????????????????
 async function hospCreate() {
+    if (!validateHospitalCreateForm()) return;
+
     const email = document.getElementById('hosp-add-email')?.value.trim();
     const name = document.getElementById('hosp-add-name')?.value.trim();
     const address = document.getElementById('hosp-add-address')?.value.trim();
     const city = document.getElementById('hosp-add-city')?.value.trim();
     const province = document.getElementById('hosp-add-province')?.value.trim();
-    const phone = document.getElementById('hosp-add-phone')?.value.trim() || null;
-    const contactName = document.getElementById('hosp-add-contact-name')?.value.trim() || null;
-    const contactPhone = document.getElementById('hosp-add-contact-phone')?.value.trim() || null;
-    
-    // Validation
-    if (!email) return alert('Email is required.');
-    if (!name) return alert('Hospital name is required.');
-    if (!address) return alert('Address is required.');
-    if (!city) return alert('City is required.');
-    if (!province) return alert('Province is required.');
+    const phone = document.getElementById('hosp-add-phone')?.value.trim();
+    const contactName = document.getElementById('hosp-add-contact-name')?.value.trim();
+    const contactPhone = document.getElementById('hosp-add-contact-phone')?.value.trim();
     
     const btn = document.querySelector('#addHospitalModal .btn-primary');
     if (btn) {
@@ -8498,6 +8934,10 @@ async function hospCreate() {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
+        ['hosp-add-email','hosp-add-name','hosp-add-address','hosp-add-city','hosp-add-province',
+         'hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone'].forEach(id => {
+            clearHospitalFieldError(id);
+        });
         
         closeModal('addHospitalModal');
         
@@ -8509,7 +8949,7 @@ async function hospCreate() {
         );
         
     } catch (err) {
-        alert('Error: ' + err.message);
+        showBloodPlusMessage('Create Hospital Failed', err.message || 'Creation failed', 'error');
         console.error('[Hospital] Create error:', err);
     } finally {
         if (btn) {
@@ -8525,7 +8965,7 @@ async function hospCreate() {
 function hospOpenEdit(id) {
     const h = hospData.find(x => x.id === id);
     if (!h) {
-        alert('Hospital not found');
+        showBloodPlusMessage('Hospital Not Found', 'The selected hospital record could not be loaded.', 'error');
         return;
     }
     
@@ -8540,6 +8980,13 @@ function hospOpenEdit(id) {
     document.getElementById('hosp-edit-email').value = h.email || '';
     document.getElementById('hosp-edit-pass').value = '';
     document.getElementById('hosp-edit-status').value = 'active';
+
+    ['hosp-edit-name', 'hosp-edit-city', 'hosp-edit-province', 'hosp-edit-address',
+     'hosp-edit-email', 'hosp-edit-phone', 'hosp-edit-contact-name', 'hosp-edit-contact-phone'].forEach(id => {
+        clearHospitalFieldError(id);
+    });
+    lockPhilippinePhoneInput('hosp-edit-phone');
+    lockPhilippinePhoneInput('hosp-edit-contact-phone');
     
     openModal('editHospitalModal');
 }
@@ -8548,16 +8995,16 @@ function hospOpenEdit(id) {
 // EDIT HOSPITAL – Save changes
 // ??????????????????????????????????????????????????????????????????????????
 async function hospSaveEdit() {
+    if (!validateHospitalEditForm()) return;
+
     const id = document.getElementById('hosp-edit-idx').value;
     const name = document.getElementById('hosp-edit-name')?.value.trim();
     const address = document.getElementById('hosp-edit-address')?.value.trim();
     const city = document.getElementById('hosp-edit-city')?.value.trim();
     const province = document.getElementById('hosp-edit-province')?.value.trim();
-    const phone = document.getElementById('hosp-edit-phone')?.value.trim() || null;
+    const phone = lockPhilippinePhoneInput('hosp-edit-phone').trim();
     const contactName = document.getElementById('hosp-edit-contact-name')?.value.trim() || null;
-    const contactPhone = document.getElementById('hosp-edit-contact-phone')?.value.trim() || null;
-    
-    if (!name) return alert('Hospital name is required.');
+    const contactPhone = lockPhilippinePhoneInput('hosp-edit-contact-phone').trim();
     
     const btn = document.querySelector('#editHospitalModal .btn-primary');
     if (btn) {
@@ -8595,7 +9042,7 @@ async function hospSaveEdit() {
         );
         
     } catch (err) {
-        alert('Error: ' + err.message);
+        showBloodPlusMessage('Update Hospital Failed', err.message || 'Update failed', 'error');
         console.error('[Hospital] Edit error:', err);
     } finally {
         if (btn) {

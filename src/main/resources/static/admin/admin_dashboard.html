@@ -1813,22 +1813,54 @@
       </div>
       <div class="modal-body">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" id="hosp-add-name" placeholder="e.g. Philippine General Hospital"></div>
+          <div class="form-group-m">
+            <label>Hospital Name</label>
+            <input type="text" id="hosp-add-name" placeholder="e.g. Philippine General Hospital" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-name-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>City</label><input type="text" id="hosp-add-city" placeholder="e.g. Manila"></div>
-          <div class="form-group-m"><label>Province</label><input type="text" id="hosp-add-province" placeholder="e.g. Metro Manila"></div>
+          <div class="form-group-m">
+            <label>City</label>
+            <input type="text" id="hosp-add-city" placeholder="e.g. Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-city-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Province</label>
+            <input type="text" id="hosp-add-province" placeholder="e.g. Metro Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-province-error"></div>
+          </div>
         </div>
         <div class="form-row full">
-          <div class="form-group-m"><label>Address</label><input type="text" id="hosp-add-address" placeholder="Full street address"></div>
+          <div class="form-group-m">
+            <label>Address</label>
+            <input type="text" id="hosp-add-address" placeholder="Full street address" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-address-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email (Login)</label><input type="email" id="hosp-add-email" placeholder="hospital@email.com"></div>
-          <div class="form-group-m"><label>Phone Number</label><input type="tel" id="hosp-add-phone" placeholder="+63 2 XXXX XXXX"></div>
+          <div class="form-group-m">
+            <label>Email (Login)</label>
+            <input type="email" id="hosp-add-email" placeholder="hospital@email.com" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-email-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="hosp-add-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Contact Person Name</label><input type="text" id="hosp-add-contact-name" placeholder="Dr. Juan dela Cruz"></div>
-          <div class="form-group-m"><label>Contact Person Phone</label><input type="tel" id="hosp-add-contact-phone" placeholder="+63 9XX XXX XXXX"></div>
+          <div class="form-group-m">
+            <label>Contact Person Name</label>
+            <input type="text" id="hosp-add-contact-name" placeholder="Dr. Juan dela Cruz" maxlength="40" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-contact-name-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Contact Person Phone</label>
+            <input type="tel" id="hosp-add-contact-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-contact-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group-m"><label>Status</label><select id="hosp-add-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
@@ -1851,22 +1883,54 @@
       <div class="modal-body">
         <input type="hidden" id="hosp-edit-idx">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" id="hosp-edit-name"></div>
+          <div class="form-group-m">
+            <label>Hospital Name</label>
+            <input type="text" id="hosp-edit-name" placeholder="e.g. Philippine General Hospital" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-name-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>City</label><input type="text" id="hosp-edit-city"></div>
-          <div class="form-group-m"><label>Province</label><input type="text" id="hosp-edit-province"></div>
+          <div class="form-group-m">
+            <label>City</label>
+            <input type="text" id="hosp-edit-city" placeholder="e.g. Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-city-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Province</label>
+            <input type="text" id="hosp-edit-province" placeholder="e.g. Metro Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-province-error"></div>
+          </div>
         </div>
         <div class="form-row full">
-          <div class="form-group-m"><label>Address</label><input type="text" id="hosp-edit-address"></div>
+          <div class="form-group-m">
+            <label>Address</label>
+            <input type="text" id="hosp-edit-address" placeholder="Full street address" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-address-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email</label><input type="email" id="hosp-edit-email"></div>
-          <div class="form-group-m"><label>Phone Number</label><input type="tel" id="hosp-edit-phone"></div>
+          <div class="form-group-m">
+            <label>Email</label>
+            <input type="email" id="hosp-edit-email" placeholder="hospital@email.com" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-email-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="hosp-edit-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Contact Person Name</label><input type="text" id="hosp-edit-contact-name"></div>
-          <div class="form-group-m"><label>Contact Person Phone</label><input type="tel" id="hosp-edit-contact-phone"></div>
+          <div class="form-group-m">
+            <label>Contact Person Name</label>
+            <input type="text" id="hosp-edit-contact-name" placeholder="Dr. Juan dela Cruz" maxlength="40" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-contact-name-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Contact Person Phone</label>
+            <input type="tel" id="hosp-edit-contact-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-contact-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group-m"><label>Reset Password</label><input type="password" id="hosp-edit-pass" placeholder="Leave blank to keep current"></div>
