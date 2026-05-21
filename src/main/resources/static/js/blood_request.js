@@ -119,7 +119,9 @@ function updatePatientTypeAndForms() {
   }
 
   patientTypeEl.textContent = patientType + ' (' + age + ' years old)';
-  formDownloadButtons.innerHTML = formHtml;
+  if (formDownloadButtons) {
+    formDownloadButtons.innerHTML = formHtml;
+  }
 }
 
 // ── Validation ─────────────────────────────────────────────────
@@ -146,6 +148,18 @@ function validate(page) {
       return showError('Please select the patient\'s sex.'), false;
     if (!document.getElementById('f-physician').value.trim())
       return showError('Please enter the requesting physician\'s name.'), false;
+    if (!document.getElementById('f-room').value.trim())
+      return showError('Please enter the room number.'), false;
+    if (!document.getElementById('f-purok').value.trim())
+      return showError('Please enter the purok.'), false;
+    if (!document.getElementById('f-barangay').value.trim())
+      return showError('Please enter the barangay.'), false;
+    if (!document.getElementById('f-municipality').value.trim())
+      return showError('Please enter the municipality.'), false;
+    if (!document.getElementById('f-province').value.trim())
+      return showError('Please enter the province.'), false;
+    if (!validateClinicalAndContactErrors('page1'))
+      return false;
   }
 
   if (page === 2) {
@@ -155,8 +169,16 @@ function validate(page) {
       return showError('Please select the blood component needed.'), false;
     if (!document.getElementById('f-units').value)
       return showError('Please select the number of units needed.'), false;
+    if (!validateUnitsField())
+      return showError('Please enter a valid number of units from 1 to 99 (up to 2 digits).'), false;
     if (!getRadioVal('urgency'))
       return showError('Please select an urgency level.'), false;
+    if (!document.getElementById('f-diagnosis').value.trim())
+      return showError('Please enter Clinical Impression / Diagnosis. If none, type N/A.'), false;
+    if (!document.getElementById('f-hemoglobin').value.trim())
+      return showError('Please enter hemoglobin.'), false;
+    if (!document.getElementById('f-hematocrit').value.trim())
+      return showError('Please enter hematocrit.'), false;
 
     // Check if indications are required for this component
     const selectedComponent = document.getElementById('f-component').value;
@@ -190,19 +212,26 @@ function validate(page) {
       if (!document.getElementById('f-otherComponentIndication').value.trim())
         return showError('Please specify the indication(s) for this component.'), false;
     }
+
+    if (!validateClinicalAndContactErrors('page2'))
+      return false;
   }
 
   if (page === 3) {
     if (!selectedFile)
       return showError('Please upload the Doctor\'s Note or Blood Request Form.'), false;
+    if (!document.getElementById('f-notes').value.trim())
+      return showError('Please enter Additional Notes. If none, type N/A.'), false;
     var isHosp = isHospitalSubmissionMode();
     if (!isHosp) {
       if (!document.getElementById('f-requesterName').value.trim())
         return showError('Please enter your full name.'), false;
+      if (document.getElementById('f-requesterName').value.trim().length > 50)
+        return showError('Relative full name must be 50 characters or fewer.'), false;
       if (!document.getElementById('f-relationship').value)
         return showError('Please select your relationship to the patient.'), false;
-      if (!document.getElementById('f-contact').value.trim())
-        return showError('Please enter your contact number.'), false;
+      if (!validateClinicalAndContactErrors('page3'))
+        return false;
       if (!ensureValidStaffUniqueCode(false))
         return false;
     }
@@ -642,7 +671,8 @@ function buildReview() {
   // ── Clinical section ──
   const diagnosis = document.getElementById('f-diagnosis').value.trim();
   const hemoglobin = document.getElementById('f-hemoglobin').value;
-  const hematocrit = document.getElementById('f-hematocrit').value;
+  const hematocritRaw = document.getElementById('f-hematocrit').value;
+  const hematocrit = hematocritRaw === '.' ? '' : hematocritRaw;
   const reqType = reqTypeEl ? reqTypeEl.value : 'ROUTINE';
   const prevTrans = getRadioVal('prevTransfusion');
   const prevTransDate = document.getElementById('f-prevTransDate').value;
@@ -654,7 +684,7 @@ function buildReview() {
   clinicalHtml += reviewRow('Request Type', REQUEST_TYPE_LABELS_R[reqType] || reqType);
   if (diagnosis) clinicalHtml += reviewRow('Diagnosis/Clinical Impression', diagnosis);
   if (hemoglobin) clinicalHtml += reviewRow('Hemoglobin (g/L)', hemoglobin);
-  if (hematocrit) clinicalHtml += reviewRow('Hematocrit (%)', (parseFloat(hematocrit) * 100).toFixed(1));
+  if (/^\.\d{1,4}$/.test(hematocrit)) clinicalHtml += reviewRow('Hematocrit (%)', (parseFloat(`0${hematocrit}`) * 100).toFixed(1));
   clinicalHtml += reviewRow('Previous Transfusion', prevTrans);
   if (prevTrans === 'YES') {
     if (prevTransDate) clinicalHtml += reviewRow('  When', prevTransDate);
@@ -749,6 +779,197 @@ function showError(msg) {
 
 function hideError() {
   document.getElementById('form-error').style.display = 'none';
+}
+
+function setFieldError(inputId, message) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.add('field-error');
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.classList.add('show');
+  }
+}
+
+function clearFieldError(inputId) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.remove('field-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.classList.remove('show');
+  }
+}
+
+function validateSuffixField() {
+  const input = document.getElementById('f-patientSuffix');
+  if (!input) return true;
+
+  const normalized = (input.value || '').trim().replace(/\s{2,}/g, ' ');
+  input.value = normalized;
+  clearFieldError('f-patientSuffix');
+
+  if (!normalized) return true;
+
+  if (normalized.length > 10 || !/^[A-Za-z0-9. ]+$/.test(normalized)) {
+    setFieldError('f-patientSuffix', 'Suffix may only contain letters, numbers, spaces, and periods.');
+    return false;
+  }
+
+  return true;
+}
+
+function enforceHemoglobinFormat() {
+  const input = document.getElementById('f-hemoglobin');
+  if (!input) return;
+  input.value = String(input.value || '').replace(/\D/g, '').slice(0, 3);
+}
+
+function enforceHematocritFormat() {
+  const input = document.getElementById('f-hematocrit');
+  if (!input) return;
+
+  let raw = String(input.value || '');
+  if (!raw.trim()) {
+    input.value = '.';
+    return;
+  }
+
+  raw = raw.replace(/\s+/g, '').replace(/[^0-9.]/g, '');
+  const dotIdx = raw.indexOf('.');
+  const tail = (dotIdx >= 0 ? raw.slice(dotIdx + 1) : raw).replace(/\./g, '');
+  input.value = `.${tail.slice(0, 4)}`;
+}
+
+function validateHemoglobinField() {
+  const input = document.getElementById('f-hemoglobin');
+  if (!input) return true;
+
+  const value = (input.value || '').trim();
+  clearFieldError('f-hemoglobin');
+
+  if (!value) return true;
+
+  if (!/^\d{1,3}$/.test(value)) {
+    setFieldError('f-hemoglobin', 'Hemoglobin must contain numbers only and up to 3 digits.');
+    return false;
+  }
+
+  return true;
+}
+
+function validateHematocritField() {
+  const input = document.getElementById('f-hematocrit');
+  if (!input) return true;
+
+  const value = (input.value || '').trim();
+  clearFieldError('f-hematocrit');
+
+  if (!value || value === '.') return true;
+
+  if (!/^\.\d{1,4}$/.test(value)) {
+    setFieldError('f-hematocrit', 'Hematocrit must follow decimal format like .25');
+    return false;
+  }
+
+  const numeric = Number(`0${value}`);
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 1) {
+    setFieldError('f-hematocrit', 'Hematocrit must follow decimal format like .25');
+    return false;
+  }
+
+  return true;
+}
+
+function enforceUnitsFormat() {
+  const input = document.getElementById('f-units');
+  if (!input) return;
+
+  let digits = String(input.value || '').replace(/\D/g, '').slice(0, 2);
+  if (digits) {
+    const numeric = parseInt(digits, 10);
+    if (numeric <= 0) {
+      digits = '';
+    } else if (numeric > 99) {
+      digits = '99';
+    }
+  }
+  input.value = digits;
+}
+
+function validateUnitsField() {
+  const input = document.getElementById('f-units');
+  if (!input) return true;
+
+  const value = String(input.value || '').trim();
+  if (!value) return false;
+  if (!/^\d{1,2}$/.test(value)) return false;
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 1 && numeric <= 99;
+}
+
+function formatAndLockContactNumber() {
+  const input = document.getElementById('f-contact');
+  if (!input) return '';
+
+  let value = String(input.value || '');
+  if (!value.trim()) {
+    input.value = '+63';
+    return input.value;
+  }
+
+  let digits = value.replace(/\D/g, '');
+  if (digits.startsWith('63')) digits = digits.slice(2);
+  digits = digits.slice(0, 10);
+
+  input.value = `+63${digits}`;
+
+  return input.value;
+}
+
+function validateContactNumberField() {
+  const input = document.getElementById('f-contact');
+  if (!input || isHospitalSubmissionMode()) return true;
+
+  const normalized = formatAndLockContactNumber();
+  clearFieldError('f-contact');
+
+  if (!/^\+639\d{9}$/.test(normalized)) {
+    setFieldError('f-contact', 'Contact number must start with +63 followed by exactly 10 digits.');
+    return false;
+  }
+
+  return true;
+}
+
+function validateClinicalAndContactErrors(scope = 'all') {
+  const firstInvalid = [];
+
+  if (scope === 'all' || scope === 'page1') {
+    if (!validateSuffixField()) firstInvalid.push('f-patientSuffix');
+  }
+
+  if (scope === 'all' || scope === 'page2') {
+    if (!validateHemoglobinField()) firstInvalid.push('f-hemoglobin');
+    if (!validateHematocritField()) firstInvalid.push('f-hematocrit');
+  }
+
+  if ((scope === 'all' || scope === 'page3') && !isHospitalSubmissionMode()) {
+    if (!validateContactNumberField()) firstInvalid.push('f-contact');
+  }
+
+  if (firstInvalid.length > 0) {
+    const firstInput = document.getElementById(firstInvalid[0]);
+    showError('Please fix the highlighted field errors before proceeding.');
+    if (firstInput) {
+      firstInput.focus();
+      firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return false;
+  }
+
+  return true;
 }
 
 function getRadioVal(name) {
@@ -887,6 +1108,14 @@ async function submitRequest() {
     return;
   }
 
+  if (!validate(1) || !validate(2) || !validate(3)) {
+    return;
+  }
+
+  if (!validateClinicalAndContactErrors('all')) {
+    return;
+  }
+
   // ──────────────────────────────────────────────
   // PATIENT INFORMATION (PAGE 1)
   // ──────────────────────────────────────────────
@@ -923,7 +1152,8 @@ async function submitRequest() {
   // ──────────────────────────────────────────────
   const clinicalImpression = document.getElementById('f-diagnosis').value.trim();
   const hemoglobin = document.getElementById('f-hemoglobin').value;
-  const hematocrit = document.getElementById('f-hematocrit').value;
+  const hematocritRaw = document.getElementById('f-hematocrit').value;
+  const hematocrit = hematocritRaw === '.' ? '' : hematocritRaw;
   const requestType = getRadioVal('requestType');
 
   // ──────────────────────────────────────────────
@@ -1189,296 +1419,449 @@ function resetForm() {
   goTo(1);
 }
 
-function copyRef() {
-  const ref = document.getElementById('success-ref').textContent;
-  navigator.clipboard.writeText(ref).catch(() => {});
+async function copyRef() {
+  const refEl = document.getElementById('success-ref');
   const btn = document.querySelector('.btn-copy');
-  if (btn) {
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy', 2000);
+  const ref = refEl ? String(refEl.textContent || '').trim() : '';
+  if (!ref) return;
+
+  const setBtnState = (text) => {
+    if (!btn) return;
+    btn.textContent = text;
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+    }, 1800);
+  };
+
+  // Primary path: async clipboard API
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(ref);
+      setBtnState('Copied!');
+      return;
+    }
+  } catch (_err) {
+    // fall through to legacy copy
+  }
+
+  // Fallback: temporary textarea + execCommand
+  try {
+    const temp = document.createElement('textarea');
+    temp.value = ref;
+    temp.setAttribute('readonly', '');
+    temp.style.position = 'fixed';
+    temp.style.opacity = '0';
+    temp.style.pointerEvents = 'none';
+    temp.style.left = '-9999px';
+    document.body.appendChild(temp);
+    temp.focus();
+    temp.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(temp);
+    setBtnState(ok ? 'Copied!' : 'Copy failed');
+  } catch (_err) {
+    setBtnState('Copy failed');
   }
 }
 
 // ── Tracker ────────────────────────────────────────────────────
 const BLOOD_LABELS = {
-  O_NEG:'O−', O_POS:'O+', A_POS:'A+', A_NEG:'A−',
-  B_POS:'B+', B_NEG:'B−', AB_POS:'AB+', AB_NEG:'AB−'
+  O_NEG: "O-",
+  O_POS: "O+",
+  A_POS: "A+",
+  A_NEG: "A-",
+  B_POS: "B+",
+  B_NEG: "B-",
+  AB_POS: "AB+",
+  AB_NEG: "AB-"
 };
 
 const COMPONENT_LABELS = {
-  WHOLE_BLOOD:'Whole Blood', 
-  PRBC:'Packed RBC', 
-  LEUKOREDUCED_PRBC:'Leukoreduced PRBC',
-  ALIQUOTED_PRBC:'Aliquoted PRBC',
-  PLATELET_CONCENTRATE:'Platelet Concentrate',
-  FRESH_FROZEN_PLASMA:'Fresh Frozen Plasma',
-  CRYOPRECIPITATE:'Cryoprecipitate',
-  CRYOSUPERNATANT:'Cryosupernatant',
-  WRBC:'Whole Red Blood Cells',
-  OTHER:'Other'
+  WHOLE_BLOOD: "Whole Blood",
+  PRBC: "Packed RBC",
+  LEUKOREDUCED_PRBC: "Leukoreduced PRBC",
+  ALIQUOTED_PRBC: "Aliquoted PRBC",
+  PLATELET_CONCENTRATE: "Platelet Concentrate",
+  FRESH_FROZEN_PLASMA: "Fresh Frozen Plasma",
+  CRYOPRECIPITATE: "Cryoprecipitate",
+  CRYOSUPERNATANT: "Cryosupernatant",
+  WRBC: "Whole Red Blood Cells",
+  OTHER: "Other"
 };
 
 const URGENCY_LABELS = {
-  LOW:'Low — Scheduled', MEDIUM:'Medium — Within a week',
-  HIGH:'High — 2–3 days', CRITICAL:'Critical — Immediately'
+  LOW: "Low - Scheduled / Within a week",
+  MEDIUM: "Medium - 2-3 days",
+  HIGH: "High - 24hrs",
+  CRITICAL: "Critical - Immediate"
 };
 
-URGENCY_LABELS.LOW = 'Low — Scheduled / Within a week';
-URGENCY_LABELS.MEDIUM = 'Medium — 2-3 days';
-URGENCY_LABELS.HIGH = 'High — 24hrs';
+const TRACK_FLOW = [
+  "PENDING",
+  "NEEDS_CONFIRMATION",
+  "APPROVED",
+  "ALLOCATED",
+  "READY_FOR_RELEASE",
+  "RELEASED"
+];
 
-const STATUS_CFG = {
-  PENDING:    { label:'Pending Review',       badge:'status-pending',   step:1 },
-  APPROVED:   { label:'Approved',             badge:'status-approved',  step:2 },
-  NEEDS_CONFIRMATION: { label:'Waiting for requester confirmation', badge:'status-pending', step:2 },
-  ALLOCATED:  { label:'Allocated',            badge:'status-approved',  step:2 },
-  READY_FOR_RELEASE: { label:'Ready for Pickup', badge:'status-released', step:3 },
-  RELEASED:   { label:'Released',             badge:'status-released',  step:3 },
-  TRANSFUSED: { label:'Transfused',           badge:'status-transfused',step:4 },
-  REJECTED:   { label:'Rejected',             badge:'status-rejected',  step:-1 },
-  CANCELLED:  { label:'Cancelled',            badge:'status-cancelled', step:-1 }
+const TRACK_TERMINAL = ["REJECTED", "CANCELLED"];
+
+const TRACK_STATUS_META = {
+  PENDING: {
+    label: "Pending",
+    badgeClass: "status-pending",
+    description: "Your request has been submitted and is currently under review by the Blood Bank."
+  },
+  NEEDS_CONFIRMATION: {
+    label: "Needs Confirmation",
+    badgeClass: "status-needs-confirmation",
+    description: "The Blood Bank approved your request with remarks or alternative recommendations. Please confirm the decision sent to your email."
+  },
+  APPROVED: {
+    label: "Approved",
+    badgeClass: "status-approved",
+    description: "Your request has been approved and is waiting for blood allocation."
+  },
+  ALLOCATED: {
+    label: "Allocated",
+    badgeClass: "status-allocated",
+    description: "Compatible blood units have been reserved for this request."
+  },
+  READY_FOR_RELEASE: {
+    label: "Ready for Release",
+    badgeClass: "status-ready-for-release",
+    description: "The blood units are ready for pickup or release."
+  },
+  RELEASED: {
+    label: "Released",
+    badgeClass: "status-released",
+    description: "The blood request has been successfully released."
+  },
+  REJECTED: {
+    label: "Rejected",
+    badgeClass: "status-rejected",
+    description: "The request was rejected by the Blood Bank."
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    badgeClass: "status-cancelled",
+    description: "The request has been cancelled."
+  },
+  UNKNOWN: {
+    label: "Status Update",
+    badgeClass: "status-unknown",
+    description: "Your request has a status update. Please contact the Blood Bank for clarification."
+  }
 };
 
-// Demo data for testing tracker
 const DEMO_REQUESTS = {
-  'BR-2026-00001': {
-    refNum: 'BR-2026-00001',
-    patientName: 'Reyes, Maria Santos',
-    age: 42, sex: 'FEMALE',
-    bloodType: 'O_POS', component: 'PRBC', units: 2,
-    urgency: 'HIGH', category: 'INPATIENT',
-    physician: 'Dr. Fernandez',
-    requesterName: 'Jose Reyes', email: 'jose@example.com',
-    status: 'APPROVED',
-    submittedAt: '2026-04-10T09:30:00',
-    approvedAt:  '2026-04-10T10:15:00',
-    adminNotes: 'Stock available. Please proceed to Blood Bank window with transport box.',
-  },
-  'BR-2026-00002': {
-    refNum: 'BR-2026-00002',
-    patientName: 'Santos, Pedro Cruz',
-    age: 67, sex: 'MALE',
-    bloodType: 'B_NEG', component: 'WHOLE_BLOOD', units: 1,
-    urgency: 'CRITICAL', category: 'EMERGENCY',
-    physician: 'Dr. Villanueva',
-    requesterName: 'Ana Santos', email: 'ana@example.com',
-    status: 'REJECTED',
-    submittedAt: '2026-04-09T14:00:00',
-    rejectionReason: 'B− is currently unavailable at CNPH. Please coordinate with Philippine Red Cross CN Chapter or wait for the next BMC stock delivery (estimated 2 days).',
-  },
+  "BR-2026-00001": {
+    refNum: "BR-2026-00001",
+    patientName: "Reyes, Maria Santos",
+    bloodType: "O_POS",
+    component: "PRBC",
+    units: 2,
+    urgency: "HIGH",
+    physician: "Dr. Fernandez",
+    status: "APPROVED",
+    submittedAt: "2026-04-10T09:30:00",
+    reviewedAt: "2026-04-10T10:15:00",
+    updatedAt: "2026-04-10T10:15:00"
+  }
 };
 
-async function trackRequest() {
-  const rawInput = document.getElementById('track-input').value.trim();
-  const refNum = rawInput.startsWith('') ? rawInput : ('' + rawInput);
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
-  const resultEl  = document.getElementById('track-result');
-  const defaultEl = document.getElementById('track-default');
+function normalizeTrackStatus(status) {
+  const value = String(status || "").trim().toUpperCase();
+  if (!value) return "PENDING";
+  if (value === "TRANSFUSED") return "RELEASED";
+  return value;
+}
 
-  let data = null;
+function getTrackStatusMeta(status) {
+  return TRACK_STATUS_META[status] || TRACK_STATUS_META.UNKNOWN;
+}
 
-  try {
-    const res = await fetch(`/api/req/blood-requests/track/${refNum}`);
-    if (!res.ok) throw new Error("Not found");
-    const api = await res.json();
-    console.log(api);
-    data = {
-      refNum:          api.referenceNumber || api.refNum,
-      status:          api.status,
-      bloodType:       api.bloodType,
-      component:       api.bloodComponent,
-      urgency:         api.urgencyLevel,
-      physician:       api.requestingPhysician,
-      requestedUnits:  api.numberOfUnits || 0,
-      approvedUnits:   api.approvedUnits ?? null,
-      units:           api.patientAcceptedRemarks === true && api.approvedUnits != null
-        ? api.approvedUnits
-        : (api.numberOfUnits ?? 0),
-      patientName:     api.patientName,
-      patientPurok:    api.patientPurok ?? null,
-      patientBarangay: api.patientBarangay ?? null,
-      patientMunicipality: api.patientMunicipality ?? null,
-      patientProvince: api.patientProvince ?? null,
-      submittedAt:     api.requestedAt,
-      approvedAt:      api.reviewedAt,
-      releasedAt:      null, // Will be added in future updates
-      transfusedAt:    null,
-      adminNotes:      api.notes,
-      approvalRemarks: api.approvalRemarks,
-      alternativeComponentSuggestion: api.alternativeComponentSuggestion,
-      patientAcceptedRemarks: api.patientAcceptedRemarks ?? null,
-      patientRespondedAt: api.patientRespondedAt ?? null,
-      rejectionReason: api.rejectionReason
-    };
-  } catch (err) {
-    // Fall back to demo or session storage
-    data = DEMO_REQUESTS[refNum] ||
-      (sessionStorage.getItem(refNum) ? JSON.parse(sessionStorage.getItem(refNum)) : null);
+function isTerminalStatus(status) {
+  return TRACK_TERMINAL.includes(status);
+}
+
+function renderTrackLoading(resultEl, refNum) {
+  resultEl.innerHTML = `
+    <div class="track-loading">
+      <div class="track-loading-title">Checking request ${escapeHtml(refNum)}...</div>
+      <div class="track-loading-bar"></div>
+      <div class="track-loading-bar short"></div>
+      <div class="track-loading-bar"></div>
+    </div>
+  `;
+}
+
+function renderTrackNotFound(resultEl, refNum) {
+  resultEl.innerHTML = `
+    <div class="track-empty">
+      <div class="track-empty-icon">N/A</div>
+      <div class="track-empty-title">Reference not found</div>
+      <div style="font-size:13px;color:var(--muted);max-width:340px;margin:6px auto 0;line-height:1.6">
+        No request found for <strong style="font-family:'DM Mono',monospace">${escapeHtml(refNum)}</strong>.
+      </div>
+    </div>
+  `;
+}
+
+function resolveStepTime(stepKey, data) {
+  switch (stepKey) {
+    case "PENDING":
+      return data.submittedAt || data.createdAt || null;
+    case "NEEDS_CONFIRMATION":
+      return data.reviewedAt || data.updatedAt || null;
+    case "APPROVED":
+      return data.reviewedAt || data.updatedAt || null;
+    case "ALLOCATED":
+      return data.allocatedAt || data.updatedAt || null;
+    case "READY_FOR_RELEASE":
+      return data.readyForReleaseAt || data.updatedAt || null;
+    case "RELEASED":
+      return data.releasedAt || data.updatedAt || null;
+    default:
+      return null;
   }
+}
 
-  if (!data) {
-    resultEl.style.display = 'block';
-    defaultEl.style.display = 'none';
-    resultEl.innerHTML = `
-      <div class="track-empty">
-        <div class="track-empty-icon">🔎</div>
-        <div class="track-empty-title">Reference not found</div>
-        <div style="font-size:13px;color:var(--muted);max-width:300px;margin:6px auto 0;line-height:1.6">
-          No request found for <strong style="font-family:'DM Mono',monospace">${refNum}</strong>.
-        </div>
-      </div>`;
-    return;
-  }
+function buildTimelineHtml(data) {
+  const status = normalizeTrackStatus(data.status);
+  const statusIndex = TRACK_FLOW.indexOf(status);
+  const isTerminal = isTerminalStatus(status);
 
-  const TRACK_STATUS_CFG = {
-    PENDING:          { step: 1, label: "Pending",              badge: "pending" },
-    APPROVED:         { step: 3, label: "Approved",             badge: "approved" },
-    NEEDS_CONFIRMATION:{ step: 3, label: "Waiting for requester confirmation",  badge: "pending" },
-    ALLOCATED:        { step: 3, label: "Allocated",            badge: "approved" },
-    READY_FOR_RELEASE:{ step: 4, label: "Ready for Release: Pick up in CNPH", badge: "approved" },
-    RELEASED:         { step: 5, label: "Released",             badge: "released" },
-    REJECTED:         { step: -1, label: "Rejected",            badge: "rejected" },
-    CANCELLED:        { step: -1, label: "Cancelled",           badge: "cancelled" }
-  };
+  const normalTimeline = TRACK_FLOW.map((stepKey, idx) => {
+    const stateClass = isTerminal
+      ? (idx === 0 ? "is-done" : "is-pending")
+      : (idx < statusIndex ? "is-done" : (idx === statusIndex ? "is-current" : "is-pending"));
+    const dotClass = stateClass === "is-done" ? "done" : stateClass === "is-current" ? "current" : "pending";
+    const dotText = stateClass === "is-done" ? "&#10003;" : String(idx + 1);
+    const showLine = idx < TRACK_FLOW.length - 1;
+    const stepMeta = getTrackStatusMeta(stepKey);
+    const stepTime = resolveStepTime(stepKey, data);
+    const stepClass = `tl-state-${stepKey.toLowerCase().replace(/_/g, "-")}`;
 
-  const sc = TRACK_STATUS_CFG[data.status] || TRACK_STATUS_CFG.PENDING;
-  const currentStep = sc.step;
-
-  const steps = [
-    { label: 'Request Submitted',   time: data.submittedAt ? fmtDate(data.submittedAt) : null },
-    { label: 'Under Admin Review',  time: data.approvedAt  ? fmtDate(data.approvedAt)  : null },
-    {
-      label: data.status === 'NEEDS_CONFIRMATION'
-        ? 'Waiting for Requester Confirmation'
-        : data.status === 'APPROVED' && data.patientAcceptedRemarks === true
-          ? 'Approved After Requester Confirmation'
-          : 'Approved / Allocated',
-      time: data.approvedAt ? fmtDate(data.approvedAt) : null
-    },
-    { label: 'Ready for Release',   time: data.releasedAt  ? fmtDate(data.releasedAt)  : null },
-    { label: 'Released',            time: data.releasedAt  ? fmtDate(data.releasedAt)  : null }
-  ];
-
-  function timelineItem(idx, step) {
-    const stepNum = idx + 1;
-    if (data.status === 'REJECTED' || data.status === 'CANCELLED') {
-      if (stepNum > 2) return '';
-      const isDone    = stepNum === 1;
-      return `
-        <div class="tl-item">
-          <div class="tl-left">
-            <div class="tl-dot ${isDone ? 'done' : 'current'}">${isDone ? '✓' : '✕'}</div>
-            ${stepNum < 2 ? `<div class="tl-line pending"></div>` : ''}
-          </div>
-          <div class="tl-content">
-            <div class="tl-label">Request ${data.status}</div>
-            ${data.rejectionReason ? `<div class="tl-time">${data.rejectionReason}</div>` : ''}
-          </div>
-        </div>`;
-    }
-    const isDone    = stepNum < currentStep;
-    const isCurrent = stepNum === currentStep;
     return `
-      <div class="tl-item">
+      <div class="tl-item ${stateClass} ${stepClass}">
         <div class="tl-left">
-          <div class="tl-dot ${isDone ? 'done' : isCurrent ? 'current' : 'pending'}">
-            ${isDone ? '✓' : isCurrent ? '●' : '○'}
-          </div>
-          ${idx < steps.length - 1 ? `<div class="tl-line ${isDone ? 'done' : 'pending'}"></div>` : ''}
+          <div class="tl-dot ${dotClass}">${dotText}</div>
+          ${showLine ? `<div class="tl-line ${stateClass === "is-done" ? "done" : "pending"}"></div>` : ""}
         </div>
         <div class="tl-content">
-          <div class="tl-label">${step.label}</div>
-          ${step.time
-            ? `<div class="tl-time">${step.time}</div>`
-            : (isCurrent ? '<div class="tl-time">Done...</div>' : '')}
+          <div class="tl-label">${escapeHtml(stepMeta.label)}</div>
+          ${stepTime ? `<div class="tl-time">${escapeHtml(fmtDate(stepTime))}</div>` : ""}
         </div>
-      </div>`;
+      </div>
+    `;
+  }).join("");
+
+  if (!isTerminal) return normalTimeline;
+
+  const terminalMeta = getTrackStatusMeta(status);
+  return `
+    ${normalTimeline}
+    <div class="tl-item is-current tl-terminal">
+      <div class="tl-left">
+        <div class="tl-dot current">!</div>
+      </div>
+      <div class="tl-content">
+        <div class="tl-label">${escapeHtml(terminalMeta.label)}</div>
+        <div class="tl-time">${escapeHtml(fmtDate(data.updatedAt || data.reviewedAt || data.submittedAt))}</div>
+      </div>
+    </div>
+  `;
+}
+
+function buildRemarksHtml(data) {
+  const rows = [];
+
+  if (data.approvalRemarks) {
+    rows.push(`<div class="track-remark-row"><span class="track-remark-label">Approval Remarks</span><span class="track-remark-value">${escapeHtml(data.approvalRemarks)}</span></div>`);
+  }
+  if (data.alternativeComponentSuggestion) {
+    rows.push(`<div class="track-remark-row"><span class="track-remark-label">Alternative Component</span><span class="track-remark-value">${escapeHtml(data.alternativeComponentSuggestion)}</span></div>`);
+  }
+  if (data.rejectionReason) {
+    rows.push(`<div class="track-remark-row"><span class="track-remark-label">Rejection Reason</span><span class="track-remark-value">${escapeHtml(data.rejectionReason)}</span></div>`);
+  }
+  if (data.patientAcceptedRemarks === true) {
+    rows.push(`<div class="track-remark-row"><span class="track-remark-label">Requester Confirmation</span><span class="track-remark-value">Accepted</span></div>`);
+  } else if (data.patientAcceptedRemarks === false) {
+    rows.push(`<div class="track-remark-row"><span class="track-remark-label">Requester Confirmation</span><span class="track-remark-value">Declined</span></div>`);
+  }
+  if (data.patientRespondedAt) {
+    rows.push(`<div class="track-remark-row"><span class="track-remark-label">Confirmation Time</span><span class="track-remark-value">${escapeHtml(fmtDate(data.patientRespondedAt))}</span></div>`);
+  }
+  if (data.adminNotes) {
+    rows.push(`<div class="track-remark-row"><span class="track-remark-label">Staff Notes</span><span class="track-remark-value">${escapeHtml(data.adminNotes)}</span></div>`);
   }
 
-  let adminNoteHtml = data.rejectionReason
-    ? `<div class="admin-note-box rejection"><strong>Reason:</strong> ${data.rejectionReason}</div>`
-    : data.approvalRemarks
-      ? `<div class="admin-note-box info">
-          <strong>Approval update:</strong> ${data.approvalRemarks}<br>
-          <strong>Requested units:</strong> ${data.requestedUnits}<br>
-          <strong>Approved units:</strong> ${data.approvedUnits ?? data.units}
-          ${data.alternativeComponentSuggestion ? `<br><strong>Alternative component:</strong> ${data.alternativeComponentSuggestion}` : ''}
-        </div>`
-    : data.adminNotes
-      ? `<div class="admin-note-box info">📋 <strong>Staff Note:</strong> ${data.adminNotes}</div>`
-      : '';
+  if (!rows.length) return "";
 
-  if (data.status === 'APPROVED' && data.patientAcceptedRemarks === true && data.approvalRemarks) {
-    adminNoteHtml = `<div class="admin-note-box info">
-        <strong>Approval update accepted:</strong> ${data.approvalRemarks}<br>
-        <strong>Requested units:</strong> ${data.requestedUnits}<br>
-        <strong>Approved units:</strong> ${data.approvedUnits ?? data.units}
-        ${data.alternativeComponentSuggestion ? `<br><strong>Alternative component:</strong> ${data.alternativeComponentSuggestion}` : ''}
-      </div>`;
-  }
+  return `
+    <div class="track-remarks">
+      <div class="track-remarks-title">Remarks and Updates</div>
+      ${rows.join("")}
+    </div>
+  `;
+}
 
-  if (data.status === 'REJECTED' && data.patientAcceptedRemarks === false && data.approvalRemarks) {
-    adminNoteHtml = `<div class="admin-note-box rejection">
-        <strong>Approval update rejected:</strong> ${data.approvalRemarks}<br>
-        <strong>Approved units offered:</strong> ${data.approvedUnits ?? data.requestedUnits}
-        ${data.alternativeComponentSuggestion ? `<br><strong>Alternative component:</strong> ${data.alternativeComponentSuggestion}` : ''}
-        ${data.patientRespondedAt ? `<br><strong>Requester responded at:</strong> ${fmtDate(data.patientRespondedAt)}` : ''}
-      </div>`;
-  }
+function mapTrackApiResponse(api, fallbackRefNum) {
+  const status = normalizeTrackStatus(api.status);
+  const requestedUnits = api.numberOfUnits ?? api.unitsRequested ?? 0;
+  const approvedUnits = api.approvedUnits ?? null;
 
-  resultEl.style.display = 'block';
-  defaultEl.style.display = 'none';
+  return {
+    refNum: api.referenceNumber || api.refNum || fallbackRefNum,
+    status,
+    bloodType: api.bloodType || null,
+    component: api.bloodComponent || api.componentType || api.component || null,
+    urgency: api.urgencyLevel || api.urgency || null,
+    physician: api.requestingPhysician || api.physician || null,
+    requestedUnits,
+    approvedUnits,
+    units: api.patientAcceptedRemarks === true && approvedUnits != null ? approvedUnits : requestedUnits,
+    patientName: api.patientName || null,
+    submittedAt: api.requestedAt || api.createdAt || null,
+    reviewedAt: api.reviewedAt || null,
+    allocatedAt: api.allocatedAt || null,
+    readyForReleaseAt: api.readyForReleaseAt || null,
+    releasedAt: api.releasedAt || null,
+    updatedAt: api.updatedAt || null,
+    adminNotes: api.notes || null,
+    approvalRemarks: api.approvalRemarks || null,
+    alternativeComponentSuggestion: api.alternativeComponentSuggestion || null,
+    patientAcceptedRemarks: api.patientAcceptedRemarks ?? null,
+    patientRespondedAt: api.patientRespondedAt || null,
+    rejectionReason: api.rejectionReason || null
+  };
+}
+
+function renderTrackResult(resultEl, data) {
+  const status = normalizeTrackStatus(data.status);
+  const statusMeta = getTrackStatusMeta(status);
+  const timelineHtml = buildTimelineHtml(data);
+  const remarksHtml = buildRemarksHtml(data);
+
+  const bloodTypeText = BLOOD_LABELS[data.bloodType] || data.bloodType || "—";
+  const componentText = COMPONENT_LABELS[data.component] || data.component || "—";
+  const urgencyText = URGENCY_LABELS[data.urgency] || data.urgency || "—";
+  const unitsText = data.units != null ? data.units : "—";
 
   resultEl.innerHTML = `
     <div class="track-card">
       <div class="track-card-header">
         <div>
-          <div class="track-ref">${data.refNum}</div>
-          <div style="font-size:15px;font-weight:700;margin-top:3px;color:var(--charcoal)">${data.patientName}</div>
+          <div class="track-ref">${escapeHtml(data.refNum || "—")}</div>
+          <div style="font-size:15px;font-weight:700;margin-top:3px;color:var(--charcoal)">${escapeHtml(data.patientName || "Unnamed Patient")}</div>
         </div>
-        <span class="status-badge ${sc.badge}">${sc.label}</span>
+        <span class="status-badge ${statusMeta.badgeClass}">${escapeHtml(statusMeta.label)}</span>
       </div>
+
+      <div class="track-status-desc">
+        <div class="track-status-desc-title">Current Status</div>
+        <div class="track-status-desc-text">${escapeHtml(statusMeta.description)}</div>
+      </div>
+
       <div class="track-info-grid">
         <div class="track-info-cell">
           <div class="track-info-label">Blood Type</div>
-          <div class="track-info-val">${BLOOD_LABELS[data.bloodType] || data.bloodType}</div>
+          <div class="track-info-val">${escapeHtml(bloodTypeText)}</div>
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Component</div>
-          <div class="track-info-val">${COMPONENT_LABELS[data.component] || data.component}</div>
+          <div class="track-info-val">${escapeHtml(componentText)}</div>
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Units</div>
-          <div class="track-info-val">${data.units}</div>
+          <div class="track-info-val">${escapeHtml(String(unitsText))}</div>
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Urgency</div>
-          <div class="track-info-val">${URGENCY_LABELS[data.urgency] || data.urgency}</div>
+          <div class="track-info-val">${escapeHtml(urgencyText)}</div>
         </div>
         <div class="track-info-cell">
           <div class="track-info-label">Physician</div>
-          <div class="track-info-val">${data.physician || '—'}</div>
+          <div class="track-info-val">${escapeHtml(data.physician || "—")}</div>
         </div>
         <div class="track-info-cell">
-          <div class="track-info-label">Submitted</div>
-          <div class="track-info-val">${data.submittedAt ? fmtDate(data.submittedAt) : '—'}</div>
+          <div class="track-info-label">Updated</div>
+          <div class="track-info-val">${escapeHtml(fmtDate(data.updatedAt || data.reviewedAt || data.submittedAt))}</div>
         </div>
       </div>
-      ${adminNoteHtml}
+
+      ${remarksHtml}
+
       <div class="track-timeline">
-        <div class="timeline-title">Request Timeline</div>
-        <div class="timeline">
-          ${steps.map((s, i) => timelineItem(i, s)).join('')}
-        </div>
+        <div class="timeline-title">Request Lifecycle</div>
+        <div class="timeline">${timelineHtml}</div>
       </div>
-    </div>`;
+    </div>
+  `;
+}
+
+async function trackRequest() {
+  const rawInput = (document.getElementById("track-input").value || "").trim();
+  const refNum = rawInput;
+  const resultEl = document.getElementById("track-result");
+  const defaultEl = document.getElementById("track-default");
+
+  if (!refNum) {
+    resultEl.style.display = "none";
+    defaultEl.style.display = "block";
+    return;
+  }
+
+  resultEl.style.display = "block";
+  defaultEl.style.display = "none";
+  renderTrackLoading(resultEl, refNum);
+
+  let data = null;
+  try {
+    const res = await fetch(`/api/req/blood-requests/track/${refNum}`);
+    if (!res.ok) throw new Error("not_found");
+    const api = await res.json();
+    data = mapTrackApiResponse(api, refNum);
+  } catch (_err) {
+    const fallback = DEMO_REQUESTS[refNum] || (sessionStorage.getItem(refNum) ? JSON.parse(sessionStorage.getItem(refNum)) : null);
+    if (fallback) {
+      data = {
+        ...fallback,
+        status: normalizeTrackStatus(fallback.status)
+      };
+    }
+  }
+
+  if (!data) {
+    renderTrackNotFound(resultEl, refNum);
+    return;
+  }
+
+  renderTrackResult(resultEl, data);
 }
 
 function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('en-PH', {
-    year:'numeric', month:'short', day:'numeric',
-    hour:'numeric', minute:'2-digit'
+  if (!d) return "-";
+  const parsed = new Date(d);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
   });
 }
 
@@ -2086,6 +2469,113 @@ document.addEventListener('DOMContentLoaded', function() {
     if (staffCodeInput) {
       staffCodeInput.addEventListener('blur', handleStaffCodeInput);
       staffCodeInput.addEventListener('input', clearStaffCodeError);
+    }
+
+    const suffixInput = document.getElementById('f-patientSuffix');
+    if (suffixInput) {
+      suffixInput.addEventListener('blur', validateSuffixField);
+      suffixInput.addEventListener('input', validateSuffixField);
+    }
+
+    const requesterNameInput = document.getElementById('f-requesterName');
+    if (requesterNameInput) {
+      requesterNameInput.addEventListener('input', function () {
+        requesterNameInput.value = String(requesterNameInput.value || '').slice(0, 50);
+      });
+    }
+
+    const hemoglobinInput = document.getElementById('f-hemoglobin');
+    if (hemoglobinInput) {
+      hemoglobinInput.addEventListener('keydown', function (event) {
+        const ctrlLike = event.ctrlKey || event.metaKey;
+        const navKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'];
+        if (ctrlLike || navKeys.includes(event.key)) return;
+        if (!/^\d$/.test(event.key)) {
+          event.preventDefault();
+          return;
+        }
+        if (hemoglobinInput.selectionStart === hemoglobinInput.selectionEnd && hemoglobinInput.value.length >= 3) {
+          event.preventDefault();
+        }
+      });
+      hemoglobinInput.addEventListener('input', function () {
+        enforceHemoglobinFormat();
+        validateHemoglobinField();
+      });
+      hemoglobinInput.addEventListener('focus', function () {
+        enforceHemoglobinFormat();
+      });
+      hemoglobinInput.addEventListener('blur', validateHemoglobinField);
+    }
+
+    const unitsInput = document.getElementById('f-units');
+    if (unitsInput) {
+      unitsInput.addEventListener('keydown', function (event) {
+        const ctrlLike = event.ctrlKey || event.metaKey;
+        const navKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'];
+        if (ctrlLike || navKeys.includes(event.key)) return;
+        if (!/^\d$/.test(event.key)) {
+          event.preventDefault();
+          return;
+        }
+        if (String(unitsInput.value || '').replace(/\D/g, '').length >= 2) {
+          event.preventDefault();
+        }
+      });
+      unitsInput.addEventListener('input', enforceUnitsFormat);
+      unitsInput.addEventListener('blur', enforceUnitsFormat);
+    }
+
+    const hematocritInput = document.getElementById('f-hematocrit');
+    if (hematocritInput) {
+      hematocritInput.addEventListener('keydown', function (event) {
+        const ctrlLike = event.ctrlKey || event.metaKey;
+        const navKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'];
+        if (ctrlLike || navKeys.includes(event.key)) {
+          if (event.key === 'Backspace' && hematocritInput.selectionStart <= 1 && hematocritInput.selectionEnd <= 1) {
+            event.preventDefault();
+          }
+          if (event.key === 'Delete' && hematocritInput.selectionStart === 0 && hematocritInput.selectionEnd === 0) {
+            event.preventDefault();
+          }
+          return;
+        }
+        if (!/^\d$/.test(event.key)) {
+          event.preventDefault();
+          return;
+        }
+      });
+      hematocritInput.addEventListener('focus', function () {
+        if (!hematocritInput.value.trim()) {
+          hematocritInput.value = '.';
+        }
+        enforceHematocritFormat();
+        const pos = hematocritInput.value.length;
+        hematocritInput.setSelectionRange(pos, pos);
+      });
+      hematocritInput.addEventListener('input', function () {
+        const previousPos = hematocritInput.selectionStart;
+        enforceHematocritFormat();
+        validateHematocritField();
+        const nextPos = Math.max(1, Math.min(hematocritInput.value.length, previousPos || hematocritInput.value.length));
+        hematocritInput.setSelectionRange(nextPos, nextPos);
+      });
+      hematocritInput.addEventListener('blur', validateHematocritField);
+    }
+
+    const contactInput = document.getElementById('f-contact');
+    if (contactInput) {
+      contactInput.addEventListener('focus', function () {
+        if (!contactInput.value.trim()) {
+          contactInput.value = '+63';
+        }
+        formatAndLockContactNumber();
+      });
+      contactInput.addEventListener('input', function () {
+        formatAndLockContactNumber();
+        validateContactNumberField();
+      });
+      contactInput.addEventListener('blur', validateContactNumberField);
     }
 
     const modalOverlay = document.getElementById('bloodplus-modal-overlay');
