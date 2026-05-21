@@ -328,19 +328,20 @@
         <div class="form-grid cols-2">
           <div class="form-field">
             <label class="form-label">First Name <span>*</span></label>
-            <input class="form-input" id="f-patientName" placeholder="e.g. Juan" />
+            <input class="form-input" id="f-patientName" placeholder="e.g. Juan" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Middle Name</label>
-            <input class="form-input" id="f-patientMiddle" placeholder="e.g. Santos" />
+            <input class="form-input" id="f-patientMiddle" placeholder="e.g. Santos" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Last Name <span>*</span></label>
-            <input class="form-input" id="f-patientLast" placeholder="e.g. Dela Cruz" />
+            <input class="form-input" id="f-patientLast" placeholder="e.g. Dela Cruz" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Suffix</label>
-            <input class="form-input" id="f-patientSuffix" placeholder="e.g. Jr., Sr." />
+            <input class="form-input" id="f-patientSuffix" placeholder="e.g. Jr., Sr." maxlength="10" />
+            <div class="form-inline-error" id="f-patientSuffix-error"></div>
           </div>
           <div class="form-field">
             <label class="form-label">Date of Birth <span>*</span></label>
@@ -356,27 +357,27 @@
           </div>
           <div class="form-field">
             <label class="form-label">Purok</label>
-            <input class="form-input" id="f-purok" placeholder="e.g. Purok 3" />
+            <input class="form-input" id="f-purok" placeholder="e.g. Purok 3" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Barangay</label>
-            <input class="form-input" id="f-barangay" placeholder="e.g. San Roque" />
+            <input class="form-input" id="f-barangay" placeholder="e.g. San Roque" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Municipality</label>
-            <input class="form-input" id="f-municipality" placeholder="e.g. Daet" />
+            <input class="form-input" id="f-municipality" placeholder="e.g. Daet" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Province</label>
-            <input class="form-input" id="f-province" placeholder="e.g. Camarines Norte" />
+            <input class="form-input" id="f-province" placeholder="e.g. Camarines Norte" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Requesting Physician <span>*</span></label>
-            <input class="form-input" id="f-physician" placeholder="e.g. Dr. Reyes" />
+            <input class="form-input" id="f-physician" placeholder="e.g. Dr. Reyes" maxlength="25" />
           </div>
           <div class="form-field">
             <label class="form-label">Room No.</label>
-            <input class="form-input" id="f-room" placeholder="e.g. 101, A-5" />
+            <input class="form-input" id="f-room" placeholder="e.g. 101, A-5" maxlength="25" />
           </div>
         </div>
 
@@ -437,7 +438,7 @@
           </div>
           <div class="form-field">
             <label class="form-label">No. of Units <span>*</span></label>
-            <input class="form-input" id="f-units" type="number" min="1" max="99" placeholder="e.g. 2" />
+            <input class="form-input" id="f-units" type="number" min="1" max="99" inputmode="numeric" placeholder="e.g. 2" />
           </div>
         </div>
 
@@ -455,11 +456,27 @@
           </div>
           <div class="form-field">
             <label class="form-label">Hemoglobin Level (g/L)</label>
-            <input class="form-input" id="f-hemoglobin" type="number" placeholder="e.g. 85" />
+            <input
+              class="form-input"
+              id="f-hemoglobin"
+              type="text"
+              maxlength="3"
+              inputmode="numeric"
+              placeholder="e.g. 85"
+            />
+            <div class="form-inline-error" id="f-hemoglobin-error"></div>
           </div>
           <div class="form-field">
             <label class="form-label">Hematocrit (%)</label>
-            <input class="form-input" id="f-hematocrit" type="number" placeholder="e.g. 25" />
+            <input
+              class="form-input"
+              id="f-hematocrit"
+              type="text"
+              maxlength="5"
+              inputmode="decimal"
+              placeholder="e.g. .25"
+            />
+            <div class="form-inline-error" id="f-hematocrit-error"></div>
           </div>
           <div class="form-field">
             <label class="form-label">Request Type <span>*</span></label>
@@ -1135,6 +1152,7 @@
       <div class="req-page" id="page-3">
 
         <div class="form-section-title">Documents</div>
+        <!--
         <div style="background:var(--charcoal);border-radius:14px;padding:20px 22px;margin-bottom:16px">
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
             <div style="font-size:22px;flex-shrink:0">D</div>
@@ -1147,9 +1165,10 @@
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="form-download-buttons">
-            <!-- Forms will be shown/hidden based on patient age -->
+            [Forms will be shown/hidden based on patient age]
           </div>
         </div>
+        -->
 
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
           ondragover="event.preventDefault();this.classList.add('has-file')"
@@ -1184,8 +1203,8 @@
           <div class="form-section-title">Contact Information</div>
           <div class="form-grid cols-2">
             <div class="form-field">
-              <label class="form-label">Your Full Name <span>*</span></label>
-              <input class="form-input" id="f-requesterName" placeholder="Relative / Watcher" />
+              <label class="form-label">Relative Full Name <span>*</span></label>
+              <input class="form-input" id="f-requesterName" placeholder="Relative / Watcher" maxlength="50" />
             </div>
             <div class="form-field">
               <label class="form-label">Relationship to Patient <span>*</span></label>
@@ -1201,7 +1220,8 @@
             </div>
             <div class="form-field">
               <label class="form-label">Contact Number <span>*</span></label>
-              <input class="form-input" id="f-contact" placeholder="e.g. 09xxxxxxxxx" />
+              <input class="form-input" id="f-contact" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="tel" />
+              <div class="form-inline-error" id="f-contact-error"></div>
             </div>
             <div class="form-field">
               <label class="form-label">Staff Authorization Code <span>*</span></label>
@@ -1302,17 +1322,17 @@
 
         <div class="tracker-search">
           <div class="tracker-input-wrap">
-            <span class="input-prefix">IP</span>
+            <span class="input-prefix">IP/OP-</span>
             <input class="tracker-input" id="track-input" placeholder="2026-00123" maxlength="20"
               onkeydown="if(event.key==='Enter') trackRequest()" />
           </div>
-          <button class="btn-search" onclick="trackRequest()">&#128269; Track</button>
+          <button class="btn-search" onclick="trackRequest()">Track</button>
         </div>
 
         <div id="track-result" class="track-result"></div>
 
         <div id="track-default" class="track-empty">
-          <div class="track-empty-icon">&#128269;</div>
+          <div class="track-empty-icon">BR</div>
           <div class="track-empty-title">Enter your reference number</div>
           <div style="font-size:13px;color:var(--muted);max-width:300px;margin:6px auto 0;line-height:1.6">
             Your reference number was sent to your email when you submitted the request. It looks like <strong>BR-2026-00123</strong>.
