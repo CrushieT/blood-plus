@@ -1108,6 +1108,13 @@ const ADD_STOCK_EXPIRY_DAYS = {
 };
 const ADD_STOCK_SCAN_MAX_ROWS = 10;
 const ADD_STOCK_OCR_LOW_CONFIDENCE = 60;
+const ADD_STOCK_SERIAL_MAX_LENGTH = 10;
+const ADD_STOCK_VOLUME_MAX_LENGTH = 4;
+const ADD_STOCK_REMARKS_MAX_LENGTH = 50;
+const ADD_STOCK_SERIAL_ERROR_MESSAGE = '';
+const ADD_STOCK_VOLUME_ERROR_MESSAGE = '';
+const ADD_STOCK_REMARKS_ERROR_MESSAGE = 'Remarks must not exceed 50 characters.';
+const ADD_STOCK_REMARKS_ALLOWED_REGEX = /^[A-Za-z0-9.,\-\s]*$/;
 const TRACER_OCR_ROTATIONS = [0, -90, 90];
 const TRACER_OCR_CROP_PRESETS = [
   { id: 'table-primary', x: 0.08, y: 0.24, w: 0.74, h: 0.64, priority: 6 },
@@ -1188,17 +1195,18 @@ const TRACER_REVIEW_BLOOD_GROUP_OPTIONS = [
 ];
 const TRACER_REVIEW_COMPONENT_OPTIONS = [
   { value: '', label: '-' },
-  { value: 'WHOLE_BLOOD', label: 'Whole Blood' },
+  { value: 'WHOLE_BLOOD', label: 'WB' },
   { value: 'PRBC', label: 'PRBC' },
-  { value: 'LEUKOREDUCED_PRBC', label: 'Leukoreduced PRBC' },
-  { value: 'ALIQUOTED_PRBC', label: 'Aliquoted PRBC' },
-  { value: 'FRESH_FROZEN_PLASMA', label: 'Fresh Frozen Plasma' },
-  { value: 'PLATELET_CONCENTRATE', label: 'Platelet Concentrate' },
-  { value: 'CRYOPRECIPITATE', label: 'Cryoprecipitate' },
-  { value: 'CRYOSUPERNATANT', label: 'Cryosupernatant' },
+  { value: 'LEUKOREDUCED_PRBC', label: 'L-PRBC' },
+  { value: 'ALIQUOTED_PRBC', label: 'A-PRBC' },
+  { value: 'FRESH_FROZEN_PLASMA', label: 'FFP' },
+  { value: 'PLATELET_CONCENTRATE', label: 'PC' },
+  { value: 'CRYOPRECIPITATE', label: 'CRYO' },
+  { value: 'CRYOSUPERNATANT', label: 'CRYOSUP' },
 ];
 
 let addStockScanBound = false;
+let addStockValidationBound = false;
 let addStockScanPreviewUrl = null;
 let pendingTracerReviewRows = [];
 let pendingTracerScanMeta = null;
@@ -1312,7 +1320,8 @@ async function processTracerScanFile(file, sourceName = 'upload') {
     }
 
     logTracerScanResult(scanResult, file, sourceName);
-    const rows = Array.isArray(scanResult?.entries) ? scanResult.entries : [];
+    const rows = sanitizeOCRImportedRows(Array.isArray(scanResult?.entries) ? scanResult.entries : []);
+    scanResult.entries = rows;
 
     if (!rows.length) {
       setTracerScanStatus('No valid blood bag rows detected.', 'warning');
@@ -1417,7 +1426,8 @@ function openTracerOcrReviewModal(rows, scanResult, sourceName) {
   }
   if (importBtn) importBtn.disabled = false;
   if (txnInput) {
-    txnInput.value = String(scanResult?.transactionNumber || document.getElementById('add-transaction-number')?.value || '').trim();
+    const rawTxn = String(scanResult?.transactionNumber || document.getElementById('add-transaction-number')?.value || '').trim();
+    txnInput.value = rawTxn.replace(/\D/g, '').slice(0, 10);
   }
 
   const overLimit = rows.length > ADD_STOCK_SCAN_MAX_ROWS;
@@ -1472,7 +1482,7 @@ function openTracerOcrReviewModal(rows, scanResult, sourceName) {
           </select>
         </td>
         <td>
-          <input type="text" class="tracer-ocr-edit tracer-ocr-edit-serial" data-row-index="${index}" value="${escapeHtml(row.serialNumber || '')}" placeholder="V123456">
+          <input type="text" class="tracer-ocr-edit tracer-ocr-edit-serial" data-row-index="${index}" value="${escapeHtml(row.serialNumber || '')}" placeholder="e.g. V457679" maxlength="10" oninput="enforceSerialNumberFormat(this)">
         </td>
         <td>
           <input type="date" class="tracer-ocr-edit tracer-ocr-edit-collected" data-row-index="${index}" value="${escapeHtml(row.collectedAt || '')}">
@@ -1671,7 +1681,11 @@ function confirmTracerOcrImport() {
   }
 
   const transactionInput = document.getElementById('tracer-ocr-transaction-number');
-  const transactionNumber = String(transactionInput?.value || '').trim();
+  const transactionNumber = String(transactionInput?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
+    .trim();
+  if (transactionInput) transactionInput.value = transactionNumber;
   if (!transactionNumber) {
     showBloodPlusMessage('Transaction Number Required', 'Transaction number is required.', 'warning');
     if (transactionInput) transactionInput.focus();
@@ -1736,11 +1750,21 @@ function confirmTracerOcrImport() {
 function collectTracerReviewRowsFromTable(baseRows) {
   const sourceRows = Array.isArray(baseRows) ? baseRows : [];
   const rows = sourceRows.map((row, index) => {
-    const bloodGroup = document.querySelector(`.tracer-ocr-edit-blood-group[data-row-index="${index}"]`)?.value || '';
-    const componentType = document.querySelector(`.tracer-ocr-edit-component[data-row-index="${index}"]`)?.value || '';
-    const serialNumber = (document.querySelector(`.tracer-ocr-edit-serial[data-row-index="${index}"]`)?.value || '').trim().toUpperCase();
-    const collectedAt = (document.querySelector(`.tracer-ocr-edit-collected[data-row-index="${index}"]`)?.value || '').trim();
-    const expiresAt = (document.querySelector(`.tracer-ocr-edit-expires[data-row-index="${index}"]`)?.value || '').trim();
+    const bloodGroup = sanitizeAddStockBloodGroup(
+      document.querySelector(`.tracer-ocr-edit-blood-group[data-row-index="${index}"]`)?.value || ''
+    );
+    const componentType = normalizeAddStockComponentValue(
+      document.querySelector(`.tracer-ocr-edit-component[data-row-index="${index}"]`)?.value || ''
+    );
+    const serialNumber = normalizeAddStockSerialValue(
+      document.querySelector(`.tracer-ocr-edit-serial[data-row-index="${index}"]`)?.value || ''
+    );
+    const collectedAt = parseDateCandidate(
+      document.querySelector(`.tracer-ocr-edit-collected[data-row-index="${index}"]`)?.value || ''
+    );
+    const expiresAt = parseDateCandidate(
+      document.querySelector(`.tracer-ocr-edit-expires[data-row-index="${index}"]`)?.value || ''
+    );
 
     return {
       ...row,
@@ -1764,7 +1788,9 @@ function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
   const reviewStates = buildTracerReviewStates(rowsToApply);
 
   const rowEls = [...document.querySelectorAll('#add-stock-rows tr')];
-  const defaultVolume = document.getElementById('add-volume-ml')?.value || '';
+  const defaultVolume = String(document.getElementById('add-volume-ml')?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
   let unknownCount = 0;
   let lowConfidenceCount = 0;
 
@@ -1785,13 +1811,21 @@ function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
     const volumeEl = row.querySelector('.add-stock-volume');
     const remarksEl = row.querySelector('.add-stock-remarks');
 
-    if (bloodGroupEl) bloodGroupEl.value = parsed.bloodGroup || '';
-    if (componentEl) componentEl.value = parsed.componentType || '';
-    if (serialEl) serialEl.value = parsed.serialNumber || '';
-    if (collectedEl) collectedEl.value = parsed.collectedAt || '';
-    if (expiresEl) expiresEl.value = parsed.expiresAt || '';
-    if (volumeEl && !volumeEl.value) volumeEl.value = defaultVolume;
-    if (remarksEl) remarksEl.value = '';
+    if (bloodGroupEl) bloodGroupEl.value = sanitizeAddStockBloodGroup(parsed.bloodGroup || '');
+    if (componentEl) componentEl.value = normalizeAddStockComponentValue(parsed.componentType || '', parsed.unknownComponentLabel || '');
+    if (serialEl) serialEl.value = normalizeAddStockSerialValue(parsed.serialNumber || '');
+    if (collectedEl) collectedEl.value = parseDateCandidate(parsed.collectedAt || '');
+    if (expiresEl) expiresEl.value = parseDateCandidate(parsed.expiresAt || '');
+    if (volumeEl) {
+      const sanitizedVolume = String(parsed.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+      volumeEl.value = sanitizedVolume || defaultVolume;
+    }
+    if (remarksEl) {
+      remarksEl.value = String(parsed.remarks || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+        .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+    }
 
     if (!parsed.componentType && parsed.unknownComponentLabel) {
       unknownCount += 1;
@@ -1800,6 +1834,7 @@ function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
       lowConfidenceCount += 1;
     }
 
+    validateAddStockRowInputs(row);
     refreshImportedRowReviewState(row);
   });
 
@@ -1824,7 +1859,7 @@ function evaluateTracerRow(row, context = {}) {
   const bloodGroupOk = !!row?.bloodGroup;
   const bloodGroupInferred = !!row?.bloodGroupInferred;
   const componentOk = !!row?.componentType;
-  const serialPatternOk = /^V\d{6}$/.test(String(row?.serialNumber || '').toUpperCase());
+  const serialPatternOk = isAddStockSerialValueValid(String(row?.serialNumber || '').toUpperCase());
   const serialOk = !!row?.serialNumber && serialPatternOk;
   const hasDate = !!(row?.collectedAt && row?.expiresAt);
   const lowConfidence = Number(row?.confidence || 0) < ADD_STOCK_OCR_LOW_CONFIDENCE;
@@ -1917,6 +1952,10 @@ function refreshImportedRowReviewState(row) {
   if (!data.bloodGroup) reasons.push('Missing blood group');
   if (!data.componentType) reasons.push('Unknown component detected');
   if (!data.serialNumber) reasons.push('Missing serial number');
+  if (data.serialNumber && !isAddStockSerialValueValid(data.serialNumber)) reasons.push('Invalid serial format');
+  if (!data.volumeMl) reasons.push('Missing volume');
+  if (data.volumeMl && !isAddStockVolumeValueValid(data.volumeMl)) reasons.push('Invalid volume');
+  if (data.remarks && !isAddStockRemarksValueValid(data.remarks)) reasons.push('Invalid remarks');
   if (!data.collectedAt && !data.expiresAt) reasons.push('Missing extraction/expiry date');
   if (row.dataset.lowConfidence === 'true') reasons.push('Low OCR confidence');
 
@@ -3009,8 +3048,290 @@ function updateAddExpiry() {
   }
 }
 
+function getAddStockErrorElement(inputEl, explicitId = '') {
+  if (explicitId) return document.getElementById(explicitId);
+  if (!inputEl) return null;
+  if (inputEl.dataset.errorId) return document.getElementById(inputEl.dataset.errorId);
+
+  if (inputEl.id) {
+    const staticError = document.getElementById(`${inputEl.id}-error`);
+    if (staticError) return staticError;
+  }
+
+  const group = inputEl.closest('.form-group-m');
+  if (!group) return null;
+  let dynamicError = group.querySelector('.form-inline-error');
+  if (!dynamicError) {
+    dynamicError = document.createElement('div');
+    dynamicError.className = 'form-inline-error';
+    group.appendChild(dynamicError);
+  }
+  return dynamicError;
+}
+
+function setAddStockFieldError(inputEl, message, explicitId = '') {
+  if (!inputEl) return false;
+  const errorEl = getAddStockErrorElement(inputEl, explicitId);
+  inputEl.classList.add('field-error');
+  inputEl.setAttribute('aria-invalid', 'true');
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.style.display = message ? 'block' : 'none';
+  }
+  return false;
+}
+
+function clearAddStockFieldError(inputEl, explicitId = '') {
+  if (!inputEl) return true;
+  const errorEl = getAddStockErrorElement(inputEl, explicitId);
+  inputEl.classList.remove('field-error');
+  inputEl.removeAttribute('aria-invalid');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  return true;
+}
+
+function enforceTransactionNumberFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceSerialNumberFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, ADD_STOCK_SERIAL_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceVolumeFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/\D/g, '')
+    .slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceRemarksLimit(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+    .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function isAddStockSerialValueValid(value) {
+  return /^[A-Z0-9]{1,10}$/.test(String(value || '').trim().toUpperCase());
+}
+
+function isAddStockVolumeValueValid(value) {
+  const str = String(value || '').trim();
+  if (!/^\d{1,4}$/.test(str)) return false;
+  const parsed = Number(str);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
+function isAddStockRemarksValueValid(value) {
+  const str = String(value || '');
+  return str.length <= ADD_STOCK_REMARKS_MAX_LENGTH && ADD_STOCK_REMARKS_ALLOWED_REGEX.test(str);
+}
+
+function validateSerialNumberField(inputEl, options = {}) {
+  const value = enforceSerialNumberFormat(inputEl);
+  const required = !!options.required;
+  const errorId = options.errorId || '';
+  if (!value) {
+    return required ? setAddStockFieldError(inputEl, ADD_STOCK_SERIAL_ERROR_MESSAGE, errorId) : clearAddStockFieldError(inputEl, errorId);
+  }
+  return isAddStockSerialValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_SERIAL_ERROR_MESSAGE, errorId);
+}
+
+function validateVolumeField(inputEl, options = {}) {
+  const value = enforceVolumeFormat(inputEl);
+  const required = !!options.required;
+  const errorId = options.errorId || '';
+  if (!value) {
+    return required ? setAddStockFieldError(inputEl, ADD_STOCK_VOLUME_ERROR_MESSAGE, errorId) : clearAddStockFieldError(inputEl, errorId);
+  }
+  return isAddStockVolumeValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_VOLUME_ERROR_MESSAGE, errorId);
+}
+
+function validateRemarksField(inputEl, options = {}) {
+  const value = enforceRemarksLimit(inputEl);
+  const errorId = options.errorId || '';
+  if (!value) return clearAddStockFieldError(inputEl, errorId);
+  return isAddStockRemarksValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_REMARKS_ERROR_MESSAGE, errorId);
+}
+
+function sanitizeAddStockBloodGroup(value) {
+  const source = String(value || '').toUpperCase().trim();
+  if (!source) return '';
+  const compact = source.replace(/[^A-Z0-9]/g, '');
+  const map = {
+    APOS: 'A_POS',
+    ANEG: 'A_NEG',
+    BPOS: 'B_POS',
+    BNEG: 'B_NEG',
+    ABPOS: 'AB_POS',
+    ABNEG: 'AB_NEG',
+    OPOS: 'O_POS',
+    ONEG: 'O_NEG',
+    'A_POS': 'A_POS',
+    'A_NEG': 'A_NEG',
+    'B_POS': 'B_POS',
+    'B_NEG': 'B_NEG',
+    'AB_POS': 'AB_POS',
+    'AB_NEG': 'AB_NEG',
+    'O_POS': 'O_POS',
+    'O_NEG': 'O_NEG',
+  };
+  return map[compact] || map[source] || '';
+}
+
+function normalizeAddStockComponentValue(value, fallbackText = '') {
+  const raw = String(value || '').trim();
+  if (!raw && !fallbackText) return '';
+  const normalized = String(raw || fallbackText).toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  const aliasMap = {
+    WB: 'WHOLE_BLOOD',
+    WHOLEBLOOD: 'WHOLE_BLOOD',
+    PRBC: 'PRBC',
+    LPRBC: 'LEUKOREDUCED_PRBC',
+    APRBC: 'ALIQUOTED_PRBC',
+    FFP: 'FRESH_FROZEN_PLASMA',
+    PC: 'PLATELET_CONCENTRATE',
+    PLT: 'PLATELET_CONCENTRATE',
+    PLATELET: 'PLATELET_CONCENTRATE',
+    CRYO: 'CRYOPRECIPITATE',
+    CRYOSUP: 'CRYOSUPERNATANT',
+  };
+  return aliasMap[normalized] || (Object.values(aliasMap).includes(raw) ? raw : '');
+}
+
+function normalizeAddStockSerialValue(value) {
+  let serial = String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+
+  if (/^VA\d{5,8}$/.test(serial)) {
+    serial = `V4${serial.slice(2)}`;
+  }
+
+  return serial.slice(0, ADD_STOCK_SERIAL_MAX_LENGTH);
+}
+
+function sanitizeOCRImportedRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => {
+    const cleanedSerial = normalizeAddStockSerialValue(row?.serialNumber);
+    const cleanedRemarks = String(row?.remarks || '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+      .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+    const cleanedVolume = String(row?.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+    const cleanedBloodGroup = sanitizeAddStockBloodGroup(row?.bloodGroup);
+    const cleanedComponent = normalizeAddStockComponentValue(row?.componentType, row?.unknownComponentLabel);
+    const collectedAt = parseDateCandidate(row?.collectedAt || '');
+    const expiresAt = parseDateCandidate(row?.expiresAt || '');
+
+    const issues = Array.isArray(row?.issues) ? [...row.issues] : [];
+    if (cleanedSerial && !isAddStockSerialValueValid(cleanedSerial)) issues.push('Invalid serial format');
+    if (cleanedVolume && !isAddStockVolumeValueValid(cleanedVolume)) issues.push('Invalid volume');
+    if (cleanedRemarks && !isAddStockRemarksValueValid(cleanedRemarks)) issues.push('Invalid remarks');
+    if (!cleanedBloodGroup) issues.push('Missing blood group');
+    if (!cleanedComponent) issues.push('Unknown component');
+    if (!collectedAt || !expiresAt) issues.push('Missing extraction/expiry date');
+
+    return {
+      ...row,
+      bloodGroup: cleanedBloodGroup || '',
+      componentType: cleanedComponent || '',
+      serialNumber: cleanedSerial || '',
+      volumeMl: cleanedVolume || '',
+      remarks: cleanedRemarks,
+      collectedAt,
+      expiresAt,
+      needsReview: Boolean(row?.needsReview) || issues.length > 0,
+      issues: [...new Set(issues)],
+    };
+  });
+}
+
+function initAddStockValidation() {
+  if (addStockValidationBound) return;
+  addStockValidationBound = true;
+
+  const serialInput = document.getElementById('add-serial-number');
+  const volumeInput = document.getElementById('add-volume-ml');
+  const remarksInput = document.getElementById('add-remarks');
+
+  if (serialInput) {
+    serialInput.addEventListener('input', () => validateSerialNumberField(serialInput, { errorId: 'add-serial-number-error' }));
+    serialInput.addEventListener('blur', () => validateSerialNumberField(serialInput, { errorId: 'add-serial-number-error' }));
+  }
+  if (volumeInput) {
+    volumeInput.addEventListener('input', () => validateVolumeField(volumeInput, { errorId: 'add-volume-ml-error' }));
+    volumeInput.addEventListener('blur', () => validateVolumeField(volumeInput, { errorId: 'add-volume-ml-error' }));
+  }
+  if (remarksInput) {
+    remarksInput.addEventListener('input', () => validateRemarksField(remarksInput, { errorId: 'add-remarks-error' }));
+    remarksInput.addEventListener('blur', () => validateRemarksField(remarksInput, { errorId: 'add-remarks-error' }));
+  }
+  const transactionInput = document.getElementById('add-transaction-number');
+  const reviewTransactionInput = document.getElementById('tracer-ocr-transaction-number');
+  if (transactionInput) {
+    transactionInput.addEventListener('input', () => enforceTransactionNumberFormat(transactionInput));
+    transactionInput.addEventListener('blur', () => enforceTransactionNumberFormat(transactionInput));
+  }
+  if (reviewTransactionInput) {
+    reviewTransactionInput.addEventListener('input', () => enforceTransactionNumberFormat(reviewTransactionInput));
+    reviewTransactionInput.addEventListener('blur', () => enforceTransactionNumberFormat(reviewTransactionInput));
+  }
+
+  document.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const isControlKey = event.ctrlKey || event.metaKey || event.altKey ||
+      ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End', 'Enter'].includes(event.key);
+    if (isControlKey) return;
+
+    if (target.matches('#add-serial-number, .add-stock-serial, .tracer-ocr-edit-serial')) {
+      if (event.key.length === 1 && !/[a-zA-Z0-9]/.test(event.key)) {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    if (target.matches('#add-volume-ml, .add-stock-volume')) {
+      if (event.key.length === 1 && !/\d/.test(event.key)) {
+        event.preventDefault();
+      }
+    }
+  });
+}
+
 function openAddBloodModal() {
   initAddStockScanner();
+  initAddStockValidation();
 
   document.getElementById('add-transaction-number').value = '';
   document.getElementById('add-serial-number').value = '';
@@ -3021,6 +3342,9 @@ function openAddBloodModal() {
   document.getElementById('add-collected-at').value = '';
   document.getElementById('add-expires-at').value = '';
   document.getElementById('add-remarks').value = '';
+  clearAddStockFieldError(document.getElementById('add-serial-number'), 'add-serial-number-error');
+  clearAddStockFieldError(document.getElementById('add-volume-ml'), 'add-volume-ml-error');
+  clearAddStockFieldError(document.getElementById('add-remarks'), 'add-remarks-error');
 
   const hint = document.getElementById('add-expiry-hint');
   if (hint) hint.textContent = '';
@@ -3036,15 +3360,18 @@ function openAddBloodModal() {
 function getAddStockDefaults() {
   const aboType = document.getElementById('add-blood-type').value;
   const rhType = document.getElementById('add-rh-type').value;
+  const serialInput = document.getElementById('add-serial-number');
+  const volumeInput = document.getElementById('add-volume-ml');
+  const remarksInput = document.getElementById('add-remarks');
 
   return {
-    serialNumber: document.getElementById('add-serial-number').value.trim(),
+    serialNumber: normalizeAddStockSerialValue(serialInput?.value || ''),
     bloodGroup: aboType ? `${aboType}_${rhType === 'POSITIVE' ? 'POS' : 'NEG'}` : '',
-    componentType: document.getElementById('add-component-type').value,
-    volumeMl: document.getElementById('add-volume-ml').value,
+    componentType: normalizeAddStockComponentValue(document.getElementById('add-component-type').value),
+    volumeMl: String(enforceVolumeFormat(volumeInput) || ''),
     collectedAt: document.getElementById('add-collected-at').value,
     expiresAt: document.getElementById('add-expires-at').value,
-    remarks: document.getElementById('add-remarks').value.trim(),
+    remarks: String(enforceRemarksLimit(remarksInput) || '').trim(),
   };
 }
 
@@ -3078,13 +3405,16 @@ function addStockRow(data = {}) {
   const row = document.createElement('tr');
   row.className = 'add-stock-row';
 
-  const serialNumber = data.serialNumber || '';
-  const bloodGroup = data.bloodGroup || '';
-  const componentType = data.componentType || '';
-  const volumeMl = data.volumeMl || '';
+  const serialNumber = normalizeAddStockSerialValue(data.serialNumber || '');
+  const bloodGroup = sanitizeAddStockBloodGroup(data.bloodGroup || '');
+  const componentType = normalizeAddStockComponentValue(data.componentType || '', data.unknownComponentLabel || '');
+  const volumeMl = String(data.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
   const collectedAt = data.collectedAt || '';
   const expiresAt = data.expiresAt || '';
-  const remarks = data.remarks || '';
+  const remarks = String(data.remarks || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+    .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
 
   const bloodGroupOptions = [
     { value: '', label: 'Select...' },
@@ -3100,14 +3430,14 @@ function addStockRow(data = {}) {
 
   const componentOptions = [
     { value: '', label: 'Select...' },
-    { value: 'WHOLE_BLOOD', label: 'Whole Blood' },
+    { value: 'WHOLE_BLOOD', label: 'WB' },
     { value: 'PRBC', label: 'PRBC' },
-    { value: 'LEUKOREDUCED_PRBC', label: 'Leukoreduced PRBC' },
-    { value: 'ALIQUOTED_PRBC', label: 'Aliquoted PRBC' },
-    { value: 'PLATELET_CONCENTRATE', label: 'Platelet Concentrate' },
-    { value: 'FRESH_FROZEN_PLASMA', label: 'Fresh Frozen Plasma' },
-    { value: 'CRYOPRECIPITATE', label: 'Cryoprecipitate' },
-    { value: 'CRYOSUPERNATANT', label: 'Cryosupernatant' },
+    { value: 'LEUKOREDUCED_PRBC', label: 'L-PRBC' },
+    { value: 'ALIQUOTED_PRBC', label: 'A-PRBC' },
+    { value: 'PLATELET_CONCENTRATE', label: 'PC' },
+    { value: 'FRESH_FROZEN_PLASMA', label: 'FFP' },
+    { value: 'CRYOPRECIPITATE', label: 'CRYO' },
+    { value: 'CRYOSUPERNATANT', label: 'CRYOSUP' },
   ];
 
   row.innerHTML = `
@@ -3127,31 +3457,31 @@ function addStockRow(data = {}) {
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="text" class="add-stock-serial" value="${serialNumber}" placeholder="SN-00123" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-serial" value="${serialNumber}" placeholder="e.g. V457679" maxlength="10" oninput="enforceSerialNumberFormat(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="date" class="add-stock-collected" value="${collectedAt}" onchange="handleAddStockRowDateChange(this)">
+        <input type="date" class="add-stock-collected" value="${collectedAt}" placeholder="MM/DD/YYYY" onchange="handleAddStockRowDateChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="date" class="add-stock-expires" value="${expiresAt}" onchange="handleAddStockRowChange(this)">
+        <input type="date" class="add-stock-expires" value="${expiresAt}" placeholder="MM/DD/YYYY" onchange="handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="number" class="add-stock-volume" value="${volumeMl}" min="1" placeholder="450" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-volume" value="${volumeMl}" maxlength="4" inputmode="numeric" placeholder="e.g. 450" oninput="enforceVolumeFormat(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="text" class="add-stock-remarks" value="${remarks}" placeholder="Optional" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-remarks" value="${remarks}" maxlength="${ADD_STOCK_REMARKS_MAX_LENGTH}" placeholder="e.g. Hemolyzed" oninput="enforceRemarksLimit(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
@@ -3194,6 +3524,26 @@ function generateAddStockRows(count = 10) {
   updateAddStockValidCount();
 }
 
+function validateAddStockRowInputs(row) {
+  if (!row) return true;
+  const data = getAddStockRowData(row);
+  const serialEl = row.querySelector('.add-stock-serial');
+  const volumeEl = row.querySelector('.add-stock-volume');
+  const remarksEl = row.querySelector('.add-stock-remarks');
+
+  if (isAddStockRowEmpty(data)) {
+    if (serialEl) clearAddStockFieldError(serialEl);
+    if (volumeEl) clearAddStockFieldError(volumeEl);
+    if (remarksEl) clearAddStockFieldError(remarksEl);
+    return true;
+  }
+
+  const serialValid = serialEl ? validateSerialNumberField(serialEl, { required: true }) : false;
+  const volumeValid = volumeEl ? validateVolumeField(volumeEl, { required: true }) : false;
+  const remarksValid = remarksEl ? validateRemarksField(remarksEl) : true;
+  return serialValid && volumeValid && remarksValid;
+}
+
 function handleAddStockRowDateChange(el) {
   const row = el.closest('tr');
   if (!row) return;
@@ -3208,6 +3558,7 @@ function handleAddStockRowDateChange(el) {
 
   markImportedRowTouched(row);
   refreshImportedRowReviewState(row);
+  validateAddStockRowInputs(row);
   updateAddStockValidCount();
 }
 
@@ -3231,25 +3582,38 @@ function handleAddStockRowChange(el) {
     expiresEl.value = addStockCalculateExpiry(componentEl.value, collectedEl.value);
   }
 
+  if (el.classList.contains('add-stock-serial')) {
+    validateSerialNumberField(el, { required: false });
+  } else if (el.classList.contains('add-stock-volume')) {
+    validateVolumeField(el, { required: false });
+  } else if (el.classList.contains('add-stock-remarks')) {
+    validateRemarksField(el);
+  }
+
   markImportedRowTouched(row);
   refreshImportedRowReviewState(row);
+  validateAddStockRowInputs(row);
   updateAddStockValidCount();
 }
 
 function getAddStockRowData(row) {
-  const bloodGroup = row.querySelector('.add-stock-blood-group')?.value || '';
+  const bloodGroup = sanitizeAddStockBloodGroup(row.querySelector('.add-stock-blood-group')?.value || '');
   const split = splitBloodGroup(bloodGroup);
 
   return {
-    serialNumber: row.querySelector('.add-stock-serial')?.value.trim() || '',
+    serialNumber: normalizeAddStockSerialValue(row.querySelector('.add-stock-serial')?.value || ''),
     bloodGroup,
     aboType: split.aboType,
     rhType: split.rhType,
-    componentType: row.querySelector('.add-stock-component')?.value || '',
-    volumeMl: row.querySelector('.add-stock-volume')?.value || '',
-    collectedAt: row.querySelector('.add-stock-collected')?.value || '',
-    expiresAt: row.querySelector('.add-stock-expires')?.value || '',
-    remarks: row.querySelector('.add-stock-remarks')?.value.trim() || '',
+    componentType: normalizeAddStockComponentValue(row.querySelector('.add-stock-component')?.value || ''),
+    volumeMl: String(row.querySelector('.add-stock-volume')?.value || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH),
+    collectedAt: parseDateCandidate(row.querySelector('.add-stock-collected')?.value || ''),
+    expiresAt: parseDateCandidate(row.querySelector('.add-stock-expires')?.value || ''),
+    remarks: String(row.querySelector('.add-stock-remarks')?.value || '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+      .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH)
+      .trim(),
   };
 }
 
@@ -3265,13 +3629,16 @@ function isAddStockRowEmpty(data) {
 
 function isAddStockRowComplete(data) {
   return data.serialNumber &&
+    isAddStockSerialValueValid(data.serialNumber) &&
     data.bloodGroup &&
     data.aboType &&
     data.rhType &&
     data.componentType &&
     data.volumeMl &&
+    isAddStockVolumeValueValid(data.volumeMl) &&
     data.collectedAt &&
-    data.expiresAt;
+    data.expiresAt &&
+    isAddStockRemarksValueValid(data.remarks);
 }
 
 function getValidAddStockRows() {
@@ -3326,6 +3693,7 @@ function copyPreviousAddStockRow(index) {
   current.querySelector('.add-stock-collected').value = prevData.collectedAt;
   current.querySelector('.add-stock-expires').value = prevData.expiresAt;
 
+  validateAddStockRowInputs(current);
   updateAddStockValidCount();
 }
 
@@ -3344,6 +3712,7 @@ function applyAddStockDefaultsToEmptyRows() {
     row.querySelector('.add-stock-collected').value = defaults.collectedAt;
     row.querySelector('.add-stock-expires').value = defaults.expiresAt;
     row.querySelector('.add-stock-remarks').value = defaults.remarks;
+    validateAddStockRowInputs(row);
   });
 
   updateAddStockValidCount();
@@ -3365,6 +3734,7 @@ function applyAddStockDefaultsToAllRows() {
     row.querySelector('.add-stock-collected').value = defaults.collectedAt;
     row.querySelector('.add-stock-expires').value = defaults.expiresAt;
     row.querySelector('.add-stock-remarks').value = defaults.remarks;
+    validateAddStockRowInputs(row);
   });
 
   updateAddStockValidCount();
@@ -3384,7 +3754,12 @@ function clearEmptyAddStockRows() {
 }
 
 async function submitAddBloodStock() {
-  const transactionNumber = document.getElementById('add-transaction-number').value.trim();
+  const transactionInput = document.getElementById('add-transaction-number');
+  const transactionNumber = String(transactionInput?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
+    .trim();
+  if (transactionInput) transactionInput.value = transactionNumber;
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
 
   if (!rows.length) {
@@ -3404,13 +3779,20 @@ async function submitAddBloodStock() {
     return;
   }
 
+  const firstInvalidRow = nonEmptyRows.find(item => !validateAddStockRowInputs(item.element));
+  if (firstInvalidRow) {
+    firstInvalidRow.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showBloodPlusMessage('Invalid Row Data', 'Please fix highlighted serial, volume, or remarks fields before submitting.', 'warning');
+    return;
+  }
+
   const incomplete = nonEmptyRows.find(item => !isAddStockRowComplete(item.data));
   if (incomplete) {
     showBloodPlusMessage('Incomplete Row', 'Please complete all partially filled rows before submitting.', 'warning');
     return;
   }
 
-  const serials = nonEmptyRows.map(item => item.data.serialNumber.toLowerCase());
+  const serials = nonEmptyRows.map(item => item.data.serialNumber.toUpperCase());
   const duplicateSerial = serials.find((serial, index) => serials.indexOf(serial) !== index);
 
   if (duplicateSerial) {

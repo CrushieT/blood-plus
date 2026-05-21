@@ -1545,7 +1545,13 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Transaction #</label>
-            <input type="text" id="add-transaction-number" placeholder="e.g. TXN-2025-001">
+            <input
+              type="text"
+              id="add-transaction-number"
+              placeholder="e.g. 261498"
+              maxlength="10"
+              inputmode="numeric"
+              oninput="enforceTransactionNumberFormat(this)">
           </div>
         </div>
 
@@ -1558,7 +1564,14 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Serial # <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-serial-number" placeholder="Used for first row / single entry" required>
+            <input
+              type="text"
+              id="add-serial-number"
+              placeholder="e.g. V457679"
+              maxlength="10"
+              oninput="enforceSerialNumberFormat(this);validateSerialNumberField(this)"
+              required>
+            <div class="form-inline-error" id="add-serial-number-error"></div>
           </div>
 
           <div class="form-group-m">
@@ -1575,8 +1588,8 @@
           <div class="form-group-m">
             <label>Rh Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-rh-type" required>
-              <option value="POSITIVE">Positive (+)</option>
-              <option value="NEGATIVE">Negative (−)</option>
+              <option value="POSITIVE">POS</option>
+              <option value="NEGATIVE">NEG</option>
             </select>
           </div>
         </div>
@@ -1586,38 +1599,52 @@
             <label>Component Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-component-type" onchange="updateAddExpiry()" required>
               <option value="">Select...</option>
-              <option value="WHOLE_BLOOD">Whole Blood</option>
+              <option value="WHOLE_BLOOD">WB</option>
               <option value="PRBC">PRBC</option>
-              <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
-              <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
-              <option value="PLATELET_CONCENTRATE">Platelet Concentrate</option>
-              <option value="FRESH_FROZEN_PLASMA">Fresh Frozen Plasma</option>
-              <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
-              <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+              <option value="LEUKOREDUCED_PRBC">L-PRBC</option>
+              <option value="ALIQUOTED_PRBC">A-PRBC</option>
+              <option value="PLATELET_CONCENTRATE">PC</option>
+              <option value="FRESH_FROZEN_PLASMA">FFP</option>
+              <option value="CRYOPRECIPITATE">CRYO</option>
+              <option value="CRYOSUPERNATANT">CRYOSUP</option>
             </select>
           </div>
 
           <div class="form-group-m">
             <label>Volume (mL) <span style="color:var(--crimson)">*</span></label>
-            <input type="number" id="add-volume-ml" placeholder="e.g. 450" min="1" required>
+            <input
+              type="text"
+              id="add-volume-ml"
+              placeholder="e.g. 450"
+              maxlength="4"
+              inputmode="numeric"
+              oninput="enforceVolumeFormat(this);validateVolumeField(this)"
+              required>
+            <div class="form-inline-error" id="add-volume-ml-error"></div>
           </div>
 
           <div class="form-group-m">
             <label>Extraction Date <span style="color:var(--crimson)">*</span></label>
-            <input type="date" id="add-collected-at" onchange="updateAddExpiry()" required>
+            <input type="date" id="add-collected-at" placeholder="MM/DD/YYYY" onchange="updateAddExpiry()" required>
           </div>
 
           <div class="form-group-m">
             <label>Expiration Date <span style="color:var(--crimson)">*</span>
               <span id="add-expiry-hint" style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px"></span>
             </label>
-            <input type="date" id="add-expires-at" required>
+            <input type="date" id="add-expires-at" placeholder="MM/DD/YYYY" required>
           </div>
         </div>
 
         <div class="form-group-m" style="margin-bottom:16px">
           <label>Remarks</label>
-          <input type="text" id="add-remarks" placeholder="e.g. Platelet - Poor, Hemolyzed">
+          <input
+            type="text"
+            id="add-remarks"
+            placeholder="e.g. Hemolyzed"
+            maxlength="50"
+            oninput="enforceRemarksLimit(this);validateRemarksField(this)">
+          <div class="form-inline-error" id="add-remarks-error"></div>
         </div>
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
@@ -1710,7 +1737,13 @@
         <div class="form-row full" style="margin-bottom:10px">
           <div class="form-group-m">
             <label>Transaction Number <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="tracer-ocr-transaction-number" placeholder="Enter transaction number">
+            <input
+              type="text"
+              id="tracer-ocr-transaction-number"
+              placeholder="Enter transaction number"
+              maxlength="10"
+              inputmode="numeric"
+              oninput="enforceTransactionNumberFormat(this)">
             <small style="color:var(--muted)">Auto-detected from tracer form when available.</small>
           </div>
         </div>

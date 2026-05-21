@@ -771,6 +771,23 @@ body {
 
 .form-group-m textarea { resize: none; height: 80px; }
 
+.form-group-m input.field-error,
+.form-group-m select.field-error,
+.form-group-m textarea.field-error {
+  border-color: var(--crimson);
+  box-shadow: 0 0 0 2px rgba(196, 30, 58, 0.1);
+  background: #fff8f8;
+}
+
+.form-inline-error {
+  display: none;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--crimson);
+  font-weight: 600;
+}
+
 .bb-scan-section {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -853,24 +870,24 @@ body {
 }
 
 .add-stock-row.needs-review {
-  background: rgba(201, 144, 58, 0.08);
+  background: rgba(196, 30, 58, 0.08);
 }
 
 .add-stock-row.needs-review td {
-  border-top: 1px solid rgba(201, 144, 58, 0.25);
-  border-bottom: 1px solid rgba(201, 144, 58, 0.25);
+  border-top: 1px solid rgba(196, 30, 58, 0.24);
+  border-bottom: 1px solid rgba(196, 30, 58, 0.24);
 }
 
 .add-stock-row.has-unknown-component .add-stock-component {
-  border-color: var(--amber);
-  background: #fffdf8;
+  border-color: var(--crimson);
+  background: #fff8f8;
 }
 
 .add-stock-review-note {
   margin-top: 5px;
   font-size: 10px;
   line-height: 1.2;
-  color: var(--amber);
+  color: var(--crimson);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   font-weight: 700;
