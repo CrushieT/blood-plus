@@ -7804,7 +7804,63 @@ function staffToggleDepartmentInput() {
 function staffGetAddDepartment() {
   const choice = document.getElementById('add-staff-dept-choice')?.value || 'Blood Bank';
   if (choice === 'Blood Bank') return 'Blood Bank';
-  return document.getElementById('add-staff-custom-dept')?.value.trim() || '';
+  return (document.getElementById('add-staff-custom-dept')?.value.trim() || '').slice(0, 25);
+}
+
+let addStaffPhoneBound = false;
+
+function bindAddStaffPhoneInput() {
+  if (addStaffPhoneBound) return;
+  addStaffPhoneBound = true;
+
+  const input = document.getElementById('add-staff-phone');
+  if (!input) return;
+
+  input.addEventListener('focus', () => {
+    if (!input.value.trim()) {
+      input.value = '+63';
+    } else {
+      lockPhilippinePhoneInput('add-staff-phone');
+    }
+    const pos = input.value.length;
+    if (typeof input.setSelectionRange === 'function') {
+      try { input.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  });
+
+  input.addEventListener('input', () => {
+    lockPhilippinePhoneInput('add-staff-phone');
+    const pos = input.value.length;
+    if (typeof input.setSelectionRange === 'function') {
+      try { input.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    lockPhilippinePhoneInput('add-staff-phone');
+  });
+
+  input.addEventListener('keydown', (event) => {
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? 0;
+    const isBackspace = event.key === 'Backspace';
+    const isDelete = event.key === 'Delete';
+
+    if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+      event.preventDefault();
+    }
+    if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+    }
+    if (event.key.length === 1 && /\d/.test(event.key)) {
+      const localDigits = input.value.slice(3).replace(/\D/g, '');
+      const selectedPrefix = input.value.slice(selectionStart, selectionEnd);
+      const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+      if (localDigits.length - selectedLocalDigits.length >= 10) {
+        event.preventDefault();
+      }
+    }
+  });
 }
 
 function staffCloseModals(exceptId = null) {
@@ -7960,6 +8016,8 @@ function openAddStaffModal() {
 
   staffHideError('add-staff-error');
   staffToggleDepartmentInput();
+  const phoneEl = document.getElementById('add-staff-phone');
+  if (phoneEl) phoneEl.value = '+63';
   openModal('addStaffModal');
 }
 
@@ -7971,9 +8029,15 @@ async function submitAddStaff() {
   const email    = document.getElementById('add-staff-email').value.trim();
   const first    = document.getElementById('add-staff-first').value.trim();
   const last     = document.getElementById('add-staff-last').value.trim();
-  const phone    = document.getElementById('add-staff-phone').value.trim();
+  const normalizedPhone = lockPhilippinePhoneInput('add-staff-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phone = phoneDigits.length === 10 ? normalizedPhone : null;
   const dept     = staffGetAddDepartment();
-  const position = document.getElementById('add-staff-position').value.trim();
+  const positionInput = document.getElementById('add-staff-position');
+  const customDeptInput = document.getElementById('add-staff-custom-dept');
+  if (positionInput) positionInput.value = (positionInput.value || '').slice(0, 25);
+  if (customDeptInput) customDeptInput.value = (customDeptInput.value || '').slice(0, 25);
+  const position = (positionInput?.value || '').trim().slice(0, 25);
 
   if (!email || !first || !last || !dept) {
     staffShowError('add-staff-error', 'Email, first name, last name, and department are required.');
@@ -7981,6 +8045,10 @@ async function submitAddStaff() {
   }
   if (!staffValidEmail(email)) {
     staffShowError('add-staff-error', 'Please enter a valid email address.');
+    return;
+  }
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    staffShowError('add-staff-error', 'Phone number must start with +63 followed by exactly 10 digits.');
     return;
   }
   if (document.getElementById('add-staff-dept-choice')?.value === 'Others' && !dept) {
@@ -8295,6 +8363,7 @@ function staffHideError(elId) {
 
 function initStaffPanel() {
   staffPage = 1;
+  bindAddStaffPhoneInput();
 }
 
 document.addEventListener('DOMContentLoaded', initStaffPanel);

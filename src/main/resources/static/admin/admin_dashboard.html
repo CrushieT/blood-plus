@@ -2013,7 +2013,7 @@
         <div class="form-row">
           <div class="form-group-m" style="flex:1">
             <label>Email (Login) <span style="color:var(--crimson)">*</span></label>
-            <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph">
+            <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph" maxlength="50" autocomplete="off">
           </div>
         </div>
         <div id="add-staff-access-note" style="display:flex;align-items:center;gap:8px;background:var(--blue-light,#E8F0FF);
@@ -2027,17 +2027,17 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>First Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-first" placeholder="Juan">
+            <input type="text" id="add-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
           </div>
           <div class="form-group-m">
             <label>Last Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-last" placeholder="Dela Cruz">
+            <input type="text" id="add-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group-m">
             <label>Phone Number</label>
-            <input type="tel" id="add-staff-phone" placeholder="+63 9XX XXX XXXX">
+            <input type="tel" id="add-staff-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
           </div>
           
         </div>
@@ -2046,7 +2046,7 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Position</label>
-            <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist">
+            <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
           </div>
           <div class="form-group-m">
             <label>Department <span style="color:var(--crimson)">*</span></label>
@@ -2059,7 +2059,7 @@
         <div class="form-row full" id="add-staff-custom-dept-wrap" style="display:none">
           <div class="form-group-m" style="flex:1">
             <label>Custom Department <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-custom-dept" placeholder="Emergency Room, Ward, Laboratory">
+            <input type="text" id="add-staff-custom-dept" placeholder="Emergency Room, Ward, Laboratory" maxlength="25" autocomplete="off">
           </div>
         </div>
 
@@ -2090,17 +2090,17 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>First Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="edit-staff-first">
+            <input type="text" id="edit-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
           </div>
           <div class="form-group-m">
             <label>Last Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="edit-staff-last">
+            <input type="text" id="edit-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group-m">
             <label>Phone Number</label>
-            <input type="tel" id="edit-staff-phone">
+            <input type="tel" id="edit-staff-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
           </div>
         </div>
   
@@ -2118,7 +2118,7 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Position</label>
-            <input type="text" id="edit-staff-position">
+            <input type="text" id="edit-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
           </div>
           <div class="form-group-m" id="edit-staff-status-wrap">
             <label>Status</label>
