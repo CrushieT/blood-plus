@@ -818,13 +818,89 @@ public class BloodBagRequestService {
     public BloodBagRequest populateReservedBags(BloodBagRequest request) {
         if (request == null) return null;
         request.setReservedBags(loadAllocatedBags(request));
+        populateRequesterStaffInfo(request);
         return request;
     }
 
     public List<BloodBagRequest> populateReservedBags(List<BloodBagRequest> requests) {
         if (requests == null) return List.of();
-        requests.forEach(this::populateReservedBags);
+        Map<String, StaffProfile> staffByEmail = loadStaffProfilesByRequesterEmail(requests);
+        requests.forEach(req -> {
+            if (req == null) return;
+            req.setReservedBags(loadAllocatedBags(req));
+            populateRequesterStaffInfo(req, staffByEmail);
+        });
         return requests;
+    }
+
+    private Map<String, StaffProfile> loadStaffProfilesByRequesterEmail(List<BloodBagRequest> requests) {
+        Set<String> requesterEmails = new HashSet<>();
+        for (BloodBagRequest request : requests) {
+            if (request == null) continue;
+            String email = normalizeOptionalEmail(request.getRequesterEmail());
+            if (email != null) requesterEmails.add(email);
+        }
+        if (requesterEmails.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, StaffProfile> staffByEmail = new HashMap<>();
+        for (StaffProfile profile : staffProfileRepository.findByEmailIn(requesterEmails)) {
+            if (profile == null) continue;
+            String email = normalizeOptionalEmail(profile.getEmail());
+            if (email != null) {
+                staffByEmail.put(email, profile);
+            }
+        }
+        return staffByEmail;
+    }
+
+    private void populateRequesterStaffInfo(BloodBagRequest request) {
+        if (request == null) return;
+        String requesterEmail = normalizeOptionalEmail(request.getRequesterEmail());
+        if (requesterEmail == null) {
+            clearRequesterStaffInfo(request);
+            return;
+        }
+        StaffProfile staffProfile = staffProfileRepository.findByEmail(requesterEmail).orElse(null);
+        applyRequesterStaffInfo(request, staffProfile);
+    }
+
+    private void populateRequesterStaffInfo(BloodBagRequest request, Map<String, StaffProfile> staffByEmail) {
+        if (request == null) return;
+        String requesterEmail = normalizeOptionalEmail(request.getRequesterEmail());
+        if (requesterEmail == null) {
+            clearRequesterStaffInfo(request);
+            return;
+        }
+        applyRequesterStaffInfo(request, staffByEmail.get(requesterEmail));
+    }
+
+    private void applyRequesterStaffInfo(BloodBagRequest request, StaffProfile staffProfile) {
+        if (staffProfile == null) {
+            clearRequesterStaffInfo(request);
+            return;
+        }
+        request.setRequesterStaffId(normalizeOptionalText(staffProfile.getStaffId()));
+        request.setRequesterStaffName(buildStaffName(staffProfile));
+        request.setRequesterStaffEmail(normalizeOptionalEmail(staffProfile.getEmail()));
+        request.setRequesterStaffPhone(normalizeOptionalText(staffProfile.getPhoneNumber()));
+    }
+
+    private void clearRequesterStaffInfo(BloodBagRequest request) {
+        request.setRequesterStaffId(null);
+        request.setRequesterStaffName(null);
+        request.setRequesterStaffEmail(null);
+        request.setRequesterStaffPhone(null);
+    }
+
+    private String buildStaffName(StaffProfile staffProfile) {
+        String firstName = normalizeOptionalText(staffProfile.getFirstName());
+        String lastName = normalizeOptionalText(staffProfile.getLastName());
+        if (firstName == null && lastName == null) return null;
+        if (firstName == null) return lastName;
+        if (lastName == null) return firstName;
+        return firstName + " " + lastName;
     }
 
     private String normalizeOptionalEmail(String email) {

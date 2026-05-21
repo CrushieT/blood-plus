@@ -36,8 +36,9 @@
       <div class="nav-item" onclick="showPanel('bloodbank', this)">
         <span class="nav-icon">🩸</span> Blood Bank
       </div>
-      <div class="nav-item" onclick="showPanel('bloodrequests', this)">
+      <div class="nav-item" id="nav-bloodrequests" onclick="showPanel('bloodrequests', this)">
         <span class="nav-icon">📋</span> Blood Requests
+        <span id="blood-request-nav-badge" class="nav-badge nav-badge-requests" hidden>0</span>
       </div>
       <div class="nav-item" onclick="showPanel('hospitals', this)">
         <span class="nav-icon">🏥</span> Hospitals
@@ -1627,6 +1628,30 @@
           <button class="btn-warning" type="button" onclick="clearEmptyAddStockRows()">Clear Empty Rows</button>
         </div>
 
+        <div class="bb-scan-section">
+          <div class="bb-scan-header">
+            <h4>Import Blood Tracer Form</h4>
+            <p>Scan or upload a blood tracer form to auto-fill stock rows.</p>
+            <p style="margin-top:6px">
+              For best results, crop the image to the blood bag rows only. Keep the first five columns visible: Blood Group, Component, Serial No., Extraction Date, Expiry Date.
+            </p>
+          </div>
+
+          <div class="bb-scan-actions">
+            <button type="button" class="btn-ghost" id="scan-tracer-camera-btn">Capture Image</button>
+
+            <label for="scan-tracer-upload" class="btn-secondary bb-upload-btn">
+              Upload Image
+            </label>
+
+            <input type="file" id="scan-tracer-upload" accept="image/*" hidden>
+            <input type="file" id="scan-tracer-camera" accept="image/*" capture="environment" hidden>
+          </div>
+
+          <div id="scan-tracer-preview" class="bb-scan-preview"></div>
+          <div id="scan-tracer-status" class="bb-scan-status">No tracer form imported yet.</div>
+        </div>
+
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Blood Bags / Units</div>
 
         <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:12px">
@@ -1664,6 +1689,56 @@
             Review / Receive Batch
           </button>
           <button class="btn-ghost" onclick="closeModal('addBloodModal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Tracer OCR Review Modal -->
+  <div class="modal-overlay" id="tracerOcrReviewModal">
+    <div class="modal" style="max-width:980px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Review Scanned Blood Bags</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Confirm detected rows before generating intake entries.</div>
+        </div>
+        <button class="modal-close" onclick="closeTracerOcrReviewModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="tracer-ocr-review-summary" class="tracer-ocr-review-summary"></div>
+        <div class="form-row full" style="margin-bottom:10px">
+          <div class="form-group-m">
+            <label>Transaction Number <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="tracer-ocr-transaction-number" placeholder="Enter transaction number">
+            <small style="color:var(--muted)">Auto-detected from tracer form when available.</small>
+          </div>
+        </div>
+        <div id="tracer-ocr-duplicate-error" class="tracer-ocr-duplicate-error" style="display:none"></div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;">
+          <table class="tracer-ocr-review-table">
+            <thead>
+              <tr>
+                <th style="width:56px">#</th>
+                <th style="width:56px">Import</th>
+                <th>Blood Group</th>
+                <th>Component</th>
+                <th>Serial Number</th>
+                <th>Extraction Date</th>
+                <th>Expiry Date</th>
+                <th style="width:170px">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tracer-ocr-review-rows"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+          Rows with missing critical fields are unchecked by default. You can still include them, then manually correct values before final stock submission.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button type="button" class="btn-secondary" onclick="printTracerScannedData()">Print Scanned Data</button>
+          <button type="button" class="btn-ghost" onclick="closeTracerOcrReviewModal()">Cancel</button>
+          <button type="button" class="btn-primary" id="tracer-ocr-import-btn" onclick="confirmTracerOcrImport()">Import Selected Rows</button>
         </div>
       </div>
     </div>
@@ -2355,7 +2430,8 @@
   });
   </script>
   <!-- <script src="js/auto-refresh-optimization.js"></script> -->
-  <script src="js/admin_dashboard.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
+  <script src="js/admin_dashboard.js?v=20260521c"></script>
 </body>
 </html>
 
