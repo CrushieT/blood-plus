@@ -2,11 +2,15 @@ package com.hospital.blood_plus.controller;
 
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
 import com.hospital.blood_plus.dto.request.EmailConfirmationRequest;
+import com.hospital.blood_plus.dto.response.BloodRequestOcrResponseDTO;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.BloodBagRequestService;
+import com.hospital.blood_plus.service.BloodRequestOcrService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpStatus;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,10 +20,13 @@ import java.util.Map;
 public class BloodRequestController {
 
     private final BloodBagRequestService bloodBagRequestService;
+    private final BloodRequestOcrService bloodRequestOcrService;
 
-    public BloodRequestController(BloodBagRequestService bloodBagRequestService)  {
+
+    public BloodRequestController(BloodBagRequestService bloodBagRequestService, BloodRequestOcrService bloodRequestOcrService) { {
         this.bloodBagRequestService = bloodBagRequestService;
-        
+        this.bloodRequestOcrService = bloodRequestOcrService;
+        }
     }
     // ── PUBLIC: Submit anonymous blood request ─────────────────
     // Accepts multipart/form-data: "data" (JSON) + "doctorsNote" (file)
@@ -91,6 +98,22 @@ public class BloodRequestController {
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Failed to process the confirmation request. Please contact the blood bank."
             ));
+        }
+    }
+
+    @PostMapping("/req/blood-requests/ocr")
+    public ResponseEntity<?> scanBloodRequestForm(@RequestParam("file") MultipartFile file) {
+        try {
+            BloodRequestOcrResponseDTO result = bloodRequestOcrService.scanRequestForm(file);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", ex.getMessage()));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
+                    Map.of("error", "Unable to scan the form. Please try a clearer image or fill the form manually.")
+            );
         }
     }
 

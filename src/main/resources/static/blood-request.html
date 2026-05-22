@@ -7,7 +7,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="js/AuthGuard.js"></script>
   <link href="css/blood_request.css" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
 </head>
 <body>
 
@@ -247,6 +246,12 @@
   
    <!-- Form body -->
     <div class="form-body" id="request-form-body">
+      <div id="scan-fill-quick-action" class="scan-fill-quick-action" style="display:none">
+        <div class="scan-fill-quick-text">Scanned details are ready to populate this request form.</div>
+        <button type="button" class="btn-scan-populate" id="btn-scan-populate" onclick="applyScanResults()">
+          Populate Request Form
+        </button>
+      </div>
 
       <!-- STEPPER -->
       <div class="stepper" id="stepper">

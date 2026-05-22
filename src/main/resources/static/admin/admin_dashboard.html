@@ -1945,6 +1945,94 @@
     </div>
   </div>
 
+  <!-- ═══════════ VIEW HOSPITAL MODAL ═══════════ -->
+  <div class="modal-overlay" id="viewHospitalModal">
+    <div class="modal hospital-view-modal" style="max-width:1100px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Hospital Details</div>
+          <div id="hospital-view-title-name" style="font-size:13px;color:var(--charcoal);font-weight:600;margin-top:2px"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Operational overview and request analytics</div>
+        </div>
+        <button class="modal-close" onclick="closeHospitalViewModal()">✕</button>
+      </div>
+      <div class="modal-body hospital-view-body">
+
+        <div class="hospital-view-grid hospital-view-grid-3">
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Hospital Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-info"></div>
+          </section>
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Contact Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-contact"></div>
+          </section>
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Account Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-account"></div>
+          </section>
+        </div>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head">Request Analytics</div>
+          <div class="hospital-view-card-body" id="hospital-view-analytics"></div>
+        </section>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head-row">
+            <span>Recent Blood Requests</span>
+            <button class="btn-ghost" style="font-size:12px;padding:5px 10px" onclick="hospitalViewOpenAllRequests()">View All Requests</button>
+          </div>
+          <div class="hospital-view-card-body hospital-view-table-wrap">
+            <table class="hospital-view-table">
+              <thead>
+                <tr>
+                  <th>Reference No</th>
+                  <th>Patient</th>
+                  <th>Blood Type</th>
+                  <th>Component</th>
+                  <th>Units</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="hospital-view-recent-body">
+                <tr><td colspan="7" class="hospital-view-table-empty">Loading hospital details...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="hospital-view-grid hospital-view-grid-2">
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Active Requests</div>
+            <div class="hospital-view-card-body" id="hospital-view-active"></div>
+          </section>
+
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Most Requested Components</div>
+            <div class="hospital-view-card-body" id="hospital-view-components"></div>
+          </section>
+
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Recent Activity</div>
+            <div class="hospital-view-card-body" id="hospital-view-activity"></div>
+          </section>
+        </div>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head">Quick Actions</div>
+          <div class="hospital-view-card-body">
+            <div class="hospital-view-actions">
+              <button class="btn-secondary" type="button" onclick="hospitalViewOpenAllRequests()">View All Requests</button>
+              <button class="btn-primary" type="button" onclick="hospitalViewOpenEdit()">Edit Hospital</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <!-- Blood Requests Reject Modal -->
   <div class="req-reject-overlay" id="req-reject-modal">
     <div class="modal" style="max-width:480px">
@@ -2200,7 +2288,7 @@
             <div id="view-staff-status-badge" style="margin-top:6px"></div>
           </div>
         </div>
-  
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div style="background:var(--cream);border-radius:9px;padding:12px">
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Staff ID</div>
@@ -2263,16 +2351,26 @@
  
   <!-- Doc Preview Modal -->
   <div class="req-reject-overlay" id="req-doc-modal">
-    <div class="modal" style="max-width:560px">
+    <div class="modal req-doc-modal-dialog">
       <div class="modal-header">
-        <div class="modal-title">Blood Request Form</div>
-        <button class="modal-close" onclick="document.getElementById('req-doc-modal').classList.remove('open')">✕</button>
+        <div>
+          <div class="modal-title">Blood Request Form</div>
+          <div class="req-doc-subtitle">Zoom for better readability</div>
+        </div>
+        <button class="modal-close" onclick="reqCloseDocModal()">✕</button>
       </div>
-      <div class="modal-body">
-        <div id="req-doc-frame" style="width:100%;border-radius:10px;border:1.5px solid var(--border);
-            background:var(--cream);min-height:300px;display:flex;align-items:center;
-            justify-content:center;overflow:hidden"></div>
-        <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center" id="req-doc-label"></div>
+      <div class="modal-body req-doc-modal-body">
+        <div class="req-doc-toolbar">
+          <div class="req-doc-zoom-controls">
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-out" onclick="reqDocZoomOut()">-</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-reset" onclick="reqDocZoomReset()">Reset</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-in" onclick="reqDocZoomIn()">+</button>
+            <span class="req-doc-zoom-value" id="req-doc-zoom-value">100%</span>
+          </div>
+          <a id="req-doc-open-link" class="req-doc-open-link" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        </div>
+        <div id="req-doc-frame" class="req-doc-frame"></div>
+        <div class="req-doc-label" id="req-doc-label"></div>
       </div>
     </div>
   </div>

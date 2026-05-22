@@ -4397,7 +4397,7 @@ const AnalyticsDashboard = {
             <span>${this.escapeHtml(hospital.name || 'Unknown Hospital')}</span>
             <span>${rate}%</span>
           </div>
-          <div class="an-row-sub">${fulfilled} / ${requests} fulfilled requests</div>
+          <div class="an-row-sub">${fulfilled} / ${requests} Served requests</div>
           <div class="an-mini-bar"><div data-fill-target="${rate.toFixed(2)}"></div></div>
         </div>`;
     }).join('');
@@ -5875,7 +5875,13 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let bagPickerSelected = null;
   let bagPickerData     = [];
   let bagPickerIsChange = false;
- 
+  let reqDocZoom        = 1;
+  let reqDocIsPdf       = false;
+
+  const REQ_DOC_ZOOM_MIN = 0.5;
+  const REQ_DOC_ZOOM_MAX = 5;
+  const REQ_DOC_ZOOM_STEP = 0.2;
+
   const reqBagCache = {};
   const REQ_NEW_BADGE_STATUSES = new Set(['PENDING', 'NEEDS_CONFIRMATION']);
   const reqSeenIds = new Set();
@@ -6076,6 +6082,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       hadPreviousReaction: r.hadPreviousReaction ?? false,
       previousReactionDate: r.previousReactionDate ?? null,
       previousReactionDetails: r.previousReactionDetails ?? null,
+      transactionNumber: r.transactionNumber ?? null,
       docUrl,
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
@@ -6939,15 +6946,104 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     }
   };
  
+  function reqDocClampZoom(nextZoom) {
+    return Math.min(REQ_DOC_ZOOM_MAX, Math.max(REQ_DOC_ZOOM_MIN, nextZoom));
+  }
+
+  function reqDocGetZoomImage() {
+    return document.getElementById('req-doc-zoom-image');
+  }
+
+  function reqDocUpdateZoomUi() {
+    const zoomOutBtn = document.getElementById('req-doc-zoom-out');
+    const zoomInBtn = document.getElementById('req-doc-zoom-in');
+    const zoomResetBtn = document.getElementById('req-doc-zoom-reset');
+    const zoomValue = document.getElementById('req-doc-zoom-value');
+    const zoomImage = reqDocGetZoomImage();
+    const disabled = reqDocIsPdf || !zoomImage;
+
+    if (zoomValue) {
+      zoomValue.textContent = `${Math.round(reqDocZoom * 100)}%`;
+    }
+    if (zoomOutBtn) zoomOutBtn.disabled = disabled;
+    if (zoomInBtn) zoomInBtn.disabled = disabled;
+    if (zoomResetBtn) zoomResetBtn.disabled = disabled;
+
+    if (!disabled) {
+      zoomImage.style.transform = `scale(${reqDocZoom})`;
+    }
+  }
+
+  window.reqDocZoomIn = function () {
+    reqDocZoom = reqDocClampZoom(reqDocZoom + REQ_DOC_ZOOM_STEP);
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqDocZoomOut = function () {
+    reqDocZoom = reqDocClampZoom(reqDocZoom - REQ_DOC_ZOOM_STEP);
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqDocZoomReset = function () {
+    reqDocZoom = 1;
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqCloseDocModal = function () {
+    const modal = document.getElementById('req-doc-modal');
+    const frame = document.getElementById('req-doc-frame');
+    if (modal) modal.classList.remove('open');
+    if (frame) frame.innerHTML = '';
+    reqDocZoom = 1;
+    reqDocIsPdf = false;
+    reqDocUpdateZoomUi();
+  };
+
   window.reqViewDoc = function (url, label) {
     if (!url) { alert('No document uploaded for this request.'); return; }
-    document.getElementById('req-doc-label').textContent = label;
-    const isPdf        = url.toLowerCase().includes('.pdf');
+
+    const frame = document.getElementById('req-doc-frame');
+    const docLabel = document.getElementById('req-doc-label');
+    const openLink = document.getElementById('req-doc-open-link');
+    const safeLabel = label || 'Blood Request Form';
+    const lowerUrl = String(url).toLowerCase();
+    const isPdf = lowerUrl.includes('.pdf');
     const googleViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    document.getElementById('req-doc-frame').innerHTML = isPdf
-      ? `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`
-      : `<img src="${url}" style="width:100%;border-radius:10px;display:block"
-           onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly -></a></div>'" />`;
+
+    reqDocIsPdf = isPdf;
+    reqDocZoom = 1;
+
+    if (docLabel) docLabel.textContent = safeLabel;
+    if (openLink) openLink.href = url;
+
+    if (!frame) return;
+
+    frame.innerHTML = isPdf
+      ? `<iframe class="req-doc-pdf" src="${googleViewer}" title="${safeLabel}"></iframe>`
+      : `<div class="req-doc-image-wrap">
+          <img
+            id="req-doc-zoom-image"
+            class="req-doc-image"
+            src="${url}"
+            alt="${safeLabel}"
+            onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:var(--muted);font-size:13px\\'>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly</a></div>'"
+          />
+        </div>`;
+
+    if (!isPdf) {
+      const zoomImage = reqDocGetZoomImage();
+      if (zoomImage) {
+        zoomImage.addEventListener('wheel', function (event) {
+          if (!event.ctrlKey) return;
+          event.preventDefault();
+          const next = reqDocZoom + (event.deltaY < 0 ? REQ_DOC_ZOOM_STEP : -REQ_DOC_ZOOM_STEP);
+          reqDocZoom = reqDocClampZoom(next);
+          reqDocUpdateZoomUi();
+        }, { passive: false });
+      }
+    }
+
+    reqDocUpdateZoomUi();
     document.getElementById('req-doc-modal').classList.add('open');
   };
  
@@ -7181,10 +7277,23 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
-    const typeLabel = req.type === 'ANONYMOUS' ? '' : `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${req.type})</span>`;
+    const requestCategoryRaw = String(req.requestCategory ?? '').trim().toUpperCase();
+    const requesterTypeDisplay =
+      requestCategoryRaw === 'INPATIENT' || requestCategoryRaw === 'INHOUSE' ? 'INHOUSE'
+      : requestCategoryRaw === 'OUTPATIENT' || requestCategoryRaw === 'OPD' ? 'OPD'
+      : (req.requestCategory ? req.requestCategory : (req.type ?? ''));
+    const typeLabel = requesterTypeDisplay
+      ? `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${requesterTypeDisplay})</span>`
+      : '';
     const unitsMeta = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
       ? `${req.approvedUnits} ${req.status === 'NEEDS_CONFIRMATION' ? 'offered' : 'approved'} of ${req.requestedUnits} requested`
       : `${req.units} unit${req.units > 1 ? 's' : ''}`;
+    const docTransactionLabel = req.transactionNumber || req.referenceNumber || req.id || 'N/A';
+    const docDisplayLabel = `Doctor's Form - ${docTransactionLabel}`;
+    const safeDocUrl = String(req.docUrl ?? '').replace(/'/g, "\\'");
+    const safeDocDisplayLabel = docDisplayLabel
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'");
  
     if (isExp && ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status)) {
       setTimeout(() => reqFetchCompatibleBags(req), 0);
@@ -7233,7 +7342,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
                onmouseout="this.style.boxShadow=''">
             <div class="req-detail-box-title">Requester info (view)</div>
             <div class="req-detail-row"><span class="lbl">From</span><span class="val">${req.name}</span></div>
-            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${req.type[0] + req.type.slice(1).toLowerCase()}</span></div>
+            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${requesterTypeDisplay || '-'}</span></div>
             <div class="req-detail-row"><span class="lbl">Urgency</span><span class="val">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span></div>
             <div class="req-detail-row"><span class="lbl">Submitted</span><span class="val">${req.date}</span></div>
           </div>
@@ -7242,7 +7351,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         ${reqRenderApprovalSummary(req)}
 
         <div class="req-section-label">Supporting document</div>
-        <div class="req-doc-preview" onclick="reqViewDoc('${req.docUrl}','${req.docLabel}')">
+        <div class="req-doc-preview" onclick="reqViewDoc('${safeDocUrl}','${safeDocDisplayLabel}')">
           <div class="req-doc-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -7250,8 +7359,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
             </svg>
           </div>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${req.docLabel}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview . stored in Cloudinary</div>
+            <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${docDisplayLabel}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview</div>
           </div>
           <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View -></span>
         </div>
@@ -7352,6 +7461,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       else if (modalId === 'req-remarks-modal') reqCloseApproveWithRemarks();
       else if (modalId === 'req-confirm-modal') reqCloseConfirm();
       else if (modalId === 'req-bag-picker-modal') reqCloseBagPicker();
+      else if (modalId === 'req-doc-modal') reqCloseDocModal();
       else el.classList.remove('open');
     });
   });
@@ -8759,6 +8869,7 @@ function hospRender() {
             <td><span class="tag tag-active">Active</span></td>
             <td>
                 <div style="display:flex;gap:6px">
+                    <button class="btn-ghost" style="font-size:12px" onclick="openHospitalViewModal(${h.id})">View</button>
                     <button class="btn-ghost" style="font-size:12px" onclick="hospOpenEdit(${h.id})">Edit</button>
                     <button class="btn-danger" onclick="hospConfirmDelete(${h.id})">Delete</button>
                 </div>
@@ -8827,6 +8938,642 @@ function hospNextPage() {
         hospPage++;
         hospRender();
     }
+}
+
+const HOSPITAL_VIEW_STATUS_ORDER = [
+    'PENDING',
+    'NEEDS_CONFIRMATION',
+    'APPROVED',
+    'ALLOCATED',
+    'READY_FOR_RELEASE',
+    'RELEASED',
+];
+const HOSPITAL_VIEW_ACTIVE_STATUS = new Set([
+    'PENDING',
+    'NEEDS_CONFIRMATION',
+    'APPROVED',
+    'ALLOCATED',
+    'READY_FOR_RELEASE',
+]);
+const HOSPITAL_VIEW_STATUS_META = {
+    PENDING:            { label: 'Pending',            tagClass: 'tag-pending' },
+    NEEDS_CONFIRMATION: { label: 'Needs Confirmation', tagClass: 'tag-needs-confirmation' },
+    APPROVED:           { label: 'Approved',           tagClass: 'tag-approved' },
+    ALLOCATED:          { label: 'Allocated',          tagClass: 'tag-allocated' },
+    READY_FOR_RELEASE:  { label: 'Ready for Release',  tagClass: 'tag-ready' },
+    RELEASED:           { label: 'Released',           tagClass: 'tag-released' },
+    REJECTED:           { label: 'Rejected',           tagClass: 'tag-rejected' },
+    CANCELLED:          { label: 'Cancelled',          tagClass: 'tag-inactive' },
+};
+let hospitalViewCurrentId = null;
+let hospitalViewCurrentData = null;
+
+function hospitalViewSafeText(value, fallback = 'Not Available') {
+    if (value === null || value === undefined) return fallback;
+    const text = String(value).trim();
+    return text ? text : fallback;
+}
+
+function hospitalViewFormatDate(value) {
+    if (!value) return 'Not Available';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return hospitalViewSafeText(value);
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function hospitalViewFormatDateTime(value) {
+    if (!value) return 'Not Available';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return hospitalViewSafeText(value);
+    return parsed.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
+function hospitalViewBloodLabel(value) {
+    const map = {
+        O_NEG: 'O-',
+        O_POS: 'O+',
+        A_POS: 'A+',
+        A_NEG: 'A-',
+        B_POS: 'B+',
+        B_NEG: 'B-',
+        AB_POS: 'AB+',
+        AB_NEG: 'AB-',
+    };
+    const key = String(value || '').trim().toUpperCase();
+    return map[key] || hospitalViewSafeText(value, '-');
+}
+
+function hospitalViewComponentLabel(value) {
+    if (!value) return '-';
+    const key = String(value).trim().toUpperCase();
+    return componentLabel(key);
+}
+
+function hospitalViewNormalizeStatus(status) {
+    return String(status || '').trim().toUpperCase();
+}
+
+function hospitalViewStatusBadge(status) {
+    const normalized = hospitalViewNormalizeStatus(status);
+    const meta = HOSPITAL_VIEW_STATUS_META[normalized];
+    if (!meta) return `<span class="tag tag-inactive">${escHtml(hospitalViewSafeText(status, 'Unknown'))}</span>`;
+    return `<span class="tag ${meta.tagClass}">${escHtml(meta.label)}</span>`;
+}
+
+function hospitalViewSetContainerHtml(containerId, html) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = html;
+}
+
+function hospitalViewSetLoadingState(message = 'Loading hospital details...') {
+    const loading = `<div class="hospital-view-placeholder">${escHtml(message)}</div>`;
+    [
+        'hospital-view-info',
+        'hospital-view-contact',
+        'hospital-view-account',
+        'hospital-view-analytics',
+        'hospital-view-active',
+        'hospital-view-components',
+        'hospital-view-activity',
+    ].forEach((id) => hospitalViewSetContainerHtml(id, loading));
+
+    hospitalViewSetContainerHtml(
+        'hospital-view-recent-body',
+        `<tr><td colspan="7" class="hospital-view-table-empty">${escHtml(message)}</td></tr>`
+    );
+}
+
+function hospitalViewFindById(id) {
+    return hospData.find((h) => String(h.id) === String(id)) || null;
+}
+
+function hospitalViewMatchesHospitalRequest(request, hospital) {
+    if (!request || !hospital) return false;
+
+    const reqHospitalIdRaw = request.hospitalId
+        ?? request.hospitalProfile?.id
+        ?? request.hospital?.id
+        ?? request.requestingHospital?.id;
+    const reqHospitalId = reqHospitalIdRaw !== undefined && reqHospitalIdRaw !== null
+        ? Number(reqHospitalIdRaw)
+        : null;
+    const targetId = Number(hospital.id);
+    if (reqHospitalId && targetId && reqHospitalId === targetId) return true;
+
+    const reqHospitalName = String(
+        request.hospitalName
+        ?? request.hospitalProfile?.hospitalName
+        ?? request.hospital?.hospitalName
+        ?? request.requestingHospital?.hospitalName
+        ?? request.requesterName
+        ?? ''
+    ).trim().toLowerCase();
+    const hospitalName = String(hospital.hospitalName || '').trim().toLowerCase();
+    if (reqHospitalName && hospitalName && reqHospitalName === hospitalName) return true;
+
+    const reqEmail = String(
+        request.hospitalContactEmail
+        ?? request.requesterEmail
+        ?? request.hospitalProfile?.user?.email
+        ?? ''
+    ).trim().toLowerCase();
+    const hospitalEmail = String(hospital.email || '').trim().toLowerCase();
+    if (reqEmail && hospitalEmail && reqEmail === hospitalEmail) return true;
+
+    return false;
+}
+
+function hospitalViewBuildFallbackActivity(requests) {
+    if (!Array.isArray(requests) || !requests.length) return [];
+
+    const sorted = [...requests].sort((a, b) => {
+        const aTs = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bTs = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bTs - aTs;
+    });
+
+    return sorted.slice(0, 8).map((item) => {
+        const status = hospitalViewNormalizeStatus(item.status);
+        const ref = item.referenceNumber || item.referenceNo || `Request #${item.id ?? '-'}`;
+        const eventText = status === 'RELEASED'
+            ? `Blood released for ${ref}`
+            : status === 'REJECTED'
+                ? `Request rejected: ${ref}`
+                : status === 'CANCELLED'
+                    ? `Request cancelled: ${ref}`
+                    : `Request ${ref} is ${hospitalViewSafeText(HOSPITAL_VIEW_STATUS_META[status]?.label || status, 'updated')}`;
+        return {
+            message: eventText,
+            timestamp: item.updatedAt || item.createdAt || null,
+        };
+    });
+}
+
+function hospitalViewNormalizeData(raw, hospital, fallbackRequests = []) {
+    const response = raw && typeof raw === 'object' ? raw : {};
+    const scopedHospital = response.hospital || hospital || {};
+    const requestList = Array.isArray(response.requests)
+        ? response.requests
+        : Array.isArray(response.recentRequests)
+            ? response.recentRequests
+        : Array.isArray(fallbackRequests) ? fallbackRequests : [];
+
+    const activeFromResponse = Array.isArray(response.activeRequests)
+        ? response.activeRequests
+        : requestList.filter((req) => HOSPITAL_VIEW_ACTIVE_STATUS.has(hospitalViewNormalizeStatus(req.status)));
+
+    const analyticsRaw = response.analytics && typeof response.analytics === 'object'
+        ? response.analytics
+        : {};
+    const statusCounts = {
+        PENDING: Number(analyticsRaw.pending ?? 0),
+        NEEDS_CONFIRMATION: Number(analyticsRaw.needsConfirmation ?? analyticsRaw.needs_confirm ?? 0),
+        APPROVED: Number(analyticsRaw.approved ?? 0),
+        ALLOCATED: Number(analyticsRaw.allocated ?? 0),
+        READY_FOR_RELEASE: Number(analyticsRaw.readyForRelease ?? analyticsRaw.ready_for_release ?? 0),
+        RELEASED: Number(analyticsRaw.released ?? 0),
+        REJECTED: Number(analyticsRaw.rejected ?? 0),
+        CANCELLED: Number(analyticsRaw.cancelled ?? 0),
+    };
+    const totalFromStatus = Object.values(statusCounts).reduce((sum, count) => sum + (Number.isFinite(count) ? count : 0), 0);
+    const computedTotal = Number(analyticsRaw.totalRequests ?? analyticsRaw.total ?? 0)
+        || totalFromStatus
+        || Number(scopedHospital.requestCount || 0);
+
+    const componentStats = Array.isArray(response.componentStats)
+        ? response.componentStats
+        : response.componentStats && typeof response.componentStats === 'object'
+            ? Object.entries(response.componentStats).map(([component, count]) => ({ component, count: Number(count) || 0 }))
+            : null;
+    const activityLogs = Array.isArray(response.activityLogs) ? response.activityLogs : null;
+
+    const recentRequests = Array.isArray(response.recentRequests)
+        ? response.recentRequests
+        : [...requestList]
+            .sort((a, b) => {
+                const aTs = new Date(a.createdAt || a.updatedAt || 0).getTime();
+                const bTs = new Date(b.createdAt || b.updatedAt || 0).getTime();
+                return bTs - aTs;
+            });
+
+    return {
+        hospital: scopedHospital,
+        account: response.account || response.hospitalAccount || null,
+        requests: requestList,
+        recentRequests,
+        activeRequests: activeFromResponse,
+        analytics: {
+            totalRequests: computedTotal,
+            ...statusCounts,
+        },
+        componentStats: componentStats,
+        activityLogs: activityLogs,
+    };
+}
+
+function hospitalViewComputeAnalyticsFromRequests(requests) {
+    const counts = {
+        totalRequests: Array.isArray(requests) ? requests.length : 0,
+        PENDING: 0,
+        NEEDS_CONFIRMATION: 0,
+        APPROVED: 0,
+        ALLOCATED: 0,
+        READY_FOR_RELEASE: 0,
+        RELEASED: 0,
+        REJECTED: 0,
+        CANCELLED: 0,
+    };
+    if (!Array.isArray(requests)) return counts;
+
+    requests.forEach((request) => {
+        const status = hospitalViewNormalizeStatus(request.status);
+        if (Object.prototype.hasOwnProperty.call(counts, status)) {
+            counts[status] += 1;
+        }
+    });
+    return counts;
+}
+
+function hospitalViewComputeComponentStats(requests) {
+    if (!Array.isArray(requests) || !requests.length) return [];
+    const tally = new Map();
+    requests.forEach((request) => {
+        const rawComponent = request.componentType || request.bloodComponent || request.component || '';
+        const key = String(rawComponent || '').trim().toUpperCase();
+        if (!key) return;
+        tally.set(key, (tally.get(key) || 0) + 1);
+    });
+    return [...tally.entries()]
+        .map(([component, count]) => ({ component, count }))
+        .sort((a, b) => b.count - a.count);
+}
+
+async function openHospitalViewModal(hospitalId) {
+    const hospital = hospitalViewFindById(hospitalId);
+    if (!hospital) {
+        showBloodPlusMessage('Hospital Not Found', 'The selected hospital record could not be loaded.', 'error');
+        return;
+    }
+
+    hospitalViewCurrentId = hospitalId;
+    hospitalViewCurrentData = null;
+
+    const titleEl = document.getElementById('hospital-view-title-name');
+    if (titleEl) titleEl.textContent = hospital.hospitalName || 'Hospital Details';
+    hospitalViewSetLoadingState('Loading hospital details...');
+    openModal('viewHospitalModal');
+    await loadHospitalDetails(hospitalId);
+}
+
+function closeHospitalViewModal() {
+    closeModal('viewHospitalModal');
+}
+
+function hospitalViewOpenAllRequests() {
+    closeHospitalViewModal();
+    const nav = document.getElementById('nav-bloodrequests');
+    showPanel('bloodrequests', nav || null);
+    if (typeof window.reqFetchAll === 'function') {
+        window.reqFetchAll();
+    }
+}
+
+function hospitalViewOpenCreateRequest() {
+    showBloodPlusMessage(
+        'Create Request',
+        'Use the public Blood Request Portal to create a new hospital request.',
+        'info'
+    );
+}
+
+function hospitalViewOpenEdit() {
+    if (!hospitalViewCurrentId) return;
+    closeHospitalViewModal();
+    hospOpenEdit(hospitalViewCurrentId);
+}
+
+function hospitalViewPrepareDeactivate() {
+    if (!hospitalViewCurrentId) return;
+    closeHospitalViewModal();
+    hospOpenEdit(hospitalViewCurrentId);
+    const statusEl = document.getElementById('hosp-edit-status');
+    if (statusEl) statusEl.value = 'inactive';
+    showBloodPlusMessage(
+        'Set Hospital Inactive',
+        'Review the hospital account, then save changes to apply the Inactive status.',
+        'warning'
+    );
+}
+
+async function loadHospitalDetails(hospitalId) {
+    const hospital = hospitalViewFindById(hospitalId);
+    if (!hospital) return;
+
+    let normalized = null;
+    try {
+        const detailRes = await fetch(`${HOSPITAL_API}/${hospitalId}/details`, {
+            headers: { Accept: 'application/json' },
+            credentials: 'include',
+        });
+        if (!detailRes.ok) {
+            throw new Error(`Hospital details endpoint returned ${detailRes.status}`);
+        }
+        const detailData = await detailRes.json();
+        normalized = hospitalViewNormalizeData(detailData, hospital);
+    } catch (error) {
+        try {
+            const reqRes = await fetch('/api/admin/blood-requests', {
+                headers: { Accept: 'application/json' },
+                credentials: 'include',
+            });
+            if (!reqRes.ok) throw new Error(`Blood requests endpoint returned ${reqRes.status}`);
+            const requestPayload = await reqRes.json();
+            const requestList = Array.isArray(requestPayload)
+                ? requestPayload
+                : Array.isArray(requestPayload?.content)
+                    ? requestPayload.content
+                    : Array.isArray(requestPayload?.data)
+                        ? requestPayload.data
+                        : [];
+            const scopedRequests = requestList.filter((request) => hospitalViewMatchesHospitalRequest(request, hospital));
+            normalized = hospitalViewNormalizeData({}, hospital, scopedRequests);
+            normalized.analytics = hospitalViewComputeAnalyticsFromRequests(scopedRequests);
+            normalized.componentStats = hospitalViewComputeComponentStats(scopedRequests);
+            normalized.activityLogs = hospitalViewBuildFallbackActivity(scopedRequests);
+        } catch (fallbackError) {
+            console.error('[Hospital View] Fallback load failed:', fallbackError);
+            normalized = hospitalViewNormalizeData({}, hospital, []);
+            normalized.analytics = hospitalViewComputeAnalyticsFromRequests([]);
+            normalized.componentStats = [];
+            normalized.activityLogs = [];
+        }
+        console.warn('[Hospital View] Detail API unavailable, fallback used.', error);
+    }
+
+    hospitalViewCurrentData = normalized;
+    renderHospitalInfo(normalized);
+    renderHospitalAnalytics(normalized);
+    renderRecentRequests(normalized);
+    renderActiveRequests(normalized);
+    renderComponentStats(normalized);
+    renderHospitalActivity(normalized);
+}
+
+function renderHospitalInfo(data) {
+    const hospital = data?.hospital || {};
+    const account = data?.account || {};
+    const status = hospital.status || account.status || 'active';
+    const statusTag = String(status).toLowerCase() === 'inactive'
+        ? `<span class="tag tag-inactive">Inactive</span>`
+        : `<span class="tag tag-active">Active</span>`;
+
+    const city = hospitalViewSafeText(hospital.city, '');
+    const province = hospitalViewSafeText(hospital.province, '');
+    const locationText = [city, province].filter(Boolean).join(', ') || 'Not Available';
+
+    hospitalViewSetContainerHtml('hospital-view-info', `
+        <div class="hospital-view-kv-grid">
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Name</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.hospitalName))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Location</div>
+                <div class="hospital-view-kv-value">${escHtml(locationText)}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Full Address</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.address))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Date Registered</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewFormatDate(hospital.createdAt || account.createdAt))}</div>
+            </div>
+        </div>
+    `);
+
+    hospitalViewSetContainerHtml('hospital-view-contact', `
+        <div class="hospital-view-kv-grid">
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Email</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.email || account.email))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Phone Number</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.phoneNumber))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Contact Person Name</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.contactPersonName))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Contact Person Phone</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.contactPersonPhone))}</div>
+            </div>
+        </div>
+    `);
+
+    hospitalViewSetContainerHtml('hospital-view-account', `
+        <div class="hospital-view-kv-grid">
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Account ID</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(account.id || hospital.id, '-'))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Login Email</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(account.email || hospital.email))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Account Status</div>
+                <div class="hospital-view-kv-value">${statusTag}</div>
+            </div>
+        </div>
+    `);
+}
+
+function renderHospitalAnalytics(data) {
+    const analytics = data?.analytics || {};
+    const cards = [
+        ['Total Requests', analytics.totalRequests, 'neutral'],
+        ['Pending', analytics.PENDING, 'PENDING'],
+        ['Needs Confirmation', analytics.NEEDS_CONFIRMATION, 'NEEDS_CONFIRMATION'],
+        ['Approved', analytics.APPROVED, 'APPROVED'],
+        ['Allocated', analytics.ALLOCATED, 'ALLOCATED'],
+        ['Ready for Release', analytics.READY_FOR_RELEASE, 'READY_FOR_RELEASE'],
+        ['Released', analytics.RELEASED, 'RELEASED'],
+        ['Rejected', analytics.REJECTED, 'REJECTED'],
+        ['Cancelled', analytics.CANCELLED, 'CANCELLED'],
+    ];
+
+    hospitalViewSetContainerHtml('hospital-view-analytics', `
+        <div class="hospital-view-stats-grid">
+            ${cards.map(([label, count, status]) => {
+                const cssStatus = status === 'neutral' ? 'neutral' : status.toLowerCase();
+                return `
+                    <div class="hospital-view-stat-card ${cssStatus}">
+                        <div class="hospital-view-stat-label">${escHtml(label)}</div>
+                        <div class="hospital-view-stat-value">${Number.isFinite(Number(count)) ? Number(count) : 0}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `);
+}
+
+function renderRecentRequests(data) {
+    const list = Array.isArray(data?.requests) && data.requests.length
+        ? data.requests
+        : Array.isArray(data?.recentRequests) ? data.recentRequests : [];
+    const sorted = [...list].sort((a, b) => {
+        const aTs = new Date(a.createdAt || a.updatedAt || 0).getTime();
+        const bTs = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        return bTs - aTs;
+    });
+
+    if (!sorted.length) {
+        hospitalViewSetContainerHtml(
+            'hospital-view-recent-body',
+            '<tr><td colspan="7" class="hospital-view-table-empty">No blood requests found.</td></tr>'
+        );
+        return;
+    }
+
+    hospitalViewSetContainerHtml(
+        'hospital-view-recent-body',
+        sorted.map((request) => {
+            const ref = request.referenceNumber || request.referenceNo || `#${request.id ?? '-'}`;
+            const patient = request.patientName || request.name || request.requesterName || '-';
+            const blood = hospitalViewBloodLabel(request.bloodType || request.bloodTypeEnum);
+            const component = hospitalViewComponentLabel(request.componentType || request.bloodComponent || request.component);
+            const units = request.unitsRequested ?? request.numberOfUnits ?? request.units ?? '-';
+            const date = hospitalViewFormatDate(request.createdAt || request.updatedAt);
+            return `
+                <tr>
+                    <td>${escHtml(hospitalViewSafeText(ref, '-'))}</td>
+                    <td>${escHtml(hospitalViewSafeText(patient, '-'))}</td>
+                    <td>${escHtml(hospitalViewSafeText(blood, '-'))}</td>
+                    <td>${escHtml(hospitalViewSafeText(component, '-'))}</td>
+                    <td>${escHtml(String(units))}</td>
+                    <td>${hospitalViewStatusBadge(request.status)}</td>
+                    <td>${escHtml(date)}</td>
+                </tr>
+            `;
+        }).join('')
+    );
+}
+
+function renderActiveRequests(data) {
+    const list = Array.isArray(data?.activeRequests) ? data.activeRequests : [];
+    const filtered = list.filter((request) => HOSPITAL_VIEW_ACTIVE_STATUS.has(hospitalViewNormalizeStatus(request.status)));
+
+    if (!filtered.length) {
+        hospitalViewSetContainerHtml('hospital-view-active', '<div class="hospital-view-placeholder">No active requests.</div>');
+        return;
+    }
+
+    hospitalViewSetContainerHtml('hospital-view-active', `
+        <div class="hospital-view-active-list">
+            ${filtered.map((request) => {
+                const ref = request.referenceNumber || request.referenceNo || `#${request.id ?? '-'}`;
+                const patient = request.patientName || request.name || request.requesterName || '-';
+                const component = hospitalViewComponentLabel(request.componentType || request.bloodComponent || request.component);
+                return `
+                    <div class="hospital-view-active-item">
+                        <div class="hospital-view-active-meta">
+                            <div class="hospital-view-active-ref">${escHtml(hospitalViewSafeText(ref, '-'))}</div>
+                            <div class="hospital-view-active-sub">${escHtml(hospitalViewSafeText(patient, '-'))} · ${escHtml(hospitalViewSafeText(component, '-'))}</div>
+                        </div>
+                        <div>${hospitalViewStatusBadge(request.status)}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `);
+}
+
+function renderComponentStats(data) {
+    const rawStats = Array.isArray(data?.componentStats) ? data.componentStats : hospitalViewComputeComponentStats(data?.requests || []);
+    const allComponents = Object.entries(COMPONENT_LABELS).map(([component, label]) => ({ component, label }));
+    const statMap = new Map();
+    rawStats.forEach((item) => {
+        const key = String(item.component || item.componentType || item.name || '').trim().toUpperCase();
+        if (!key) return;
+        statMap.set(key, Number(item.count || item.requests || 0) || 0);
+    });
+    const merged = allComponents.map((entry) => ({
+        component: entry.component,
+        label: entry.label,
+        count: statMap.get(entry.component) || 0,
+    }));
+    const extras = [...statMap.keys()]
+        .filter((key) => !COMPONENT_LABELS[key])
+        .map((key) => ({
+            component: key,
+            label: hospitalViewComponentLabel(key),
+            count: statMap.get(key) || 0,
+        }));
+    const stats = [...merged, ...extras];
+    const total = stats.reduce((sum, item) => sum + Number(item.count || 0), 0) || 1;
+
+    hospitalViewSetContainerHtml('hospital-view-components', `
+        <div class="hospital-view-component-list">
+            ${stats.map((item) => {
+                const count = Number(item.count || 0);
+                const label = item.label || hospitalViewComponentLabel(item.component || '-');
+                const pct = Math.max(2, Math.round((count / total) * 100));
+                return `
+                    <div class="hospital-view-component-item">
+                        <div class="hospital-view-component-row ${count <= 0 ? 'no-data' : ''}">
+                            <span>${escHtml(hospitalViewSafeText(label, '-'))}</span>
+                            ${count > 0 ? `<strong>${count}</strong>` : ''}
+                        </div>
+                        ${count > 0 ? `
+                            <div class="hospital-view-component-bar">
+                                <span style="width:${pct}%"></span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `);
+}
+
+function renderHospitalActivity(data) {
+    const list = Array.isArray(data?.activityLogs) && data.activityLogs.length
+        ? data.activityLogs
+        : hospitalViewBuildFallbackActivity(data?.requests || []);
+
+    if (!list.length) {
+        hospitalViewSetContainerHtml('hospital-view-activity', '<div class="hospital-view-placeholder">No recent activity found.</div>');
+        return;
+    }
+
+    const timeline = list.slice(0, 8).map((item) => {
+        const when = item.timestamp || item.createdAt || item.updatedAt || item.occurredAt;
+        const text = item.message || item.description || item.activity || item.event || 'Activity update';
+        const dateText = when ? hospitalViewFormatDate(when) : '';
+        return `
+            <div class="hospital-view-timeline-item">
+                <div class="hospital-view-timeline-dot"></div>
+                <div class="hospital-view-timeline-content">
+                    ${dateText && dateText !== 'Not Available'
+                        ? `<div class="hospital-view-timeline-date">${escHtml(dateText)}</div>`
+                        : ''}
+                    <div class="hospital-view-timeline-text">${escHtml(hospitalViewSafeText(text, 'Activity update'))}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    hospitalViewSetContainerHtml('hospital-view-activity', `<div class="hospital-view-timeline">${timeline}</div>`);
 }
 
 function setHospitalFieldError(inputId, message) {
