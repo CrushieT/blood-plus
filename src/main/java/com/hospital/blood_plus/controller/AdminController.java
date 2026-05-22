@@ -44,6 +44,7 @@ import com.hospital.blood_plus.service.StaffService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -262,20 +263,28 @@ public class AdminController {
 
             BloodBagRequest req = bloodBagRequestService.approveRequestWithRemarks(id, dto, user);
 
-            return ResponseEntity.ok(Map.of(
-                    "message", "Confirmation email sent to requester.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus(),
-                    "approvedUnits", req.getApprovedUnits(),
-                    "approvalRemarks", req.getApprovalRemarks(),
-                    "alternativeComponentSuggestion", req.getAlternativeComponentSuggestion(),
-                    "confirmationEmailSentAt", req.getConfirmationEmailSentAt(),
-                    "requesterEmail", req.getRequesterEmail()
-            ));
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("message", "Confirmation email sent to requester.");
+            response.put("referenceNumber", req.getReferenceNumber());
+            response.put("status", req.getStatus());
+            response.put("approvedUnits", req.getApprovedUnits());
+            response.put("approvalRemarks", req.getApprovalRemarks());
+            response.put("confirmationEmailSentAt", req.getConfirmationEmailSentAt());
+            response.put("requesterEmail", req.getRequesterEmail());
+
+            return ResponseEntity.ok(response);
         } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("error", (e.getMessage() == null || e.getMessage().isBlank())
+                    ? "Unable to approve request with remarks."
+                    : e.getMessage());
+            return ResponseEntity.badRequest().body(error);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            Map<String, Object> error = new LinkedHashMap<>();
+            error.put("error", (e.getMessage() == null || e.getMessage().isBlank())
+                    ? "Unable to approve request with remarks."
+                    : e.getMessage());
+            return ResponseEntity.badRequest().body(error);
         }
     }
 
