@@ -873,11 +873,11 @@ function renderBagsPage() {
       actions += `
         <button class="btn-warning" style="font-size:11px;padding:5px 10px"
           onclick="openDiscardModal(${bag.id}, '${bag.serialNumber}')">Discard</button>`;
-      if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
-        actions += `
-          <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
-            onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
-      }
+      // if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
+      //   actions += `
+      //     <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
+      //       onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
+      // }
     }
 
     const rowStyle = bag.computedStatus === 'EXPIRING' || bag.openSystem
@@ -989,13 +989,7 @@ function openBagDetail(id) {
 
   const actionsEl = document.getElementById('bagd-actions');
   if (cs === 'AVAILABLE' || cs === 'EXPIRING') {
-    const convertBtn = bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem
-      ? `<button class="btn-secondary" style="flex:1;justify-content:center;padding:11px"
-           onclick="closeModal('bagDetailModal');confirmOpenSystem(${bag.id},'${bag.serialNumber}')">
-           ? Convert to PRBC</button>`
-      : '';
     actionsEl.innerHTML = `
-      ${convertBtn}
       <button class="btn-warning" style="flex:1;justify-content:center;padding:11px"
         onclick="closeModal('bagDetailModal');openDiscardModal(${bag.id},'${bag.serialNumber}')">
         Discard Bag
@@ -6064,7 +6058,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       requesterStaffPhone: r.requesterStaffPhone ?? null,
       confirmationEmailSentAt: r.confirmationEmailSentAt ?? null,
       approvalRemarks: r.approvalRemarks ?? null,
-      alternativeComponentSuggestion: r.alternativeComponentSuggestion ?? null,
       patientAcceptedRemarks: r.patientAcceptedRemarks ?? null,
       patientRespondedAt: r.patientRespondedAt ?? null,
       notes:          r.notes            ?? null,
@@ -6605,7 +6598,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     document.getElementById('req-remarks-email').textContent = req.requesterEmail || 'No requester email on file';
     document.getElementById('req-approved-units').value = req.requestedUnits ?? req.units ?? '';
     document.getElementById('req-approval-remarks').value = '';
-    document.getElementById('req-alternative-component').value = '';
     document.getElementById('req-remarks-modal').classList.add('open');
   };
 
@@ -6624,7 +6616,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
     const approvedUnits = Number(document.getElementById('req-approved-units').value);
     const approvalRemarks = document.getElementById('req-approval-remarks').value.trim();
-    const alternativeComponentSuggestion = document.getElementById('req-alternative-component').value.trim();
 
     if (!Number.isInteger(approvedUnits) || approvedUnits <= 0) {
       alert('Approved units must be greater than 0.');
@@ -6644,7 +6635,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       units: req.units,
       approvedUnits: req.approvedUnits,
       approvalRemarks: req.approvalRemarks,
-      alternativeComponentSuggestion: req.alternativeComponentSuggestion,
       patientAcceptedRemarks: req.patientAcceptedRemarks,
       confirmationEmailSentAt: req.confirmationEmailSentAt
     };
@@ -6653,7 +6643,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     req.units = approvedUnits;
     req.approvedUnits = approvedUnits;
     req.approvalRemarks = approvalRemarks;
-    req.alternativeComponentSuggestion = alternativeComponentSuggestion || null;
     req.patientAcceptedRemarks = null;
     req.confirmationEmailSentAt = new Date().toISOString();
     reqExpanded[req.id] = true;
@@ -6666,8 +6655,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approvedUnits,
-          approvalRemarks,
-          alternativeComponentSuggestion: alternativeComponentSuggestion || null
+          approvalRemarks
         }),
       });
       if (!res.ok) {
@@ -6688,7 +6676,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       req.units = prevState.units;
       req.approvedUnits = prevState.approvedUnits;
       req.approvalRemarks = prevState.approvalRemarks;
-      req.alternativeComponentSuggestion = prevState.alternativeComponentSuggestion;
       req.patientAcceptedRemarks = prevState.patientAcceptedRemarks;
       req.confirmationEmailSentAt = prevState.confirmationEmailSentAt;
       reqRender();
@@ -6703,7 +6690,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       feedback.textContent = '';
     }
 
-    ['req-approved-units', 'req-approval-remarks', 'req-alternative-component'].forEach(id => {
+    ['req-approved-units', 'req-approval-remarks'].forEach(id => {
       const field = document.getElementById(id);
       if (field) field.classList.remove('is-invalid');
     });
@@ -6746,7 +6733,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     document.getElementById('req-remarks-email').textContent = req.requesterEmail || 'No requester email on file';
     document.getElementById('req-approved-units').value = req.requestedUnits ?? req.units ?? '';
     document.getElementById('req-approval-remarks').value = '';
-    document.getElementById('req-alternative-component').value = '';
 
     const submitBtn = document.getElementById('req-remarks-submit-btn');
     const hasRequesterEmail = !!(req.requesterEmail && req.requesterEmail.trim());
@@ -6778,7 +6764,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
     const approvedUnits = Number(document.getElementById('req-approved-units').value);
     const approvalRemarks = document.getElementById('req-approval-remarks').value.trim();
-    const alternativeComponentSuggestion = document.getElementById('req-alternative-component').value.trim();
     const requestedUnits = req.requestedUnits ?? req.units ?? 0;
 
     if (!Number.isInteger(approvedUnits) || approvedUnits <= 0) {
@@ -6802,8 +6787,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approvedUnits,
-          approvalRemarks,
-          alternativeComponentSuggestion: alternativeComponentSuggestion || null
+          approvalRemarks
         }),
       });
       if (!res.ok) {
@@ -6816,7 +6800,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       req.units = data.approvedUnits ?? approvedUnits;
       req.approvedUnits = data.approvedUnits ?? approvedUnits;
       req.approvalRemarks = data.approvalRemarks ?? approvalRemarks;
-      req.alternativeComponentSuggestion = data.alternativeComponentSuggestion ?? (alternativeComponentSuggestion || null);
       req.patientAcceptedRemarks = null;
       req.confirmationEmailSentAt = data.confirmationEmailSentAt ?? new Date().toISOString();
       reqExpanded[req.id] = true;
@@ -7212,7 +7195,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     if (['REJECTED', 'CANCELLED'].includes(req.status)) return '';
     const next = REQ_NEXT[req.status];
     const availability = reqGetAvailabilitySnapshot(req);
-    const canReject = ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status);
+    const canReject = ['PENDING', 'NEEDS_CONFIRMATION'].includes(req.status);
     const canCancel = ['APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE'].includes(req.status);
     const approveChecking = req.status === 'PENDING' && !availability.known;
     const approveDisabled = req.status === 'PENDING' && availability.known && !availability.enough;
@@ -7244,30 +7227,20 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   }
 
   function reqRenderApprovalSummary(req) {
-    if (!req.approvedUnits && !req.approvalRemarks && !req.alternativeComponentSuggestion) return '';
+    if (!req.approvedUnits && !req.approvalRemarks) return '';
 
     const requestedVsApproved = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
       ? `<div class="req-detail-row"><span class="lbl">Requested units</span><span class="val">${req.requestedUnits}</span></div>
          <div class="req-detail-row"><span class="lbl">Approved units</span><span class="val">${req.approvedUnits}</span></div>`
       : `<div class="req-detail-row"><span class="lbl">Approved units</span><span class="val">${req.approvedUnits ?? req.requestedUnits}</span></div>`;
 
-    const responseLabel = req.patientAcceptedRemarks === true
-      ? 'Requester accepted via email'
-      : req.patientAcceptedRemarks === false
-        ? 'Requester rejected via email'
-        : 'Awaiting requester reply';
-
     return `
       <div class="req-detail-box" style="margin-bottom:12px;border-left:3px solid #F4A259">
         <div class="req-detail-box-title" style="color:#9A5B13">Approval summary</div>
         ${requestedVsApproved}
         <div class="req-detail-row"><span class="lbl">Remarks</span><span class="val">${req.approvalRemarks ?? '-'}</span></div>
-        ${req.alternativeComponentSuggestion
-          ? `<div class="req-detail-row"><span class="lbl">Alternative component</span><span class="val">${req.alternativeComponentSuggestion}</span></div>`
-          : ''}
         <div class="req-detail-row"><span class="lbl">Requester email</span><span class="val">${req.requesterEmail ?? '-'}</span></div>
         <div class="req-detail-row"><span class="lbl">Email sent at</span><span class="val">${req.confirmationEmailSentAt ? formatDateTime(req.confirmationEmailSentAt) : '-'}</span></div>
-        <div class="req-detail-row"><span class="lbl">Confirmation status</span><span class="val">${responseLabel}</span></div>
         ${req.patientRespondedAt
           ? `<div class="req-detail-row"><span class="lbl">Requester responded at</span><span class="val">${formatDateTime(req.patientRespondedAt)}</span></div>`
           : ''}
