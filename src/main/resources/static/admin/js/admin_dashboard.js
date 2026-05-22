@@ -4397,7 +4397,7 @@ const AnalyticsDashboard = {
             <span>${this.escapeHtml(hospital.name || 'Unknown Hospital')}</span>
             <span>${rate}%</span>
           </div>
-          <div class="an-row-sub">${fulfilled} / ${requests} fulfilled requests</div>
+          <div class="an-row-sub">${fulfilled} / ${requests} Served requests</div>
           <div class="an-mini-bar"><div data-fill-target="${rate.toFixed(2)}"></div></div>
         </div>`;
     }).join('');
@@ -6082,6 +6082,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       hadPreviousReaction: r.hadPreviousReaction ?? false,
       previousReactionDate: r.previousReactionDate ?? null,
       previousReactionDetails: r.previousReactionDetails ?? null,
+      transactionNumber: r.transactionNumber ?? null,
       docUrl,
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
@@ -7287,6 +7288,12 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     const unitsMeta = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
       ? `${req.approvedUnits} ${req.status === 'NEEDS_CONFIRMATION' ? 'offered' : 'approved'} of ${req.requestedUnits} requested`
       : `${req.units} unit${req.units > 1 ? 's' : ''}`;
+    const docTransactionLabel = req.transactionNumber || req.referenceNumber || req.id || 'N/A';
+    const docDisplayLabel = `Doctor's Form - ${docTransactionLabel}`;
+    const safeDocUrl = String(req.docUrl ?? '').replace(/'/g, "\\'");
+    const safeDocDisplayLabel = docDisplayLabel
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'");
  
     if (isExp && ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status)) {
       setTimeout(() => reqFetchCompatibleBags(req), 0);
@@ -7344,7 +7351,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         ${reqRenderApprovalSummary(req)}
 
         <div class="req-section-label">Supporting document</div>
-        <div class="req-doc-preview" onclick="reqViewDoc('${req.docUrl}','${req.docLabel}')">
+        <div class="req-doc-preview" onclick="reqViewDoc('${safeDocUrl}','${safeDocDisplayLabel}')">
           <div class="req-doc-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -7352,8 +7359,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
             </svg>
           </div>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${req.docLabel}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview . stored in Cloudinary</div>
+            <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${docDisplayLabel}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview</div>
           </div>
           <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View -></span>
         </div>
