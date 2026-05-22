@@ -1108,6 +1108,13 @@ const ADD_STOCK_EXPIRY_DAYS = {
 };
 const ADD_STOCK_SCAN_MAX_ROWS = 10;
 const ADD_STOCK_OCR_LOW_CONFIDENCE = 60;
+const ADD_STOCK_SERIAL_MAX_LENGTH = 10;
+const ADD_STOCK_VOLUME_MAX_LENGTH = 4;
+const ADD_STOCK_REMARKS_MAX_LENGTH = 50;
+const ADD_STOCK_SERIAL_ERROR_MESSAGE = '';
+const ADD_STOCK_VOLUME_ERROR_MESSAGE = '';
+const ADD_STOCK_REMARKS_ERROR_MESSAGE = 'Remarks must not exceed 50 characters.';
+const ADD_STOCK_REMARKS_ALLOWED_REGEX = /^[A-Za-z0-9.,\-\s]*$/;
 const TRACER_OCR_ROTATIONS = [0, -90, 90];
 const TRACER_OCR_CROP_PRESETS = [
   { id: 'table-primary', x: 0.08, y: 0.24, w: 0.74, h: 0.64, priority: 6 },
@@ -1188,17 +1195,18 @@ const TRACER_REVIEW_BLOOD_GROUP_OPTIONS = [
 ];
 const TRACER_REVIEW_COMPONENT_OPTIONS = [
   { value: '', label: '-' },
-  { value: 'WHOLE_BLOOD', label: 'Whole Blood' },
+  { value: 'WHOLE_BLOOD', label: 'WB' },
   { value: 'PRBC', label: 'PRBC' },
-  { value: 'LEUKOREDUCED_PRBC', label: 'Leukoreduced PRBC' },
-  { value: 'ALIQUOTED_PRBC', label: 'Aliquoted PRBC' },
-  { value: 'FRESH_FROZEN_PLASMA', label: 'Fresh Frozen Plasma' },
-  { value: 'PLATELET_CONCENTRATE', label: 'Platelet Concentrate' },
-  { value: 'CRYOPRECIPITATE', label: 'Cryoprecipitate' },
-  { value: 'CRYOSUPERNATANT', label: 'Cryosupernatant' },
+  { value: 'LEUKOREDUCED_PRBC', label: 'L-PRBC' },
+  { value: 'ALIQUOTED_PRBC', label: 'A-PRBC' },
+  { value: 'FRESH_FROZEN_PLASMA', label: 'FFP' },
+  { value: 'PLATELET_CONCENTRATE', label: 'PC' },
+  { value: 'CRYOPRECIPITATE', label: 'CRYO' },
+  { value: 'CRYOSUPERNATANT', label: 'CRYOSUP' },
 ];
 
 let addStockScanBound = false;
+let addStockValidationBound = false;
 let addStockScanPreviewUrl = null;
 let pendingTracerReviewRows = [];
 let pendingTracerScanMeta = null;
@@ -1312,7 +1320,8 @@ async function processTracerScanFile(file, sourceName = 'upload') {
     }
 
     logTracerScanResult(scanResult, file, sourceName);
-    const rows = Array.isArray(scanResult?.entries) ? scanResult.entries : [];
+    const rows = sanitizeOCRImportedRows(Array.isArray(scanResult?.entries) ? scanResult.entries : []);
+    scanResult.entries = rows;
 
     if (!rows.length) {
       setTracerScanStatus('No valid blood bag rows detected.', 'warning');
@@ -1417,7 +1426,8 @@ function openTracerOcrReviewModal(rows, scanResult, sourceName) {
   }
   if (importBtn) importBtn.disabled = false;
   if (txnInput) {
-    txnInput.value = String(scanResult?.transactionNumber || document.getElementById('add-transaction-number')?.value || '').trim();
+    const rawTxn = String(scanResult?.transactionNumber || document.getElementById('add-transaction-number')?.value || '').trim();
+    txnInput.value = rawTxn.replace(/\D/g, '').slice(0, 10);
   }
 
   const overLimit = rows.length > ADD_STOCK_SCAN_MAX_ROWS;
@@ -1472,7 +1482,7 @@ function openTracerOcrReviewModal(rows, scanResult, sourceName) {
           </select>
         </td>
         <td>
-          <input type="text" class="tracer-ocr-edit tracer-ocr-edit-serial" data-row-index="${index}" value="${escapeHtml(row.serialNumber || '')}" placeholder="V123456">
+          <input type="text" class="tracer-ocr-edit tracer-ocr-edit-serial" data-row-index="${index}" value="${escapeHtml(row.serialNumber || '')}" placeholder="e.g. V457679" maxlength="10" oninput="enforceSerialNumberFormat(this)">
         </td>
         <td>
           <input type="date" class="tracer-ocr-edit tracer-ocr-edit-collected" data-row-index="${index}" value="${escapeHtml(row.collectedAt || '')}">
@@ -1671,7 +1681,11 @@ function confirmTracerOcrImport() {
   }
 
   const transactionInput = document.getElementById('tracer-ocr-transaction-number');
-  const transactionNumber = String(transactionInput?.value || '').trim();
+  const transactionNumber = String(transactionInput?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
+    .trim();
+  if (transactionInput) transactionInput.value = transactionNumber;
   if (!transactionNumber) {
     showBloodPlusMessage('Transaction Number Required', 'Transaction number is required.', 'warning');
     if (transactionInput) transactionInput.focus();
@@ -1736,11 +1750,21 @@ function confirmTracerOcrImport() {
 function collectTracerReviewRowsFromTable(baseRows) {
   const sourceRows = Array.isArray(baseRows) ? baseRows : [];
   const rows = sourceRows.map((row, index) => {
-    const bloodGroup = document.querySelector(`.tracer-ocr-edit-blood-group[data-row-index="${index}"]`)?.value || '';
-    const componentType = document.querySelector(`.tracer-ocr-edit-component[data-row-index="${index}"]`)?.value || '';
-    const serialNumber = (document.querySelector(`.tracer-ocr-edit-serial[data-row-index="${index}"]`)?.value || '').trim().toUpperCase();
-    const collectedAt = (document.querySelector(`.tracer-ocr-edit-collected[data-row-index="${index}"]`)?.value || '').trim();
-    const expiresAt = (document.querySelector(`.tracer-ocr-edit-expires[data-row-index="${index}"]`)?.value || '').trim();
+    const bloodGroup = sanitizeAddStockBloodGroup(
+      document.querySelector(`.tracer-ocr-edit-blood-group[data-row-index="${index}"]`)?.value || ''
+    );
+    const componentType = normalizeAddStockComponentValue(
+      document.querySelector(`.tracer-ocr-edit-component[data-row-index="${index}"]`)?.value || ''
+    );
+    const serialNumber = normalizeAddStockSerialValue(
+      document.querySelector(`.tracer-ocr-edit-serial[data-row-index="${index}"]`)?.value || ''
+    );
+    const collectedAt = parseDateCandidate(
+      document.querySelector(`.tracer-ocr-edit-collected[data-row-index="${index}"]`)?.value || ''
+    );
+    const expiresAt = parseDateCandidate(
+      document.querySelector(`.tracer-ocr-edit-expires[data-row-index="${index}"]`)?.value || ''
+    );
 
     return {
       ...row,
@@ -1764,7 +1788,9 @@ function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
   const reviewStates = buildTracerReviewStates(rowsToApply);
 
   const rowEls = [...document.querySelectorAll('#add-stock-rows tr')];
-  const defaultVolume = document.getElementById('add-volume-ml')?.value || '';
+  const defaultVolume = String(document.getElementById('add-volume-ml')?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
   let unknownCount = 0;
   let lowConfidenceCount = 0;
 
@@ -1785,13 +1811,21 @@ function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
     const volumeEl = row.querySelector('.add-stock-volume');
     const remarksEl = row.querySelector('.add-stock-remarks');
 
-    if (bloodGroupEl) bloodGroupEl.value = parsed.bloodGroup || '';
-    if (componentEl) componentEl.value = parsed.componentType || '';
-    if (serialEl) serialEl.value = parsed.serialNumber || '';
-    if (collectedEl) collectedEl.value = parsed.collectedAt || '';
-    if (expiresEl) expiresEl.value = parsed.expiresAt || '';
-    if (volumeEl && !volumeEl.value) volumeEl.value = defaultVolume;
-    if (remarksEl) remarksEl.value = '';
+    if (bloodGroupEl) bloodGroupEl.value = sanitizeAddStockBloodGroup(parsed.bloodGroup || '');
+    if (componentEl) componentEl.value = normalizeAddStockComponentValue(parsed.componentType || '', parsed.unknownComponentLabel || '');
+    if (serialEl) serialEl.value = normalizeAddStockSerialValue(parsed.serialNumber || '');
+    if (collectedEl) collectedEl.value = parseDateCandidate(parsed.collectedAt || '');
+    if (expiresEl) expiresEl.value = parseDateCandidate(parsed.expiresAt || '');
+    if (volumeEl) {
+      const sanitizedVolume = String(parsed.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+      volumeEl.value = sanitizedVolume || defaultVolume;
+    }
+    if (remarksEl) {
+      remarksEl.value = String(parsed.remarks || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+        .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+    }
 
     if (!parsed.componentType && parsed.unknownComponentLabel) {
       unknownCount += 1;
@@ -1800,6 +1834,7 @@ function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
       lowConfidenceCount += 1;
     }
 
+    validateAddStockRowInputs(row);
     refreshImportedRowReviewState(row);
   });
 
@@ -1824,7 +1859,7 @@ function evaluateTracerRow(row, context = {}) {
   const bloodGroupOk = !!row?.bloodGroup;
   const bloodGroupInferred = !!row?.bloodGroupInferred;
   const componentOk = !!row?.componentType;
-  const serialPatternOk = /^V\d{6}$/.test(String(row?.serialNumber || '').toUpperCase());
+  const serialPatternOk = isAddStockSerialValueValid(String(row?.serialNumber || '').toUpperCase());
   const serialOk = !!row?.serialNumber && serialPatternOk;
   const hasDate = !!(row?.collectedAt && row?.expiresAt);
   const lowConfidence = Number(row?.confidence || 0) < ADD_STOCK_OCR_LOW_CONFIDENCE;
@@ -1917,6 +1952,10 @@ function refreshImportedRowReviewState(row) {
   if (!data.bloodGroup) reasons.push('Missing blood group');
   if (!data.componentType) reasons.push('Unknown component detected');
   if (!data.serialNumber) reasons.push('Missing serial number');
+  if (data.serialNumber && !isAddStockSerialValueValid(data.serialNumber)) reasons.push('Invalid serial format');
+  if (!data.volumeMl) reasons.push('Missing volume');
+  if (data.volumeMl && !isAddStockVolumeValueValid(data.volumeMl)) reasons.push('Invalid volume');
+  if (data.remarks && !isAddStockRemarksValueValid(data.remarks)) reasons.push('Invalid remarks');
   if (!data.collectedAt && !data.expiresAt) reasons.push('Missing extraction/expiry date');
   if (row.dataset.lowConfidence === 'true') reasons.push('Low OCR confidence');
 
@@ -3009,8 +3048,290 @@ function updateAddExpiry() {
   }
 }
 
+function getAddStockErrorElement(inputEl, explicitId = '') {
+  if (explicitId) return document.getElementById(explicitId);
+  if (!inputEl) return null;
+  if (inputEl.dataset.errorId) return document.getElementById(inputEl.dataset.errorId);
+
+  if (inputEl.id) {
+    const staticError = document.getElementById(`${inputEl.id}-error`);
+    if (staticError) return staticError;
+  }
+
+  const group = inputEl.closest('.form-group-m');
+  if (!group) return null;
+  let dynamicError = group.querySelector('.form-inline-error');
+  if (!dynamicError) {
+    dynamicError = document.createElement('div');
+    dynamicError.className = 'form-inline-error';
+    group.appendChild(dynamicError);
+  }
+  return dynamicError;
+}
+
+function setAddStockFieldError(inputEl, message, explicitId = '') {
+  if (!inputEl) return false;
+  const errorEl = getAddStockErrorElement(inputEl, explicitId);
+  inputEl.classList.add('field-error');
+  inputEl.setAttribute('aria-invalid', 'true');
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.style.display = message ? 'block' : 'none';
+  }
+  return false;
+}
+
+function clearAddStockFieldError(inputEl, explicitId = '') {
+  if (!inputEl) return true;
+  const errorEl = getAddStockErrorElement(inputEl, explicitId);
+  inputEl.classList.remove('field-error');
+  inputEl.removeAttribute('aria-invalid');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  return true;
+}
+
+function enforceTransactionNumberFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceSerialNumberFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, ADD_STOCK_SERIAL_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceVolumeFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/\D/g, '')
+    .slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceRemarksLimit(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+    .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function isAddStockSerialValueValid(value) {
+  return /^[A-Z0-9]{1,10}$/.test(String(value || '').trim().toUpperCase());
+}
+
+function isAddStockVolumeValueValid(value) {
+  const str = String(value || '').trim();
+  if (!/^\d{1,4}$/.test(str)) return false;
+  const parsed = Number(str);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
+function isAddStockRemarksValueValid(value) {
+  const str = String(value || '');
+  return str.length <= ADD_STOCK_REMARKS_MAX_LENGTH && ADD_STOCK_REMARKS_ALLOWED_REGEX.test(str);
+}
+
+function validateSerialNumberField(inputEl, options = {}) {
+  const value = enforceSerialNumberFormat(inputEl);
+  const required = !!options.required;
+  const errorId = options.errorId || '';
+  if (!value) {
+    return required ? setAddStockFieldError(inputEl, ADD_STOCK_SERIAL_ERROR_MESSAGE, errorId) : clearAddStockFieldError(inputEl, errorId);
+  }
+  return isAddStockSerialValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_SERIAL_ERROR_MESSAGE, errorId);
+}
+
+function validateVolumeField(inputEl, options = {}) {
+  const value = enforceVolumeFormat(inputEl);
+  const required = !!options.required;
+  const errorId = options.errorId || '';
+  if (!value) {
+    return required ? setAddStockFieldError(inputEl, ADD_STOCK_VOLUME_ERROR_MESSAGE, errorId) : clearAddStockFieldError(inputEl, errorId);
+  }
+  return isAddStockVolumeValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_VOLUME_ERROR_MESSAGE, errorId);
+}
+
+function validateRemarksField(inputEl, options = {}) {
+  const value = enforceRemarksLimit(inputEl);
+  const errorId = options.errorId || '';
+  if (!value) return clearAddStockFieldError(inputEl, errorId);
+  return isAddStockRemarksValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_REMARKS_ERROR_MESSAGE, errorId);
+}
+
+function sanitizeAddStockBloodGroup(value) {
+  const source = String(value || '').toUpperCase().trim();
+  if (!source) return '';
+  const compact = source.replace(/[^A-Z0-9]/g, '');
+  const map = {
+    APOS: 'A_POS',
+    ANEG: 'A_NEG',
+    BPOS: 'B_POS',
+    BNEG: 'B_NEG',
+    ABPOS: 'AB_POS',
+    ABNEG: 'AB_NEG',
+    OPOS: 'O_POS',
+    ONEG: 'O_NEG',
+    'A_POS': 'A_POS',
+    'A_NEG': 'A_NEG',
+    'B_POS': 'B_POS',
+    'B_NEG': 'B_NEG',
+    'AB_POS': 'AB_POS',
+    'AB_NEG': 'AB_NEG',
+    'O_POS': 'O_POS',
+    'O_NEG': 'O_NEG',
+  };
+  return map[compact] || map[source] || '';
+}
+
+function normalizeAddStockComponentValue(value, fallbackText = '') {
+  const raw = String(value || '').trim();
+  if (!raw && !fallbackText) return '';
+  const normalized = String(raw || fallbackText).toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  const aliasMap = {
+    WB: 'WHOLE_BLOOD',
+    WHOLEBLOOD: 'WHOLE_BLOOD',
+    PRBC: 'PRBC',
+    LPRBC: 'LEUKOREDUCED_PRBC',
+    APRBC: 'ALIQUOTED_PRBC',
+    FFP: 'FRESH_FROZEN_PLASMA',
+    PC: 'PLATELET_CONCENTRATE',
+    PLT: 'PLATELET_CONCENTRATE',
+    PLATELET: 'PLATELET_CONCENTRATE',
+    CRYO: 'CRYOPRECIPITATE',
+    CRYOSUP: 'CRYOSUPERNATANT',
+  };
+  return aliasMap[normalized] || (Object.values(aliasMap).includes(raw) ? raw : '');
+}
+
+function normalizeAddStockSerialValue(value) {
+  let serial = String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+
+  if (/^VA\d{5,8}$/.test(serial)) {
+    serial = `V4${serial.slice(2)}`;
+  }
+
+  return serial.slice(0, ADD_STOCK_SERIAL_MAX_LENGTH);
+}
+
+function sanitizeOCRImportedRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => {
+    const cleanedSerial = normalizeAddStockSerialValue(row?.serialNumber);
+    const cleanedRemarks = String(row?.remarks || '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+      .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+    const cleanedVolume = String(row?.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+    const cleanedBloodGroup = sanitizeAddStockBloodGroup(row?.bloodGroup);
+    const cleanedComponent = normalizeAddStockComponentValue(row?.componentType, row?.unknownComponentLabel);
+    const collectedAt = parseDateCandidate(row?.collectedAt || '');
+    const expiresAt = parseDateCandidate(row?.expiresAt || '');
+
+    const issues = Array.isArray(row?.issues) ? [...row.issues] : [];
+    if (cleanedSerial && !isAddStockSerialValueValid(cleanedSerial)) issues.push('Invalid serial format');
+    if (cleanedVolume && !isAddStockVolumeValueValid(cleanedVolume)) issues.push('Invalid volume');
+    if (cleanedRemarks && !isAddStockRemarksValueValid(cleanedRemarks)) issues.push('Invalid remarks');
+    if (!cleanedBloodGroup) issues.push('Missing blood group');
+    if (!cleanedComponent) issues.push('Unknown component');
+    if (!collectedAt || !expiresAt) issues.push('Missing extraction/expiry date');
+
+    return {
+      ...row,
+      bloodGroup: cleanedBloodGroup || '',
+      componentType: cleanedComponent || '',
+      serialNumber: cleanedSerial || '',
+      volumeMl: cleanedVolume || '',
+      remarks: cleanedRemarks,
+      collectedAt,
+      expiresAt,
+      needsReview: Boolean(row?.needsReview) || issues.length > 0,
+      issues: [...new Set(issues)],
+    };
+  });
+}
+
+function initAddStockValidation() {
+  if (addStockValidationBound) return;
+  addStockValidationBound = true;
+
+  const serialInput = document.getElementById('add-serial-number');
+  const volumeInput = document.getElementById('add-volume-ml');
+  const remarksInput = document.getElementById('add-remarks');
+
+  if (serialInput) {
+    serialInput.addEventListener('input', () => validateSerialNumberField(serialInput, { errorId: 'add-serial-number-error' }));
+    serialInput.addEventListener('blur', () => validateSerialNumberField(serialInput, { errorId: 'add-serial-number-error' }));
+  }
+  if (volumeInput) {
+    volumeInput.addEventListener('input', () => validateVolumeField(volumeInput, { errorId: 'add-volume-ml-error' }));
+    volumeInput.addEventListener('blur', () => validateVolumeField(volumeInput, { errorId: 'add-volume-ml-error' }));
+  }
+  if (remarksInput) {
+    remarksInput.addEventListener('input', () => validateRemarksField(remarksInput, { errorId: 'add-remarks-error' }));
+    remarksInput.addEventListener('blur', () => validateRemarksField(remarksInput, { errorId: 'add-remarks-error' }));
+  }
+  const transactionInput = document.getElementById('add-transaction-number');
+  const reviewTransactionInput = document.getElementById('tracer-ocr-transaction-number');
+  if (transactionInput) {
+    transactionInput.addEventListener('input', () => enforceTransactionNumberFormat(transactionInput));
+    transactionInput.addEventListener('blur', () => enforceTransactionNumberFormat(transactionInput));
+  }
+  if (reviewTransactionInput) {
+    reviewTransactionInput.addEventListener('input', () => enforceTransactionNumberFormat(reviewTransactionInput));
+    reviewTransactionInput.addEventListener('blur', () => enforceTransactionNumberFormat(reviewTransactionInput));
+  }
+
+  document.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const isControlKey = event.ctrlKey || event.metaKey || event.altKey ||
+      ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End', 'Enter'].includes(event.key);
+    if (isControlKey) return;
+
+    if (target.matches('#add-serial-number, .add-stock-serial, .tracer-ocr-edit-serial')) {
+      if (event.key.length === 1 && !/[a-zA-Z0-9]/.test(event.key)) {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    if (target.matches('#add-volume-ml, .add-stock-volume')) {
+      if (event.key.length === 1 && !/\d/.test(event.key)) {
+        event.preventDefault();
+      }
+    }
+  });
+}
+
 function openAddBloodModal() {
   initAddStockScanner();
+  initAddStockValidation();
 
   document.getElementById('add-transaction-number').value = '';
   document.getElementById('add-serial-number').value = '';
@@ -3021,6 +3342,9 @@ function openAddBloodModal() {
   document.getElementById('add-collected-at').value = '';
   document.getElementById('add-expires-at').value = '';
   document.getElementById('add-remarks').value = '';
+  clearAddStockFieldError(document.getElementById('add-serial-number'), 'add-serial-number-error');
+  clearAddStockFieldError(document.getElementById('add-volume-ml'), 'add-volume-ml-error');
+  clearAddStockFieldError(document.getElementById('add-remarks'), 'add-remarks-error');
 
   const hint = document.getElementById('add-expiry-hint');
   if (hint) hint.textContent = '';
@@ -3036,15 +3360,18 @@ function openAddBloodModal() {
 function getAddStockDefaults() {
   const aboType = document.getElementById('add-blood-type').value;
   const rhType = document.getElementById('add-rh-type').value;
+  const serialInput = document.getElementById('add-serial-number');
+  const volumeInput = document.getElementById('add-volume-ml');
+  const remarksInput = document.getElementById('add-remarks');
 
   return {
-    serialNumber: document.getElementById('add-serial-number').value.trim(),
+    serialNumber: normalizeAddStockSerialValue(serialInput?.value || ''),
     bloodGroup: aboType ? `${aboType}_${rhType === 'POSITIVE' ? 'POS' : 'NEG'}` : '',
-    componentType: document.getElementById('add-component-type').value,
-    volumeMl: document.getElementById('add-volume-ml').value,
+    componentType: normalizeAddStockComponentValue(document.getElementById('add-component-type').value),
+    volumeMl: String(enforceVolumeFormat(volumeInput) || ''),
     collectedAt: document.getElementById('add-collected-at').value,
     expiresAt: document.getElementById('add-expires-at').value,
-    remarks: document.getElementById('add-remarks').value.trim(),
+    remarks: String(enforceRemarksLimit(remarksInput) || '').trim(),
   };
 }
 
@@ -3078,13 +3405,16 @@ function addStockRow(data = {}) {
   const row = document.createElement('tr');
   row.className = 'add-stock-row';
 
-  const serialNumber = data.serialNumber || '';
-  const bloodGroup = data.bloodGroup || '';
-  const componentType = data.componentType || '';
-  const volumeMl = data.volumeMl || '';
+  const serialNumber = normalizeAddStockSerialValue(data.serialNumber || '');
+  const bloodGroup = sanitizeAddStockBloodGroup(data.bloodGroup || '');
+  const componentType = normalizeAddStockComponentValue(data.componentType || '', data.unknownComponentLabel || '');
+  const volumeMl = String(data.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
   const collectedAt = data.collectedAt || '';
   const expiresAt = data.expiresAt || '';
-  const remarks = data.remarks || '';
+  const remarks = String(data.remarks || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+    .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
 
   const bloodGroupOptions = [
     { value: '', label: 'Select...' },
@@ -3100,14 +3430,14 @@ function addStockRow(data = {}) {
 
   const componentOptions = [
     { value: '', label: 'Select...' },
-    { value: 'WHOLE_BLOOD', label: 'Whole Blood' },
+    { value: 'WHOLE_BLOOD', label: 'WB' },
     { value: 'PRBC', label: 'PRBC' },
-    { value: 'LEUKOREDUCED_PRBC', label: 'Leukoreduced PRBC' },
-    { value: 'ALIQUOTED_PRBC', label: 'Aliquoted PRBC' },
-    { value: 'PLATELET_CONCENTRATE', label: 'Platelet Concentrate' },
-    { value: 'FRESH_FROZEN_PLASMA', label: 'Fresh Frozen Plasma' },
-    { value: 'CRYOPRECIPITATE', label: 'Cryoprecipitate' },
-    { value: 'CRYOSUPERNATANT', label: 'Cryosupernatant' },
+    { value: 'LEUKOREDUCED_PRBC', label: 'L-PRBC' },
+    { value: 'ALIQUOTED_PRBC', label: 'A-PRBC' },
+    { value: 'PLATELET_CONCENTRATE', label: 'PC' },
+    { value: 'FRESH_FROZEN_PLASMA', label: 'FFP' },
+    { value: 'CRYOPRECIPITATE', label: 'CRYO' },
+    { value: 'CRYOSUPERNATANT', label: 'CRYOSUP' },
   ];
 
   row.innerHTML = `
@@ -3127,31 +3457,31 @@ function addStockRow(data = {}) {
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="text" class="add-stock-serial" value="${serialNumber}" placeholder="SN-00123" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-serial" value="${serialNumber}" placeholder="e.g. V457679" maxlength="10" oninput="enforceSerialNumberFormat(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="date" class="add-stock-collected" value="${collectedAt}" onchange="handleAddStockRowDateChange(this)">
+        <input type="date" class="add-stock-collected" value="${collectedAt}" placeholder="MM/DD/YYYY" onchange="handleAddStockRowDateChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="date" class="add-stock-expires" value="${expiresAt}" onchange="handleAddStockRowChange(this)">
+        <input type="date" class="add-stock-expires" value="${expiresAt}" placeholder="MM/DD/YYYY" onchange="handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="number" class="add-stock-volume" value="${volumeMl}" min="1" placeholder="450" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-volume" value="${volumeMl}" maxlength="4" inputmode="numeric" placeholder="e.g. 450" oninput="enforceVolumeFormat(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="text" class="add-stock-remarks" value="${remarks}" placeholder="Optional" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-remarks" value="${remarks}" maxlength="${ADD_STOCK_REMARKS_MAX_LENGTH}" placeholder="e.g. Hemolyzed" oninput="enforceRemarksLimit(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
@@ -3194,6 +3524,26 @@ function generateAddStockRows(count = 10) {
   updateAddStockValidCount();
 }
 
+function validateAddStockRowInputs(row) {
+  if (!row) return true;
+  const data = getAddStockRowData(row);
+  const serialEl = row.querySelector('.add-stock-serial');
+  const volumeEl = row.querySelector('.add-stock-volume');
+  const remarksEl = row.querySelector('.add-stock-remarks');
+
+  if (isAddStockRowEmpty(data)) {
+    if (serialEl) clearAddStockFieldError(serialEl);
+    if (volumeEl) clearAddStockFieldError(volumeEl);
+    if (remarksEl) clearAddStockFieldError(remarksEl);
+    return true;
+  }
+
+  const serialValid = serialEl ? validateSerialNumberField(serialEl, { required: true }) : false;
+  const volumeValid = volumeEl ? validateVolumeField(volumeEl, { required: true }) : false;
+  const remarksValid = remarksEl ? validateRemarksField(remarksEl) : true;
+  return serialValid && volumeValid && remarksValid;
+}
+
 function handleAddStockRowDateChange(el) {
   const row = el.closest('tr');
   if (!row) return;
@@ -3208,6 +3558,7 @@ function handleAddStockRowDateChange(el) {
 
   markImportedRowTouched(row);
   refreshImportedRowReviewState(row);
+  validateAddStockRowInputs(row);
   updateAddStockValidCount();
 }
 
@@ -3231,25 +3582,38 @@ function handleAddStockRowChange(el) {
     expiresEl.value = addStockCalculateExpiry(componentEl.value, collectedEl.value);
   }
 
+  if (el.classList.contains('add-stock-serial')) {
+    validateSerialNumberField(el, { required: false });
+  } else if (el.classList.contains('add-stock-volume')) {
+    validateVolumeField(el, { required: false });
+  } else if (el.classList.contains('add-stock-remarks')) {
+    validateRemarksField(el);
+  }
+
   markImportedRowTouched(row);
   refreshImportedRowReviewState(row);
+  validateAddStockRowInputs(row);
   updateAddStockValidCount();
 }
 
 function getAddStockRowData(row) {
-  const bloodGroup = row.querySelector('.add-stock-blood-group')?.value || '';
+  const bloodGroup = sanitizeAddStockBloodGroup(row.querySelector('.add-stock-blood-group')?.value || '');
   const split = splitBloodGroup(bloodGroup);
 
   return {
-    serialNumber: row.querySelector('.add-stock-serial')?.value.trim() || '',
+    serialNumber: normalizeAddStockSerialValue(row.querySelector('.add-stock-serial')?.value || ''),
     bloodGroup,
     aboType: split.aboType,
     rhType: split.rhType,
-    componentType: row.querySelector('.add-stock-component')?.value || '',
-    volumeMl: row.querySelector('.add-stock-volume')?.value || '',
-    collectedAt: row.querySelector('.add-stock-collected')?.value || '',
-    expiresAt: row.querySelector('.add-stock-expires')?.value || '',
-    remarks: row.querySelector('.add-stock-remarks')?.value.trim() || '',
+    componentType: normalizeAddStockComponentValue(row.querySelector('.add-stock-component')?.value || ''),
+    volumeMl: String(row.querySelector('.add-stock-volume')?.value || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH),
+    collectedAt: parseDateCandidate(row.querySelector('.add-stock-collected')?.value || ''),
+    expiresAt: parseDateCandidate(row.querySelector('.add-stock-expires')?.value || ''),
+    remarks: String(row.querySelector('.add-stock-remarks')?.value || '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+      .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH)
+      .trim(),
   };
 }
 
@@ -3265,13 +3629,16 @@ function isAddStockRowEmpty(data) {
 
 function isAddStockRowComplete(data) {
   return data.serialNumber &&
+    isAddStockSerialValueValid(data.serialNumber) &&
     data.bloodGroup &&
     data.aboType &&
     data.rhType &&
     data.componentType &&
     data.volumeMl &&
+    isAddStockVolumeValueValid(data.volumeMl) &&
     data.collectedAt &&
-    data.expiresAt;
+    data.expiresAt &&
+    isAddStockRemarksValueValid(data.remarks);
 }
 
 function getValidAddStockRows() {
@@ -3326,6 +3693,7 @@ function copyPreviousAddStockRow(index) {
   current.querySelector('.add-stock-collected').value = prevData.collectedAt;
   current.querySelector('.add-stock-expires').value = prevData.expiresAt;
 
+  validateAddStockRowInputs(current);
   updateAddStockValidCount();
 }
 
@@ -3344,6 +3712,7 @@ function applyAddStockDefaultsToEmptyRows() {
     row.querySelector('.add-stock-collected').value = defaults.collectedAt;
     row.querySelector('.add-stock-expires').value = defaults.expiresAt;
     row.querySelector('.add-stock-remarks').value = defaults.remarks;
+    validateAddStockRowInputs(row);
   });
 
   updateAddStockValidCount();
@@ -3365,6 +3734,7 @@ function applyAddStockDefaultsToAllRows() {
     row.querySelector('.add-stock-collected').value = defaults.collectedAt;
     row.querySelector('.add-stock-expires').value = defaults.expiresAt;
     row.querySelector('.add-stock-remarks').value = defaults.remarks;
+    validateAddStockRowInputs(row);
   });
 
   updateAddStockValidCount();
@@ -3384,7 +3754,12 @@ function clearEmptyAddStockRows() {
 }
 
 async function submitAddBloodStock() {
-  const transactionNumber = document.getElementById('add-transaction-number').value.trim();
+  const transactionInput = document.getElementById('add-transaction-number');
+  const transactionNumber = String(transactionInput?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
+    .trim();
+  if (transactionInput) transactionInput.value = transactionNumber;
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
 
   if (!rows.length) {
@@ -3404,13 +3779,20 @@ async function submitAddBloodStock() {
     return;
   }
 
+  const firstInvalidRow = nonEmptyRows.find(item => !validateAddStockRowInputs(item.element));
+  if (firstInvalidRow) {
+    firstInvalidRow.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showBloodPlusMessage('Invalid Row Data', 'Please fix highlighted serial, volume, or remarks fields before submitting.', 'warning');
+    return;
+  }
+
   const incomplete = nonEmptyRows.find(item => !isAddStockRowComplete(item.data));
   if (incomplete) {
     showBloodPlusMessage('Incomplete Row', 'Please complete all partially filled rows before submitting.', 'warning');
     return;
   }
 
-  const serials = nonEmptyRows.map(item => item.data.serialNumber.toLowerCase());
+  const serials = nonEmptyRows.map(item => item.data.serialNumber.toUpperCase());
   const duplicateSerial = serials.find((serial, index) => serials.indexOf(serial) !== index);
 
   if (duplicateSerial) {
@@ -7350,24 +7732,75 @@ function staffInitials(first, last) {
   return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || '??';
 }
 
-function staffGetDepts() {
-  return [...new Set(staffList.map(s => s.department).filter(Boolean))].sort();
+const STAFF_DEPARTMENTS = [
+  'Blood Bank',
+  'Emergency Room (ER)',
+  'ICU',
+  'Operating Room (OR)',
+  'Medical Ward',
+  'Surgical Ward',
+  'Pediatric Ward',
+  'Maternity Ward',
+  'NICU',
+  'Dialysis Unit',
+  'Oncology Ward',
+  'OPD'
+];
+
+const STAFF_NON_BLOOD_BANK_DEPARTMENTS = STAFF_DEPARTMENTS.filter((dept) => dept !== 'Blood Bank');
+const STAFF_POSITION_UPPER_TOKENS = new Set(['RMT', 'RN', 'MD', 'ICU', 'ER', 'OR', 'OPD', 'NICU']);
+const STAFF_ROMAN_NUMERALS = new Set(['I', 'II', 'III', 'IV', 'V']);
+
+function renderStaffDepartmentOptions(selectId, includeAllOption = false) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  const current = select.value;
+  const options = selectId === 'add-staff-custom-dept'
+    ? STAFF_NON_BLOOD_BANK_DEPARTMENTS
+    : STAFF_DEPARTMENTS;
+
+  select.innerHTML = '';
+  if (includeAllOption) {
+    const allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = 'All Departments';
+    select.appendChild(allOpt);
+  } else if (selectId === 'add-staff-custom-dept') {
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = 'Select department...';
+    select.appendChild(placeholderOpt);
+  }
+
+  options.forEach((dept) => {
+    const opt = document.createElement('option');
+    opt.value = dept;
+    opt.textContent = dept;
+    select.appendChild(opt);
+  });
+
+  if (current) {
+    if ([...select.options].some((opt) => opt.value === current)) {
+      select.value = current;
+    } else {
+      select.value = includeAllOption ? 'ALL' : '';
+    }
+  } else if (includeAllOption) {
+    select.value = 'ALL';
+  }
 }
 
 function staffPopulateDepts() {
-  const sel      = document.getElementById('staff-filter-dept');
-  const datalist = document.getElementById('staff-dept-list');
-  if (!sel) return;
-  const current = sel.value;
-  while (sel.options.length > 1) sel.remove(1);
-  if (datalist) datalist.innerHTML = '';
-  staffGetDepts().forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d; opt.textContent = d;
-    sel.appendChild(opt.cloneNode(true));
-    if (datalist) datalist.appendChild(opt);
-  });
-  if (current) sel.value = current;
+  renderStaffDepartmentOptions('staff-filter-dept', true);
+  const editDept = document.getElementById('edit-staff-dept');
+  if (editDept && editDept.options.length <= 1) {
+    renderStaffDepartmentOptions('edit-staff-dept', false);
+  }
+  const addCustomDept = document.getElementById('add-staff-custom-dept');
+  if (addCustomDept && addCustomDept.options.length <= 1) {
+    renderStaffDepartmentOptions('add-staff-custom-dept', false);
+  }
 }
 
 function staffTogglePass(inputId, icon) {
@@ -7385,6 +7818,159 @@ function escHtml(str) {
 
 function staffValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function setStaffFieldError(inputId, message) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.add('field-error');
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.style.display = message ? 'block' : 'none';
+  }
+  return false;
+}
+
+function clearStaffFieldError(inputId) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.remove('field-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  return true;
+}
+
+function focusStaffField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  try { el.focus(); } catch (_) {}
+  if (typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function normalizePersonName(value) {
+  const cleaned = String(value || '')
+    .replace(/[^A-Za-z .'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  return cleaned
+    .split(' ')
+    .map((word) => word.toLowerCase().replace(/(^|[-'.])[a-z]/g, (char) => char.toUpperCase()))
+    .join(' ');
+}
+
+function normalizePositionTitle(value) {
+  const cleaned = String(value || '')
+    .replace(/[^A-Za-z0-9 .'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  return cleaned
+    .split(' ')
+    .map((word) => {
+      const upper = word.toUpperCase();
+      const plain = upper.replace(/[^A-Z0-9]/g, '');
+      if (STAFF_POSITION_UPPER_TOKENS.has(plain) || STAFF_ROMAN_NUMERALS.has(plain)) {
+        return upper;
+      }
+      return word.toLowerCase().replace(/(^|[-'.])[a-z]/g, (char) => char.toUpperCase());
+    })
+    .join(' ');
+}
+
+function applyStaffNameFormatting() {
+  const nameFieldIds = ['add-staff-first', 'add-staff-last', 'edit-staff-first', 'edit-staff-last'];
+  nameFieldIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.nameFormattingBound === '1') return;
+    el.dataset.nameFormattingBound = '1';
+    el.addEventListener('blur', () => {
+      el.value = normalizePersonName(el.value);
+      validateStaffNameField(id);
+    });
+  });
+}
+
+function applyStaffPositionFormatting() {
+  const positionFieldIds = ['add-staff-position', 'edit-staff-position'];
+  positionFieldIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.positionFormattingBound === '1') return;
+    el.dataset.positionFormattingBound = '1';
+    el.addEventListener('blur', () => {
+      el.value = normalizePositionTitle(el.value);
+      validateStaffPositionField(id);
+    });
+  });
+}
+
+function validateStaffDepartment(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return true;
+
+  const selected = (select.value || '').trim();
+  const allowed = selectId === 'add-staff-custom-dept'
+    ? STAFF_NON_BLOOD_BANK_DEPARTMENTS
+    : STAFF_DEPARTMENTS;
+
+  if (!selected || !allowed.includes(selected)) {
+    return setStaffFieldError(selectId, 'Please select a department.');
+  }
+  return clearStaffFieldError(selectId);
+}
+
+function validateStaffNameField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const value = normalizePersonName(el.value);
+  el.value = value;
+  let message = 'Please enter a valid name.';
+  if (inputId.includes('first')) message = 'Please enter a valid first name.';
+  if (inputId.includes('last')) message = 'Please enter a valid last name.';
+  if (!value || !/^[A-Za-z][A-Za-z .'-]*$/.test(value)) {
+    return setStaffFieldError(inputId, message);
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function validateStaffPositionField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const value = normalizePositionTitle(el.value);
+  el.value = value.slice(0, 25);
+  if (!el.value) return clearStaffFieldError(inputId);
+  if (!/^[A-Za-z0-9][A-Za-z0-9 .'-]*$/.test(el.value)) {
+    return setStaffFieldError(inputId, 'Please enter a valid position.');
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function normalizeStaffId(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '')
+    .slice(0, 20)
+    .trim();
+}
+
+function validateStaffIdField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const raw = String(el.value || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').trim();
+  const normalized = raw.slice(0, 20);
+  el.value = normalized;
+  if (raw.length > 20) {
+    return setStaffFieldError(inputId, 'Staff ID must not exceed 20 characters.');
+  }
+  return clearStaffFieldError(inputId);
 }
 
 function staffHasDashboardAccess(staff) {
@@ -7410,7 +7996,10 @@ function staffToggleDepartmentInput() {
   if (wrap) wrap.style.display = isOther ? 'flex' : 'none';
   if (custom) {
     custom.required = isOther;
-    if (!isOther) custom.value = '';
+    if (!isOther) {
+      custom.value = '';
+      clearStaffFieldError('add-staff-custom-dept');
+    }
   }
   if (note) {
     note.innerHTML = isOther
@@ -7422,7 +8011,71 @@ function staffToggleDepartmentInput() {
 function staffGetAddDepartment() {
   const choice = document.getElementById('add-staff-dept-choice')?.value || 'Blood Bank';
   if (choice === 'Blood Bank') return 'Blood Bank';
-  return document.getElementById('add-staff-custom-dept')?.value.trim() || '';
+  return document.getElementById('add-staff-custom-dept')?.value || '';
+}
+
+const staffPhoneBindings = new Set();
+
+function bindStaffPhoneInput(inputId) {
+  if (staffPhoneBindings.has(inputId)) return;
+  staffPhoneBindings.add(inputId);
+
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  input.addEventListener('focus', () => {
+    if (!input.value.trim()) {
+      input.value = '+63';
+    } else {
+      lockPhilippinePhoneInput(inputId);
+    }
+    const pos = input.value.length;
+    if (typeof input.setSelectionRange === 'function') {
+      try { input.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  });
+
+  input.addEventListener('input', () => {
+    lockPhilippinePhoneInput(inputId);
+    const pos = input.value.length;
+    if (typeof input.setSelectionRange === 'function') {
+      try { input.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    lockPhilippinePhoneInput(inputId);
+  });
+
+  input.addEventListener('keydown', (event) => {
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? 0;
+    const isBackspace = event.key === 'Backspace';
+    const isDelete = event.key === 'Delete';
+
+    if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+      event.preventDefault();
+    }
+    if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+    }
+    if (event.key.length === 1 && /\d/.test(event.key)) {
+      const localDigits = input.value.slice(3).replace(/\D/g, '');
+      const selectedPrefix = input.value.slice(selectionStart, selectionEnd);
+      const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+      if (localDigits.length - selectedLocalDigits.length >= 10) {
+        event.preventDefault();
+      }
+    }
+  });
+}
+
+function bindAddStaffPhoneInput() {
+  bindStaffPhoneInput('add-staff-phone');
+}
+
+function bindEditStaffPhoneInput() {
+  bindStaffPhoneInput('edit-staff-phone');
 }
 
 function staffCloseModals(exceptId = null) {
@@ -7568,6 +8221,7 @@ function staffNextPage() {
 function openAddStaffModal() {
   staffCloseModals('addStaffModal');
   staffCurrentViewId = null;
+  staffPopulateDepts();
   ['add-staff-email','add-staff-first','add-staff-last',
    'add-staff-phone','add-staff-position','add-staff-custom-dept'].forEach(id => {
     const el = document.getElementById(id);
@@ -7578,6 +8232,10 @@ function openAddStaffModal() {
 
   staffHideError('add-staff-error');
   staffToggleDepartmentInput();
+  ['add-staff-first', 'add-staff-last', 'add-staff-position', 'add-staff-custom-dept']
+    .forEach((id) => clearStaffFieldError(id));
+  const phoneEl = document.getElementById('add-staff-phone');
+  if (phoneEl) phoneEl.value = '+63';
   openModal('addStaffModal');
 }
 
@@ -7586,25 +8244,48 @@ function staffPreviewPassword() {
 }
 
 async function submitAddStaff() {
+  staffHideError('add-staff-error');
   const email    = document.getElementById('add-staff-email').value.trim();
-  const first    = document.getElementById('add-staff-first').value.trim();
-  const last     = document.getElementById('add-staff-last').value.trim();
-  const phone    = document.getElementById('add-staff-phone').value.trim();
+  const firstInput = document.getElementById('add-staff-first');
+  const lastInput = document.getElementById('add-staff-last');
+  const normalizedPhone = lockPhilippinePhoneInput('add-staff-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phone = phoneDigits.length === 10 ? normalizedPhone : null;
   const dept     = staffGetAddDepartment();
-  const position = document.getElementById('add-staff-position').value.trim();
+  const positionInput = document.getElementById('add-staff-position');
+  const customDeptInput = document.getElementById('add-staff-custom-dept');
+  if (firstInput) firstInput.value = normalizePersonName(firstInput.value).slice(0, 25);
+  if (lastInput) lastInput.value = normalizePersonName(lastInput.value).slice(0, 25);
+  if (positionInput) positionInput.value = normalizePositionTitle(positionInput.value).slice(0, 25);
+  const first = firstInput?.value || '';
+  const last = lastInput?.value || '';
+  const position = positionInput?.value || '';
+  const isOtherDepartment = document.getElementById('add-staff-dept-choice')?.value === 'Others';
 
-  if (!email || !first || !last || !dept) {
-    staffShowError('add-staff-error', 'Email, first name, last name, and department are required.');
+  let hasInlineError = false;
+  if (!validateStaffNameField('add-staff-first')) hasInlineError = true;
+  if (!validateStaffNameField('add-staff-last')) hasInlineError = true;
+  if (!validateStaffPositionField('add-staff-position')) hasInlineError = true;
+  if (isOtherDepartment) {
+    if (!validateStaffDepartment('add-staff-custom-dept')) hasInlineError = true;
+  } else {
+    clearStaffFieldError('add-staff-custom-dept');
+  }
+  if (hasInlineError || !dept) return;
+
+  if (!email) {
+    staffShowError('add-staff-error', 'Email is required.');
     return;
   }
   if (!staffValidEmail(email)) {
     staffShowError('add-staff-error', 'Please enter a valid email address.');
     return;
   }
-  if (document.getElementById('add-staff-dept-choice')?.value === 'Others' && !dept) {
-    staffShowError('add-staff-error', 'Please enter the custom department.');
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    staffShowError('add-staff-error', 'Phone number must start with +63 followed by exactly 10 digits.');
     return;
   }
+  if (customDeptInput) customDeptInput.value = dept;
 
   const btn = document.getElementById('add-staff-submit-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
@@ -7686,11 +8367,25 @@ function staffOpenEdit(id) {
   document.getElementById('edit-staff-last').value           = s.lastName;
   document.getElementById('edit-staff-phone').value          = s.phoneNumber || '';
   document.getElementById('edit-staff-id').value             = s.staffId     || '';
-  document.getElementById('edit-staff-dept').value           = s.department  || '';
+  renderStaffDepartmentOptions('edit-staff-dept', false);
+  const editDeptInput = document.getElementById('edit-staff-dept');
+  if (editDeptInput) {
+    editDeptInput.value = STAFF_DEPARTMENTS.includes(s.department) ? s.department : '';
+  }
   document.getElementById('edit-staff-position').value       = s.position    || '';
   document.getElementById('edit-staff-status').value         = s.status || 'active';
   document.getElementById('edit-staff-password').value       = '';
   document.getElementById('edit-staff-target-id').value      = id;
+  const editPhoneEl = document.getElementById('edit-staff-phone');
+  if (editPhoneEl && !editPhoneEl.value.trim()) {
+    editPhoneEl.value = '+63';
+  } else {
+    lockPhilippinePhoneInput('edit-staff-phone');
+  }
+  const editStaffIdEl = document.getElementById('edit-staff-id');
+  if (editStaffIdEl) {
+    editStaffIdEl.value = normalizeStaffId(editStaffIdEl.value);
+  }
 
   const hasAccess = staffHasDashboardAccess(s);
   const statusWrap = document.getElementById('edit-staff-status-wrap');
@@ -7701,29 +8396,74 @@ function staffOpenEdit(id) {
   if (passwordRow) passwordRow.style.display = hasAccess ? 'flex' : 'none';
 
   staffHideError('edit-staff-error');
-  staffPopulateDepts();
+  ['edit-staff-first', 'edit-staff-last', 'edit-staff-position', 'edit-staff-dept']
+    .forEach((id) => clearStaffFieldError(id));
   openModal('editStaffModal');
 }
 
 async function submitEditStaff() {
+  staffHideError('edit-staff-error');
   const id       = parseInt(document.getElementById('edit-staff-target-id').value);
-  const first    = document.getElementById('edit-staff-first').value.trim();
-  const last     = document.getElementById('edit-staff-last').value.trim();
-  const phone    = document.getElementById('edit-staff-phone').value.trim();
-  const staffId  = document.getElementById('edit-staff-id').value.trim();
-  const dept     = document.getElementById('edit-staff-dept').value.trim();
-  const position = document.getElementById('edit-staff-position').value.trim();
+  const firstInput = document.getElementById('edit-staff-first');
+  const lastInput = document.getElementById('edit-staff-last');
+  const normalizedPhone = lockPhilippinePhoneInput('edit-staff-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phone = phoneDigits.length === 10 ? normalizedPhone : null;
+  const staffIdInput = document.getElementById('edit-staff-id');
+  if (staffIdInput) staffIdInput.value = normalizeStaffId(staffIdInput.value);
+  const staffId  = staffIdInput?.value || '';
+  const deptInput = document.getElementById('edit-staff-dept');
+  const positionInput = document.getElementById('edit-staff-position');
+  if (firstInput) firstInput.value = normalizePersonName(firstInput.value).slice(0, 25);
+  if (lastInput) lastInput.value = normalizePersonName(lastInput.value).slice(0, 25);
+  if (positionInput) positionInput.value = normalizePositionTitle(positionInput.value).slice(0, 25);
+  const first = firstInput?.value || '';
+  const last = lastInput?.value || '';
+  const dept = deptInput?.value || '';
+  const position = positionInput?.value || '';
   const status   = document.getElementById('edit-staff-status').value;
   const password = document.getElementById('edit-staff-password').value;
   const current  = staffList.find(s => s.id === id);
   const hasAccess = staffHasDashboardAccess(current || {});
 
+  const validators = [
+    ['edit-staff-first', () => validateStaffNameField('edit-staff-first')],
+    ['edit-staff-last', () => validateStaffNameField('edit-staff-last')],
+    ['edit-staff-position', () => validateStaffPositionField('edit-staff-position')],
+    ['edit-staff-dept', () => validateStaffDepartment('edit-staff-dept')]
+  ];
+
+  let firstInvalidId = '';
+  validators.forEach(([fieldId, validate]) => {
+    const valid = validate();
+    if (!valid && !firstInvalidId) firstInvalidId = fieldId;
+  });
+
   if (!first || !last || !dept) {
-    staffShowError('edit-staff-error', 'First name, last name, and department are required.');
+    if (!firstInvalidId) {
+      firstInvalidId = !first ? 'edit-staff-first' : (!last ? 'edit-staff-last' : 'edit-staff-dept');
+    }
+  }
+  if (firstInvalidId) {
+    focusStaffField(firstInvalidId);
     return;
   }
-  if (hasAccess && password && password.length < 6) {
-    staffShowError('edit-staff-error', 'New password must be at least 6 characters.');
+
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    staffShowError('edit-staff-error', 'Phone number must start with +63 followed by exactly 10 digits.');
+    focusStaffField('edit-staff-phone');
+    return;
+  }
+
+  const trimmedPassword = (password || '').trim();
+  if (password && !trimmedPassword) {
+    staffShowError('edit-staff-error', 'Password must be at least 8 characters.');
+    focusStaffField('edit-staff-password');
+    return;
+  }
+  if (hasAccess && trimmedPassword && trimmedPassword.length < 8) {
+    staffShowError('edit-staff-error', 'Password must be at least 8 characters.');
+    focusStaffField('edit-staff-password');
     return;
   }
 
@@ -7737,7 +8477,7 @@ async function submitEditStaff() {
                              staffId: staffId || null,
                              department: dept, position,
                              status: hasAccess ? status : null,
-                             newPassword: hasAccess ? (password || null) : null }),
+                             newPassword: hasAccess ? (trimmedPassword || null) : null }),
     });
 
     // Replace local copy
@@ -7913,6 +8653,29 @@ function staffHideError(elId) {
 
 function initStaffPanel() {
   staffPage = 1;
+  staffPopulateDepts();
+  bindAddStaffPhoneInput();
+  bindEditStaffPhoneInput();
+  applyStaffNameFormatting();
+  applyStaffPositionFormatting();
+
+  const addDeptChoice = document.getElementById('add-staff-dept-choice');
+  if (addDeptChoice && addDeptChoice.dataset.staffDeptBound !== '1') {
+    addDeptChoice.dataset.staffDeptBound = '1';
+    addDeptChoice.addEventListener('change', () => staffToggleDepartmentInput());
+  }
+
+  const addCustomDept = document.getElementById('add-staff-custom-dept');
+  if (addCustomDept && addCustomDept.dataset.staffCustomDeptBound !== '1') {
+    addCustomDept.dataset.staffCustomDeptBound = '1';
+    addCustomDept.addEventListener('change', () => validateStaffDepartment('add-staff-custom-dept'));
+  }
+
+  const editDept = document.getElementById('edit-staff-dept');
+  if (editDept && editDept.dataset.staffEditDeptBound !== '1') {
+    editDept.dataset.staffEditDeptBound = '1';
+    editDept.addEventListener('change', () => validateStaffDepartment('edit-staff-dept'));
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initStaffPanel);
@@ -7924,9 +8687,13 @@ const HOSPITAL_API = '/api/admin/hospitals';
 let hospData = [];
 let hospPage = 1;
 const hospPerPage = 5;
+let hospCreateValidationBound = false;
+let hospEditValidationBound = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     hospLoadAll();
+    initHospitalCreateValidation();
+    initHospitalEditValidation();
 });
 
 async function hospLoadAll() {
@@ -8062,27 +8829,459 @@ function hospNextPage() {
     }
 }
 
+function setHospitalFieldError(inputId, message) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(`${inputId}-error`);
+    if (input) {
+        input.classList.add('field-error');
+        input.setAttribute('aria-invalid', 'true');
+    }
+    if (error) {
+        error.textContent = message || '';
+        error.style.display = message ? 'block' : 'none';
+    }
+    return false;
+}
+
+function clearHospitalFieldError(inputId) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(`${inputId}-error`);
+    if (input) {
+        input.classList.remove('field-error');
+        input.removeAttribute('aria-invalid');
+    }
+    if (error) {
+        error.textContent = '';
+        error.style.display = 'none';
+    }
+    return true;
+}
+
+function enforceHospitalTextLimit(inputId, maxLength) {
+    const input = document.getElementById(inputId);
+    if (!input) return '';
+    const cleaned = String(input.value || '')
+        .replace(/<[^>]*>/g, '')
+        .slice(0, maxLength);
+    if (input.value !== cleaned) input.value = cleaned;
+    return cleaned;
+}
+
+function validateHospitalName(commitTrim = true) {
+    const inputId = 'hosp-add-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9 .'-]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Hospital name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalCity(commitTrim = true) {
+    const inputId = 'hosp-add-city';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'City is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalProvince(commitTrim = true) {
+    const inputId = 'hosp-add-province';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Province is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalAddress(commitTrim = true) {
+    const inputId = 'hosp-add-address';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9\s,.\-#]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Address is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEmail(commitTrim = true) {
+    const inputId = 'hosp-add-email';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const noSpaces = String(input.value || '').replace(/\s+/g, '');
+    if (input.value !== noSpaces) input.value = noSpaces;
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Enter a valid email address.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function lockPhilippinePhoneInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return '';
+    const raw = String(input.value || '');
+    const digits = raw.replace(/\D/g, '');
+    let local = digits.startsWith('63') ? digits.slice(2) : digits;
+    local = local.slice(0, 10);
+    input.value = `+63${local}`;
+    return input.value;
+}
+
+function validatePhilippinePhone(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    const value = lockPhilippinePhoneInput(inputId);
+    if (!/^\+63\d{10}$/.test(value)) {
+        return setHospitalFieldError(inputId, 'Phone number must start with +63 followed by exactly 10 digits.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalContactName(commitTrim = true) {
+    const inputId = 'hosp-add-contact-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 40);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 40 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Contact person name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditName(commitTrim = true) {
+    const inputId = 'hosp-edit-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9 .'-]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Hospital name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditCity(commitTrim = true) {
+    const inputId = 'hosp-edit-city';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'City is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditProvince(commitTrim = true) {
+    const inputId = 'hosp-edit-province';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Province is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditAddress(commitTrim = true) {
+    const inputId = 'hosp-edit-address';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9\s,.\-#]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Address is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditEmail(commitTrim = true) {
+    const inputId = 'hosp-edit-email';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const noSpaces = String(input.value || '').replace(/\s+/g, '');
+    if (input.value !== noSpaces) input.value = noSpaces;
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Enter a valid email address.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditContactName(commitTrim = true) {
+    const inputId = 'hosp-edit-contact-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 40);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 40 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Contact person name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalCreateForm() {
+    const checks = [
+        { id: 'hosp-add-name', fn: validateHospitalName },
+        { id: 'hosp-add-city', fn: validateHospitalCity },
+        { id: 'hosp-add-province', fn: validateHospitalProvince },
+        { id: 'hosp-add-address', fn: validateHospitalAddress },
+        { id: 'hosp-add-email', fn: validateHospitalEmail },
+        { id: 'hosp-add-phone', fn: () => validatePhilippinePhone('hosp-add-phone') },
+        { id: 'hosp-add-contact-name', fn: validateHospitalContactName },
+        { id: 'hosp-add-contact-phone', fn: () => validatePhilippinePhone('hosp-add-contact-phone') },
+    ];
+
+    let firstInvalidId = '';
+    checks.forEach(check => {
+        const valid = check.fn();
+        if (!valid && !firstInvalidId) firstInvalidId = check.id;
+    });
+
+    if (firstInvalidId) {
+        const firstEl = document.getElementById(firstInvalidId);
+        if (firstEl) {
+            firstEl.focus();
+            firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+    }
+    return true;
+}
+
+function validateHospitalEditForm() {
+    const checks = [
+        { id: 'hosp-edit-name', fn: validateHospitalEditName },
+        { id: 'hosp-edit-city', fn: validateHospitalEditCity },
+        { id: 'hosp-edit-province', fn: validateHospitalEditProvince },
+        { id: 'hosp-edit-address', fn: validateHospitalEditAddress },
+        { id: 'hosp-edit-email', fn: validateHospitalEditEmail },
+        { id: 'hosp-edit-phone', fn: () => validatePhilippinePhone('hosp-edit-phone') },
+        { id: 'hosp-edit-contact-name', fn: validateHospitalEditContactName },
+        { id: 'hosp-edit-contact-phone', fn: () => validatePhilippinePhone('hosp-edit-contact-phone') },
+    ];
+
+    let firstInvalidId = '';
+    checks.forEach(check => {
+        const valid = check.fn();
+        if (!valid && !firstInvalidId) firstInvalidId = check.id;
+    });
+
+    if (firstInvalidId) {
+        const firstEl = document.getElementById(firstInvalidId);
+        if (firstEl) {
+            firstEl.focus();
+            firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+    }
+    return true;
+}
+
+function initHospitalCreateValidation() {
+    if (hospCreateValidationBound) return;
+    hospCreateValidationBound = true;
+
+    const textLimits = [
+        ['hosp-add-name', 50, validateHospitalName],
+        ['hosp-add-city', 25, validateHospitalCity],
+        ['hosp-add-province', 25, validateHospitalProvince],
+        ['hosp-add-address', 50, validateHospitalAddress],
+        ['hosp-add-email', 50, validateHospitalEmail],
+        ['hosp-add-contact-name', 40, validateHospitalContactName],
+    ];
+
+    textLimits.forEach(([id, max, validator]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            enforceHospitalTextLimit(id, max);
+            validator(false);
+        });
+        el.addEventListener('blur', () => validator(true));
+        if (id === 'hosp-add-email' || id === 'hosp-edit-email') {
+            el.addEventListener('keydown', (event) => {
+                if (event.key === ' ') event.preventDefault();
+            });
+        }
+    });
+
+    ['hosp-add-phone', 'hosp-add-contact-phone'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('focus', () => {
+            if (!el.value.trim()) {
+                el.value = '+63';
+            } else {
+                lockPhilippinePhoneInput(id);
+            }
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('input', () => {
+            lockPhilippinePhoneInput(id);
+            validatePhilippinePhone(id);
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('blur', () => validatePhilippinePhone(id));
+        el.addEventListener('keydown', (event) => {
+            const selectionStart = el.selectionStart ?? 0;
+            const selectionEnd = el.selectionEnd ?? 0;
+            const isBackspace = event.key === 'Backspace';
+            const isDelete = event.key === 'Delete';
+            if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && /\d/.test(event.key)) {
+                const localDigits = el.value.slice(3).replace(/\D/g, '');
+                const selectedPrefix = el.value.slice(selectionStart, selectionEnd);
+                const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+                if (localDigits.length - selectedLocalDigits.length >= 10) {
+                    event.preventDefault();
+                }
+            }
+        });
+    });
+}
+
+function initHospitalEditValidation() {
+    if (hospEditValidationBound) return;
+    hospEditValidationBound = true;
+
+    const textLimits = [
+        ['hosp-edit-name', 50, validateHospitalEditName],
+        ['hosp-edit-city', 25, validateHospitalEditCity],
+        ['hosp-edit-province', 25, validateHospitalEditProvince],
+        ['hosp-edit-address', 50, validateHospitalEditAddress],
+        ['hosp-edit-email', 50, validateHospitalEditEmail],
+        ['hosp-edit-contact-name', 40, validateHospitalEditContactName],
+    ];
+
+    textLimits.forEach(([id, max, validator]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            enforceHospitalTextLimit(id, max);
+            validator(false);
+        });
+        el.addEventListener('blur', () => validator(true));
+        if (id === 'hosp-edit-email') {
+            el.addEventListener('keydown', (event) => {
+                if (event.key === ' ') event.preventDefault();
+            });
+        }
+    });
+
+    ['hosp-edit-phone', 'hosp-edit-contact-phone'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('focus', () => {
+            if (!el.value.trim()) {
+                el.value = '+63';
+            } else {
+                lockPhilippinePhoneInput(id);
+            }
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('input', () => {
+            lockPhilippinePhoneInput(id);
+            validatePhilippinePhone(id);
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('blur', () => validatePhilippinePhone(id));
+        el.addEventListener('keydown', (event) => {
+            const selectionStart = el.selectionStart ?? 0;
+            const selectionEnd = el.selectionEnd ?? 0;
+            const isBackspace = event.key === 'Backspace';
+            const isDelete = event.key === 'Delete';
+            if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && /\d/.test(event.key)) {
+                const localDigits = el.value.slice(3).replace(/\D/g, '');
+                const selectedPrefix = el.value.slice(selectionStart, selectionEnd);
+                const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+                if (localDigits.length - selectedLocalDigits.length >= 10) {
+                    event.preventDefault();
+                }
+            }
+        });
+    });
+}
+
 
 
 // ??????????????????????????????????????????????????????????????????????????
 // CREATE HOSPITAL – Submit form
 // ??????????????????????????????????????????????????????????????????????????
 async function hospCreate() {
+    if (!validateHospitalCreateForm()) return;
+
     const email = document.getElementById('hosp-add-email')?.value.trim();
     const name = document.getElementById('hosp-add-name')?.value.trim();
     const address = document.getElementById('hosp-add-address')?.value.trim();
     const city = document.getElementById('hosp-add-city')?.value.trim();
     const province = document.getElementById('hosp-add-province')?.value.trim();
-    const phone = document.getElementById('hosp-add-phone')?.value.trim() || null;
-    const contactName = document.getElementById('hosp-add-contact-name')?.value.trim() || null;
-    const contactPhone = document.getElementById('hosp-add-contact-phone')?.value.trim() || null;
-    
-    // Validation
-    if (!email) return alert('Email is required.');
-    if (!name) return alert('Hospital name is required.');
-    if (!address) return alert('Address is required.');
-    if (!city) return alert('City is required.');
-    if (!province) return alert('Province is required.');
+    const phone = document.getElementById('hosp-add-phone')?.value.trim();
+    const contactName = document.getElementById('hosp-add-contact-name')?.value.trim();
+    const contactPhone = document.getElementById('hosp-add-contact-phone')?.value.trim();
     
     const btn = document.querySelector('#addHospitalModal .btn-primary');
     if (btn) {
@@ -8116,6 +9315,10 @@ async function hospCreate() {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
+        ['hosp-add-email','hosp-add-name','hosp-add-address','hosp-add-city','hosp-add-province',
+         'hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone'].forEach(id => {
+            clearHospitalFieldError(id);
+        });
         
         closeModal('addHospitalModal');
         
@@ -8127,7 +9330,7 @@ async function hospCreate() {
         );
         
     } catch (err) {
-        alert('Error: ' + err.message);
+        showBloodPlusMessage('Create Hospital Failed', err.message || 'Creation failed', 'error');
         console.error('[Hospital] Create error:', err);
     } finally {
         if (btn) {
@@ -8143,7 +9346,7 @@ async function hospCreate() {
 function hospOpenEdit(id) {
     const h = hospData.find(x => x.id === id);
     if (!h) {
-        alert('Hospital not found');
+        showBloodPlusMessage('Hospital Not Found', 'The selected hospital record could not be loaded.', 'error');
         return;
     }
     
@@ -8158,6 +9361,13 @@ function hospOpenEdit(id) {
     document.getElementById('hosp-edit-email').value = h.email || '';
     document.getElementById('hosp-edit-pass').value = '';
     document.getElementById('hosp-edit-status').value = 'active';
+
+    ['hosp-edit-name', 'hosp-edit-city', 'hosp-edit-province', 'hosp-edit-address',
+     'hosp-edit-email', 'hosp-edit-phone', 'hosp-edit-contact-name', 'hosp-edit-contact-phone'].forEach(id => {
+        clearHospitalFieldError(id);
+    });
+    lockPhilippinePhoneInput('hosp-edit-phone');
+    lockPhilippinePhoneInput('hosp-edit-contact-phone');
     
     openModal('editHospitalModal');
 }
@@ -8166,16 +9376,16 @@ function hospOpenEdit(id) {
 // EDIT HOSPITAL – Save changes
 // ??????????????????????????????????????????????????????????????????????????
 async function hospSaveEdit() {
+    if (!validateHospitalEditForm()) return;
+
     const id = document.getElementById('hosp-edit-idx').value;
     const name = document.getElementById('hosp-edit-name')?.value.trim();
     const address = document.getElementById('hosp-edit-address')?.value.trim();
     const city = document.getElementById('hosp-edit-city')?.value.trim();
     const province = document.getElementById('hosp-edit-province')?.value.trim();
-    const phone = document.getElementById('hosp-edit-phone')?.value.trim() || null;
+    const phone = lockPhilippinePhoneInput('hosp-edit-phone').trim();
     const contactName = document.getElementById('hosp-edit-contact-name')?.value.trim() || null;
-    const contactPhone = document.getElementById('hosp-edit-contact-phone')?.value.trim() || null;
-    
-    if (!name) return alert('Hospital name is required.');
+    const contactPhone = lockPhilippinePhoneInput('hosp-edit-contact-phone').trim();
     
     const btn = document.querySelector('#editHospitalModal .btn-primary');
     if (btn) {
@@ -8213,7 +9423,7 @@ async function hospSaveEdit() {
         );
         
     } catch (err) {
-        alert('Error: ' + err.message);
+        showBloodPlusMessage('Update Hospital Failed', err.message || 'Update failed', 'error');
         console.error('[Hospital] Edit error:', err);
     } finally {
         if (btn) {
