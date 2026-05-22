@@ -865,7 +865,7 @@
           oninput="staffRender()">
       </div>
       <select class="req-select" id="staff-filter-dept" onchange="staffRender()">
-        <option value="ALL">All Departments</option>
+        <option value="ALL">All Departments/ Wards</option>
       </select>
       <select class="req-select" id="staff-filter-status" onchange="staffRender()">
         <option value="ALL">All Access</option>
@@ -892,7 +892,7 @@
           <thead><tr>
             <th>Staff</th>
             <th>Staff ID</th>
-            <th>Department</th>
+            <th>Department/ Ward</th>
             <th>Position</th>
             <th>Phone</th>
             <th>Access</th>
@@ -1319,7 +1319,7 @@
 
             <div class="form-row">
               <div class="form-group-m">
-                <label>Department <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <label>Department/ Ward <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
                 <input type="text" id="staff-profile-department-input" placeholder="Department" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
               </div>
               <div class="form-group-m">
@@ -2135,7 +2135,7 @@
             <div class="form-inline-error" id="add-staff-position-error"></div>
           </div>
           <div class="form-group-m">
-            <label>Department <span style="color:var(--crimson)">*</span></label>
+            <label>Department/ Ward <span style="color:var(--crimson)">*</span></label>
             <select id="add-staff-dept-choice" onchange="staffToggleDepartmentInput()">
               <option value="Blood Bank">Blood Bank</option>
               <option value="Others">Others</option>
@@ -2144,9 +2144,9 @@
         </div>
         <div class="form-row full" id="add-staff-custom-dept-wrap" style="display:none">
           <div class="form-group-m" style="flex:1">
-            <label>Custom Department <span style="color:var(--crimson)">*</span></label>
+            <label>Ward <span style="color:var(--crimson)">*</span></label>
             <select id="add-staff-custom-dept" autocomplete="off">
-              <option value="">Select department...</option>
+              <option value="">Select Ward...</option>
               <option value="Emergency Room (ER)">Emergency Room (ER)</option>
               <option value="ICU">ICU</option>
               <option value="Operating Room (OR)">Operating Room (OR)</option>
@@ -2213,7 +2213,7 @@
             <input type="text" id="edit-staff-id" maxlength="20" autocomplete="off" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
           </div>
           <div class="form-group-m">
-            <label>Department</label>
+            <label>Department/ Ward</label>
             <select id="edit-staff-dept"></select>
             <div class="form-inline-error" id="edit-staff-dept-error"></div>
           </div>

@@ -7485,9 +7485,11 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       req.patientProvince
     ].filter(Boolean).join(' / ');
     const normalizedRequesterType = String(req.type ?? req.requesterType ?? '').trim().toUpperCase();
+    const normalizedRequestCategory = String(req.requestCategory ?? '').trim().toUpperCase();
     const isHospitalRequest =
       normalizedRequesterType === 'HOSPITAL' ||
       !!(req.hospitalProfile || req.hospitalName || req.hospitalContactName || req.hospitalPhoneNumber);
+    const showRequesterRelationship = !isHospitalRequest && normalizedRequestCategory === 'INPATIENT';
     const hospitalName = req.hospitalName ?? req.hospitalProfile?.hospitalName ?? req.name ?? '-';
     const hospitalContactName = req.hospitalContactName ?? req.hospitalProfile?.contactPersonName ?? req.requesterName ?? '-';
     const hospitalContactEmail = req.hospitalContactEmail ?? req.requesterEmail ?? req.hospitalProfile?.user?.email ?? '-';
@@ -7717,10 +7719,12 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
                 <span class="req-details-label">Requester Name</span>
                 <span class="req-details-value">${req.requesterName ?? req.name ?? '-'}</span>
               </div>
+              ${showRequesterRelationship ? `
               <div class="req-details-field">
                 <span class="req-details-label">Relationship</span>
                 <span class="req-details-value">${req.requesterRelationship ?? '-'}</span>
               </div>
+              ` : ''}
               <div class="req-details-field">
                 <span class="req-details-label">Contact</span>
                 <span class="req-details-value">${req.requesterContact ?? '-'}</span>
@@ -7847,7 +7851,7 @@ function renderStaffDepartmentOptions(selectId, includeAllOption = false) {
   if (includeAllOption) {
     const allOpt = document.createElement('option');
     allOpt.value = 'ALL';
-    allOpt.textContent = 'All Departments';
+    allOpt.textContent = 'All Departments/ Wards';
     select.appendChild(allOpt);
   } else if (selectId === 'add-staff-custom-dept') {
     const placeholderOpt = document.createElement('option');
