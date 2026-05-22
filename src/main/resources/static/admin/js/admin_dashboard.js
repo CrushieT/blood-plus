@@ -873,11 +873,11 @@ function renderBagsPage() {
       actions += `
         <button class="btn-warning" style="font-size:11px;padding:5px 10px"
           onclick="openDiscardModal(${bag.id}, '${bag.serialNumber}')">Discard</button>`;
-      if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
-        actions += `
-          <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
-            onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
-      }
+      // if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
+      //   actions += `
+      //     <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
+      //       onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
+      // }
     }
 
     const rowStyle = bag.computedStatus === 'EXPIRING' || bag.openSystem
@@ -989,13 +989,7 @@ function openBagDetail(id) {
 
   const actionsEl = document.getElementById('bagd-actions');
   if (cs === 'AVAILABLE' || cs === 'EXPIRING') {
-    const convertBtn = bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem
-      ? `<button class="btn-secondary" style="flex:1;justify-content:center;padding:11px"
-           onclick="closeModal('bagDetailModal');confirmOpenSystem(${bag.id},'${bag.serialNumber}')">
-           ? Convert to PRBC</button>`
-      : '';
     actionsEl.innerHTML = `
-      ${convertBtn}
       <button class="btn-warning" style="flex:1;justify-content:center;padding:11px"
         onclick="closeModal('bagDetailModal');openDiscardModal(${bag.id},'${bag.serialNumber}')">
         Discard Bag
