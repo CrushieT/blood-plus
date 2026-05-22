@@ -7732,24 +7732,75 @@ function staffInitials(first, last) {
   return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || '??';
 }
 
-function staffGetDepts() {
-  return [...new Set(staffList.map(s => s.department).filter(Boolean))].sort();
+const STAFF_DEPARTMENTS = [
+  'Blood Bank',
+  'Emergency Room (ER)',
+  'ICU',
+  'Operating Room (OR)',
+  'Medical Ward',
+  'Surgical Ward',
+  'Pediatric Ward',
+  'Maternity Ward',
+  'NICU',
+  'Dialysis Unit',
+  'Oncology Ward',
+  'OPD'
+];
+
+const STAFF_NON_BLOOD_BANK_DEPARTMENTS = STAFF_DEPARTMENTS.filter((dept) => dept !== 'Blood Bank');
+const STAFF_POSITION_UPPER_TOKENS = new Set(['RMT', 'RN', 'MD', 'ICU', 'ER', 'OR', 'OPD', 'NICU']);
+const STAFF_ROMAN_NUMERALS = new Set(['I', 'II', 'III', 'IV', 'V']);
+
+function renderStaffDepartmentOptions(selectId, includeAllOption = false) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  const current = select.value;
+  const options = selectId === 'add-staff-custom-dept'
+    ? STAFF_NON_BLOOD_BANK_DEPARTMENTS
+    : STAFF_DEPARTMENTS;
+
+  select.innerHTML = '';
+  if (includeAllOption) {
+    const allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = 'All Departments';
+    select.appendChild(allOpt);
+  } else if (selectId === 'add-staff-custom-dept') {
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = 'Select department...';
+    select.appendChild(placeholderOpt);
+  }
+
+  options.forEach((dept) => {
+    const opt = document.createElement('option');
+    opt.value = dept;
+    opt.textContent = dept;
+    select.appendChild(opt);
+  });
+
+  if (current) {
+    if ([...select.options].some((opt) => opt.value === current)) {
+      select.value = current;
+    } else {
+      select.value = includeAllOption ? 'ALL' : '';
+    }
+  } else if (includeAllOption) {
+    select.value = 'ALL';
+  }
 }
 
 function staffPopulateDepts() {
-  const sel      = document.getElementById('staff-filter-dept');
-  const datalist = document.getElementById('staff-dept-list');
-  if (!sel) return;
-  const current = sel.value;
-  while (sel.options.length > 1) sel.remove(1);
-  if (datalist) datalist.innerHTML = '';
-  staffGetDepts().forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d; opt.textContent = d;
-    sel.appendChild(opt.cloneNode(true));
-    if (datalist) datalist.appendChild(opt);
-  });
-  if (current) sel.value = current;
+  renderStaffDepartmentOptions('staff-filter-dept', true);
+  const editDept = document.getElementById('edit-staff-dept');
+  if (editDept && editDept.options.length <= 1) {
+    renderStaffDepartmentOptions('edit-staff-dept', false);
+  }
+  const addCustomDept = document.getElementById('add-staff-custom-dept');
+  if (addCustomDept && addCustomDept.options.length <= 1) {
+    renderStaffDepartmentOptions('add-staff-custom-dept', false);
+  }
 }
 
 function staffTogglePass(inputId, icon) {
@@ -7767,6 +7818,159 @@ function escHtml(str) {
 
 function staffValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function setStaffFieldError(inputId, message) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.add('field-error');
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.style.display = message ? 'block' : 'none';
+  }
+  return false;
+}
+
+function clearStaffFieldError(inputId) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.remove('field-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  return true;
+}
+
+function focusStaffField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  try { el.focus(); } catch (_) {}
+  if (typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function normalizePersonName(value) {
+  const cleaned = String(value || '')
+    .replace(/[^A-Za-z .'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  return cleaned
+    .split(' ')
+    .map((word) => word.toLowerCase().replace(/(^|[-'.])[a-z]/g, (char) => char.toUpperCase()))
+    .join(' ');
+}
+
+function normalizePositionTitle(value) {
+  const cleaned = String(value || '')
+    .replace(/[^A-Za-z0-9 .'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  return cleaned
+    .split(' ')
+    .map((word) => {
+      const upper = word.toUpperCase();
+      const plain = upper.replace(/[^A-Z0-9]/g, '');
+      if (STAFF_POSITION_UPPER_TOKENS.has(plain) || STAFF_ROMAN_NUMERALS.has(plain)) {
+        return upper;
+      }
+      return word.toLowerCase().replace(/(^|[-'.])[a-z]/g, (char) => char.toUpperCase());
+    })
+    .join(' ');
+}
+
+function applyStaffNameFormatting() {
+  const nameFieldIds = ['add-staff-first', 'add-staff-last', 'edit-staff-first', 'edit-staff-last'];
+  nameFieldIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.nameFormattingBound === '1') return;
+    el.dataset.nameFormattingBound = '1';
+    el.addEventListener('blur', () => {
+      el.value = normalizePersonName(el.value);
+      validateStaffNameField(id);
+    });
+  });
+}
+
+function applyStaffPositionFormatting() {
+  const positionFieldIds = ['add-staff-position', 'edit-staff-position'];
+  positionFieldIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.positionFormattingBound === '1') return;
+    el.dataset.positionFormattingBound = '1';
+    el.addEventListener('blur', () => {
+      el.value = normalizePositionTitle(el.value);
+      validateStaffPositionField(id);
+    });
+  });
+}
+
+function validateStaffDepartment(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return true;
+
+  const selected = (select.value || '').trim();
+  const allowed = selectId === 'add-staff-custom-dept'
+    ? STAFF_NON_BLOOD_BANK_DEPARTMENTS
+    : STAFF_DEPARTMENTS;
+
+  if (!selected || !allowed.includes(selected)) {
+    return setStaffFieldError(selectId, 'Please select a department.');
+  }
+  return clearStaffFieldError(selectId);
+}
+
+function validateStaffNameField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const value = normalizePersonName(el.value);
+  el.value = value;
+  let message = 'Please enter a valid name.';
+  if (inputId.includes('first')) message = 'Please enter a valid first name.';
+  if (inputId.includes('last')) message = 'Please enter a valid last name.';
+  if (!value || !/^[A-Za-z][A-Za-z .'-]*$/.test(value)) {
+    return setStaffFieldError(inputId, message);
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function validateStaffPositionField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const value = normalizePositionTitle(el.value);
+  el.value = value.slice(0, 25);
+  if (!el.value) return clearStaffFieldError(inputId);
+  if (!/^[A-Za-z0-9][A-Za-z0-9 .'-]*$/.test(el.value)) {
+    return setStaffFieldError(inputId, 'Please enter a valid position.');
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function normalizeStaffId(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '')
+    .slice(0, 20)
+    .trim();
+}
+
+function validateStaffIdField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const raw = String(el.value || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').trim();
+  const normalized = raw.slice(0, 20);
+  el.value = normalized;
+  if (raw.length > 20) {
+    return setStaffFieldError(inputId, 'Staff ID must not exceed 20 characters.');
+  }
+  return clearStaffFieldError(inputId);
 }
 
 function staffHasDashboardAccess(staff) {
@@ -7792,7 +7996,10 @@ function staffToggleDepartmentInput() {
   if (wrap) wrap.style.display = isOther ? 'flex' : 'none';
   if (custom) {
     custom.required = isOther;
-    if (!isOther) custom.value = '';
+    if (!isOther) {
+      custom.value = '';
+      clearStaffFieldError('add-staff-custom-dept');
+    }
   }
   if (note) {
     note.innerHTML = isOther
@@ -7804,23 +8011,23 @@ function staffToggleDepartmentInput() {
 function staffGetAddDepartment() {
   const choice = document.getElementById('add-staff-dept-choice')?.value || 'Blood Bank';
   if (choice === 'Blood Bank') return 'Blood Bank';
-  return (document.getElementById('add-staff-custom-dept')?.value.trim() || '').slice(0, 25);
+  return document.getElementById('add-staff-custom-dept')?.value || '';
 }
 
-let addStaffPhoneBound = false;
+const staffPhoneBindings = new Set();
 
-function bindAddStaffPhoneInput() {
-  if (addStaffPhoneBound) return;
-  addStaffPhoneBound = true;
+function bindStaffPhoneInput(inputId) {
+  if (staffPhoneBindings.has(inputId)) return;
+  staffPhoneBindings.add(inputId);
 
-  const input = document.getElementById('add-staff-phone');
+  const input = document.getElementById(inputId);
   if (!input) return;
 
   input.addEventListener('focus', () => {
     if (!input.value.trim()) {
       input.value = '+63';
     } else {
-      lockPhilippinePhoneInput('add-staff-phone');
+      lockPhilippinePhoneInput(inputId);
     }
     const pos = input.value.length;
     if (typeof input.setSelectionRange === 'function') {
@@ -7829,7 +8036,7 @@ function bindAddStaffPhoneInput() {
   });
 
   input.addEventListener('input', () => {
-    lockPhilippinePhoneInput('add-staff-phone');
+    lockPhilippinePhoneInput(inputId);
     const pos = input.value.length;
     if (typeof input.setSelectionRange === 'function') {
       try { input.setSelectionRange(pos, pos); } catch (_) {}
@@ -7837,7 +8044,7 @@ function bindAddStaffPhoneInput() {
   });
 
   input.addEventListener('blur', () => {
-    lockPhilippinePhoneInput('add-staff-phone');
+    lockPhilippinePhoneInput(inputId);
   });
 
   input.addEventListener('keydown', (event) => {
@@ -7861,6 +8068,14 @@ function bindAddStaffPhoneInput() {
       }
     }
   });
+}
+
+function bindAddStaffPhoneInput() {
+  bindStaffPhoneInput('add-staff-phone');
+}
+
+function bindEditStaffPhoneInput() {
+  bindStaffPhoneInput('edit-staff-phone');
 }
 
 function staffCloseModals(exceptId = null) {
@@ -8006,6 +8221,7 @@ function staffNextPage() {
 function openAddStaffModal() {
   staffCloseModals('addStaffModal');
   staffCurrentViewId = null;
+  staffPopulateDepts();
   ['add-staff-email','add-staff-first','add-staff-last',
    'add-staff-phone','add-staff-position','add-staff-custom-dept'].forEach(id => {
     const el = document.getElementById(id);
@@ -8016,6 +8232,8 @@ function openAddStaffModal() {
 
   staffHideError('add-staff-error');
   staffToggleDepartmentInput();
+  ['add-staff-first', 'add-staff-last', 'add-staff-position', 'add-staff-custom-dept']
+    .forEach((id) => clearStaffFieldError(id));
   const phoneEl = document.getElementById('add-staff-phone');
   if (phoneEl) phoneEl.value = '+63';
   openModal('addStaffModal');
@@ -8026,21 +8244,37 @@ function staffPreviewPassword() {
 }
 
 async function submitAddStaff() {
+  staffHideError('add-staff-error');
   const email    = document.getElementById('add-staff-email').value.trim();
-  const first    = document.getElementById('add-staff-first').value.trim();
-  const last     = document.getElementById('add-staff-last').value.trim();
+  const firstInput = document.getElementById('add-staff-first');
+  const lastInput = document.getElementById('add-staff-last');
   const normalizedPhone = lockPhilippinePhoneInput('add-staff-phone');
   const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
   const phone = phoneDigits.length === 10 ? normalizedPhone : null;
   const dept     = staffGetAddDepartment();
   const positionInput = document.getElementById('add-staff-position');
   const customDeptInput = document.getElementById('add-staff-custom-dept');
-  if (positionInput) positionInput.value = (positionInput.value || '').slice(0, 25);
-  if (customDeptInput) customDeptInput.value = (customDeptInput.value || '').slice(0, 25);
-  const position = (positionInput?.value || '').trim().slice(0, 25);
+  if (firstInput) firstInput.value = normalizePersonName(firstInput.value).slice(0, 25);
+  if (lastInput) lastInput.value = normalizePersonName(lastInput.value).slice(0, 25);
+  if (positionInput) positionInput.value = normalizePositionTitle(positionInput.value).slice(0, 25);
+  const first = firstInput?.value || '';
+  const last = lastInput?.value || '';
+  const position = positionInput?.value || '';
+  const isOtherDepartment = document.getElementById('add-staff-dept-choice')?.value === 'Others';
 
-  if (!email || !first || !last || !dept) {
-    staffShowError('add-staff-error', 'Email, first name, last name, and department are required.');
+  let hasInlineError = false;
+  if (!validateStaffNameField('add-staff-first')) hasInlineError = true;
+  if (!validateStaffNameField('add-staff-last')) hasInlineError = true;
+  if (!validateStaffPositionField('add-staff-position')) hasInlineError = true;
+  if (isOtherDepartment) {
+    if (!validateStaffDepartment('add-staff-custom-dept')) hasInlineError = true;
+  } else {
+    clearStaffFieldError('add-staff-custom-dept');
+  }
+  if (hasInlineError || !dept) return;
+
+  if (!email) {
+    staffShowError('add-staff-error', 'Email is required.');
     return;
   }
   if (!staffValidEmail(email)) {
@@ -8051,10 +8285,7 @@ async function submitAddStaff() {
     staffShowError('add-staff-error', 'Phone number must start with +63 followed by exactly 10 digits.');
     return;
   }
-  if (document.getElementById('add-staff-dept-choice')?.value === 'Others' && !dept) {
-    staffShowError('add-staff-error', 'Please enter the custom department.');
-    return;
-  }
+  if (customDeptInput) customDeptInput.value = dept;
 
   const btn = document.getElementById('add-staff-submit-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
@@ -8136,11 +8367,25 @@ function staffOpenEdit(id) {
   document.getElementById('edit-staff-last').value           = s.lastName;
   document.getElementById('edit-staff-phone').value          = s.phoneNumber || '';
   document.getElementById('edit-staff-id').value             = s.staffId     || '';
-  document.getElementById('edit-staff-dept').value           = s.department  || '';
+  renderStaffDepartmentOptions('edit-staff-dept', false);
+  const editDeptInput = document.getElementById('edit-staff-dept');
+  if (editDeptInput) {
+    editDeptInput.value = STAFF_DEPARTMENTS.includes(s.department) ? s.department : '';
+  }
   document.getElementById('edit-staff-position').value       = s.position    || '';
   document.getElementById('edit-staff-status').value         = s.status || 'active';
   document.getElementById('edit-staff-password').value       = '';
   document.getElementById('edit-staff-target-id').value      = id;
+  const editPhoneEl = document.getElementById('edit-staff-phone');
+  if (editPhoneEl && !editPhoneEl.value.trim()) {
+    editPhoneEl.value = '+63';
+  } else {
+    lockPhilippinePhoneInput('edit-staff-phone');
+  }
+  const editStaffIdEl = document.getElementById('edit-staff-id');
+  if (editStaffIdEl) {
+    editStaffIdEl.value = normalizeStaffId(editStaffIdEl.value);
+  }
 
   const hasAccess = staffHasDashboardAccess(s);
   const statusWrap = document.getElementById('edit-staff-status-wrap');
@@ -8151,29 +8396,74 @@ function staffOpenEdit(id) {
   if (passwordRow) passwordRow.style.display = hasAccess ? 'flex' : 'none';
 
   staffHideError('edit-staff-error');
-  staffPopulateDepts();
+  ['edit-staff-first', 'edit-staff-last', 'edit-staff-position', 'edit-staff-dept']
+    .forEach((id) => clearStaffFieldError(id));
   openModal('editStaffModal');
 }
 
 async function submitEditStaff() {
+  staffHideError('edit-staff-error');
   const id       = parseInt(document.getElementById('edit-staff-target-id').value);
-  const first    = document.getElementById('edit-staff-first').value.trim();
-  const last     = document.getElementById('edit-staff-last').value.trim();
-  const phone    = document.getElementById('edit-staff-phone').value.trim();
-  const staffId  = document.getElementById('edit-staff-id').value.trim();
-  const dept     = document.getElementById('edit-staff-dept').value.trim();
-  const position = document.getElementById('edit-staff-position').value.trim();
+  const firstInput = document.getElementById('edit-staff-first');
+  const lastInput = document.getElementById('edit-staff-last');
+  const normalizedPhone = lockPhilippinePhoneInput('edit-staff-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phone = phoneDigits.length === 10 ? normalizedPhone : null;
+  const staffIdInput = document.getElementById('edit-staff-id');
+  if (staffIdInput) staffIdInput.value = normalizeStaffId(staffIdInput.value);
+  const staffId  = staffIdInput?.value || '';
+  const deptInput = document.getElementById('edit-staff-dept');
+  const positionInput = document.getElementById('edit-staff-position');
+  if (firstInput) firstInput.value = normalizePersonName(firstInput.value).slice(0, 25);
+  if (lastInput) lastInput.value = normalizePersonName(lastInput.value).slice(0, 25);
+  if (positionInput) positionInput.value = normalizePositionTitle(positionInput.value).slice(0, 25);
+  const first = firstInput?.value || '';
+  const last = lastInput?.value || '';
+  const dept = deptInput?.value || '';
+  const position = positionInput?.value || '';
   const status   = document.getElementById('edit-staff-status').value;
   const password = document.getElementById('edit-staff-password').value;
   const current  = staffList.find(s => s.id === id);
   const hasAccess = staffHasDashboardAccess(current || {});
 
+  const validators = [
+    ['edit-staff-first', () => validateStaffNameField('edit-staff-first')],
+    ['edit-staff-last', () => validateStaffNameField('edit-staff-last')],
+    ['edit-staff-position', () => validateStaffPositionField('edit-staff-position')],
+    ['edit-staff-dept', () => validateStaffDepartment('edit-staff-dept')]
+  ];
+
+  let firstInvalidId = '';
+  validators.forEach(([fieldId, validate]) => {
+    const valid = validate();
+    if (!valid && !firstInvalidId) firstInvalidId = fieldId;
+  });
+
   if (!first || !last || !dept) {
-    staffShowError('edit-staff-error', 'First name, last name, and department are required.');
+    if (!firstInvalidId) {
+      firstInvalidId = !first ? 'edit-staff-first' : (!last ? 'edit-staff-last' : 'edit-staff-dept');
+    }
+  }
+  if (firstInvalidId) {
+    focusStaffField(firstInvalidId);
     return;
   }
-  if (hasAccess && password && password.length < 6) {
-    staffShowError('edit-staff-error', 'New password must be at least 6 characters.');
+
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    staffShowError('edit-staff-error', 'Phone number must start with +63 followed by exactly 10 digits.');
+    focusStaffField('edit-staff-phone');
+    return;
+  }
+
+  const trimmedPassword = (password || '').trim();
+  if (password && !trimmedPassword) {
+    staffShowError('edit-staff-error', 'Password must be at least 8 characters.');
+    focusStaffField('edit-staff-password');
+    return;
+  }
+  if (hasAccess && trimmedPassword && trimmedPassword.length < 8) {
+    staffShowError('edit-staff-error', 'Password must be at least 8 characters.');
+    focusStaffField('edit-staff-password');
     return;
   }
 
@@ -8187,7 +8477,7 @@ async function submitEditStaff() {
                              staffId: staffId || null,
                              department: dept, position,
                              status: hasAccess ? status : null,
-                             newPassword: hasAccess ? (password || null) : null }),
+                             newPassword: hasAccess ? (trimmedPassword || null) : null }),
     });
 
     // Replace local copy
@@ -8363,7 +8653,29 @@ function staffHideError(elId) {
 
 function initStaffPanel() {
   staffPage = 1;
+  staffPopulateDepts();
   bindAddStaffPhoneInput();
+  bindEditStaffPhoneInput();
+  applyStaffNameFormatting();
+  applyStaffPositionFormatting();
+
+  const addDeptChoice = document.getElementById('add-staff-dept-choice');
+  if (addDeptChoice && addDeptChoice.dataset.staffDeptBound !== '1') {
+    addDeptChoice.dataset.staffDeptBound = '1';
+    addDeptChoice.addEventListener('change', () => staffToggleDepartmentInput());
+  }
+
+  const addCustomDept = document.getElementById('add-staff-custom-dept');
+  if (addCustomDept && addCustomDept.dataset.staffCustomDeptBound !== '1') {
+    addCustomDept.dataset.staffCustomDeptBound = '1';
+    addCustomDept.addEventListener('change', () => validateStaffDepartment('add-staff-custom-dept'));
+  }
+
+  const editDept = document.getElementById('edit-staff-dept');
+  if (editDept && editDept.dataset.staffEditDeptBound !== '1') {
+    editDept.dataset.staffEditDeptBound = '1';
+    editDept.addEventListener('change', () => validateStaffDepartment('edit-staff-dept'));
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initStaffPanel);

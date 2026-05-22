@@ -2028,10 +2028,12 @@
           <div class="form-group-m">
             <label>First Name <span style="color:var(--crimson)">*</span></label>
             <input type="text" id="add-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-first-error"></div>
           </div>
           <div class="form-group-m">
             <label>Last Name <span style="color:var(--crimson)">*</span></label>
             <input type="text" id="add-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-last-error"></div>
           </div>
         </div>
         <div class="form-row">
@@ -2047,6 +2049,7 @@
           <div class="form-group-m">
             <label>Position</label>
             <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-position-error"></div>
           </div>
           <div class="form-group-m">
             <label>Department <span style="color:var(--crimson)">*</span></label>
@@ -2059,7 +2062,21 @@
         <div class="form-row full" id="add-staff-custom-dept-wrap" style="display:none">
           <div class="form-group-m" style="flex:1">
             <label>Custom Department <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-custom-dept" placeholder="Emergency Room, Ward, Laboratory" maxlength="25" autocomplete="off">
+            <select id="add-staff-custom-dept" autocomplete="off">
+              <option value="">Select department...</option>
+              <option value="Emergency Room (ER)">Emergency Room (ER)</option>
+              <option value="ICU">ICU</option>
+              <option value="Operating Room (OR)">Operating Room (OR)</option>
+              <option value="Medical Ward">Medical Ward</option>
+              <option value="Surgical Ward">Surgical Ward</option>
+              <option value="Pediatric Ward">Pediatric Ward</option>
+              <option value="Maternity Ward">Maternity Ward</option>
+              <option value="NICU">NICU</option>
+              <option value="Dialysis Unit">Dialysis Unit</option>
+              <option value="Oncology Ward">Oncology Ward</option>
+              <option value="OPD">OPD</option>
+            </select>
+            <div class="form-inline-error" id="add-staff-custom-dept-error"></div>
           </div>
         </div>
 
@@ -2091,10 +2108,12 @@
           <div class="form-group-m">
             <label>First Name <span style="color:var(--crimson)">*</span></label>
             <input type="text" id="edit-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-first-error"></div>
           </div>
           <div class="form-group-m">
             <label>Last Name <span style="color:var(--crimson)">*</span></label>
             <input type="text" id="edit-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-last-error"></div>
           </div>
         </div>
         <div class="form-row">
@@ -2108,17 +2127,19 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Staff ID</label>
-            <input type="text" id="edit-staff-id" maxlength="20">
+            <input type="text" id="edit-staff-id" maxlength="20" autocomplete="off" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
           </div>
           <div class="form-group-m">
             <label>Department</label>
-            <input type="text" id="edit-staff-dept" list="staff-dept-list">
+            <select id="edit-staff-dept"></select>
+            <div class="form-inline-error" id="edit-staff-dept-error"></div>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group-m">
             <label>Position</label>
             <input type="text" id="edit-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-position-error"></div>
           </div>
           <div class="form-group-m" id="edit-staff-status-wrap">
             <label>Status</label>
@@ -2222,9 +2243,6 @@
   </div>
 
 
-  <datalist id="staff-dept-list"></datalist>
-
-  
   <!-- Delete Staff Confirm Modal -->
   <div class="modal-overlay" id="deleteStaffModal">
     <div class="modal" style="max-width:400px">
