@@ -74,7 +74,7 @@ function updatePatientTypeAndForms() {
   let patientType = '';
   let formHtml = '';
 
-  if (age < 13) {
+  if (age <= 13) {
     patientType = 'PEDIATRIC';
     formHtml = `
       <button class="dl-card-btn" onclick="downloadForm('pedia')"
@@ -184,7 +184,7 @@ function validate(page) {
     const selectedComponent = document.getElementById('f-component').value;
     const birthdate = document.getElementById('f-birthdate').value;
     const age = calculateAge(birthdate);
-    const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
+    const ageGroup = age !== null && age <= 13 ? 'PEDIA' : 'ADULT';
     
     // Components that REQUIRE indications
     const requiresIndications = [
@@ -312,7 +312,7 @@ function initIndicationHandlers() {
   function updateIndications() {
     const birthdate = document.getElementById('f-birthdate').value;
     const age = calculateAge(birthdate);
-    const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
+    const ageGroup = age !== null && age <= 13 ? 'PEDIA' : 'ADULT';
     const component = componentSelect.value;
 
     togglePlateletCountField(component);
@@ -623,7 +623,7 @@ function buildReview() {
   // Calculate age from birthdate
   const birthdate = document.getElementById('f-birthdate').value;
   const age = calculateAge(birthdate);
-  const ageGroup = age !== null && age < 13 ? 'PEDIA' : 'ADULT';
+  const ageGroup = age !== null && age <= 13 ? 'PEDIA' : 'ADULT';
   const addressParts = [
     document.getElementById('f-purok').value.trim(),
     document.getElementById('f-barangay').value.trim(),
@@ -1136,7 +1136,7 @@ async function submitRequest() {
   // ──────────────────────────────────────────────
   // PATIENT TYPE & CATEGORY (PAGE 1)
   // ──────────────────────────────────────────────
-  const ageGroup      = patientAge !== null && patientAge < 13 ? 'PEDIA' : 'ADULT';
+  const ageGroup      = patientAge !== null && patientAge <= 13 ? 'PEDIA' : 'ADULT';
   const requestCategory = getRadioVal('category');
 
   // ──────────────────────────────────────────────
@@ -2622,4 +2622,556 @@ birthdateInput.min = minDate.toISOString().split("T")[0];
     }
   });
 });
+
+// Scanner overrides: backend OCR.space integration (no frontend Tesseract)
+var scannedMeta = null;
+
+const SCANNER_ACCEPTED_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/bmp',
+  'image/tiff',
+  'image/jfif'
+]);
+
+function scannerEscapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function showScannerNotice(msg) {
+  const errorDiv = document.getElementById('scanner-error');
+  if (!errorDiv) return;
+  errorDiv.textContent = msg;
+  errorDiv.style.background = 'rgba(183, 128, 2, 0.08)';
+  errorDiv.style.borderColor = 'rgba(183, 128, 2, 0.2)';
+  errorDiv.style.color = '#8A6000';
+  errorDiv.style.display = 'block';
+}
+
+function showScannerError(msg) {
+  const errorDiv = document.getElementById('scanner-error');
+  if (!errorDiv) return;
+  errorDiv.textContent = msg;
+  errorDiv.style.background = '';
+  errorDiv.style.borderColor = '';
+  errorDiv.style.color = '';
+  errorDiv.style.display = 'block';
+}
+
+function showScannerSuccess(msg) {
+  const errorDiv = document.getElementById('scanner-error');
+  if (!errorDiv) return;
+  errorDiv.textContent = msg;
+  errorDiv.style.background = 'rgba(46, 125, 79, 0.08)';
+  errorDiv.style.borderColor = 'rgba(46, 125, 79, 0.2)';
+  errorDiv.style.color = '#2E7D4F';
+  errorDiv.style.display = 'block';
+  setTimeout(() => {
+    errorDiv.style.display = 'none';
+    errorDiv.style.background = '';
+    errorDiv.style.borderColor = '';
+    errorDiv.style.color = '';
+  }, 4500);
+}
+
+function setScanPopulateActionVisible(visible) {
+  const actionWrap = document.getElementById('scan-fill-quick-action');
+  const actionBtn = document.getElementById('btn-scan-populate');
+  const actionText = document.querySelector('#scan-fill-quick-action .scan-fill-quick-text');
+  if (!actionWrap) return;
+
+  if (visible) {
+    const confidence = scannedMeta && Number.isFinite(Number(scannedMeta.confidence))
+      ? Math.max(0, Math.min(100, Math.round(Number(scannedMeta.confidence))))
+      : null;
+    if (actionText) {
+      actionText.textContent = confidence == null
+        ? 'Scanned details are ready to populate this request form.'
+        : `Scanned details are ready to populate this request form (OCR confidence: ${confidence}%).`;
+    }
+    actionWrap.style.display = 'flex';
+    if (actionBtn) actionBtn.disabled = false;
+  } else {
+    actionWrap.style.display = 'none';
+  }
+}
+
+function clearScan() {
+  scannedData = null;
+  scannedMeta = null;
+  setScanPopulateActionVisible(false);
+  const scanInput = document.getElementById('scan-input');
+  if (scanInput) scanInput.value = '';
+  const placeholder = document.getElementById('scan-placeholder');
+  if (placeholder) placeholder.style.display = 'block';
+  const preview = document.getElementById('scan-preview');
+  if (preview) preview.style.display = 'none';
+  const resultsBox = document.getElementById('scanner-results-box');
+  if (resultsBox) resultsBox.style.display = 'none';
+  const fieldsFound = document.getElementById('scanner-fields-found');
+  if (fieldsFound) fieldsFound.innerHTML = '';
+  const uploadZone = document.getElementById('scanner-upload-zone');
+  if (uploadZone) uploadZone.classList.remove('has-file');
+}
+
+function normalizeScannerResponse(payload) {
+  const fieldsSource = payload && typeof payload.fields === 'object' && payload.fields ? payload.fields : {};
+  const fields = {};
+  Object.keys(fieldsSource).forEach(key => {
+    const value = fieldsSource[key];
+    fields[key] = typeof value === 'string' ? value.trim() : value;
+  });
+
+  fields.indicationCodes = Array.isArray(fieldsSource.indicationCodes)
+    ? fieldsSource.indicationCodes
+        .map(code => String(code || '').trim().toUpperCase())
+        .filter(Boolean)
+    : [];
+  fields.otherIndicationText = fieldsSource.otherIndicationText && typeof fieldsSource.otherIndicationText === 'object'
+    ? fieldsSource.otherIndicationText
+    : {};
+
+  return {
+    confidence: Number.isFinite(Number(payload && payload.confidence))
+      ? Math.max(0, Math.min(100, Math.round(Number(payload.confidence))))
+      : 0,
+    warnings: Array.isArray(payload && payload.warnings)
+      ? payload.warnings.map(w => String(w || '').trim()).filter(Boolean)
+      : [],
+    rawText: payload && payload.rawText ? String(payload.rawText) : '',
+    fields
+  };
+}
+
+function hasAnyScannedField(fields) {
+  if (!fields || typeof fields !== 'object') return false;
+  const keys = [
+    'patientName', 'patientMiddle', 'patientLast', 'birthdate', 'sex', 'purok',
+    'barangay', 'municipality', 'province', 'physician', 'room', 'ward',
+    'diagnosis', 'contact', 'bloodType', 'hemoglobin', 'hematocrit',
+    'requestType', 'units', 'componentType', 'previousTransfusion', 'previousReaction'
+  ];
+  return keys.some(key => !!fields[key]) || (Array.isArray(fields.indicationCodes) && fields.indicationCodes.length > 0);
+}
+
+function scannerBloodTypeLabel(value) {
+  if (!value) return null;
+  const map = {
+    O_POS: 'O+',
+    O_NEG: 'O-',
+    A_POS: 'A+',
+    A_NEG: 'A-',
+    B_POS: 'B+',
+    B_NEG: 'B-',
+    AB_POS: 'AB+',
+    AB_NEG: 'AB-'
+  };
+  return map[value] || value;
+}
+
+function scannerComponentLabel(value) {
+  if (!value) return null;
+  if (typeof COMPONENT_LABELS_R === 'object' && COMPONENT_LABELS_R[value]) {
+    return COMPONENT_LABELS_R[value];
+  }
+  return value;
+}
+
+function setScanFieldValue(inputId, value) {
+  const input = document.getElementById(inputId);
+  if (!input || value == null || value === '') return false;
+  input.value = String(value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
+function setScanRadioValue(name, value) {
+  if (!value) return false;
+  const normalized = String(value).trim().toUpperCase();
+  const radio = document.querySelector(`input[name="${name}"][value="${normalized}"]`);
+  if (!radio) return false;
+  radio.checked = true;
+  radio.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
+function setScanSelectValue(inputId, value) {
+  if (!value) return false;
+  const select = document.getElementById(inputId);
+  if (!select) return false;
+  const hasOption = Array.from(select.options).some(option => option.value === value);
+  if (!hasOption) return false;
+  select.value = value;
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
+function applyScannedIndications(codes, otherTextMap) {
+  const appliedCodes = [];
+  const unmappedCodes = [];
+
+  document.querySelectorAll('.indication-checkbox').forEach(cb => {
+    cb.checked = false;
+  });
+  closeAllSubGroups();
+
+  if (Array.isArray(codes)) {
+    codes.forEach(code => {
+      const normalized = String(code || '').trim().toUpperCase();
+      if (!normalized) return;
+      const checkbox = document.getElementById(`ind-${normalized}`);
+      if (!checkbox) {
+        unmappedCodes.push(normalized);
+        return;
+      }
+
+      if (checkbox.dataset.parent) {
+        const parent = document.getElementById(`ind-${checkbox.dataset.parent}`);
+        if (parent) {
+          parent.checked = true;
+          parent.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+      appliedCodes.push(normalized);
+    });
+  }
+
+  if (otherTextMap && typeof otherTextMap === 'object') {
+    Object.entries(otherTextMap).forEach(([code, value]) => {
+      if (!value) return;
+      const input = document.querySelector(`input[data-ref="${code}"]`);
+      if (input) {
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  }
+
+  return { appliedCodes, unmappedCodes };
+}
+
+function displayScanResults() {
+  const resultsDiv = document.getElementById('scanner-results-box');
+  const fieldsDiv = document.getElementById('scanner-fields-found');
+  const statusEl = document.getElementById('scan-status');
+  const applyBtn = document.getElementById('btn-apply-scan');
+  const scannerContent = document.getElementById('scanner-content');
+  const collapseBtn = document.getElementById('scanner-collapse-btn');
+  if (!resultsDiv || !fieldsDiv || !statusEl) return;
+
+  if (!hasAnyScannedField(scannedData)) {
+    showScannerError('No recognizable blood request fields detected. Please review image quality or fill manually.');
+    clearScan();
+    return;
+  }
+
+  const fullName = [scannedData.patientName, scannedData.patientMiddle, scannedData.patientLast]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  const address = [scannedData.purok, scannedData.barangay, scannedData.municipality, scannedData.province]
+    .filter(Boolean)
+    .join(', ')
+    .trim();
+  const indications = Array.isArray(scannedData.indicationCodes) && scannedData.indicationCodes.length > 0
+    ? scannedData.indicationCodes.join(', ')
+    : null;
+
+  const previewRows = [
+    { label: 'Patient Name', value: fullName || null },
+    { label: 'Date of Birth', value: scannedData.birthdate },
+    { label: 'Sex', value: scannedData.sex },
+    { label: 'Address', value: address || null },
+    { label: 'Physician', value: scannedData.physician },
+    { label: 'Contact Number', value: scannedData.contact },
+    { label: 'Blood Type', value: scannerBloodTypeLabel(scannedData.bloodType) },
+    { label: 'Component', value: scannerComponentLabel(scannedData.componentType) },
+    { label: 'Units', value: scannedData.units },
+    { label: 'Hemoglobin', value: scannedData.hemoglobin },
+    { label: 'Hematocrit', value: scannedData.hematocrit },
+    { label: 'Request Type', value: scannedData.requestType },
+    { label: 'Previous Transfusion', value: scannedData.previousTransfusion },
+    { label: 'Previous Reaction', value: scannedData.previousReaction },
+    { label: 'Indications', value: indications }
+  ];
+
+  fieldsDiv.innerHTML = previewRows.map(row => `
+    <div class="result-field">
+      <span class="result-field-label">${scannerEscapeHtml(row.label)}</span>
+      <span class="result-field-value">${row.value ? scannerEscapeHtml(row.value) : 'Not detected'}</span>
+    </div>
+  `).join('');
+
+  const detectedCount = previewRows.filter(row => !!row.value).length;
+  statusEl.textContent = `Detected ${detectedCount} fields | OCR confidence: ${scannedMeta ? scannedMeta.confidence : 0}%`;
+  if (scannerContent && scannerContent.classList.contains('collapsed')) {
+    scannerContent.classList.remove('collapsed');
+  }
+  if (collapseBtn && collapseBtn.classList.contains('collapsed')) {
+    collapseBtn.classList.remove('collapsed');
+  }
+  if (applyBtn) {
+    applyBtn.disabled = false;
+    applyBtn.style.display = 'block';
+  }
+  resultsDiv.style.display = 'block';
+  setScanPopulateActionVisible(true);
+
+  if (scannedMeta && Array.isArray(scannedMeta.warnings) && scannedMeta.warnings.length > 0) {
+    showScannerNotice(scannedMeta.warnings.join(' '));
+  }
+}
+
+function extractServerErrorMessage(response, payload, fallbackText) {
+  if (payload && typeof payload === 'object') {
+    const candidates = [payload.error, payload.message, payload.detail, payload.title];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  }
+  if (typeof fallbackText === 'string' && fallbackText.trim()) {
+    const cleaned = fallbackText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (cleaned) {
+      if (cleaned.length > 220) {
+        return cleaned.slice(0, 220).trim() + '...';
+      }
+      return cleaned;
+    }
+  }
+  return `Scan failed (${response.status}). Please try a clearer image or fill the form manually.`;
+}
+
+function applyScanResults() {
+  if (!scannedData || !hasAnyScannedField(scannedData)) {
+    showScannerError('No scanned values are available. Please scan a form first.');
+    return;
+  }
+
+  let filledCount = 0;
+  const unresolvedNotes = [];
+
+  const directMap = {
+    patientName: 'f-patientName',
+    patientMiddle: 'f-patientMiddle',
+    patientLast: 'f-patientLast',
+    patientSuffix: 'f-patientSuffix',
+    birthdate: 'f-birthdate',
+    purok: 'f-purok',
+    barangay: 'f-barangay',
+    municipality: 'f-municipality',
+    province: 'f-province',
+    physician: 'f-physician',
+    room: 'f-room',
+    ward: 'f-ward',
+    diagnosis: 'f-diagnosis',
+    contact: 'f-contact',
+    hemoglobin: 'f-hemoglobin',
+    hematocrit: 'f-hematocrit',
+    units: 'f-units',
+    previousTransfusionDate: 'f-prevTransDate',
+    previousUnits: 'f-prevUnits',
+    reactionDate: 'f-reactionDate',
+    reactionDetails: 'f-reactionDetails'
+  };
+
+  Object.entries(directMap).forEach(([fieldKey, inputId]) => {
+    if (setScanFieldValue(inputId, scannedData[fieldKey])) filledCount += 1;
+  });
+
+  if (setScanSelectValue('f-sex', scannedData.sex)) filledCount += 1;
+  if (setScanSelectValue('f-bloodType', scannedData.bloodType)) filledCount += 1;
+
+  if (scannedData.componentType) {
+    if (setScanSelectValue('f-component', scannedData.componentType)) {
+      filledCount += 1;
+    } else {
+      unresolvedNotes.push(`Component "${scannerComponentLabel(scannedData.componentType)}" needs manual selection.`);
+    }
+  }
+
+  if (setScanRadioValue('requestType', scannedData.requestType)) filledCount += 1;
+  if (setScanRadioValue('prevTransfusion', scannedData.previousTransfusion)) filledCount += 1;
+  if (setScanRadioValue('prevReaction', scannedData.previousReaction)) filledCount += 1;
+
+  togglePrevTransFields();
+  toggleReactionFields();
+  updatePatientTypeAndForms();
+  updateUrgencyBasedOnRequestType();
+  enforceHemoglobinFormat();
+  enforceHematocritFormat();
+  formatAndLockContactNumber();
+
+  const indicationResult = applyScannedIndications(scannedData.indicationCodes, scannedData.otherIndicationText);
+  if (indicationResult.appliedCodes.length > 0) {
+    filledCount += indicationResult.appliedCodes.length;
+  }
+  if (indicationResult.unmappedCodes.length > 0) {
+    unresolvedNotes.push(`Some indications need manual review: ${indicationResult.unmappedCodes.join(', ')}`);
+  }
+
+  switchTab('request');
+  const formSection = document.getElementById('form-section');
+  if (formSection) {
+    formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  if (unresolvedNotes.length > 0) {
+    showScannerNotice(`Filled ${filledCount} fields. ${unresolvedNotes.join(' ')}`);
+  } else {
+    showScannerSuccess(`Filled ${filledCount} fields from OCR. Please review before submitting.`);
+  }
+
+  clearScan();
+}
+
+async function handleScan(file) {
+  setScanPopulateActionVisible(false);
+  if (!file) {
+    showScannerError('No file selected. Please choose an image or PDF.');
+    return;
+  }
+
+  const uploadZone = document.getElementById('scanner-upload-zone');
+  const placeholder = document.getElementById('scan-placeholder');
+  const preview = document.getElementById('scan-preview');
+  const fileName = document.getElementById('scan-file-name');
+  const statusEl = document.getElementById('scan-status');
+  if (!uploadZone || !placeholder || !preview || !fileName || !statusEl) return;
+
+  if (file.size > 10 * 1024 * 1024) {
+    showScannerError('File is too large. Maximum upload size is 10MB.');
+    return;
+  }
+
+  const contentType = String(file.type || '').toLowerCase();
+  if (!SCANNER_ACCEPTED_TYPES.has(contentType)) {
+    showScannerError('Unsupported file type. Please upload PDF, JPG, PNG, WEBP, BMP, or TIFF.');
+    return;
+  }
+
+  const errorDiv = document.getElementById('scanner-error');
+  if (errorDiv) {
+    errorDiv.textContent = '';
+    errorDiv.style.display = 'none';
+  }
+
+  placeholder.style.display = 'none';
+  preview.style.display = 'block';
+  fileName.textContent = file.name;
+  statusEl.innerHTML = '<span class="scanner-spinner"></span> Scanning form...';
+  uploadZone.classList.add('has-file');
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/req/blood-requests/ocr', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+
+    const responseType = String(response.headers.get('content-type') || '').toLowerCase();
+    let payload = {};
+    let fallbackText = '';
+    if (responseType.includes('application/json')) {
+      payload = await response.json().catch(() => ({}));
+    } else {
+      fallbackText = await response.text().catch(() => '');
+      try {
+        payload = JSON.parse(fallbackText);
+      } catch (_) {
+        payload = {};
+      }
+    }
+
+    console.log('[Blood Request OCR] HTTP:', response.status, response.statusText);
+    console.log('[Blood Request OCR] Raw response payload:', payload);
+
+    if (!response.ok) {
+      throw new Error(extractServerErrorMessage(response, payload, fallbackText));
+    }
+
+    const normalized = normalizeScannerResponse(payload);
+    console.log('[Blood Request OCR] Normalized fields:', normalized.fields);
+    console.log('[Blood Request OCR] Confidence:', normalized.confidence, '| Warnings:', normalized.warnings);
+    scannedData = normalized.fields;
+    scannedMeta = {
+      confidence: normalized.confidence,
+      warnings: normalized.warnings,
+      rawText: normalized.rawText
+    };
+
+    if (!hasAnyScannedField(scannedData)) {
+      showScannerError('No recognizable blood request fields detected. Please try a clearer image.');
+      clearScan();
+      return;
+    }
+
+    displayScanResults();
+  } catch (err) {
+    console.error('Blood request OCR scan failed:', err);
+    showScannerError(err && err.message
+      ? err.message
+      : 'Unable to scan the form. Please try a clearer image or fill the form manually.');
+    clearScan();
+  }
+}
+
+function initStandaloneScanner() {
+  const uploadZone = document.getElementById('scanner-upload-zone');
+  if (uploadZone) {
+    uploadZone.style.cursor = 'pointer';
+    uploadZone.addEventListener('click', function () {
+      const scanInput = document.getElementById('scan-input');
+      if (scanInput) scanInput.click();
+    });
+
+    uploadZone.addEventListener('dragover', function (event) {
+      event.preventDefault();
+      uploadZone.classList.add('drag-over');
+    });
+
+    uploadZone.addEventListener('dragleave', function () {
+      uploadZone.classList.remove('drag-over');
+    });
+
+    uploadZone.addEventListener('drop', function (event) {
+      event.preventDefault();
+      uploadZone.classList.remove('drag-over');
+      if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+        handleScan(event.dataTransfer.files[0]);
+      }
+    });
+  }
+}
+
+function toggleScannerPanel() {
+  const content = document.getElementById('scanner-content');
+  const btn = document.getElementById('scanner-collapse-btn');
+
+  if (!content || !btn) return;
+
+  if (content.classList.contains('collapsed')) {
+    content.classList.remove('collapsed');
+    btn.classList.remove('collapsed');
+  } else {
+    content.classList.add('collapsed');
+    btn.classList.add('collapsed');
+  }
+}
 
