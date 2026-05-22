@@ -2351,16 +2351,26 @@
  
   <!-- Doc Preview Modal -->
   <div class="req-reject-overlay" id="req-doc-modal">
-    <div class="modal" style="max-width:560px">
+    <div class="modal req-doc-modal-dialog">
       <div class="modal-header">
-        <div class="modal-title">Blood Request Form</div>
-        <button class="modal-close" onclick="document.getElementById('req-doc-modal').classList.remove('open')">✕</button>
+        <div>
+          <div class="modal-title">Blood Request Form</div>
+          <div class="req-doc-subtitle">Zoom for better readability</div>
+        </div>
+        <button class="modal-close" onclick="reqCloseDocModal()">✕</button>
       </div>
-      <div class="modal-body">
-        <div id="req-doc-frame" style="width:100%;border-radius:10px;border:1.5px solid var(--border);
-            background:var(--cream);min-height:300px;display:flex;align-items:center;
-            justify-content:center;overflow:hidden"></div>
-        <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center" id="req-doc-label"></div>
+      <div class="modal-body req-doc-modal-body">
+        <div class="req-doc-toolbar">
+          <div class="req-doc-zoom-controls">
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-out" onclick="reqDocZoomOut()">-</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-reset" onclick="reqDocZoomReset()">Reset</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-in" onclick="reqDocZoomIn()">+</button>
+            <span class="req-doc-zoom-value" id="req-doc-zoom-value">100%</span>
+          </div>
+          <a id="req-doc-open-link" class="req-doc-open-link" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        </div>
+        <div id="req-doc-frame" class="req-doc-frame"></div>
+        <div class="req-doc-label" id="req-doc-label"></div>
       </div>
     </div>
   </div>

@@ -5875,7 +5875,13 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let bagPickerSelected = null;
   let bagPickerData     = [];
   let bagPickerIsChange = false;
- 
+  let reqDocZoom        = 1;
+  let reqDocIsPdf       = false;
+
+  const REQ_DOC_ZOOM_MIN = 0.5;
+  const REQ_DOC_ZOOM_MAX = 5;
+  const REQ_DOC_ZOOM_STEP = 0.2;
+
   const reqBagCache = {};
   const REQ_NEW_BADGE_STATUSES = new Set(['PENDING', 'NEEDS_CONFIRMATION']);
   const reqSeenIds = new Set();
@@ -6939,15 +6945,104 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     }
   };
  
+  function reqDocClampZoom(nextZoom) {
+    return Math.min(REQ_DOC_ZOOM_MAX, Math.max(REQ_DOC_ZOOM_MIN, nextZoom));
+  }
+
+  function reqDocGetZoomImage() {
+    return document.getElementById('req-doc-zoom-image');
+  }
+
+  function reqDocUpdateZoomUi() {
+    const zoomOutBtn = document.getElementById('req-doc-zoom-out');
+    const zoomInBtn = document.getElementById('req-doc-zoom-in');
+    const zoomResetBtn = document.getElementById('req-doc-zoom-reset');
+    const zoomValue = document.getElementById('req-doc-zoom-value');
+    const zoomImage = reqDocGetZoomImage();
+    const disabled = reqDocIsPdf || !zoomImage;
+
+    if (zoomValue) {
+      zoomValue.textContent = `${Math.round(reqDocZoom * 100)}%`;
+    }
+    if (zoomOutBtn) zoomOutBtn.disabled = disabled;
+    if (zoomInBtn) zoomInBtn.disabled = disabled;
+    if (zoomResetBtn) zoomResetBtn.disabled = disabled;
+
+    if (!disabled) {
+      zoomImage.style.transform = `scale(${reqDocZoom})`;
+    }
+  }
+
+  window.reqDocZoomIn = function () {
+    reqDocZoom = reqDocClampZoom(reqDocZoom + REQ_DOC_ZOOM_STEP);
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqDocZoomOut = function () {
+    reqDocZoom = reqDocClampZoom(reqDocZoom - REQ_DOC_ZOOM_STEP);
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqDocZoomReset = function () {
+    reqDocZoom = 1;
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqCloseDocModal = function () {
+    const modal = document.getElementById('req-doc-modal');
+    const frame = document.getElementById('req-doc-frame');
+    if (modal) modal.classList.remove('open');
+    if (frame) frame.innerHTML = '';
+    reqDocZoom = 1;
+    reqDocIsPdf = false;
+    reqDocUpdateZoomUi();
+  };
+
   window.reqViewDoc = function (url, label) {
     if (!url) { alert('No document uploaded for this request.'); return; }
-    document.getElementById('req-doc-label').textContent = label;
-    const isPdf        = url.toLowerCase().includes('.pdf');
+
+    const frame = document.getElementById('req-doc-frame');
+    const docLabel = document.getElementById('req-doc-label');
+    const openLink = document.getElementById('req-doc-open-link');
+    const safeLabel = label || 'Blood Request Form';
+    const lowerUrl = String(url).toLowerCase();
+    const isPdf = lowerUrl.includes('.pdf');
     const googleViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    document.getElementById('req-doc-frame').innerHTML = isPdf
-      ? `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`
-      : `<img src="${url}" style="width:100%;border-radius:10px;display:block"
-           onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly -></a></div>'" />`;
+
+    reqDocIsPdf = isPdf;
+    reqDocZoom = 1;
+
+    if (docLabel) docLabel.textContent = safeLabel;
+    if (openLink) openLink.href = url;
+
+    if (!frame) return;
+
+    frame.innerHTML = isPdf
+      ? `<iframe class="req-doc-pdf" src="${googleViewer}" title="${safeLabel}"></iframe>`
+      : `<div class="req-doc-image-wrap">
+          <img
+            id="req-doc-zoom-image"
+            class="req-doc-image"
+            src="${url}"
+            alt="${safeLabel}"
+            onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:var(--muted);font-size:13px\\'>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly</a></div>'"
+          />
+        </div>`;
+
+    if (!isPdf) {
+      const zoomImage = reqDocGetZoomImage();
+      if (zoomImage) {
+        zoomImage.addEventListener('wheel', function (event) {
+          if (!event.ctrlKey) return;
+          event.preventDefault();
+          const next = reqDocZoom + (event.deltaY < 0 ? REQ_DOC_ZOOM_STEP : -REQ_DOC_ZOOM_STEP);
+          reqDocZoom = reqDocClampZoom(next);
+          reqDocUpdateZoomUi();
+        }, { passive: false });
+      }
+    }
+
+    reqDocUpdateZoomUi();
     document.getElementById('req-doc-modal').classList.add('open');
   };
  
@@ -7181,7 +7276,14 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
-    const typeLabel = req.type === 'ANONYMOUS' ? '' : `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${req.type})</span>`;
+    const requestCategoryRaw = String(req.requestCategory ?? '').trim().toUpperCase();
+    const requesterTypeDisplay =
+      requestCategoryRaw === 'INPATIENT' || requestCategoryRaw === 'INHOUSE' ? 'INHOUSE'
+      : requestCategoryRaw === 'OUTPATIENT' || requestCategoryRaw === 'OPD' ? 'OPD'
+      : (req.requestCategory ? req.requestCategory : (req.type ?? ''));
+    const typeLabel = requesterTypeDisplay
+      ? `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${requesterTypeDisplay})</span>`
+      : '';
     const unitsMeta = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
       ? `${req.approvedUnits} ${req.status === 'NEEDS_CONFIRMATION' ? 'offered' : 'approved'} of ${req.requestedUnits} requested`
       : `${req.units} unit${req.units > 1 ? 's' : ''}`;
@@ -7233,7 +7335,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
                onmouseout="this.style.boxShadow=''">
             <div class="req-detail-box-title">Requester info (view)</div>
             <div class="req-detail-row"><span class="lbl">From</span><span class="val">${req.name}</span></div>
-            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${req.type[0] + req.type.slice(1).toLowerCase()}</span></div>
+            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${requesterTypeDisplay || '-'}</span></div>
             <div class="req-detail-row"><span class="lbl">Urgency</span><span class="val">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span></div>
             <div class="req-detail-row"><span class="lbl">Submitted</span><span class="val">${req.date}</span></div>
           </div>
@@ -7352,6 +7454,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       else if (modalId === 'req-remarks-modal') reqCloseApproveWithRemarks();
       else if (modalId === 'req-confirm-modal') reqCloseConfirm();
       else if (modalId === 'req-bag-picker-modal') reqCloseBagPicker();
+      else if (modalId === 'req-doc-modal') reqCloseDocModal();
       else el.classList.remove('open');
     });
   });
