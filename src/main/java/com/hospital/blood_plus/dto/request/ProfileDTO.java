@@ -178,13 +178,15 @@ public class ProfileDTO {
     public static class UpdateStaffProfileRequest {
         public String firstName;
         public String lastName;
+        public String username;
         public String phoneNumber;
 
         public UpdateStaffProfileRequest() {}
 
-        public UpdateStaffProfileRequest(String firstName, String lastName, String phoneNumber) {
+        public UpdateStaffProfileRequest(String firstName, String lastName, String username, String phoneNumber) {
             this.firstName = firstName;
             this.lastName = lastName;
+            this.username = username;
             this.phoneNumber = phoneNumber;
         }
 
@@ -193,6 +195,9 @@ public class ProfileDTO {
 
         public String getLastName() { return lastName; }
         public void setLastName(String lastName) { this.lastName = lastName; }
+
+        public String getUsername() { return username; }
+        public void setUsername(String username) { this.username = username; }
 
         public String getPhoneNumber() { return phoneNumber; }
         public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }

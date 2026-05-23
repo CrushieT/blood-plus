@@ -5,6 +5,7 @@ import com.hospital.blood_plus.model.AppUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long
     Optional<StaffProfile> findByUser(AppUser user);
     Optional<StaffProfile> findByStaffId(String staffId);
     Optional<StaffProfile> findByEmail(String email);
+    List<StaffProfile> findByEmailIn(Collection<String> emails);
     Optional<StaffProfile> findByUniqueCode(String uniqueCode);
     boolean existsByStaffId(String staffId);
     boolean existsByEmail(String email);

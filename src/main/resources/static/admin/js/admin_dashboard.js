@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeAutoRefresh();  // ? This replaces the loadBloodBank() and loadDashboard() calls
   initStaffPanel();
   initializeLoggingPanel();
+  initAddStockScanner();
 });
 
 // -- Panel navigation ----------------------------------------------------------
@@ -588,12 +589,12 @@ function componentLabel(ct) {
 }
 
 function sourceLabel(bag) {
-  if (bag.eventName) return '?? ' + bag.eventName;
+  if (bag.eventName) return '\uD83E\uDE78 ' + bag.eventName;
   const map = {
-    DONATION:        '?? Blood Drive',
-    WALK_IN:         '?? Walk-in Donor',
-    TRANSFER:        '?? BMC Transfer',
-    EXTERNAL_SUPPLY: '?? External Supply',
+    DONATION:        '\uD83E\uDE78 Blood Drive',
+    WALK_IN:         '\uD83D\uDEB6 Walk-in Donor',
+    TRANSFER:        '\uD83D\uDE9A BMC Transfer',
+    EXTERNAL_SUPPLY: '\uD83D\uDCE6 External Supply',
   };
   return map[bag.source] ?? bag.source ?? '–';
 }
@@ -601,20 +602,20 @@ function sourceLabel(bag) {
 function computeBagStatus(bag) {
   const now  = new Date();
   const soon = new Date(); soon.setDate(soon.getDate() + 10);
-  const exp  = new Date(bag.expiresAt);
+  const exp  = parseBloodBagDateValue(bag.expiresAt);
 
   if (bag.status === 'DISCARDED')    return 'DISCARDED';
   if (bag.status === 'DISPENSED')    return 'DISPENSED';
   if (bag.status === 'CROSSMATCHED') return 'CROSSMATCHED';
-  if (bag.status === 'EXPIRED' || (bag.status === 'AVAILABLE' && exp < now)) return 'EXPIRED';
-  if (bag.status === 'AVAILABLE' && exp <= soon) return 'EXPIRING';
+  if (bag.status === 'EXPIRED' || (bag.status === 'AVAILABLE' && exp && exp < now)) return 'EXPIRED';
+  if (bag.status === 'AVAILABLE' && exp && exp <= soon) return 'EXPIRING';
   return 'AVAILABLE';
 }
 
 function formatBagDate(d) {
-  if (!d) return '–';
-  const str = d.includes('T') ? d : d + 'T00:00:00';
-  return new Date(str).toLocaleDateString('en-PH', {
+  const parsed = parseBloodBagDateValue(d);
+  if (!parsed) return '–';
+  return parsed.toLocaleDateString('en-PH', {
     year: 'numeric', month: 'short', day: 'numeric'
   });
 }
@@ -704,11 +705,10 @@ function renderInventoryGrid(apiData) {
   const now  = new Date();
   const soon = new Date(); soon.setDate(soon.getDate() + 7);
   const expiringSoon = apiData?.expiringSoon
-    ?? BLOOD_BAGS.filter(b =>
-        b.status === 'AVAILABLE' &&
-        new Date(b.expiresAt) <= soon &&
-        new Date(b.expiresAt) > now
-      ).length;
+    ?? BLOOD_BAGS.filter(b => {
+        const expDate = parseBloodBagDateValue(b.expiresAt);
+        return b.status === 'AVAILABLE' && expDate && expDate <= soon && expDate > now;
+      }).length;
 
   document.getElementById('inv-critical-count').textContent =
     INVENTORY.filter(i => i.level === 'CRITICAL' || i.level === 'EMPTY').length;
@@ -749,10 +749,15 @@ function renderBagsTable() {
   );
 
   list.sort((a, b) => {
-    if (sort === 'expiry_asc')     return new Date(a.expiresAt)   - new Date(b.expiresAt);
-    if (sort === 'expiry_desc')    return new Date(b.expiresAt)   - new Date(a.expiresAt);
-    if (sort === 'collected_desc') return new Date(b.collectedAt) - new Date(a.collectedAt);
-    if (sort === 'collected_asc')  return new Date(a.collectedAt) - new Date(b.collectedAt);
+    const aExpiry = parseBloodBagDateValue(a.expiresAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const bExpiry = parseBloodBagDateValue(b.expiresAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const aCollected = parseBloodBagDateValue(a.collectedAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+    const bCollected = parseBloodBagDateValue(b.collectedAt)?.getTime() ?? Number.POSITIVE_INFINITY;
+
+    if (sort === 'expiry_asc')     return aExpiry - bExpiry;
+    if (sort === 'expiry_desc')    return bExpiry - aExpiry;
+    if (sort === 'collected_desc') return bCollected - aCollected;
+    if (sort === 'collected_asc')  return aCollected - bCollected;
     return 0;
   });
 
@@ -825,8 +830,8 @@ function renderBagsPage() {
   const soon    = new Date(); soon.setDate(soon.getDate() + 7);
 
   tbody.innerHTML = page.map(bag => {
-    const exp      = new Date(bag.expiresAt);
-    const daysLeft = Math.ceil((exp - now) / 86400000);
+    const exp      = parseBloodBagDateValue(bag.expiresAt);
+    const daysLeft = calculateBloodBagDaysLeft(bag.expiresAt, now);
     const btLabel  = fullBloodLabel(bag.bloodType, bag.rhType);
     const compLbl  = componentLabel(bag.componentType);
 
@@ -840,10 +845,10 @@ function renderBagsPage() {
     if (bag.computedStatus === 'EXPIRED') {
       expiryPill = `<span class="expiry-pill expiry-expired">Expired</span>`;
     } else if (bag.openSystem) {
-      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft < 1 ? '<1' : daysLeft}d (open)</span>`;
-    } else if (exp <= twoDays) {
+      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft <= 0 ? '<1' : daysLeft}d (open)</span>`;
+    } else if (exp && exp <= twoDays) {
       expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft}d left</span>`;
-    } else if (exp <= soon) {
+    } else if (exp && exp <= soon) {
       expiryPill = `<span class="expiry-pill expiry-soon">? ${daysLeft}d left</span>`;
     } else {
       expiryPill = `<span class="expiry-pill expiry-ok">${daysLeft}d left</span>`;
@@ -868,11 +873,11 @@ function renderBagsPage() {
       actions += `
         <button class="btn-warning" style="font-size:11px;padding:5px 10px"
           onclick="openDiscardModal(${bag.id}, '${bag.serialNumber}')">Discard</button>`;
-      if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
-        actions += `
-          <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
-            onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
-      }
+      // if (bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem) {
+      //   actions += `
+      //     <button class="btn-secondary" style="font-size:11px;padding:5px 10px"
+      //       onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
+      // }
     }
 
     const rowStyle = bag.computedStatus === 'EXPIRING' || bag.openSystem
@@ -984,13 +989,7 @@ function openBagDetail(id) {
 
   const actionsEl = document.getElementById('bagd-actions');
   if (cs === 'AVAILABLE' || cs === 'EXPIRING') {
-    const convertBtn = bag.componentType === 'WHOLE_BLOOD' && !bag.openSystem
-      ? `<button class="btn-secondary" style="flex:1;justify-content:center;padding:11px"
-           onclick="closeModal('bagDetailModal');confirmOpenSystem(${bag.id},'${bag.serialNumber}')">
-           ? Convert to PRBC</button>`
-      : '';
     actionsEl.innerHTML = `
-      ${convertBtn}
       <button class="btn-warning" style="flex:1;justify-content:center;padding:11px"
         onclick="closeModal('bagDetailModal');openDiscardModal(${bag.id},'${bag.serialNumber}')">
         Discard Bag
@@ -1101,6 +1100,1924 @@ const ADD_STOCK_EXPIRY_DAYS = {
   CRYOPRECIPITATE: 365,
   CRYOSUPERNATANT: 365,
 };
+const ADD_STOCK_SCAN_MAX_ROWS = 10;
+const ADD_STOCK_OCR_LOW_CONFIDENCE = 60;
+const ADD_STOCK_SERIAL_MAX_LENGTH = 10;
+const ADD_STOCK_VOLUME_MAX_LENGTH = 4;
+const ADD_STOCK_REMARKS_MAX_LENGTH = 50;
+const ADD_STOCK_SERIAL_ERROR_MESSAGE = '';
+const ADD_STOCK_VOLUME_ERROR_MESSAGE = '';
+const ADD_STOCK_REMARKS_ERROR_MESSAGE = 'Remarks must not exceed 50 characters.';
+const ADD_STOCK_REMARKS_ALLOWED_REGEX = /^[A-Za-z0-9.,\-\s]*$/;
+const TRACER_OCR_ROTATIONS = [0, -90, 90];
+const TRACER_OCR_CROP_PRESETS = [
+  { id: 'table-primary', x: 0.08, y: 0.24, w: 0.74, h: 0.64, priority: 6 },
+  { id: 'table-secondary', x: 0.04, y: 0.22, w: 0.8, h: 0.66, priority: 5 },
+  { id: 'table-tight', x: 0.12, y: 0.26, w: 0.66, h: 0.6, priority: 4 },
+  { id: 'table-wide', x: 0.02, y: 0.2, w: 0.9, h: 0.68, priority: 3 },
+];
+
+const TRACER_COMPONENT_MAP = {
+  WB: 'WHOLE_BLOOD',
+  'W B': 'WHOLE_BLOOD',
+  WS: 'WHOLE_BLOOD',
+  W8: 'WHOLE_BLOOD',
+  WR: 'WHOLE_BLOOD',
+  WHOLE: 'WHOLE_BLOOD',
+  'WHOLE BLOOD': 'WHOLE_BLOOD',
+  PRBC: 'PRBC',
+  'P RBC': 'PRBC',
+  'P R B C': 'PRBC',
+  LPRBC: 'LEUKOREDUCED_PRBC',
+  'L-PRBC': 'LEUKOREDUCED_PRBC',
+  LEUKOREDUCED: 'LEUKOREDUCED_PRBC',
+  APRBC: 'ALIQUOTED_PRBC',
+  'A-PRBC': 'ALIQUOTED_PRBC',
+  ALIQUOTED: 'ALIQUOTED_PRBC',
+  FFP: 'FRESH_FROZEN_PLASMA',
+  PLT: 'PLATELET_CONCENTRATE',
+  PLATELET: 'PLATELET_CONCENTRATE',
+  CRYO: 'CRYOPRECIPITATE',
+  CRYOPRECIPITATE: 'CRYOPRECIPITATE',
+  CRYOSUP: 'CRYOSUPERNATANT',
+  CRYOSUPERNATANT: 'CRYOSUPERNATANT',
+};
+
+const TRACER_COLUMN_SPLITS = {
+  bloodGroup: [0.00, 0.10],
+  component:  [0.10, 0.19],
+  serial:     [0.19, 0.33],
+  extraction: [0.33, 0.47],
+  expiry:     [0.47, 0.60],
+};
+
+const TRACER_TABLE_GEOMETRY = {
+  bodyStartX: 0.00,
+  bodyEndX: 1.00,
+  bodyStartY: 0.44,
+  bodyEndY: 0.955,
+  rowCount: 10,
+  columnPaddingRatio: 0.006,
+  rowPaddingRatio: 0.02,
+};
+
+const TRACER_COLUMN_OCR_OPTIONS = {
+  bloodGroup: { whitelist: 'ABOPOSNEG- ', psm: '6' },
+  component: { whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ- ', psm: '6' },
+  serial: { whitelist: 'V0123456789', psm: '6' },
+  extraction: { whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ', psm: '6' },
+  expiry: { whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ', psm: '6' },
+};
+
+const TRACER_COMPONENT_LOOKUP = buildTracerComponentLookup(TRACER_COMPONENT_MAP);
+const TRACER_ROW_NOISE_TOKENS = [
+  'BLOOD RELEASING', 'BLOOD TRACER', 'CHECKLIST', 'REMARKS', 'SIGNATURE',
+  'BICOL MEDICAL', 'RESULT OF TEST', 'PATIENT', 'CONTACT', 'TRANSPORT',
+  'ADDRESS', 'QC STAFF', 'DATE RELEASED', 'TIME RELEASED'
+];
+const TRACER_OCR_API_ENDPOINT = '/api/admin/blood-bank/tracer-ocr';
+const TRACER_REVIEW_BLOOD_GROUP_OPTIONS = [
+  { value: '', label: '-' },
+  { value: 'A_POS', label: 'A POS' },
+  { value: 'A_NEG', label: 'A NEG' },
+  { value: 'B_POS', label: 'B POS' },
+  { value: 'B_NEG', label: 'B NEG' },
+  { value: 'AB_POS', label: 'AB POS' },
+  { value: 'AB_NEG', label: 'AB NEG' },
+  { value: 'O_POS', label: 'O POS' },
+  { value: 'O_NEG', label: 'O NEG' },
+];
+const TRACER_REVIEW_COMPONENT_OPTIONS = [
+  { value: '', label: '-' },
+  { value: 'WHOLE_BLOOD', label: 'WB' },
+  { value: 'PRBC', label: 'PRBC' },
+  { value: 'LEUKOREDUCED_PRBC', label: 'L-PRBC' },
+  { value: 'ALIQUOTED_PRBC', label: 'A-PRBC' },
+  { value: 'FRESH_FROZEN_PLASMA', label: 'FFP' },
+  { value: 'PLATELET_CONCENTRATE', label: 'PC' },
+  { value: 'CRYOPRECIPITATE', label: 'CRYO' },
+  { value: 'CRYOSUPERNATANT', label: 'CRYOSUP' },
+];
+
+let addStockScanBound = false;
+let addStockValidationBound = false;
+let addStockScanPreviewUrl = null;
+let pendingTracerReviewRows = [];
+let pendingTracerScanMeta = null;
+
+function initAddStockScanner() {
+  if (addStockScanBound) return;
+  addStockScanBound = true;
+
+  const uploadInput = document.getElementById('scan-tracer-upload');
+  const cameraInput = document.getElementById('scan-tracer-camera');
+  const cameraBtn = document.getElementById('scan-tracer-camera-btn');
+
+  if (cameraBtn) {
+    cameraBtn.addEventListener('click', () => {
+      if (!cameraInput) {
+        showBloodPlusMessage('Camera Unavailable', 'Camera capture is not available on this device.', 'warning');
+        return;
+      }
+      cameraInput.click();
+    });
+  }
+
+  if (uploadInput) uploadInput.addEventListener('change', handleTracerFilePicked);
+  if (cameraInput) cameraInput.addEventListener('change', handleTracerFilePicked);
+}
+
+function resetAddStockScannerUI() {
+  const previewEl = document.getElementById('scan-tracer-preview');
+  if (previewEl) {
+    previewEl.innerHTML = '';
+    previewEl.classList.remove('has-image');
+  }
+
+  if (addStockScanPreviewUrl) {
+    URL.revokeObjectURL(addStockScanPreviewUrl);
+    addStockScanPreviewUrl = null;
+  }
+
+  pendingTracerReviewRows = [];
+  pendingTracerScanMeta = null;
+
+  setTracerScanStatus('No tracer form imported yet.', 'info');
+  closeTracerOcrReviewModal();
+
+  const uploadInput = document.getElementById('scan-tracer-upload');
+  const cameraInput = document.getElementById('scan-tracer-camera');
+  if (uploadInput) uploadInput.value = '';
+  if (cameraInput) cameraInput.value = '';
+}
+
+function setTracerScanStatus(message, tone = 'info') {
+  const statusEl = document.getElementById('scan-tracer-status');
+  if (!statusEl) return;
+
+  statusEl.textContent = message || '';
+  statusEl.classList.remove('is-loading', 'is-success', 'is-warning', 'is-error');
+
+  if (tone === 'loading') statusEl.classList.add('is-loading');
+  if (tone === 'success') statusEl.classList.add('is-success');
+  if (tone === 'warning') statusEl.classList.add('is-warning');
+  if (tone === 'error') statusEl.classList.add('is-error');
+}
+
+function setTracerPreviewImage(file) {
+  const previewEl = document.getElementById('scan-tracer-preview');
+  if (!previewEl || !file) return;
+
+  if (addStockScanPreviewUrl) {
+    URL.revokeObjectURL(addStockScanPreviewUrl);
+    addStockScanPreviewUrl = null;
+  }
+
+  addStockScanPreviewUrl = URL.createObjectURL(file);
+  previewEl.innerHTML = `<img src="${addStockScanPreviewUrl}" alt="Tracer form preview">`;
+  previewEl.classList.add('has-image');
+}
+
+async function handleTracerFilePicked(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  if (!file) return;
+
+  const sourceName = input?.id === 'scan-tracer-camera' ? 'camera' : 'upload';
+  await processTracerScanFile(file, sourceName);
+  if (input) input.value = '';
+}
+
+async function processTracerScanFile(file, sourceName = 'upload') {
+  if (!file || !file.type || !file.type.startsWith('image/')) {
+    setTracerScanStatus('Unsupported image format.', 'error');
+    showBloodPlusMessage('Unsupported Image', 'Please upload or capture a valid image file.', 'warning');
+    return;
+  }
+
+  setTracerPreviewImage(file);
+  setTracerScanStatus('Preparing tracer OCR...', 'loading');
+
+  try {
+    let scanResult = null;
+    setTracerScanStatus('Uploading to secure OCR service...', 'loading');
+    try {
+      scanResult = await scanBloodTracerFormViaBackend(file);
+    } catch (backendError) {
+      if (backendError?.code === 'DUPLICATE_SERIALS') {
+        const duplicates = Array.isArray(backendError?.duplicateSerials) ? backendError.duplicateSerials : [];
+        setTracerScanStatus('Duplicate serial numbers detected. Import blocked.', 'error');
+        openTracerDuplicateErrorModal(duplicates);
+        return;
+      }
+      throw backendError;
+    }
+
+    logTracerScanResult(scanResult, file, sourceName);
+    const rows = sanitizeOCRImportedRows(Array.isArray(scanResult?.entries) ? scanResult.entries : []);
+    scanResult.entries = rows;
+
+    if (!rows.length) {
+      setTracerScanStatus('No valid blood bag rows detected.', 'warning');
+      showBloodPlusMessage(
+        'No Valid Rows',
+        'No valid blood bag rows were detected. Try a clearer photo or crop the table area.',
+        'warning'
+      );
+      return;
+    }
+
+    const warningMessages = [];
+    if (Array.isArray(scanResult?.warnings) && scanResult.warnings.length) {
+      warningMessages.push(...scanResult.warnings);
+    }
+    if (rows.length > ADD_STOCK_SCAN_MAX_ROWS) {
+      warningMessages.push(`Detected ${rows.length} rows. Only the first ${ADD_STOCK_SCAN_MAX_ROWS} rows are available for import.`);
+    }
+    if (scanResult.confidence < ADD_STOCK_OCR_LOW_CONFIDENCE) {
+      warningMessages.push('OCR confidence is low. Please review detected rows before importing.');
+    }
+    const unknownComponentRows = rows.filter(row => !row.componentType).length;
+    if (unknownComponentRows > 0) {
+      warningMessages.push(`${unknownComponentRows} row(s) have unrecognized component labels and were marked as Needs Review.`);
+    }
+    const reviewStates = buildTracerReviewStates(rows);
+    const duplicateRows = reviewStates.filter(state => state.duplicateSerial).length;
+    if (duplicateRows > 0) {
+      warningMessages.push(`${duplicateRows} duplicate serial row(s) were detected and flagged.`);
+    }
+    const invalidDateRows = reviewStates.filter(state => state.invalidDate).length;
+    if (invalidDateRows > 0) {
+      warningMessages.push(`${invalidDateRows} row(s) have invalid date ranges and were flagged.`);
+    }
+    if (warningMessages.length) {
+      showBloodPlusMessage('OCR Review Notice', warningMessages.join(' '), 'warning');
+    }
+
+    openTracerOcrReviewModal(rows, scanResult, sourceName);
+    setTracerScanStatus(`${rows.length} row(s) detected. Review and confirm import.`, 'success');
+  } catch (error) {
+    console.error('[Tracer OCR] Scan failed:', error);
+    setTracerScanStatus('OCR failed. Please try another image.', 'error');
+    showBloodPlusMessage(
+      'OCR Failed',
+      error?.message || 'Unable to scan this tracer form image. Please retake the photo and try again.',
+      'error'
+    );
+  }
+}
+
+async function scanBloodTracerFormViaBackend(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(TRACER_OCR_API_ENDPOINT, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload?.error || payload?.message || 'OCR service failed.';
+    const error = new Error(message);
+    error.code = payload?.errorCode || '';
+    error.duplicateSerials = Array.isArray(payload?.duplicateSerials) ? payload.duplicateSerials : [];
+    throw error;
+  }
+
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  return {
+    text: payload?.rawText || '',
+    confidence: Number(payload?.confidence || 0),
+    entries: rows,
+    transactionNumber: String(payload?.transactionNumber || '').trim(),
+    warnings: Array.isArray(payload?.warnings) ? payload.warnings : [],
+    attempt: 'backend-ocr-space',
+    score: scoreTracerOcrCandidate(rows, Number(payload?.confidence || 0), 0),
+  };
+}
+
+function openTracerOcrReviewModal(rows, scanResult, sourceName) {
+  const limitedRows = rows.slice(0, ADD_STOCK_SCAN_MAX_ROWS);
+  pendingTracerReviewRows = limitedRows;
+  pendingTracerScanMeta = {
+    ...scanResult,
+    sourceName,
+    totalDetected: rows.length,
+  };
+
+  const summaryEl = document.getElementById('tracer-ocr-review-summary');
+  const tbody = document.getElementById('tracer-ocr-review-rows');
+  const duplicateEl = document.getElementById('tracer-ocr-duplicate-error');
+  const importBtn = document.getElementById('tracer-ocr-import-btn');
+  const txnInput = document.getElementById('tracer-ocr-transaction-number');
+  if (!summaryEl || !tbody) return;
+
+  if (duplicateEl) {
+    duplicateEl.style.display = 'none';
+    duplicateEl.innerHTML = '';
+  }
+  if (importBtn) importBtn.disabled = false;
+  if (txnInput) {
+    const rawTxn = String(scanResult?.transactionNumber || document.getElementById('add-transaction-number')?.value || '').trim();
+    txnInput.value = rawTxn.replace(/\D/g, '').slice(0, 10);
+  }
+
+  const overLimit = rows.length > ADD_STOCK_SCAN_MAX_ROWS;
+  const reviewStates = buildTracerReviewStates(limitedRows);
+  const validCount = reviewStates.filter(state => state.importReady).length;
+  summaryEl.innerHTML = `
+    <strong>Source:</strong> ${sourceName} |
+    <strong>OCR confidence:</strong> ${Math.round(Number(scanResult?.confidence || 0))}% |
+    <strong>Detected:</strong> ${rows.length} row(s) |
+    <strong>Review list:</strong> ${limitedRows.length} row(s)
+    ${overLimit ? `<br><span style="color:var(--amber);font-weight:700">Only first ${ADD_STOCK_SCAN_MAX_ROWS} rows are available due to batch limit.</span>` : ''}
+    ${validCount === 0 ? `<br><span style="color:var(--crimson);font-weight:700">No fully valid rows detected. You may include rows for manual correction.</span>` : ''}
+  `;
+
+  tbody.innerHTML = limitedRows.map((row, index) => {
+    const assessment = reviewStates[index];
+    let statusClass = 'status-good';
+    let statusLabel = 'Ready';
+    if (assessment.duplicateSerial) {
+      statusClass = 'status-review';
+      statusLabel = 'Duplicate Serial';
+    } else if (assessment.invalidDate) {
+      statusClass = 'status-review';
+      statusLabel = 'Invalid Date';
+    } else if (assessment.isLowConfidence) {
+      statusClass = 'status-low';
+      statusLabel = 'Low Confidence';
+    } else if (assessment.bloodGroupInferred) {
+      statusClass = 'status-review';
+      statusLabel = 'Blood Group Inferred';
+    } else if (assessment.needsReview) {
+      statusClass = 'status-review';
+      statusLabel = 'Needs Review';
+    }
+    const checked = (assessment.importReady && !assessment.needsReview) ? 'checked' : '';
+    const rowClass = `${assessment.needsReview ? 'needs-review' : ''} ${assessment.isLowConfidence ? 'low-confidence' : ''}`.trim();
+    const bloodGroupOptions = renderTracerReviewSelectOptions(TRACER_REVIEW_BLOOD_GROUP_OPTIONS, row.bloodGroup || '');
+    const componentOptions = renderTracerReviewSelectOptions(TRACER_REVIEW_COMPONENT_OPTIONS, row.componentType || '');
+
+    return `
+      <tr class="${rowClass}">
+        <td>${index + 1}</td>
+        <td><input type="checkbox" class="tracer-ocr-row-check" data-row-index="${index}" ${checked}></td>
+        <td>
+          <select class="tracer-ocr-edit tracer-ocr-edit-blood-group" data-row-index="${index}">
+            ${bloodGroupOptions}
+          </select>
+        </td>
+        <td>
+          <select class="tracer-ocr-edit tracer-ocr-edit-component" data-row-index="${index}">
+            ${componentOptions}
+          </select>
+        </td>
+        <td>
+          <input type="text" class="tracer-ocr-edit tracer-ocr-edit-serial" data-row-index="${index}" value="${escapeHtml(row.serialNumber || '')}" placeholder="e.g. V457679" maxlength="10" oninput="enforceSerialNumberFormat(this)">
+        </td>
+        <td>
+          <input type="date" class="tracer-ocr-edit tracer-ocr-edit-collected" data-row-index="${index}" value="${escapeHtml(row.collectedAt || '')}">
+        </td>
+        <td>
+          <input type="date" class="tracer-ocr-edit tracer-ocr-edit-expires" data-row-index="${index}" value="${escapeHtml(row.expiresAt || '')}">
+        </td>
+        <td>
+          <span class="tracer-ocr-status-chip ${statusClass}">${statusLabel}</span>
+          ${assessment.reasons.length ? `<div style="margin-top:4px;font-size:10px;color:var(--muted)">${assessment.reasons.join(', ')}</div>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  openModal('tracerOcrReviewModal');
+}
+
+function openTracerDuplicateErrorModal(duplicateSerials) {
+  const summaryEl = document.getElementById('tracer-ocr-review-summary');
+  const tbody = document.getElementById('tracer-ocr-review-rows');
+  const duplicateEl = document.getElementById('tracer-ocr-duplicate-error');
+  const importBtn = document.getElementById('tracer-ocr-import-btn');
+  const txnInput = document.getElementById('tracer-ocr-transaction-number');
+  const list = (Array.isArray(duplicateSerials) ? duplicateSerials : [])
+    .map(serial => String(serial || '').trim())
+    .filter(Boolean);
+
+  pendingTracerReviewRows = [];
+  pendingTracerScanMeta = {
+    sourceName: 'upload',
+    totalDetected: 0,
+    confidence: 0,
+    duplicateSerials: list,
+  };
+
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <strong>Import blocked:</strong> Duplicate serial numbers were found in inventory.
+      <br><span style="color:var(--crimson);font-weight:700">No rows were imported.</span>
+    `;
+  }
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr class="needs-review">
+        <td>1</td>
+        <td>-</td>
+        <td colspan="6">Duplicate serials detected. Resolve duplicates before scanning/importing again.</td>
+      </tr>
+    `;
+  }
+  if (duplicateEl) {
+    duplicateEl.style.display = 'block';
+    duplicateEl.innerHTML = `
+      <strong>Some serial numbers already exist.</strong><br>
+      ${list.length ? list.map(serial => `• ${escapeHtml(serial)}`).join('<br>') : 'No duplicate list provided.'}
+    `;
+  }
+  if (txnInput) txnInput.value = '';
+  if (importBtn) importBtn.disabled = true;
+
+  openModal('tracerOcrReviewModal');
+}
+
+function renderTracerReviewSelectOptions(options, selectedValue) {
+  const selected = String(selectedValue || '');
+  return (Array.isArray(options) ? options : []).map(option => {
+    const value = String(option?.value ?? '');
+    const label = String(option?.label ?? value);
+    return `<option value="${escapeHtml(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+}
+
+function closeTracerOcrReviewModal() {
+  closeModal('tracerOcrReviewModal');
+}
+
+function printTracerScannedData() {
+  pendingTracerReviewRows = collectTracerReviewRowsFromTable(pendingTracerReviewRows);
+  if (!Array.isArray(pendingTracerReviewRows) || pendingTracerReviewRows.length === 0) {
+    showBloodPlusMessage('No Scanned Data', 'There is no scanned OCR data to print yet.', 'warning');
+    return;
+  }
+
+  const reviewStates = buildTracerReviewStates(pendingTracerReviewRows);
+  const now = new Date();
+  const generatedAt = now.toLocaleString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const source = pendingTracerScanMeta?.sourceName || 'scan';
+  const confidence = Math.round(Number(pendingTracerScanMeta?.confidence || 0));
+  const detected = Number(pendingTracerScanMeta?.totalDetected || pendingTracerReviewRows.length);
+  const transactionNumber = String(document.getElementById('tracer-ocr-transaction-number')?.value || '').trim();
+
+  const rowsHtml = pendingTracerReviewRows.map((row, index) => {
+    const state = reviewStates[index];
+    const status = state?.importReady ? 'READY' : 'NEEDS REVIEW';
+    const reasons = Array.isArray(state?.reasons) && state.reasons.length
+      ? state.reasons.join(', ')
+      : '-';
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(row?.bloodGroup || '-')}</td>
+        <td>${escapeHtml(row?.componentType || row?.unknownComponentLabel || '-')}</td>
+        <td>${escapeHtml(row?.serialNumber || '-')}</td>
+        <td>${escapeHtml(row?.collectedAt || '-')}</td>
+        <td>${escapeHtml(row?.expiresAt || '-')}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${escapeHtml(reasons)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const reportHtml = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BloodPlus - OCR Scanned Data</title>
+  <style>
+    :root { --crimson:#c41e3a; --charcoal:#1f2a37; --muted:#6b7280; --border:#e5d7cf; --cream:#f8f4f1; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:20px; font-family:Arial, sans-serif; color:var(--charcoal); background:#fff; }
+    .header { border:1px solid var(--border); border-left:4px solid var(--crimson); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+    .title { margin:0 0 4px; font-size:22px; font-weight:700; color:var(--crimson); }
+    .meta { margin:2px 0; font-size:12px; color:var(--muted); }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    thead th { background:var(--cream); border:1px solid var(--border); text-align:left; padding:8px; }
+    tbody td { border:1px solid var(--border); padding:7px; vertical-align:top; }
+    .note { margin-top:10px; font-size:11px; color:var(--muted); }
+    @page { size: A4 landscape; margin: 10mm; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 class="title">BloodPlus - Tracer OCR Scanned Data</h1>
+    <p class="meta">Source: ${escapeHtml(source)} | OCR Confidence: ${confidence}% | Detected Rows: ${detected}</p>
+    <p class="meta">Transaction Number: ${escapeHtml(transactionNumber || '-')}</p>
+    <p class="meta">Generated: ${escapeHtml(generatedAt)}</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Blood Group</th>
+        <th>Component</th>
+        <th>Serial Number</th>
+        <th>Extraction Date</th>
+        <th>Expiry Date</th>
+        <th>Status</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+  <p class="note">This report reflects OCR-detected rows before final stock submission.</p>
+  <script>
+    window.onload = function () { window.print(); };
+  </script>
+</body>
+</html>
+  `;
+
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
+  if (!printWindow) {
+    showBloodPlusMessage('Print Blocked', 'Please allow popups in your browser to print scanned OCR data.', 'warning');
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(reportHtml);
+  printWindow.document.close();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function confirmTracerOcrImport() {
+  pendingTracerReviewRows = collectTracerReviewRowsFromTable(pendingTracerReviewRows);
+  const duplicateEl = document.getElementById('tracer-ocr-duplicate-error');
+  if (duplicateEl && duplicateEl.style.display !== 'none') {
+    showBloodPlusMessage('Import Blocked', 'Duplicate serial numbers were detected. Resolve duplicates before importing.', 'error');
+    return;
+  }
+
+  const transactionInput = document.getElementById('tracer-ocr-transaction-number');
+  const transactionNumber = String(transactionInput?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
+    .trim();
+  if (transactionInput) transactionInput.value = transactionNumber;
+  if (!transactionNumber) {
+    showBloodPlusMessage('Transaction Number Required', 'Transaction number is required.', 'warning');
+    if (transactionInput) transactionInput.focus();
+    return;
+  }
+
+  const mainTxnInput = document.getElementById('add-transaction-number');
+  if (mainTxnInput) mainTxnInput.value = transactionNumber;
+
+  const selectedIndices = [...document.querySelectorAll('#tracer-ocr-review-rows .tracer-ocr-row-check:checked')]
+    .map(el => Number(el.getAttribute('data-row-index')))
+    .filter(Number.isFinite);
+
+  if (!selectedIndices.length) {
+    showBloodPlusMessage('No Rows Selected', 'Please select at least one row to import.', 'warning');
+    return;
+  }
+
+  const selectedRows = selectedIndices.map(index => pendingTracerReviewRows[index]).filter(Boolean);
+  const selectedSerials = selectedRows
+    .map(row => String(row?.serialNumber || '').trim().toUpperCase())
+    .filter(Boolean);
+  const duplicateSerialInSelection = selectedSerials.find((serial, idx) => selectedSerials.indexOf(serial) !== idx);
+  if (duplicateSerialInSelection) {
+    showBloodPlusMessage('Duplicate Serial', `Duplicate serial number selected: ${duplicateSerialInSelection}. Remove duplicates before importing.`, 'error');
+    return;
+  }
+
+  const reviewStates = buildTracerReviewStates(selectedRows);
+  const needsReviewCount = reviewStates.filter(state => state.needsReview).length;
+
+  const proceed = () => {
+    const stats = applyScannedRowsToAddStock(selectedRows, pendingTracerScanMeta || {});
+    closeTracerOcrReviewModal();
+    setTracerScanStatus(`Imported ${stats.importedCount} row(s). Review highlighted rows before submit.`, 'success');
+
+    const warningBits = [];
+    if (stats.unknownCount > 0) warningBits.push(`${stats.unknownCount} row(s) have unknown components.`);
+    if (stats.lowConfidenceCount > 0) warningBits.push(`${stats.lowConfidenceCount} row(s) were low confidence.`);
+    const extra = warningBits.length ? ` ${warningBits.join(' ')}` : '';
+
+    showBloodPlusMessage(
+      'Scan Imported',
+      `Imported ${stats.importedCount} row(s) into intake rows.${extra}`,
+      warningBits.length ? 'warning' : 'success'
+    );
+  };
+
+  if (needsReviewCount > 0) {
+    showBloodPlusConfirm(
+      'Import Needs-Review Rows?',
+      `${needsReviewCount} selected row(s) need review. You can still edit all values after import. Continue?`,
+      proceed,
+      'warning'
+    );
+    return;
+  }
+
+  proceed();
+}
+
+function collectTracerReviewRowsFromTable(baseRows) {
+  const sourceRows = Array.isArray(baseRows) ? baseRows : [];
+  const rows = sourceRows.map((row, index) => {
+    const bloodGroup = sanitizeAddStockBloodGroup(
+      document.querySelector(`.tracer-ocr-edit-blood-group[data-row-index="${index}"]`)?.value || ''
+    );
+    const componentType = normalizeAddStockComponentValue(
+      document.querySelector(`.tracer-ocr-edit-component[data-row-index="${index}"]`)?.value || ''
+    );
+    const serialNumber = normalizeAddStockSerialValue(
+      document.querySelector(`.tracer-ocr-edit-serial[data-row-index="${index}"]`)?.value || ''
+    );
+    const collectedAt = parseDateCandidate(
+      document.querySelector(`.tracer-ocr-edit-collected[data-row-index="${index}"]`)?.value || ''
+    );
+    const expiresAt = parseDateCandidate(
+      document.querySelector(`.tracer-ocr-edit-expires[data-row-index="${index}"]`)?.value || ''
+    );
+
+    return {
+      ...row,
+      bloodGroup,
+      componentType,
+      serialNumber,
+      collectedAt,
+      expiresAt,
+    };
+  });
+  return rows;
+}
+
+function applyScannedRowsToAddStock(scannedRows, scanResult = {}) {
+  const rowsToApply = Array.isArray(scannedRows) ? scannedRows.slice(0, ADD_STOCK_SCAN_MAX_ROWS) : [];
+  if (!rowsToApply.length) {
+    return { importedCount: 0, unknownCount: 0, lowConfidenceCount: 0 };
+  }
+
+  generateAddStockRows(rowsToApply.length);
+  const reviewStates = buildTracerReviewStates(rowsToApply);
+
+  const rowEls = [...document.querySelectorAll('#add-stock-rows tr')];
+  const defaultVolume = String(document.getElementById('add-volume-ml')?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+  let unknownCount = 0;
+  let lowConfidenceCount = 0;
+
+  rowEls.forEach((row, index) => {
+    const parsed = rowsToApply[index];
+    if (!row || !parsed) return;
+
+    const assessment = reviewStates[index] || evaluateTracerRow(parsed);
+    row.dataset.ocrImported = 'true';
+    row.dataset.lowConfidence = assessment.isLowConfidence ? 'true' : 'false';
+    row.dataset.unknownComponent = parsed.componentType ? 'false' : 'true';
+
+    const bloodGroupEl = row.querySelector('.add-stock-blood-group');
+    const componentEl = row.querySelector('.add-stock-component');
+    const serialEl = row.querySelector('.add-stock-serial');
+    const collectedEl = row.querySelector('.add-stock-collected');
+    const expiresEl = row.querySelector('.add-stock-expires');
+    const volumeEl = row.querySelector('.add-stock-volume');
+    const remarksEl = row.querySelector('.add-stock-remarks');
+
+    if (bloodGroupEl) bloodGroupEl.value = sanitizeAddStockBloodGroup(parsed.bloodGroup || '');
+    if (componentEl) componentEl.value = normalizeAddStockComponentValue(parsed.componentType || '', parsed.unknownComponentLabel || '');
+    if (serialEl) serialEl.value = normalizeAddStockSerialValue(parsed.serialNumber || '');
+    if (collectedEl) collectedEl.value = parseDateCandidate(parsed.collectedAt || '');
+    if (expiresEl) expiresEl.value = parseDateCandidate(parsed.expiresAt || '');
+    if (volumeEl) {
+      const sanitizedVolume = String(parsed.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+      volumeEl.value = sanitizedVolume || defaultVolume;
+    }
+    if (remarksEl) {
+      remarksEl.value = String(parsed.remarks || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+        .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+    }
+
+    if (!parsed.componentType && parsed.unknownComponentLabel) {
+      unknownCount += 1;
+    }
+    if (assessment.isLowConfidence) {
+      lowConfidenceCount += 1;
+    }
+
+    validateAddStockRowInputs(row);
+    refreshImportedRowReviewState(row);
+  });
+
+  updateAddStockValidCount();
+
+  return {
+    importedCount: rowsToApply.length,
+    unknownCount,
+    lowConfidenceCount,
+    sourceConfidence: Math.round(Number(scanResult?.confidence || 0)),
+  };
+}
+
+function buildTracerReviewStates(rows) {
+  const seenSerials = new Set();
+  return (Array.isArray(rows) ? rows : []).map(row => evaluateTracerRow(row, { seenSerials }));
+}
+
+function evaluateTracerRow(row, context = {}) {
+  const reasons = [];
+  const seenSerials = context?.seenSerials instanceof Set ? context.seenSerials : null;
+  const bloodGroupOk = !!row?.bloodGroup;
+  const bloodGroupInferred = !!row?.bloodGroupInferred;
+  const componentOk = !!row?.componentType;
+  const serialPatternOk = isAddStockSerialValueValid(String(row?.serialNumber || '').toUpperCase());
+  const serialOk = !!row?.serialNumber && serialPatternOk;
+  const hasDate = !!(row?.collectedAt && row?.expiresAt);
+  const lowConfidence = Number(row?.confidence || 0) < ADD_STOCK_OCR_LOW_CONFIDENCE;
+  const invalidDate = !!row?.dateIssue;
+  const externalNeedsReview = !!row?.needsReview;
+  const externalIssues = Array.isArray(row?.issues) ? row.issues.filter(Boolean) : [];
+
+  let duplicateSerial = false;
+  const normalizedSerial = String(row?.serialNumber || '').toUpperCase();
+  if (normalizedSerial && seenSerials) {
+    if (seenSerials.has(normalizedSerial)) {
+      duplicateSerial = true;
+    } else {
+      seenSerials.add(normalizedSerial);
+    }
+  }
+
+  if (!bloodGroupOk) reasons.push('Missing blood group');
+  if (bloodGroupInferred) reasons.push('Blood Group Inferred');
+  if (!componentOk) reasons.push('Unknown component');
+  if (!row?.serialNumber) reasons.push('Missing serial number');
+  if (row?.serialNumber && !serialPatternOk) reasons.push('Invalid serial format');
+  if (duplicateSerial) reasons.push('Duplicate Serial');
+  if (!hasDate) reasons.push('Missing Field: Date');
+  if (invalidDate) reasons.push('Invalid Date');
+  if (lowConfidence) reasons.push('Low Confidence');
+  externalIssues.forEach(issue => reasons.push(issue));
+  if (externalNeedsReview && !externalIssues.length) reasons.push('Needs Review');
+
+  const critical = !bloodGroupOk || !componentOk || !serialOk || !hasDate || duplicateSerial || invalidDate || externalNeedsReview;
+  return {
+    reasons: [...new Set(reasons)],
+    importReady: !critical,
+    needsReview: reasons.length > 0,
+    isLowConfidence: lowConfidence,
+    duplicateSerial,
+    invalidDate,
+    bloodGroupInferred,
+  };
+}
+
+function isTracerRowImportReady(row) {
+  return evaluateTracerRow(row).importReady;
+}
+
+function markAddStockRowNeedsReview(row, reasons) {
+  if (!row) return;
+  const normalizedReasons = (Array.isArray(reasons) ? reasons : []).filter(Boolean);
+  row.classList.add('needs-review');
+  row.title = normalizedReasons.join(' | ');
+
+  if (row.dataset.unknownComponent === 'true') {
+    row.classList.add('has-unknown-component');
+  }
+
+  const actionCellContent = row.querySelector('td:last-child > div') || row.querySelector('td:last-child');
+  if (!actionCellContent) return;
+
+  let noteEl = row.querySelector('.add-stock-review-note');
+  if (!noteEl) {
+    noteEl = document.createElement('div');
+    noteEl.className = 'add-stock-review-note';
+    actionCellContent.appendChild(noteEl);
+  }
+  noteEl.textContent = normalizedReasons[0] || 'Needs review';
+}
+
+function clearAddStockRowReview(row) {
+  if (!row) return;
+  row.classList.remove('needs-review', 'has-unknown-component');
+  row.removeAttribute('title');
+  const noteEl = row.querySelector('.add-stock-review-note');
+  if (noteEl) noteEl.remove();
+}
+
+function markImportedRowTouched(row) {
+  if (!row || row.dataset.ocrImported !== 'true') return;
+  row.dataset.lowConfidence = 'false';
+  const componentEl = row.querySelector('.add-stock-component');
+  if (componentEl && componentEl.value) {
+    row.dataset.unknownComponent = 'false';
+  }
+}
+
+function refreshImportedRowReviewState(row) {
+  if (!row || row.dataset.ocrImported !== 'true') return;
+
+  const data = getAddStockRowData(row);
+  const reasons = [];
+  if (!data.bloodGroup) reasons.push('Missing blood group');
+  if (!data.componentType) reasons.push('Unknown component detected');
+  if (!data.serialNumber) reasons.push('Missing serial number');
+  if (data.serialNumber && !isAddStockSerialValueValid(data.serialNumber)) reasons.push('Invalid serial format');
+  if (!data.volumeMl) reasons.push('Missing volume');
+  if (data.volumeMl && !isAddStockVolumeValueValid(data.volumeMl)) reasons.push('Invalid volume');
+  if (data.remarks && !isAddStockRemarksValueValid(data.remarks)) reasons.push('Invalid remarks');
+  if (!data.collectedAt && !data.expiresAt) reasons.push('Missing extraction/expiry date');
+  if (row.dataset.lowConfidence === 'true') reasons.push('Low OCR confidence');
+
+  if (!reasons.length) {
+    clearAddStockRowReview(row);
+    row.dataset.ocrImported = 'false';
+    row.dataset.unknownComponent = 'false';
+    return;
+  }
+
+  markAddStockRowNeedsReview(row, reasons);
+}
+
+async function scanBloodTracerForm(file) {
+  if (typeof Tesseract === 'undefined') {
+    throw new Error('OCR library is not available. Please refresh and try again.');
+  }
+
+  const image = await loadImageFromFile(file);
+  const candidates = buildTracerOcrCandidates(image);
+  if (!candidates.length) {
+    throw new Error('Could not prepare OCR candidates from the image.');
+  }
+
+  let best = null;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    const label = `${candidate.rotationLabel} / ${candidate.cropLabel}`;
+    setTracerScanStatus(`Scanning table region ${index + 1}/${candidates.length} (${label})...`, 'loading');
+
+    const ocrResult = await runTracerOcrCandidate(candidate, label);
+    const parsedRows = parseTracerRowsFromGeometryWords(candidate, ocrResult, ocrResult.confidence);
+    const score = scoreTracerOcrCandidate(parsedRows, ocrResult.confidence, candidate.priority);
+
+    const candidateResult = {
+      text: ocrResult.text,
+      confidence: ocrResult.confidence,
+      entries: parsedRows,
+      attempt: label,
+      candidateId: candidate.id,
+      candidate,
+      score,
+    };
+
+    if (!best || candidateResult.score > best.score) {
+      best = candidateResult;
+    }
+  }
+
+  if (!best) {
+    return { text: '', confidence: 0, entries: [], attempt: 'none', score: 0 };
+  }
+
+  setTracerScanStatus(`Refining rows by fixed columns (${best.attempt})...`, 'loading');
+  const refined = await refineTracerRowsByColumns(best.candidate, best.attempt, best.text);
+  const refinedRows = Array.isArray(refined?.entries) ? refined.entries : [];
+
+  if (refinedRows.length) {
+    const refinedConfidence = Number(refined?.confidence || best.confidence || 0);
+    return {
+      text: refined?.text || best.text,
+      confidence: refinedConfidence,
+      entries: refinedRows,
+      attempt: `${best.attempt} | column-refined`,
+      score: scoreTracerOcrCandidate(refinedRows, refinedConfidence, best.candidate?.priority || 0),
+    };
+  }
+
+  const fallbackRows = parseTracerRowsFromRawTextWithOrder(best.text, best.confidence);
+  if (fallbackRows.length) {
+    return {
+      text: best.text,
+      confidence: best.confidence,
+      entries: fallbackRows,
+      attempt: `${best.attempt} | raw-text-fallback`,
+      score: scoreTracerOcrCandidate(fallbackRows, best.confidence, best.candidate?.priority || 0),
+    };
+  }
+
+  return best;
+}
+
+function logTracerScanResult(scanResult, file, sourceName) {
+  try {
+    const fileName = file?.name || 'captured-image';
+    const fileSizeKb = file?.size ? (file.size / 1024).toFixed(1) : 'unknown';
+    const attempt = scanResult?.attempt || 'none';
+    const confidence = Math.round(Number(scanResult?.confidence || 0));
+    const rows = Array.isArray(scanResult?.entries) ? scanResult.entries : [];
+    const rawText = scanResult?.text || '';
+
+    if (typeof console.groupCollapsed === 'function') {
+      console.groupCollapsed(`[Tracer OCR] ${fileName} (${sourceName})`);
+    }
+
+    console.log('Source:', sourceName);
+    console.log('File:', { name: fileName, sizeKb: fileSizeKb, type: file?.type || 'unknown' });
+    console.log('Selected OCR candidate:', attempt, '| score:', scanResult?.score || 0);
+    console.log('OCR confidence:', confidence);
+    console.log('Raw OCR text:\n', rawText);
+    console.log('Parsed tracer rows:', rows);
+
+    if (typeof console.groupEnd === 'function') {
+      console.groupEnd();
+    }
+  } catch (error) {
+    console.log('[Tracer OCR] Logging failed:', error);
+  }
+}
+
+function buildTracerComponentLookup(componentMap) {
+  const list = Object.entries(componentMap).map(([alias, componentType]) => ({
+    alias,
+    componentType,
+    normalized: normalizeComponentMatchText(alias),
+  }));
+  list.sort((a, b) => b.normalized.length - a.normalized.length);
+  return list;
+}
+
+function buildTracerOcrCandidates(image) {
+  const candidates = [];
+  let candidateIndex = 0;
+  const presets = TRACER_OCR_CROP_PRESETS.slice(0, 2);
+
+  TRACER_OCR_ROTATIONS.forEach((angle) => {
+    const rotatedCanvas = createRotatedCanvas(image, angle);
+    const preprocessed = preprocessTracerCanvas(rotatedCanvas);
+
+    presets.forEach((preset) => {
+      const cropped = cropCanvasByRatio(preprocessed, preset);
+      if (!cropped) return;
+      candidates.push({
+        id: `candidate-${candidateIndex++}`,
+        canvas: cropped,
+        priority: preset.priority || 0,
+        rotationLabel: `${angle}deg`,
+        cropLabel: preset.id,
+      });
+    });
+  });
+
+  return candidates;
+}
+
+function createRotatedCanvas(image, angleDegrees) {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+
+  const scaleBase = 2200 / Math.max(sourceWidth, sourceHeight);
+  const scale = Math.max(1, Math.min(1.8, scaleBase));
+  const drawWidth = Math.round(sourceWidth * scale);
+  const drawHeight = Math.round(sourceHeight * scale);
+
+  const radians = (angleDegrees * Math.PI) / 180;
+  const swap = Math.abs(angleDegrees) === 90 || Math.abs(angleDegrees) === 270;
+  const canvas = document.createElement('canvas');
+  canvas.width = swap ? drawHeight : drawWidth;
+  canvas.height = swap ? drawWidth : drawHeight;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return canvas;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(radians);
+  ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return canvas;
+}
+
+function preprocessTracerCanvas(sourceCanvas) {
+  const upscale = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(sourceCanvas.width * upscale);
+  canvas.height = Math.round(sourceCanvas.height * upscale);
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return sourceCanvas;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  let minGray = 255;
+  let maxGray = 0;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const gray = (0.299 * pixels[i]) + (0.587 * pixels[i + 1]) + (0.114 * pixels[i + 2]);
+    minGray = Math.min(minGray, gray);
+    maxGray = Math.max(maxGray, gray);
+    pixels[i] = gray;
+    pixels[i + 1] = gray;
+    pixels[i + 2] = gray;
+  }
+
+  const spread = Math.max(1, maxGray - minGray);
+  const contrast = 255 / spread;
+  let luminanceSum = 0;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const normalized = (pixels[i] - minGray) * contrast;
+    const boosted = ((normalized - 128) * 1.25) + 128;
+    const clamped = Math.max(0, Math.min(255, boosted));
+    pixels[i] = clamped;
+    pixels[i + 1] = clamped;
+    pixels[i + 2] = clamped;
+    luminanceSum += clamped;
+  }
+
+  const average = luminanceSum / (pixels.length / 4);
+  const threshold = Math.max(120, Math.min(205, average * 0.94));
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const value = pixels[i] >= threshold ? 255 : 0;
+    pixels[i] = value;
+    pixels[i + 1] = value;
+    pixels[i + 2] = value;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+function cropCanvasByRatio(sourceCanvas, preset) {
+  const sx = Math.max(0, Math.floor(sourceCanvas.width * preset.x));
+  const sy = Math.max(0, Math.floor(sourceCanvas.height * preset.y));
+  const sw = Math.floor(sourceCanvas.width * preset.w);
+  const sh = Math.floor(sourceCanvas.height * preset.h);
+
+  if (sw < 80 || sh < 80) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = sw;
+  canvas.height = sh;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, sw, sh);
+  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return canvas;
+}
+
+async function runTracerOcrCandidate(candidate, stageLabel) {
+  const logger = createTracerOcrLogger(stageLabel);
+  const result = await Tesseract.recognize(candidate.canvas.toDataURL('image/png'), 'eng', {
+    logger,
+    tessedit_pageseg_mode: '6',
+    preserve_interword_spaces: '1',
+  });
+
+  const rawWords = Array.isArray(result?.data?.words) ? result.data.words : [];
+  const words = rawWords
+    .map(word => ({
+      text: String(word?.text || '').trim(),
+      confidence: Number(word?.confidence || 0),
+      x0: Number(word?.bbox?.x0 || 0),
+      y0: Number(word?.bbox?.y0 || 0),
+      x1: Number(word?.bbox?.x1 || 0),
+      y1: Number(word?.bbox?.y1 || 0),
+    }))
+    .filter(word => word.text.length > 0 && (word.x1 > word.x0) && (word.y1 > word.y0));
+
+  return {
+    text: result?.data?.text || '',
+    confidence: Number(result?.data?.confidence || 0),
+    words,
+  };
+}
+
+function getTracerGeometryBounds(canvas) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const bodyStartX = Number(TRACER_TABLE_GEOMETRY.bodyStartX ?? 0);
+  const bodyEndX = Number(TRACER_TABLE_GEOMETRY.bodyEndX ?? 1);
+  const bodyStartY = Number(TRACER_TABLE_GEOMETRY.bodyStartY ?? 0);
+  const bodyEndY = Number(TRACER_TABLE_GEOMETRY.bodyEndY ?? 1);
+
+  const x0 = Math.max(0, Math.floor(w * bodyStartX));
+  const x1 = Math.min(w, Math.ceil(w * bodyEndX));
+  const y0 = Math.max(0, Math.floor(h * bodyStartY));
+  const y1 = Math.min(h, Math.ceil(h * bodyEndY));
+
+  return {
+    x0,
+    y0,
+    x1,
+    y1,
+    width: Math.max(1, x1 - x0),
+    height: Math.max(1, y1 - y0),
+  };
+}
+
+function buildTracerColumnBounds(bounds) {
+  const pad = Math.max(1, Math.floor(bounds.width * (TRACER_TABLE_GEOMETRY.columnPaddingRatio || 0)));
+  const columns = {};
+  Object.keys(TRACER_COLUMN_SPLITS).forEach((key) => {
+    const split = TRACER_COLUMN_SPLITS[key];
+    const start = bounds.x0 + Math.floor(bounds.width * split[0]) + pad;
+    const end = bounds.x0 + Math.ceil(bounds.width * split[1]) - pad;
+    columns[key] = {
+      x0: Math.max(bounds.x0, start),
+      x1: Math.min(bounds.x1, Math.max(start + 2, end)),
+      y0: bounds.y0,
+      y1: bounds.y1,
+    };
+  });
+  return columns;
+}
+
+function pickTracerColumnByX(x, columnBounds) {
+  const keys = Object.keys(columnBounds);
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i];
+    const bounds = columnBounds[key];
+    if (x >= bounds.x0 && x <= bounds.x1) return key;
+  }
+  return '';
+}
+
+function parseTracerRowsFromGeometryWords(candidate, ocrResult, globalConfidence = 0) {
+  const words = Array.isArray(ocrResult?.words) ? ocrResult.words : [];
+  const bounds = getTracerGeometryBounds(candidate.canvas);
+  const columnBounds = buildTracerColumnBounds(bounds);
+  const rowCount = Number(TRACER_TABLE_GEOMETRY.rowCount || 10);
+  const rowHeight = bounds.height / rowCount;
+  const rowCells = Array.from({ length: rowCount }, () => ({
+    bloodGroup: [],
+    component: [],
+    serial: [],
+    extraction: [],
+    expiry: [],
+  }));
+
+  words
+    .filter(word => word && word.text && word.confidence >= 10)
+    .forEach((word) => {
+      const cy = (word.y0 + word.y1) / 2;
+      if (cy < bounds.y0 || cy > bounds.y1) return;
+      const rowIndex = Math.max(0, Math.min(rowCount - 1, Math.floor((cy - bounds.y0) / rowHeight)));
+      const cx = (word.x0 + word.x1) / 2;
+      const key = pickTracerColumnByX(cx, columnBounds);
+      if (!key) return;
+      rowCells[rowIndex][key].push(word);
+    });
+
+  const rows = rowCells
+    .map((cell, index) => {
+      const normalizedCells = {};
+      Object.keys(cell).forEach((key) => {
+        normalizedCells[key] = cell[key]
+          .sort((a, b) => a.x0 - b.x0)
+          .map(word => word.text)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      });
+      return parseTracerRowFromCells(normalizedCells, globalConfidence, index);
+    });
+
+  return finalizeTracerRows(trimTracerRowsToSignalSpan(rows), ocrResult?.text || '');
+}
+
+function hasTracerRowSignal(row) {
+  if (!row) return false;
+  return !!(row.bloodGroup || row.componentType || row.unknownComponentLabel || row.serialNumber || row.collectedAt || row.expiresAt);
+}
+
+function trimTracerRowsToSignalSpan(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return [];
+
+  let first = -1;
+  let last = -1;
+  for (let i = 0; i < list.length; i += 1) {
+    if (!hasTracerRowSignal(list[i])) continue;
+    if (first === -1) first = i;
+    last = i;
+  }
+
+  if (first === -1 || last === -1) return [];
+  return list.slice(first, last + 1);
+}
+
+function parseTracerRowFromCells(cells, globalConfidence, rowIndex = 0) {
+  const bloodText = cells?.bloodGroup || '';
+  const componentText = cells?.component || '';
+  const serialText = cells?.serial || '';
+  const extractionText = cells?.extraction || '';
+  const expiryText = cells?.expiry || '';
+
+  const bloodGroup = parseBloodGroupFromText(bloodText);
+  const component = parseComponentFromText(componentText);
+  const serialMeta = parseTracerSerialFromCell(serialText);
+  const collectedAt = parseTracerDateFromCell(extractionText);
+  const expiresAt = parseTracerDateFromCell(expiryText);
+  const dateValidation = normalizeTracerDateRange(collectedAt, expiresAt);
+
+  return {
+    bloodGroup,
+    bloodGroupInferred: false,
+    componentType: component.componentType || '',
+    unknownComponentLabel: component.componentType ? '' : component.rawLabel,
+    serialNumber: serialMeta.serialNumber,
+    serialDigitsRaw: serialMeta.serialDigitsRaw,
+    serialRawText: serialMeta.serialRawText,
+    collectedAt: dateValidation.collectedAt,
+    expiresAt: dateValidation.expiresAt,
+    confidence: Math.round(Number(globalConfidence || 0)),
+    sourceText: [
+      bloodText,
+      componentText,
+      serialText,
+      extractionText,
+      expiryText,
+    ].filter(Boolean).join(' | '),
+    rowOrder: Number.isFinite(rowIndex) ? rowIndex : 0,
+    dateIssue: dateValidation.invalid,
+    dateSwapped: dateValidation.swapped,
+    rowBand: null,
+  };
+}
+
+function parseTracerSerialFromCell(text) {
+  const source = String(text || '')
+    .toUpperCase()
+    .replace(/[|]/g, ' ')
+    .replace(/\s+/g, '');
+
+  if (!source) {
+    return { serialNumber: '', serialDigitsRaw: '', serialRawText: '' };
+  }
+
+  const corrected = source
+    .replace(/O/g, '0')
+    .replace(/[IL]/g, '1')
+    .replace(/B/g, '8');
+
+  const fromV = corrected.match(/V[A-Z0-9]{4,10}/);
+  const fromLoose = corrected.match(/[A-Z]?\d{5,8}/);
+  let token = fromV ? fromV[0] : (fromLoose ? fromLoose[0] : '');
+
+  if (!token) {
+    return { serialNumber: '', serialDigitsRaw: '', serialRawText: source };
+  }
+
+  token = token.replace(/^VA(?=\d)/, 'V');
+  if (!token.startsWith('V')) {
+    token = `V${token.replace(/^[A-Z]/, '')}`;
+  }
+
+  const digitsRaw = token.replace(/^V/, '').replace(/[^0-9]/g, '');
+  if (!digitsRaw) {
+    return { serialNumber: '', serialDigitsRaw: '', serialRawText: source };
+  }
+
+  let digitsNormalized = digitsRaw;
+  if (digitsNormalized.length > 6) {
+    digitsNormalized = digitsNormalized.slice(0, 6);
+  }
+
+  const serialNumber = digitsNormalized.length >= 5 ? `V${digitsNormalized}` : '';
+  return {
+    serialNumber,
+    serialDigitsRaw: digitsRaw,
+    serialRawText: source,
+  };
+}
+
+function parseTracerDateFromCell(text) {
+  if (!text) return '';
+  const normalized = String(text || '')
+    .toUpperCase()
+    .replace(/O(?=\d)/g, '0')
+    .replace(/I(?=\d)/g, '1')
+    .replace(/%/g, '6')
+    .replace(/S0(?=\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC))/g, '30')
+    .replace(/TU?0?2(?=\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC))/g, '02')
+    .replace(/U0?2(?=\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC))/g, '02')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const values = extractDateValuesFromText(normalized);
+  return values[0] || '';
+}
+
+function finalizeTracerRows(rows, sourceText = '') {
+  const ordered = (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({ ...row, rowOrder: index }))
+    .sort((a, b) => (a.rowOrder ?? 0) - (b.rowOrder ?? 0));
+
+  const majorPrefix = detectTracerMajorSerialPrefix(ordered);
+  const fixedRows = ordered.map((row) => {
+    const fixedSerial = normalizeTracerSerialWithContext(row, majorPrefix);
+    return {
+      ...row,
+      serialNumber: fixedSerial,
+    };
+  });
+  return applyTracerBloodGroupInference(fixedRows, sourceText);
+}
+
+function detectTracerMajorSerialPrefix(rows) {
+  const freq = new Map();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const serial = String(row?.serialNumber || '').toUpperCase();
+    if (!/^V\d{6}$/.test(serial)) return;
+    const prefix = serial.slice(1, 4);
+    freq.set(prefix, (freq.get(prefix) || 0) + 1);
+  });
+
+  let bestPrefix = '';
+  let bestCount = 0;
+  [...freq.entries()].forEach(([prefix, count]) => {
+    if (count > bestCount) {
+      bestPrefix = prefix;
+      bestCount = count;
+    }
+  });
+  return bestCount >= 2 ? bestPrefix : '';
+}
+
+function normalizeTracerSerialWithContext(row, majorPrefix) {
+  const current = String(row?.serialNumber || '').toUpperCase();
+  const digitsRaw = String(row?.serialDigitsRaw || '').replace(/[^0-9]/g, '');
+  let digits = current.replace(/^V/, '').replace(/[^0-9]/g, '');
+
+  if (!digits && digitsRaw) {
+    digits = digitsRaw;
+  }
+  if (!digits) return '';
+
+  if (digits.length > 6) {
+    if (majorPrefix && digits.startsWith(majorPrefix)) {
+      digits = digits.slice(0, 6);
+    } else if (majorPrefix && digits.length >= 5) {
+      digits = `${majorPrefix}${digits.slice(2, 5)}`;
+    } else {
+      digits = digits.slice(0, 6);
+    }
+  }
+
+  if (digits.length === 5 && majorPrefix) {
+    digits = `${majorPrefix}${digits.slice(-3)}`;
+  }
+
+  if (digits.length === 6 && majorPrefix && !digits.startsWith(majorPrefix)) {
+    const raw = digitsRaw || digits;
+    if (raw.length >= 7) {
+      digits = `${majorPrefix}${raw.slice(2, 5)}`;
+    } else if (raw.length === 6) {
+      digits = `${majorPrefix}${raw.slice(-3)}`;
+    }
+  }
+
+  if (!/^\d{6}$/.test(digits)) {
+    return '';
+  }
+  return `V${digits}`;
+}
+
+async function refineTracerRowsByColumns(candidate, stageLabel, sourceText = '') {
+  if (!candidate?.canvas) {
+    return { text: '', confidence: 0, entries: [] };
+  }
+
+  const bounds = getTracerGeometryBounds(candidate.canvas);
+  const bodyCanvas = cropCanvasRect(candidate.canvas, bounds.x0, bounds.y0, bounds.width, bounds.height);
+  if (!bodyCanvas) {
+    return { text: '', confidence: 0, entries: [] };
+  }
+
+  const rowCount = Number(TRACER_TABLE_GEOMETRY.rowCount || 10);
+  const columnTexts = {};
+  const confidences = [];
+  const keys = Object.keys(TRACER_COLUMN_SPLITS);
+  const padY = Math.max(0, Math.floor(bodyCanvas.height * (TRACER_TABLE_GEOMETRY.rowPaddingRatio || 0)));
+
+  for (let i = 0; i < keys.length; i += 1) {
+    const key = keys[i];
+    const split = TRACER_COLUMN_SPLITS[key];
+    const padX = Math.max(1, Math.floor(bodyCanvas.width * (TRACER_TABLE_GEOMETRY.columnPaddingRatio || 0)));
+    const x0 = Math.max(0, Math.floor(bodyCanvas.width * split[0]) + padX);
+    const x1 = Math.min(bodyCanvas.width, Math.ceil(bodyCanvas.width * split[1]) - padX);
+    const y0 = Math.max(0, padY);
+    const y1 = Math.min(bodyCanvas.height, bodyCanvas.height - padY);
+    const colCanvas = cropCanvasRect(bodyCanvas, x0, y0, Math.max(2, x1 - x0), Math.max(2, y1 - y0));
+    if (!colCanvas) {
+      columnTexts[key] = Array.from({ length: rowCount }, () => '');
+      continue;
+    }
+
+    const ocr = await runTracerOcrColumnCanvas(colCanvas, key, `${stageLabel} | ${key}`);
+    confidences.push(Number(ocr?.confidence || 0));
+    columnTexts[key] = mapColumnWordsToRows(ocr, rowCount);
+  }
+
+  const columnShift = detectTracerColumnShift(columnTexts, rowCount);
+  const rows = [];
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    let cells = {
+      bloodGroup: columnTexts.bloodGroup?.[rowIndex] || '',
+      component: columnTexts.component?.[rowIndex] || '',
+      serial: columnTexts.serial?.[rowIndex] || '',
+      extraction: columnTexts.extraction?.[rowIndex] || '',
+      expiry: columnTexts.expiry?.[rowIndex] || '',
+    };
+    if (columnShift === 1) {
+      cells = {
+        bloodGroup: '',
+        component: columnTexts.bloodGroup?.[rowIndex] || '',
+        serial: columnTexts.component?.[rowIndex] || '',
+        extraction: columnTexts.serial?.[rowIndex] || '',
+        expiry: columnTexts.extraction?.[rowIndex] || columnTexts.expiry?.[rowIndex] || '',
+      };
+    }
+    const row = parseTracerRowFromCells(cells, averageTracerConfidence(confidences), rowIndex);
+    if (row) rows.push(row);
+  }
+
+  const entries = finalizeTracerRows(trimTracerRowsToSignalSpan(rows), sourceText);
+  const text = entries.map(row => row.sourceText || '').join('\n');
+  return {
+    text,
+    confidence: averageTracerConfidence(confidences),
+    entries,
+  };
+}
+
+function detectTracerColumnShift(columnTexts, rowCount) {
+  const size = Math.max(1, Number(rowCount || 0));
+  let componentInBloodCol = 0;
+  let serialInComponentCol = 0;
+  let dateInSerialCol = 0;
+
+  for (let i = 0; i < size; i += 1) {
+    const bloodCol = String(columnTexts?.bloodGroup?.[i] || '');
+    const componentCol = String(columnTexts?.component?.[i] || '');
+    const serialCol = String(columnTexts?.serial?.[i] || '');
+
+    if (parseComponentFromText(bloodCol).componentType) componentInBloodCol += 1;
+    if (parseTracerSerialFromCell(componentCol).serialNumber) serialInComponentCol += 1;
+    if (extractDateValuesFromText(serialCol).length >= 1) dateInSerialCol += 1;
+  }
+
+  if (componentInBloodCol >= 3 && serialInComponentCol >= 3 && dateInSerialCol >= 3) {
+    return 1;
+  }
+  return 0;
+}
+
+function detectTracerFormLevelBloodGroup(sourceText) {
+  const normalized = String(sourceText || '')
+    .toUpperCase()
+    .replace(/[|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/P0S/g, 'POS')
+    .replace(/N3G/g, 'NEG')
+    .replace(/NE6/g, 'NEG');
+
+  const match = normalized.match(/\b(AB|A|B|O|0)\s*(POSITIVE|POS|\+|NEGATIVE|NEG|-)\b/);
+  if (!match) return '';
+  const abo = match[1] === '0' ? 'O' : match[1];
+  const rh = match[2].includes('NEG') || match[2] === '-' ? 'NEG' : 'POS';
+  return `${abo}_${rh}`;
+}
+
+function applyTracerBloodGroupInference(rows, sourceText = '') {
+  const list = Array.isArray(rows) ? rows.map(row => ({ ...row })) : [];
+  if (!list.length) return list;
+
+  const formLevel = detectTracerFormLevelBloodGroup(sourceText);
+  const counts = new Map();
+  list.forEach((row) => {
+    const bg = String(row?.bloodGroup || '');
+    if (!bg) return;
+    counts.set(bg, (counts.get(bg) || 0) + 1);
+  });
+
+  let majority = '';
+  let max = 0;
+  [...counts.entries()].forEach(([key, count]) => {
+    if (count > max) {
+      max = count;
+      majority = key;
+    }
+  });
+
+  const inferred = formLevel || (max >= 2 ? majority : '');
+  if (!inferred) return list;
+
+  return list.map((row) => {
+    if (row.bloodGroup) return { ...row, bloodGroupInferred: !!row.bloodGroupInferred };
+    return {
+      ...row,
+      bloodGroup: inferred,
+      bloodGroupInferred: true,
+    };
+  });
+}
+
+function parseTracerRowsFromRawTextWithOrder(rawText, globalConfidence = 0) {
+  const normalized = String(rawText || '')
+    .toUpperCase()
+    .replace(/\r/g, '\n')
+    .replace(/P0S/g, 'POS')
+    .replace(/N3G/g, 'NEG')
+    .replace(/NE6/g, 'NEG');
+
+  const lines = normalized
+    .split('\n')
+    .map(line => line.replace(/[|]/g, ' | ').replace(/\s+/g, ' ').trim())
+    .filter(line => line.length >= 8);
+
+  const rows = [];
+  lines.forEach((line, index) => {
+    const component = parseComponentFromText(line);
+    const serialMeta = parseTracerSerialFromCell(line);
+    const dates = extractDateValuesFromText(line);
+    if (!component.componentType) return;
+    if (!serialMeta.serialNumber) return;
+    if (dates.length < 2) return;
+
+    const dateValidation = normalizeTracerDateRange(dates[0], dates[1]);
+    const bloodGroup = parseBloodGroupFromText(line);
+    rows.push({
+      bloodGroup,
+      bloodGroupInferred: false,
+      componentType: component.componentType || '',
+      unknownComponentLabel: component.componentType ? '' : component.rawLabel,
+      serialNumber: serialMeta.serialNumber,
+      serialDigitsRaw: serialMeta.serialDigitsRaw,
+      serialRawText: serialMeta.serialRawText,
+      collectedAt: dateValidation.collectedAt,
+      expiresAt: dateValidation.expiresAt,
+      confidence: Math.round(Number(globalConfidence || 0)),
+      sourceText: line,
+      rowOrder: index,
+      dateIssue: dateValidation.invalid,
+      dateSwapped: dateValidation.swapped,
+      rowBand: null,
+    });
+  });
+
+  return finalizeTracerRows(rows, rawText);
+}
+
+async function runTracerOcrColumnCanvas(canvas, columnKey, stageLabel) {
+  const options = TRACER_COLUMN_OCR_OPTIONS[columnKey] || {};
+  const logger = createTracerOcrLogger(stageLabel);
+  const result = await Tesseract.recognize(canvas.toDataURL('image/png'), 'eng', {
+    logger,
+    tessedit_pageseg_mode: options.psm || '6',
+    preserve_interword_spaces: '1',
+    tessedit_char_whitelist: options.whitelist || undefined,
+  });
+
+  const words = (Array.isArray(result?.data?.words) ? result.data.words : [])
+    .map(word => ({
+      text: String(word?.text || '').trim(),
+      confidence: Number(word?.confidence || 0),
+      x0: Number(word?.bbox?.x0 || 0),
+      y0: Number(word?.bbox?.y0 || 0),
+      x1: Number(word?.bbox?.x1 || 0),
+      y1: Number(word?.bbox?.y1 || 0),
+    }))
+    .filter(word => word.text.length > 0 && word.x1 > word.x0 && word.y1 > word.y0);
+
+  return {
+    text: String(result?.data?.text || ''),
+    confidence: Number(result?.data?.confidence || 0),
+    words,
+    canvasHeight: canvas.height,
+  };
+}
+
+function mapColumnWordsToRows(ocrResult, rowCount) {
+  const words = Array.isArray(ocrResult?.words) ? ocrResult.words : [];
+  const canvasHeight = Number(ocrResult?.canvasHeight || 0) || 1;
+  const rowHeight = canvasHeight / rowCount;
+  const rows = Array.from({ length: rowCount }, () => []);
+
+  words
+    .filter(word => word.confidence >= 8)
+    .forEach((word) => {
+      const cy = (word.y0 + word.y1) / 2;
+      const rowIndex = Math.max(0, Math.min(rowCount - 1, Math.floor(cy / rowHeight)));
+      rows[rowIndex].push(word);
+    });
+
+  return rows.map((rowWords) => rowWords
+    .sort((a, b) => a.x0 - b.x0)
+    .map(word => word.text)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim());
+}
+
+function cropCanvasRect(sourceCanvas, x, y, w, h) {
+  if (!sourceCanvas || w < 2 || h < 2) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(2, Math.floor(w));
+  canvas.height = Math.max(2, Math.floor(h));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(sourceCanvas, Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h), 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+function averageTracerConfidence(values) {
+  const nums = (Array.isArray(values) ? values : []).map(Number).filter(Number.isFinite);
+  if (!nums.length) return 0;
+  return nums.reduce((sum, value) => sum + value, 0) / nums.length;
+}
+
+function createTracerOcrLogger(stageLabel) {
+  return function onOcrProgress(message) {
+    if (!message || !message.status) return;
+    if (message.status === 'recognizing text') {
+      const percent = Math.round((message.progress || 0) * 100);
+      setTracerScanStatus(`${stageLabel}: ${percent}%`, 'loading');
+      return;
+    }
+
+    if (message.status === 'loading tesseract core' || message.status === 'initializing tesseract') {
+      setTracerScanStatus(`${stageLabel}: initializing OCR...`, 'loading');
+    }
+  };
+}
+
+function scoreTracerOcrCandidate(rows, confidence, priority) {
+  const parsedRows = Array.isArray(rows) ? rows : [];
+  if (!parsedRows.length) return (confidence / 12) + priority;
+
+  const strictRows = parsedRows.filter(isTracerRowImportReady).length;
+  const unknownRows = parsedRows.filter(row => !row.componentType).length;
+  const missingSerialRows = parsedRows.filter(row => !/^V\d{6}$/.test(String(row?.serialNumber || ''))).length;
+  return (strictRows * 12) + (parsedRows.length * 5) + (confidence / 7) + priority - (unknownRows * 2.5) - (missingSerialRows * 2);
+}
+
+function parseBloodGroupFromText(text) {
+  if (!text) return '';
+
+  const normalized = String(text)
+    .toUpperCase()
+    .replace(/P0S/g, 'POS')
+    .replace(/N3G/g, 'NEG')
+    .replace(/NE6/g, 'NEG')
+    .replace(/\s+/g, ' ');
+
+  const match = normalized.match(/\b(AB|A|B|O|0)\s*(POSITIVE|POS|\+|NEGATIVE|NEG|-)\b/);
+  if (!match) return '';
+
+  const abo = match[1] === '0' ? 'O' : match[1];
+  const rh = match[2].includes('NEG') || match[2] === '-' ? 'NEG' : 'POS';
+  return `${abo}_${rh}`;
+}
+
+function parseComponentFromText(text) {
+  if (!text) return { componentType: '', rawLabel: '' };
+
+  const normalized = normalizeComponentMatchText(text);
+  for (const alias of TRACER_COMPONENT_LOOKUP) {
+    if (normalized.includes(alias.normalized)) {
+      return { componentType: alias.componentType, rawLabel: '' };
+    }
+  }
+
+  const fallbackToken = findUnknownComponentToken(text);
+  return { componentType: '', rawLabel: fallbackToken };
+}
+
+function normalizeComponentMatchText(text) {
+  return String(text || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function findUnknownComponentToken(text) {
+  const stripped = String(text || '')
+    .toUpperCase()
+    .replace(/\b(AB|A|B|O|0)\s*(POSITIVE|POS|\+|NEGATIVE|NEG|-)\b/g, ' ')
+    .replace(/\b\d{1,4}\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s*\d{2,4}\b/g, ' ')
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const ignore = new Set([
+    'DATE', 'UNIT', 'SERIAL', 'NO', 'NUMBER', 'EXTRACTION', 'EXPIRY',
+    'BLOOD', 'GROUP', 'COMPONENT', 'PATIENT', 'RELEASED', 'BAG', 'BLOODSTOCK'
+  ]);
+
+  const token = stripped.split(' ').find(part => {
+    if (!part || part.length < 2 || part.length > 16) return false;
+    if (!/[A-Z]/.test(part)) return false;
+    if (ignore.has(part)) return false;
+    if (/^\d+$/.test(part)) return false;
+    if (/^[A-Z]?\d{4,}$/.test(part)) return false;
+    return true;
+  });
+
+  return token || '';
+}
+
+function parseSerialFromText(text) {
+  if (!text) return '';
+  const normalized = String(text).toUpperCase().replace(/\s+/g, ' ');
+
+  const explicit = normalized.match(/\b(?:S\/N|SN|SERIAL(?:\s*NO)?|UNIT(?:\s*SERIAL)?)(?:\s*NO)?\s*[:#-]?\s*([A-Z0-9-]{5,10})\b/);
+  if (explicit) {
+    const fixed = normalizeTracerSerialCandidate(explicit[1]);
+    if (fixed) return fixed;
+  }
+
+  const compact = normalized.replace(/\s+/g, '');
+  const direct = compact.match(/V[A-Z]?\d{5,7}/g) || [];
+  for (const candidate of direct) {
+    const fixed = normalizeTracerSerialCandidate(candidate);
+    if (fixed) return fixed;
+  }
+
+  const fallback = normalized.match(/\b[A-Z]{1,2}\d{5,8}\b/g) || [];
+  for (const candidate of fallback) {
+    const fixed = normalizeTracerSerialCandidate(candidate);
+    if (fixed) return fixed;
+  }
+
+  return '';
+}
+
+function sanitizeSerial(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function normalizeTracerSerialCandidate(value) {
+  const cleaned = sanitizeSerial(value).replace(/_/g, '');
+  if (!cleaned) return '';
+
+  // Common OCR drift: VA457679 -> V457679
+  let normalized = cleaned.replace(/^VA(?=\d{5,7}$)/, 'V');
+  normalized = normalized.replace(/^V0(?=\d{4,6}$)/, 'V');
+
+  if (/^V\d{5,7}$/.test(normalized)) {
+    return normalized;
+  }
+
+  return '';
+}
+
+function extractDateValuesFromText(text) {
+  if (!text) return [];
+
+  const source = String(text).toUpperCase().replace(/O(?=\d)/g, '0');
+  const found = [];
+
+  const monthRegex = /\b([0-3]?\d)\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)\s*,?\s*([12]\d{3}|\d{2})\b/g;
+  const ymdRegex = /\b([12]\d{3})[\/-]([01]?\d)[\/-]([0-3]?\d)\b/g;
+  const dmyRegex = /\b([0-3]?\d)[\/-]([01]?\d)[\/-]([12]\d{3}|\d{2})\b/g;
+
+  const collectMatches = (regex, transform) => {
+    let match;
+    while ((match = regex.exec(source)) !== null) {
+      const parsed = transform(match);
+      if (parsed && !found.includes(parsed)) found.push(parsed);
+    }
+  };
+
+  collectMatches(monthRegex, m => parseDateParts(m[3], monthNameToNumber(m[2]), m[1]));
+  collectMatches(ymdRegex, m => parseDateParts(m[1], m[2], m[3]));
+  collectMatches(dmyRegex, m => parseDateParts(m[3], m[2], m[1]));
+
+  return found.slice(0, 2);
+}
+
+function normalizeTracerDateRange(collectedAt, expiresAt) {
+  let extraction = collectedAt || '';
+  let expiry = expiresAt || '';
+  let swapped = false;
+  let invalid = false;
+
+  const extractionDate = extraction ? new Date(extraction) : null;
+  const expiryDate = expiry ? new Date(expiry) : null;
+
+  if (extractionDate && expiryDate && extractionDate > expiryDate) {
+    const temp = extraction;
+    extraction = expiry;
+    expiry = temp;
+    swapped = true;
+  }
+
+  const extractionYear = extraction ? Number(String(extraction).slice(0, 4)) : null;
+  const expiryYear = expiry ? Number(String(expiry).slice(0, 4)) : null;
+  if ((extractionYear && (extractionYear < 2024 || extractionYear > 2035)) ||
+      (expiryYear && (expiryYear < 2024 || expiryYear > 2035))) {
+    invalid = true;
+  }
+
+  return { collectedAt: extraction, expiresAt: expiry, swapped, invalid };
+}
+
+function monthNameToNumber(name) {
+  const map = {
+    JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, SEPT: 9, OCT: 10, NOV: 11, DEC: 12
+  };
+  return map[String(name || '').toUpperCase()] || 0;
+}
+
+function parseDateParts(yearToken, monthToken, dayToken) {
+  let year = Number(String(yearToken).replace(/O/g, '0'));
+  let month = Number(String(monthToken).replace(/O/g, '0'));
+  let day = Number(String(dayToken).replace(/O/g, '0'));
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
+  if (String(yearToken).length === 2) year += year >= 70 ? 1900 : 2000;
+
+  return formatDateInput(year, month, day);
+}
+
+function parseDateCandidate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  if (/^\d{8}$/.test(raw)) {
+    const y = Number(raw.slice(0, 4));
+    const m = Number(raw.slice(4, 6));
+    const d = Number(raw.slice(6, 8));
+    return formatDateInput(y, m, d);
+  }
+
+  const asDate = new Date(raw);
+  if (!Number.isNaN(asDate.getTime())) {
+    return formatDateInput(asDate.getFullYear(), asDate.getMonth() + 1, asDate.getDate());
+  }
+  return '';
+}
+
+function formatDateInput(year, month, day) {
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return '';
+  if (year < 1990 || year > 2100) return '';
+  if (month < 1 || month > 12) return '';
+  if (day < 1 || day > 31) return '';
+
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Unable to load tracer image for OCR.'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('Failed to read tracer image file.'));
+    reader.readAsDataURL(file);
+  });
+}
 
 function addStockCalculateExpiry(componentType, collectedAt) {
   const days = ADD_STOCK_EXPIRY_DAYS[componentType];
@@ -1125,7 +3042,291 @@ function updateAddExpiry() {
   }
 }
 
+function getAddStockErrorElement(inputEl, explicitId = '') {
+  if (explicitId) return document.getElementById(explicitId);
+  if (!inputEl) return null;
+  if (inputEl.dataset.errorId) return document.getElementById(inputEl.dataset.errorId);
+
+  if (inputEl.id) {
+    const staticError = document.getElementById(`${inputEl.id}-error`);
+    if (staticError) return staticError;
+  }
+
+  const group = inputEl.closest('.form-group-m');
+  if (!group) return null;
+  let dynamicError = group.querySelector('.form-inline-error');
+  if (!dynamicError) {
+    dynamicError = document.createElement('div');
+    dynamicError.className = 'form-inline-error';
+    group.appendChild(dynamicError);
+  }
+  return dynamicError;
+}
+
+function setAddStockFieldError(inputEl, message, explicitId = '') {
+  if (!inputEl) return false;
+  const errorEl = getAddStockErrorElement(inputEl, explicitId);
+  inputEl.classList.add('field-error');
+  inputEl.setAttribute('aria-invalid', 'true');
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.style.display = message ? 'block' : 'none';
+  }
+  return false;
+}
+
+function clearAddStockFieldError(inputEl, explicitId = '') {
+  if (!inputEl) return true;
+  const errorEl = getAddStockErrorElement(inputEl, explicitId);
+  inputEl.classList.remove('field-error');
+  inputEl.removeAttribute('aria-invalid');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  return true;
+}
+
+function enforceTransactionNumberFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceSerialNumberFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, ADD_STOCK_SERIAL_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceVolumeFormat(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/\D/g, '')
+    .slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function enforceRemarksLimit(inputEl) {
+  if (!inputEl) return '';
+  const cleaned = String(inputEl.value || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+    .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+  if (inputEl.value !== cleaned) inputEl.value = cleaned;
+  return cleaned;
+}
+
+function isAddStockSerialValueValid(value) {
+  return /^[A-Z0-9]{1,10}$/.test(String(value || '').trim().toUpperCase());
+}
+
+function isAddStockVolumeValueValid(value) {
+  const str = String(value || '').trim();
+  if (!/^\d{1,4}$/.test(str)) return false;
+  const parsed = Number(str);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
+function isAddStockRemarksValueValid(value) {
+  const str = String(value || '');
+  return str.length <= ADD_STOCK_REMARKS_MAX_LENGTH && ADD_STOCK_REMARKS_ALLOWED_REGEX.test(str);
+}
+
+function validateSerialNumberField(inputEl, options = {}) {
+  const value = enforceSerialNumberFormat(inputEl);
+  const required = !!options.required;
+  const errorId = options.errorId || '';
+  if (!value) {
+    return required ? setAddStockFieldError(inputEl, ADD_STOCK_SERIAL_ERROR_MESSAGE, errorId) : clearAddStockFieldError(inputEl, errorId);
+  }
+  return isAddStockSerialValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_SERIAL_ERROR_MESSAGE, errorId);
+}
+
+function validateVolumeField(inputEl, options = {}) {
+  const value = enforceVolumeFormat(inputEl);
+  const required = !!options.required;
+  const errorId = options.errorId || '';
+  if (!value) {
+    return required ? setAddStockFieldError(inputEl, ADD_STOCK_VOLUME_ERROR_MESSAGE, errorId) : clearAddStockFieldError(inputEl, errorId);
+  }
+  return isAddStockVolumeValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_VOLUME_ERROR_MESSAGE, errorId);
+}
+
+function validateRemarksField(inputEl, options = {}) {
+  const value = enforceRemarksLimit(inputEl);
+  const errorId = options.errorId || '';
+  if (!value) return clearAddStockFieldError(inputEl, errorId);
+  return isAddStockRemarksValueValid(value)
+    ? clearAddStockFieldError(inputEl, errorId)
+    : setAddStockFieldError(inputEl, ADD_STOCK_REMARKS_ERROR_MESSAGE, errorId);
+}
+
+function sanitizeAddStockBloodGroup(value) {
+  const source = String(value || '').toUpperCase().trim();
+  if (!source) return '';
+  const compact = source.replace(/[^A-Z0-9]/g, '');
+  const map = {
+    APOS: 'A_POS',
+    ANEG: 'A_NEG',
+    BPOS: 'B_POS',
+    BNEG: 'B_NEG',
+    ABPOS: 'AB_POS',
+    ABNEG: 'AB_NEG',
+    OPOS: 'O_POS',
+    ONEG: 'O_NEG',
+    'A_POS': 'A_POS',
+    'A_NEG': 'A_NEG',
+    'B_POS': 'B_POS',
+    'B_NEG': 'B_NEG',
+    'AB_POS': 'AB_POS',
+    'AB_NEG': 'AB_NEG',
+    'O_POS': 'O_POS',
+    'O_NEG': 'O_NEG',
+  };
+  return map[compact] || map[source] || '';
+}
+
+function normalizeAddStockComponentValue(value, fallbackText = '') {
+  const raw = String(value || '').trim();
+  if (!raw && !fallbackText) return '';
+  const normalized = String(raw || fallbackText).toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  const aliasMap = {
+    WB: 'WHOLE_BLOOD',
+    WHOLEBLOOD: 'WHOLE_BLOOD',
+    PRBC: 'PRBC',
+    LPRBC: 'LEUKOREDUCED_PRBC',
+    APRBC: 'ALIQUOTED_PRBC',
+    FFP: 'FRESH_FROZEN_PLASMA',
+    PC: 'PLATELET_CONCENTRATE',
+    PLT: 'PLATELET_CONCENTRATE',
+    PLATELET: 'PLATELET_CONCENTRATE',
+    CRYO: 'CRYOPRECIPITATE',
+    CRYOSUP: 'CRYOSUPERNATANT',
+  };
+  return aliasMap[normalized] || (Object.values(aliasMap).includes(raw) ? raw : '');
+}
+
+function normalizeAddStockSerialValue(value) {
+  let serial = String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+
+  if (/^VA\d{5,8}$/.test(serial)) {
+    serial = `V4${serial.slice(2)}`;
+  }
+
+  return serial.slice(0, ADD_STOCK_SERIAL_MAX_LENGTH);
+}
+
+function sanitizeOCRImportedRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => {
+    const cleanedSerial = normalizeAddStockSerialValue(row?.serialNumber);
+    const cleanedRemarks = String(row?.remarks || '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+      .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
+    const cleanedVolume = String(row?.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
+    const cleanedBloodGroup = sanitizeAddStockBloodGroup(row?.bloodGroup);
+    const cleanedComponent = normalizeAddStockComponentValue(row?.componentType, row?.unknownComponentLabel);
+    const collectedAt = parseDateCandidate(row?.collectedAt || '');
+    const expiresAt = parseDateCandidate(row?.expiresAt || '');
+
+    const issues = Array.isArray(row?.issues) ? [...row.issues] : [];
+    if (cleanedSerial && !isAddStockSerialValueValid(cleanedSerial)) issues.push('Invalid serial format');
+    if (cleanedVolume && !isAddStockVolumeValueValid(cleanedVolume)) issues.push('Invalid volume');
+    if (cleanedRemarks && !isAddStockRemarksValueValid(cleanedRemarks)) issues.push('Invalid remarks');
+    if (!cleanedBloodGroup) issues.push('Missing blood group');
+    if (!cleanedComponent) issues.push('Unknown component');
+    if (!collectedAt || !expiresAt) issues.push('Missing extraction/expiry date');
+
+    return {
+      ...row,
+      bloodGroup: cleanedBloodGroup || '',
+      componentType: cleanedComponent || '',
+      serialNumber: cleanedSerial || '',
+      volumeMl: cleanedVolume || '',
+      remarks: cleanedRemarks,
+      collectedAt,
+      expiresAt,
+      needsReview: Boolean(row?.needsReview) || issues.length > 0,
+      issues: [...new Set(issues)],
+    };
+  });
+}
+
+function initAddStockValidation() {
+  if (addStockValidationBound) return;
+  addStockValidationBound = true;
+
+  const serialInput = document.getElementById('add-serial-number');
+  const volumeInput = document.getElementById('add-volume-ml');
+  const remarksInput = document.getElementById('add-remarks');
+
+  if (serialInput) {
+    serialInput.addEventListener('input', () => validateSerialNumberField(serialInput, { errorId: 'add-serial-number-error' }));
+    serialInput.addEventListener('blur', () => validateSerialNumberField(serialInput, { errorId: 'add-serial-number-error' }));
+  }
+  if (volumeInput) {
+    volumeInput.addEventListener('input', () => validateVolumeField(volumeInput, { errorId: 'add-volume-ml-error' }));
+    volumeInput.addEventListener('blur', () => validateVolumeField(volumeInput, { errorId: 'add-volume-ml-error' }));
+  }
+  if (remarksInput) {
+    remarksInput.addEventListener('input', () => validateRemarksField(remarksInput, { errorId: 'add-remarks-error' }));
+    remarksInput.addEventListener('blur', () => validateRemarksField(remarksInput, { errorId: 'add-remarks-error' }));
+  }
+  const transactionInput = document.getElementById('add-transaction-number');
+  const reviewTransactionInput = document.getElementById('tracer-ocr-transaction-number');
+  if (transactionInput) {
+    transactionInput.addEventListener('input', () => enforceTransactionNumberFormat(transactionInput));
+    transactionInput.addEventListener('blur', () => enforceTransactionNumberFormat(transactionInput));
+  }
+  if (reviewTransactionInput) {
+    reviewTransactionInput.addEventListener('input', () => enforceTransactionNumberFormat(reviewTransactionInput));
+    reviewTransactionInput.addEventListener('blur', () => enforceTransactionNumberFormat(reviewTransactionInput));
+  }
+
+  document.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const isControlKey = event.ctrlKey || event.metaKey || event.altKey ||
+      ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End', 'Enter'].includes(event.key);
+    if (isControlKey) return;
+
+    if (target.matches('#add-serial-number, .add-stock-serial, .tracer-ocr-edit-serial')) {
+      if (event.key.length === 1 && !/[a-zA-Z0-9]/.test(event.key)) {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    if (target.matches('#add-volume-ml, .add-stock-volume')) {
+      if (event.key.length === 1 && !/\d/.test(event.key)) {
+        event.preventDefault();
+      }
+    }
+  });
+}
+
 function openAddBloodModal() {
+  initAddStockScanner();
+  initAddStockValidation();
+
   document.getElementById('add-transaction-number').value = '';
   document.getElementById('add-serial-number').value = '';
   document.getElementById('add-blood-type').value = '';
@@ -1135,6 +3336,9 @@ function openAddBloodModal() {
   document.getElementById('add-collected-at').value = '';
   document.getElementById('add-expires-at').value = '';
   document.getElementById('add-remarks').value = '';
+  clearAddStockFieldError(document.getElementById('add-serial-number'), 'add-serial-number-error');
+  clearAddStockFieldError(document.getElementById('add-volume-ml'), 'add-volume-ml-error');
+  clearAddStockFieldError(document.getElementById('add-remarks'), 'add-remarks-error');
 
   const hint = document.getElementById('add-expiry-hint');
   if (hint) hint.textContent = '';
@@ -1142,6 +3346,7 @@ function openAddBloodModal() {
   const rows = document.getElementById('add-stock-rows');
   if (rows) rows.innerHTML = '';
 
+  resetAddStockScannerUI();
   updateAddStockValidCount();
   openModal('addBloodModal');
 }
@@ -1149,15 +3354,18 @@ function openAddBloodModal() {
 function getAddStockDefaults() {
   const aboType = document.getElementById('add-blood-type').value;
   const rhType = document.getElementById('add-rh-type').value;
+  const serialInput = document.getElementById('add-serial-number');
+  const volumeInput = document.getElementById('add-volume-ml');
+  const remarksInput = document.getElementById('add-remarks');
 
   return {
-    serialNumber: document.getElementById('add-serial-number').value.trim(),
+    serialNumber: normalizeAddStockSerialValue(serialInput?.value || ''),
     bloodGroup: aboType ? `${aboType}_${rhType === 'POSITIVE' ? 'POS' : 'NEG'}` : '',
-    componentType: document.getElementById('add-component-type').value,
-    volumeMl: document.getElementById('add-volume-ml').value,
+    componentType: normalizeAddStockComponentValue(document.getElementById('add-component-type').value),
+    volumeMl: String(enforceVolumeFormat(volumeInput) || ''),
     collectedAt: document.getElementById('add-collected-at').value,
     expiresAt: document.getElementById('add-expires-at').value,
-    remarks: document.getElementById('add-remarks').value.trim(),
+    remarks: String(enforceRemarksLimit(remarksInput) || '').trim(),
   };
 }
 
@@ -1191,13 +3399,16 @@ function addStockRow(data = {}) {
   const row = document.createElement('tr');
   row.className = 'add-stock-row';
 
-  const serialNumber = data.serialNumber || '';
-  const bloodGroup = data.bloodGroup || '';
-  const componentType = data.componentType || '';
-  const volumeMl = data.volumeMl || '';
+  const serialNumber = normalizeAddStockSerialValue(data.serialNumber || '');
+  const bloodGroup = sanitizeAddStockBloodGroup(data.bloodGroup || '');
+  const componentType = normalizeAddStockComponentValue(data.componentType || '', data.unknownComponentLabel || '');
+  const volumeMl = String(data.volumeMl || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH);
   const collectedAt = data.collectedAt || '';
   const expiresAt = data.expiresAt || '';
-  const remarks = data.remarks || '';
+  const remarks = String(data.remarks || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+    .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH);
 
   const bloodGroupOptions = [
     { value: '', label: 'Select...' },
@@ -1213,14 +3424,14 @@ function addStockRow(data = {}) {
 
   const componentOptions = [
     { value: '', label: 'Select...' },
-    { value: 'WHOLE_BLOOD', label: 'Whole Blood' },
+    { value: 'WHOLE_BLOOD', label: 'WB' },
     { value: 'PRBC', label: 'PRBC' },
-    { value: 'LEUKOREDUCED_PRBC', label: 'Leukoreduced PRBC' },
-    { value: 'ALIQUOTED_PRBC', label: 'Aliquoted PRBC' },
-    { value: 'PLATELET_CONCENTRATE', label: 'Platelet Concentrate' },
-    { value: 'FRESH_FROZEN_PLASMA', label: 'Fresh Frozen Plasma' },
-    { value: 'CRYOPRECIPITATE', label: 'Cryoprecipitate' },
-    { value: 'CRYOSUPERNATANT', label: 'Cryosupernatant' },
+    { value: 'LEUKOREDUCED_PRBC', label: 'L-PRBC' },
+    { value: 'ALIQUOTED_PRBC', label: 'A-PRBC' },
+    { value: 'PLATELET_CONCENTRATE', label: 'PC' },
+    { value: 'FRESH_FROZEN_PLASMA', label: 'FFP' },
+    { value: 'CRYOPRECIPITATE', label: 'CRYO' },
+    { value: 'CRYOSUPERNATANT', label: 'CRYOSUP' },
   ];
 
   row.innerHTML = `
@@ -1240,31 +3451,31 @@ function addStockRow(data = {}) {
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="text" class="add-stock-serial" value="${serialNumber}" placeholder="SN-00123" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-serial" value="${serialNumber}" placeholder="e.g. V457679" maxlength="10" oninput="enforceSerialNumberFormat(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="date" class="add-stock-collected" value="${collectedAt}" onchange="handleAddStockRowDateChange(this)">
+        <input type="date" class="add-stock-collected" value="${collectedAt}" placeholder="MM/DD/YYYY" onchange="handleAddStockRowDateChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="date" class="add-stock-expires" value="${expiresAt}" onchange="handleAddStockRowChange(this)">
+        <input type="date" class="add-stock-expires" value="${expiresAt}" placeholder="MM/DD/YYYY" onchange="handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="number" class="add-stock-volume" value="${volumeMl}" min="1" placeholder="450" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-volume" value="${volumeMl}" maxlength="4" inputmode="numeric" placeholder="e.g. 450" oninput="enforceVolumeFormat(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
     <td style="padding:6px">
       <div class="form-group-m" style="margin:0">
-        <input type="text" class="add-stock-remarks" value="${remarks}" placeholder="Optional" oninput="handleAddStockRowChange(this)">
+        <input type="text" class="add-stock-remarks" value="${remarks}" maxlength="${ADD_STOCK_REMARKS_MAX_LENGTH}" placeholder="e.g. Hemolyzed" oninput="enforceRemarksLimit(this);handleAddStockRowChange(this)">
       </div>
     </td>
 
@@ -1307,6 +3518,26 @@ function generateAddStockRows(count = 10) {
   updateAddStockValidCount();
 }
 
+function validateAddStockRowInputs(row) {
+  if (!row) return true;
+  const data = getAddStockRowData(row);
+  const serialEl = row.querySelector('.add-stock-serial');
+  const volumeEl = row.querySelector('.add-stock-volume');
+  const remarksEl = row.querySelector('.add-stock-remarks');
+
+  if (isAddStockRowEmpty(data)) {
+    if (serialEl) clearAddStockFieldError(serialEl);
+    if (volumeEl) clearAddStockFieldError(volumeEl);
+    if (remarksEl) clearAddStockFieldError(remarksEl);
+    return true;
+  }
+
+  const serialValid = serialEl ? validateSerialNumberField(serialEl, { required: true }) : false;
+  const volumeValid = volumeEl ? validateVolumeField(volumeEl, { required: true }) : false;
+  const remarksValid = remarksEl ? validateRemarksField(remarksEl) : true;
+  return serialValid && volumeValid && remarksValid;
+}
+
 function handleAddStockRowDateChange(el) {
   const row = el.closest('tr');
   if (!row) return;
@@ -1319,6 +3550,9 @@ function handleAddStockRowDateChange(el) {
     expiresEl.value = addStockCalculateExpiry(componentType, collectedAt);
   }
 
+  markImportedRowTouched(row);
+  refreshImportedRowReviewState(row);
+  validateAddStockRowInputs(row);
   updateAddStockValidCount();
 }
 
@@ -1342,23 +3576,38 @@ function handleAddStockRowChange(el) {
     expiresEl.value = addStockCalculateExpiry(componentEl.value, collectedEl.value);
   }
 
+  if (el.classList.contains('add-stock-serial')) {
+    validateSerialNumberField(el, { required: false });
+  } else if (el.classList.contains('add-stock-volume')) {
+    validateVolumeField(el, { required: false });
+  } else if (el.classList.contains('add-stock-remarks')) {
+    validateRemarksField(el);
+  }
+
+  markImportedRowTouched(row);
+  refreshImportedRowReviewState(row);
+  validateAddStockRowInputs(row);
   updateAddStockValidCount();
 }
 
 function getAddStockRowData(row) {
-  const bloodGroup = row.querySelector('.add-stock-blood-group')?.value || '';
+  const bloodGroup = sanitizeAddStockBloodGroup(row.querySelector('.add-stock-blood-group')?.value || '');
   const split = splitBloodGroup(bloodGroup);
 
   return {
-    serialNumber: row.querySelector('.add-stock-serial')?.value.trim() || '',
+    serialNumber: normalizeAddStockSerialValue(row.querySelector('.add-stock-serial')?.value || ''),
     bloodGroup,
     aboType: split.aboType,
     rhType: split.rhType,
-    componentType: row.querySelector('.add-stock-component')?.value || '',
-    volumeMl: row.querySelector('.add-stock-volume')?.value || '',
-    collectedAt: row.querySelector('.add-stock-collected')?.value || '',
-    expiresAt: row.querySelector('.add-stock-expires')?.value || '',
-    remarks: row.querySelector('.add-stock-remarks')?.value.trim() || '',
+    componentType: normalizeAddStockComponentValue(row.querySelector('.add-stock-component')?.value || ''),
+    volumeMl: String(row.querySelector('.add-stock-volume')?.value || '').replace(/\D/g, '').slice(0, ADD_STOCK_VOLUME_MAX_LENGTH),
+    collectedAt: parseDateCandidate(row.querySelector('.add-stock-collected')?.value || ''),
+    expiresAt: parseDateCandidate(row.querySelector('.add-stock-expires')?.value || ''),
+    remarks: String(row.querySelector('.add-stock-remarks')?.value || '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^A-Za-z0-9.,\-\s]/g, '')
+      .slice(0, ADD_STOCK_REMARKS_MAX_LENGTH)
+      .trim(),
   };
 }
 
@@ -1374,13 +3623,16 @@ function isAddStockRowEmpty(data) {
 
 function isAddStockRowComplete(data) {
   return data.serialNumber &&
+    isAddStockSerialValueValid(data.serialNumber) &&
     data.bloodGroup &&
     data.aboType &&
     data.rhType &&
     data.componentType &&
     data.volumeMl &&
+    isAddStockVolumeValueValid(data.volumeMl) &&
     data.collectedAt &&
-    data.expiresAt;
+    data.expiresAt &&
+    isAddStockRemarksValueValid(data.remarks);
 }
 
 function getValidAddStockRows() {
@@ -1435,6 +3687,7 @@ function copyPreviousAddStockRow(index) {
   current.querySelector('.add-stock-collected').value = prevData.collectedAt;
   current.querySelector('.add-stock-expires').value = prevData.expiresAt;
 
+  validateAddStockRowInputs(current);
   updateAddStockValidCount();
 }
 
@@ -1453,6 +3706,7 @@ function applyAddStockDefaultsToEmptyRows() {
     row.querySelector('.add-stock-collected').value = defaults.collectedAt;
     row.querySelector('.add-stock-expires').value = defaults.expiresAt;
     row.querySelector('.add-stock-remarks').value = defaults.remarks;
+    validateAddStockRowInputs(row);
   });
 
   updateAddStockValidCount();
@@ -1474,6 +3728,7 @@ function applyAddStockDefaultsToAllRows() {
     row.querySelector('.add-stock-collected').value = defaults.collectedAt;
     row.querySelector('.add-stock-expires').value = defaults.expiresAt;
     row.querySelector('.add-stock-remarks').value = defaults.remarks;
+    validateAddStockRowInputs(row);
   });
 
   updateAddStockValidCount();
@@ -1493,7 +3748,12 @@ function clearEmptyAddStockRows() {
 }
 
 async function submitAddBloodStock() {
-  const transactionNumber = document.getElementById('add-transaction-number').value.trim();
+  const transactionInput = document.getElementById('add-transaction-number');
+  const transactionNumber = String(transactionInput?.value || '')
+    .replace(/\D/g, '')
+    .slice(0, 10)
+    .trim();
+  if (transactionInput) transactionInput.value = transactionNumber;
   const rows = [...document.querySelectorAll('#add-stock-rows tr')];
 
   if (!rows.length) {
@@ -1513,13 +3773,20 @@ async function submitAddBloodStock() {
     return;
   }
 
+  const firstInvalidRow = nonEmptyRows.find(item => !validateAddStockRowInputs(item.element));
+  if (firstInvalidRow) {
+    firstInvalidRow.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showBloodPlusMessage('Invalid Row Data', 'Please fix highlighted serial, volume, or remarks fields before submitting.', 'warning');
+    return;
+  }
+
   const incomplete = nonEmptyRows.find(item => !isAddStockRowComplete(item.data));
   if (incomplete) {
     showBloodPlusMessage('Incomplete Row', 'Please complete all partially filled rows before submitting.', 'warning');
     return;
   }
 
-  const serials = nonEmptyRows.map(item => item.data.serialNumber.toLowerCase());
+  const serials = nonEmptyRows.map(item => item.data.serialNumber.toUpperCase());
   const duplicateSerial = serials.find((serial, index) => serials.indexOf(serial) !== index);
 
   if (duplicateSerial) {
@@ -2124,7 +4391,7 @@ const AnalyticsDashboard = {
             <span>${this.escapeHtml(hospital.name || 'Unknown Hospital')}</span>
             <span>${rate}%</span>
           </div>
-          <div class="an-row-sub">${fulfilled} / ${requests} fulfilled requests</div>
+          <div class="an-row-sub">${fulfilled} / ${requests} Served requests</div>
           <div class="an-mini-bar"><div data-fill-target="${rate.toFixed(2)}"></div></div>
         </div>`;
     }).join('');
@@ -2845,9 +5112,50 @@ function getBloodBagSourceLabelPlain(bag) {
 
 function parseBloodBagDateValue(value) {
   if (!value) return null;
-  const dateString = value.includes('T') ? value : `${value}T00:00:00`;
-  const parsed = new Date(dateString);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Parse SQL/ISO prefixes as local wall-clock date/time and ignore timezone tails.
+  // This preserves the stored calendar date (prevents client-side +1 day shifts).
+  const datePrefixMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2})(?::?(\d{2}))?(?::?(\d{2}))?)?/i);
+  if (datePrefixMatch) {
+    const [, year, month, day, hour = '00', minute = '00', second = '00'] = datePrefixMatch;
+    const fractionMatch = raw.match(/\.(\d{1,9})/);
+    const fraction = fractionMatch ? fractionMatch[1] : '0';
+    const ms = Number(String(fraction).padEnd(3, '0').slice(0, 3));
+    const parsedLocal = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+      Number.isFinite(ms) ? ms : 0
+    );
+    return Number.isNaN(parsedLocal.getTime()) ? null : parsedLocal;
+  }
+
+  const fallback = new Date(raw);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function calculateBloodBagDaysLeft(expiresAtValue, reference = new Date()) {
+  const expiry = parseBloodBagDateValue(expiresAtValue);
+  const base = reference instanceof Date ? reference : new Date(reference);
+  if (!expiry || Number.isNaN(base.getTime())) return 0;
+
+  const expiryStart = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+  const baseStart = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const dayDiff = Math.round((expiryStart - baseStart) / 86400000);
+  return Number.isFinite(dayDiff) ? dayDiff : 0;
+}
+
+function formatBloodBagShortDate(value) {
+  const parsed = parseBloodBagDateValue(value);
+  if (!parsed) return '-';
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatBloodBagReportDate(value) {
@@ -3561,8 +5869,109 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let bagPickerSelected = null;
   let bagPickerData     = [];
   let bagPickerIsChange = false;
- 
+  let reqDocZoom        = 1;
+  let reqDocIsPdf       = false;
+
+  const REQ_DOC_ZOOM_MIN = 0.5;
+  const REQ_DOC_ZOOM_MAX = 5;
+  const REQ_DOC_ZOOM_STEP = 0.2;
+
   const reqBagCache = {};
+  const REQ_NEW_BADGE_STATUSES = new Set(['PENDING', 'NEEDS_CONFIRMATION']);
+  const reqSeenIds = new Set();
+  const reqUnseenIds = new Set();
+  let reqBadgePrimed = false;
+
+  function reqGetIdentity(req) {
+    if (!req) return null;
+    if (req.referenceNumber) return `ref:${String(req.referenceNumber).trim()}`;
+    if (req.id !== null && req.id !== undefined) return `id:${String(req.id).trim()}`;
+    return null;
+  }
+
+  function reqShouldCountAsNew(req) {
+    return REQ_NEW_BADGE_STATUSES.has(req?.status);
+  }
+
+  function isBloodRequestsPanelActive() {
+    const panel = document.getElementById('panel-bloodrequests');
+    return !!(panel && panel.classList.contains('active'));
+  }
+
+  function updateBloodRequestBadge(animate = false) {
+    const badge = document.getElementById('blood-request-nav-badge');
+    if (!badge) return;
+
+    const count = reqUnseenIds.size;
+    const previousCount = Number(badge.dataset.count || '0');
+
+    if (count <= 0) {
+      badge.textContent = '0';
+      badge.dataset.count = '0';
+      badge.hidden = true;
+      badge.classList.remove('is-pulse');
+      return;
+    }
+
+    badge.hidden = false;
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.dataset.count = String(count);
+
+    if (animate && count > previousCount) {
+      badge.classList.remove('is-pulse');
+      void badge.offsetWidth;
+      badge.classList.add('is-pulse');
+    }
+  }
+
+  function markBloodRequestsAsViewed() {
+    reqUnseenIds.clear();
+    reqData.forEach(req => {
+      if (!reqShouldCountAsNew(req)) return;
+      const key = reqGetIdentity(req);
+      if (key) reqSeenIds.add(key);
+    });
+    updateBloodRequestBadge(false);
+  }
+
+  function detectNewBloodRequests(nextReqData) {
+    const rows = Array.isArray(nextReqData) ? nextReqData : [];
+    const currentRelevant = new Set();
+
+    rows.forEach(req => {
+      if (!reqShouldCountAsNew(req)) return;
+      const key = reqGetIdentity(req);
+      if (!key) return;
+
+      currentRelevant.add(key);
+      if (!reqSeenIds.has(key)) {
+        reqSeenIds.add(key);
+        if (reqBadgePrimed) {
+          reqUnseenIds.add(key);
+        }
+      }
+    });
+
+    reqUnseenIds.forEach(key => {
+      if (!currentRelevant.has(key)) {
+        reqUnseenIds.delete(key);
+      }
+    });
+
+    if (!reqBadgePrimed) {
+      reqBadgePrimed = true;
+      reqUnseenIds.clear();
+      updateBloodRequestBadge(false);
+      return;
+    }
+
+    if (isBloodRequestsPanelActive()) {
+      markBloodRequestsAsViewed();
+      return;
+    }
+
+    updateBloodRequestBadge(true);
+  }
  
   /* ----------------------------------------------------------------------------
      DATA MAPPING
@@ -3598,6 +6007,12 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       id:             r.id,
       name,
       type:           r.requesterType    ?? 'ANONYMOUS',
+      requesterType:  r.requesterType    ?? null,
+      hospitalProfile: r.hospitalProfile ?? null,
+      hospitalName:   r.hospitalName ?? r.hospitalProfile?.hospitalName ?? null,
+      hospitalContactName: r.hospitalContactName ?? r.hospitalProfile?.contactPersonName ?? null,
+      hospitalContactEmail: r.hospitalContactEmail ?? r.requesterEmail ?? r.hospitalProfile?.user?.email ?? null,
+      hospitalPhoneNumber: r.hospitalPhoneNumber ?? r.hospitalProfile?.phoneNumber ?? r.hospitalProfile?.contactPersonPhone ?? null,
       patient:        formatPatientName(r) ?? '–',
       patientName:    r.patientName      ?? '–',
       patientMiddle:  r.patientMiddle    ?? null,
@@ -3637,9 +6052,12 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       requesterRelationship: r.requesterRelationship ?? null,
       requesterContact: r.requesterContact ?? null,
       requesterEmail: r.requesterEmail   ?? null,
+      requesterStaffId: r.requesterStaffId ?? null,
+      requesterStaffName: r.requesterStaffName ?? null,
+      requesterStaffEmail: r.requesterStaffEmail ?? null,
+      requesterStaffPhone: r.requesterStaffPhone ?? null,
       confirmationEmailSentAt: r.confirmationEmailSentAt ?? null,
       approvalRemarks: r.approvalRemarks ?? null,
-      alternativeComponentSuggestion: r.alternativeComponentSuggestion ?? null,
       patientAcceptedRemarks: r.patientAcceptedRemarks ?? null,
       patientRespondedAt: r.patientRespondedAt ?? null,
       notes:          r.notes            ?? null,
@@ -3657,6 +6075,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       hadPreviousReaction: r.hadPreviousReaction ?? false,
       previousReactionDate: r.previousReactionDate ?? null,
       previousReactionDetails: r.previousReactionDetails ?? null,
+      transactionNumber: r.transactionNumber ?? null,
       docUrl,
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
@@ -3706,6 +6125,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
+      detectNewBloodRequests(reqData);
       reqRender();
       reqUpdateCounts();  
     } catch (err) {
@@ -3725,6 +6145,9 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const json = await res.json();
       reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
+      if (status === 'ALL') {
+        detectNewBloodRequests(reqData);
+      }
       reqRender();
       reqUpdateCounts();
     } catch (err) {
@@ -3789,11 +6212,11 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     const compatible = cache.bags.filter(b => b.compatible !== false);
     const others     = cache.bags.filter(b => b.compatible === false);
     const availability = reqGetAvailabilitySnapshot(req);
-    const now        = Date.now();
+    const now          = new Date();
  
     function bagRow(b) {
-      const expDate  = b.expiresAt ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
-      const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - now) / 86400000) : null;
+      const expDate  = formatBloodBagShortDate(b.expiresAt);
+      const daysLeft = b.expiresAt ? calculateBloodBagDaysLeft(b.expiresAt, now) : null;
       const warn     = daysLeft !== null && daysLeft <= 7;
       return `<div class="req-bag-preview-row">
         <div class="req-bag-dot" style="${b.compatible === false ? 'background:var(--crimson);border-color:var(--crimson)' : ''}"></div>
@@ -3901,10 +6324,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         ${bagPickerData.map(b => {
           const isSelected   = selected.includes(String(b.id));
           const isCompatible = b.compatible !== false;
-          const expDate  = b.expiresAt
-            ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : '-';
-          const daysLeft = b.expiresAt ? Math.ceil((new Date(b.expiresAt) - Date.now()) / 86400000) : null;
+          const expDate  = formatBloodBagShortDate(b.expiresAt);
+          const daysLeft = b.expiresAt ? calculateBloodBagDaysLeft(b.expiresAt) : null;
           const warn     = daysLeft !== null && daysLeft <= 7;
           return `
             <div class="req-bag-row${isSelected ? ' selected' : ''}${!isCompatible ? ' incompatible' : ''}"
@@ -4177,7 +6598,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     document.getElementById('req-remarks-email').textContent = req.requesterEmail || 'No requester email on file';
     document.getElementById('req-approved-units').value = req.requestedUnits ?? req.units ?? '';
     document.getElementById('req-approval-remarks').value = '';
-    document.getElementById('req-alternative-component').value = '';
     document.getElementById('req-remarks-modal').classList.add('open');
   };
 
@@ -4196,7 +6616,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
     const approvedUnits = Number(document.getElementById('req-approved-units').value);
     const approvalRemarks = document.getElementById('req-approval-remarks').value.trim();
-    const alternativeComponentSuggestion = document.getElementById('req-alternative-component').value.trim();
 
     if (!Number.isInteger(approvedUnits) || approvedUnits <= 0) {
       alert('Approved units must be greater than 0.');
@@ -4216,7 +6635,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       units: req.units,
       approvedUnits: req.approvedUnits,
       approvalRemarks: req.approvalRemarks,
-      alternativeComponentSuggestion: req.alternativeComponentSuggestion,
       patientAcceptedRemarks: req.patientAcceptedRemarks,
       confirmationEmailSentAt: req.confirmationEmailSentAt
     };
@@ -4225,7 +6643,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     req.units = approvedUnits;
     req.approvedUnits = approvedUnits;
     req.approvalRemarks = approvalRemarks;
-    req.alternativeComponentSuggestion = alternativeComponentSuggestion || null;
     req.patientAcceptedRemarks = null;
     req.confirmationEmailSentAt = new Date().toISOString();
     reqExpanded[req.id] = true;
@@ -4238,8 +6655,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approvedUnits,
-          approvalRemarks,
-          alternativeComponentSuggestion: alternativeComponentSuggestion || null
+          approvalRemarks
         }),
       });
       if (!res.ok) {
@@ -4260,7 +6676,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       req.units = prevState.units;
       req.approvedUnits = prevState.approvedUnits;
       req.approvalRemarks = prevState.approvalRemarks;
-      req.alternativeComponentSuggestion = prevState.alternativeComponentSuggestion;
       req.patientAcceptedRemarks = prevState.patientAcceptedRemarks;
       req.confirmationEmailSentAt = prevState.confirmationEmailSentAt;
       reqRender();
@@ -4275,7 +6690,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       feedback.textContent = '';
     }
 
-    ['req-approved-units', 'req-approval-remarks', 'req-alternative-component'].forEach(id => {
+    ['req-approved-units', 'req-approval-remarks'].forEach(id => {
       const field = document.getElementById(id);
       if (field) field.classList.remove('is-invalid');
     });
@@ -4318,7 +6733,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     document.getElementById('req-remarks-email').textContent = req.requesterEmail || 'No requester email on file';
     document.getElementById('req-approved-units').value = req.requestedUnits ?? req.units ?? '';
     document.getElementById('req-approval-remarks').value = '';
-    document.getElementById('req-alternative-component').value = '';
 
     const submitBtn = document.getElementById('req-remarks-submit-btn');
     const hasRequesterEmail = !!(req.requesterEmail && req.requesterEmail.trim());
@@ -4350,7 +6764,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
     const approvedUnits = Number(document.getElementById('req-approved-units').value);
     const approvalRemarks = document.getElementById('req-approval-remarks').value.trim();
-    const alternativeComponentSuggestion = document.getElementById('req-alternative-component').value.trim();
     const requestedUnits = req.requestedUnits ?? req.units ?? 0;
 
     if (!Number.isInteger(approvedUnits) || approvedUnits <= 0) {
@@ -4374,8 +6787,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           approvedUnits,
-          approvalRemarks,
-          alternativeComponentSuggestion: alternativeComponentSuggestion || null
+          approvalRemarks
         }),
       });
       if (!res.ok) {
@@ -4388,7 +6800,6 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       req.units = data.approvedUnits ?? approvedUnits;
       req.approvedUnits = data.approvedUnits ?? approvedUnits;
       req.approvalRemarks = data.approvalRemarks ?? approvalRemarks;
-      req.alternativeComponentSuggestion = data.alternativeComponentSuggestion ?? (alternativeComponentSuggestion || null);
       req.patientAcceptedRemarks = null;
       req.confirmationEmailSentAt = data.confirmationEmailSentAt ?? new Date().toISOString();
       reqExpanded[req.id] = true;
@@ -4518,15 +6929,104 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     }
   };
  
+  function reqDocClampZoom(nextZoom) {
+    return Math.min(REQ_DOC_ZOOM_MAX, Math.max(REQ_DOC_ZOOM_MIN, nextZoom));
+  }
+
+  function reqDocGetZoomImage() {
+    return document.getElementById('req-doc-zoom-image');
+  }
+
+  function reqDocUpdateZoomUi() {
+    const zoomOutBtn = document.getElementById('req-doc-zoom-out');
+    const zoomInBtn = document.getElementById('req-doc-zoom-in');
+    const zoomResetBtn = document.getElementById('req-doc-zoom-reset');
+    const zoomValue = document.getElementById('req-doc-zoom-value');
+    const zoomImage = reqDocGetZoomImage();
+    const disabled = reqDocIsPdf || !zoomImage;
+
+    if (zoomValue) {
+      zoomValue.textContent = `${Math.round(reqDocZoom * 100)}%`;
+    }
+    if (zoomOutBtn) zoomOutBtn.disabled = disabled;
+    if (zoomInBtn) zoomInBtn.disabled = disabled;
+    if (zoomResetBtn) zoomResetBtn.disabled = disabled;
+
+    if (!disabled) {
+      zoomImage.style.transform = `scale(${reqDocZoom})`;
+    }
+  }
+
+  window.reqDocZoomIn = function () {
+    reqDocZoom = reqDocClampZoom(reqDocZoom + REQ_DOC_ZOOM_STEP);
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqDocZoomOut = function () {
+    reqDocZoom = reqDocClampZoom(reqDocZoom - REQ_DOC_ZOOM_STEP);
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqDocZoomReset = function () {
+    reqDocZoom = 1;
+    reqDocUpdateZoomUi();
+  };
+
+  window.reqCloseDocModal = function () {
+    const modal = document.getElementById('req-doc-modal');
+    const frame = document.getElementById('req-doc-frame');
+    if (modal) modal.classList.remove('open');
+    if (frame) frame.innerHTML = '';
+    reqDocZoom = 1;
+    reqDocIsPdf = false;
+    reqDocUpdateZoomUi();
+  };
+
   window.reqViewDoc = function (url, label) {
     if (!url) { alert('No document uploaded for this request.'); return; }
-    document.getElementById('req-doc-label').textContent = label;
-    const isPdf        = url.toLowerCase().includes('.pdf');
+
+    const frame = document.getElementById('req-doc-frame');
+    const docLabel = document.getElementById('req-doc-label');
+    const openLink = document.getElementById('req-doc-open-link');
+    const safeLabel = label || 'Blood Request Form';
+    const lowerUrl = String(url).toLowerCase();
+    const isPdf = lowerUrl.includes('.pdf');
     const googleViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    document.getElementById('req-doc-frame').innerHTML = isPdf
-      ? `<iframe src="${googleViewer}" style="width:100%;height:520px;border:none;border-radius:10px;display:block" title="${label}"></iframe>`
-      : `<img src="${url}" style="width:100%;border-radius:10px;display:block"
-           onerror="this.parentElement.innerHTML='<div style=padding:40px;text-align:center;color:var(--muted);font-size:13px>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly -></a></div>'" />`;
+
+    reqDocIsPdf = isPdf;
+    reqDocZoom = 1;
+
+    if (docLabel) docLabel.textContent = safeLabel;
+    if (openLink) openLink.href = url;
+
+    if (!frame) return;
+
+    frame.innerHTML = isPdf
+      ? `<iframe class="req-doc-pdf" src="${googleViewer}" title="${safeLabel}"></iframe>`
+      : `<div class="req-doc-image-wrap">
+          <img
+            id="req-doc-zoom-image"
+            class="req-doc-image"
+            src="${url}"
+            alt="${safeLabel}"
+            onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:var(--muted);font-size:13px\\'>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly</a></div>'"
+          />
+        </div>`;
+
+    if (!isPdf) {
+      const zoomImage = reqDocGetZoomImage();
+      if (zoomImage) {
+        zoomImage.addEventListener('wheel', function (event) {
+          if (!event.ctrlKey) return;
+          event.preventDefault();
+          const next = reqDocZoom + (event.deltaY < 0 ? REQ_DOC_ZOOM_STEP : -REQ_DOC_ZOOM_STEP);
+          reqDocZoom = reqDocClampZoom(next);
+          reqDocUpdateZoomUi();
+        }, { passive: false });
+      }
+    }
+
+    reqDocUpdateZoomUi();
     document.getElementById('req-doc-modal').classList.add('open');
   };
  
@@ -4667,9 +7167,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       </div>
       <div class="req-bag-preview-list">
         ${req.allocatedBags.map(b => {
-          const expDate  = b.expiresAt
-            ? new Date(b.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : b.expiresAt ?? '-';
+          const expDate = formatBloodBagShortDate(b.expiresAt);
           return `<div class="req-bag-preview-row" style="border-left:3px solid var(--green);padding-left:10px">
             <div class="req-bag-dot" style="background:var(--green);border-color:var(--green)"></div>
             <div style="flex:1;min-width:0">
@@ -4697,7 +7195,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     if (['REJECTED', 'CANCELLED'].includes(req.status)) return '';
     const next = REQ_NEXT[req.status];
     const availability = reqGetAvailabilitySnapshot(req);
-    const canReject = ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status);
+    const canReject = ['PENDING', 'NEEDS_CONFIRMATION'].includes(req.status);
     const canCancel = ['APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE'].includes(req.status);
     const approveChecking = req.status === 'PENDING' && !availability.known;
     const approveDisabled = req.status === 'PENDING' && availability.known && !availability.enough;
@@ -4729,30 +7227,20 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   }
 
   function reqRenderApprovalSummary(req) {
-    if (!req.approvedUnits && !req.approvalRemarks && !req.alternativeComponentSuggestion) return '';
+    if (!req.approvedUnits && !req.approvalRemarks) return '';
 
     const requestedVsApproved = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
       ? `<div class="req-detail-row"><span class="lbl">Requested units</span><span class="val">${req.requestedUnits}</span></div>
          <div class="req-detail-row"><span class="lbl">Approved units</span><span class="val">${req.approvedUnits}</span></div>`
       : `<div class="req-detail-row"><span class="lbl">Approved units</span><span class="val">${req.approvedUnits ?? req.requestedUnits}</span></div>`;
 
-    const responseLabel = req.patientAcceptedRemarks === true
-      ? 'Requester accepted via email'
-      : req.patientAcceptedRemarks === false
-        ? 'Requester rejected via email'
-        : 'Awaiting requester reply';
-
     return `
       <div class="req-detail-box" style="margin-bottom:12px;border-left:3px solid #F4A259">
         <div class="req-detail-box-title" style="color:#9A5B13">Approval summary</div>
         ${requestedVsApproved}
         <div class="req-detail-row"><span class="lbl">Remarks</span><span class="val">${req.approvalRemarks ?? '-'}</span></div>
-        ${req.alternativeComponentSuggestion
-          ? `<div class="req-detail-row"><span class="lbl">Alternative component</span><span class="val">${req.alternativeComponentSuggestion}</span></div>`
-          : ''}
         <div class="req-detail-row"><span class="lbl">Requester email</span><span class="val">${req.requesterEmail ?? '-'}</span></div>
         <div class="req-detail-row"><span class="lbl">Email sent at</span><span class="val">${req.confirmationEmailSentAt ? formatDateTime(req.confirmationEmailSentAt) : '-'}</span></div>
-        <div class="req-detail-row"><span class="lbl">Confirmation status</span><span class="val">${responseLabel}</span></div>
         ${req.patientRespondedAt
           ? `<div class="req-detail-row"><span class="lbl">Requester responded at</span><span class="val">${formatDateTime(req.patientRespondedAt)}</span></div>`
           : ''}
@@ -4762,10 +7250,23 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
-    const typeLabel = req.type === 'ANONYMOUS' ? '' : `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${req.type})</span>`;
+    const requestCategoryRaw = String(req.requestCategory ?? '').trim().toUpperCase();
+    const requesterTypeDisplay =
+      requestCategoryRaw === 'INPATIENT' || requestCategoryRaw === 'INHOUSE' ? 'INHOUSE'
+      : requestCategoryRaw === 'OUTPATIENT' || requestCategoryRaw === 'OPD' ? 'OPD'
+      : (req.requestCategory ? req.requestCategory : (req.type ?? ''));
+    const typeLabel = requesterTypeDisplay
+      ? `<span style="font-size:11px;font-weight:400;color:var(--muted)">(${requesterTypeDisplay})</span>`
+      : '';
     const unitsMeta = req.approvedUnits != null && req.approvedUnits !== req.requestedUnits
       ? `${req.approvedUnits} ${req.status === 'NEEDS_CONFIRMATION' ? 'offered' : 'approved'} of ${req.requestedUnits} requested`
       : `${req.units} unit${req.units > 1 ? 's' : ''}`;
+    const docTransactionLabel = req.transactionNumber || req.referenceNumber || req.id || 'N/A';
+    const docDisplayLabel = `Doctor's Form - ${docTransactionLabel}`;
+    const safeDocUrl = String(req.docUrl ?? '').replace(/'/g, "\\'");
+    const safeDocDisplayLabel = docDisplayLabel
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'");
  
     if (isExp && ['PENDING', 'APPROVED', 'NEEDS_CONFIRMATION'].includes(req.status)) {
       setTimeout(() => reqFetchCompatibleBags(req), 0);
@@ -4814,7 +7315,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
                onmouseout="this.style.boxShadow=''">
             <div class="req-detail-box-title">Requester info (view)</div>
             <div class="req-detail-row"><span class="lbl">From</span><span class="val">${req.name}</span></div>
-            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${req.type[0] + req.type.slice(1).toLowerCase()}</span></div>
+            <div class="req-detail-row"><span class="lbl">Type</span><span class="val">${requesterTypeDisplay || '-'}</span></div>
             <div class="req-detail-row"><span class="lbl">Urgency</span><span class="val">${req.urgency[0] + req.urgency.slice(1).toLowerCase()}</span></div>
             <div class="req-detail-row"><span class="lbl">Submitted</span><span class="val">${req.date}</span></div>
           </div>
@@ -4823,7 +7324,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         ${reqRenderApprovalSummary(req)}
 
         <div class="req-section-label">Supporting document</div>
-        <div class="req-doc-preview" onclick="reqViewDoc('${req.docUrl}','${req.docLabel}')">
+        <div class="req-doc-preview" onclick="reqViewDoc('${safeDocUrl}','${safeDocDisplayLabel}')">
           <div class="req-doc-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -4831,8 +7332,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
             </svg>
           </div>
           <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${req.docLabel}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview . stored in Cloudinary</div>
+            <div style="font-size:13px;font-weight:600;color:var(--charcoal)">${docDisplayLabel}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Tap to preview</div>
           </div>
           <span style="font-size:12px;color:var(--blue);font-weight:600;flex-shrink:0">View -></span>
         </div>
@@ -4903,6 +7404,9 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
  
   window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
   window.reqRender = reqRender;
+  window.updateBloodRequestBadge = updateBloodRequestBadge;
+  window.markBloodRequestsAsViewed = markBloodRequestsAsViewed;
+  window.detectNewBloodRequests = detectNewBloodRequests;
 
   window.reqFetchAll = reqFetchAll;
   window.reqFetchByStatus = reqFetchByStatus;
@@ -4930,6 +7434,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       else if (modalId === 'req-remarks-modal') reqCloseApproveWithRemarks();
       else if (modalId === 'req-confirm-modal') reqCloseConfirm();
       else if (modalId === 'req-bag-picker-modal') reqCloseBagPicker();
+      else if (modalId === 'req-doc-modal') reqCloseDocModal();
       else el.classList.remove('open');
     });
   });
@@ -4979,6 +7484,22 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       req.patientMunicipality,
       req.patientProvince
     ].filter(Boolean).join(' / ');
+    const normalizedRequesterType = String(req.type ?? req.requesterType ?? '').trim().toUpperCase();
+    const normalizedRequestCategory = String(req.requestCategory ?? '').trim().toUpperCase();
+    const isHospitalRequest =
+      normalizedRequesterType === 'HOSPITAL' ||
+      !!(req.hospitalProfile || req.hospitalName || req.hospitalContactName || req.hospitalPhoneNumber);
+    const showRequesterRelationship = !isHospitalRequest && normalizedRequestCategory === 'INPATIENT';
+    const hospitalName = req.hospitalName ?? req.hospitalProfile?.hospitalName ?? req.name ?? '-';
+    const hospitalContactName = req.hospitalContactName ?? req.hospitalProfile?.contactPersonName ?? req.requesterName ?? '-';
+    const hospitalContactEmail = req.hospitalContactEmail ?? req.requesterEmail ?? req.hospitalProfile?.user?.email ?? '-';
+    const hospitalPhoneNumber = req.hospitalPhoneNumber ?? req.hospitalProfile?.phoneNumber ?? req.hospitalProfile?.contactPersonPhone ?? req.requesterContact ?? '-';
+    const hasRequesterInfo = [req.requesterName, req.requesterRelationship, req.requesterContact, req.requesterEmail]
+      .some(value => value !== null && value !== undefined && String(value).trim() !== '');
+    const hasStaffAuthorizationInfo =
+      req.type === 'ANONYMOUS' &&
+      [req.requesterStaffId, req.requesterStaffName, req.requesterStaffEmail, req.requesterStaffPhone]
+        .some(value => value !== null && value !== undefined && String(value).trim() !== '');
 
     return `
       <div class="req-details-sections">
@@ -5166,31 +7687,75 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
           </div>
         </div>
 
-        <div class="req-details-section">
-          <div class="req-details-section-title">Requester Information</div>
-          <div class="req-details-grid-2">
-            <div class="req-details-field">
-              <span class="req-details-label">Requester Name</span>
-              <span class="req-details-value">${req.requesterName ?? req.name ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Relationship</span>
-              <span class="req-details-value">${req.requesterRelationship ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Contact</span>
-              <span class="req-details-value">${req.requesterContact ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Email</span>
-              <span class="req-details-value">${req.requesterEmail ?? '-'}</span>
-            </div>
-            <div class="req-details-field">
-              <span class="req-details-label">Requester Type</span>
-              <span class="req-details-value">${req.type ?? '-'}</span>
+        ${isHospitalRequest ? `
+          <div class="req-details-section">
+            <div class="req-details-section-title">Hospital Information</div>
+            <div class="req-details-grid-2">
+              <div class="req-details-field">
+                <span class="req-details-label">Hospital Name</span>
+                <span class="req-details-value">${hospitalName}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Contact Name</span>
+                <span class="req-details-value">${hospitalContactName}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Contact Email</span>
+                <span class="req-details-value">${hospitalContactEmail}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Phone Number</span>
+                <span class="req-details-value">${hospitalPhoneNumber}</span>
+              </div>
             </div>
           </div>
-        </div>
+        ` : ''}
+
+        ${(!isHospitalRequest || hasRequesterInfo) ? `
+          <div class="req-details-section">
+            <div class="req-details-section-title">Requester Information</div>
+            <div class="req-details-grid-2">
+              <div class="req-details-field">
+                <span class="req-details-label">Requester Name</span>
+                <span class="req-details-value">${req.requesterName ?? req.name ?? '-'}</span>
+              </div>
+              ${showRequesterRelationship ? `
+              <div class="req-details-field">
+                <span class="req-details-label">Relationship</span>
+                <span class="req-details-value">${req.requesterRelationship ?? '-'}</span>
+              </div>
+              ` : ''}
+              <div class="req-details-field">
+                <span class="req-details-label">Contact</span>
+                <span class="req-details-value">${req.requesterContact ?? '-'}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        ${hasStaffAuthorizationInfo ? `
+          <div class="req-details-section">
+            <div class="req-details-section-title">Staff Requestor Information</div>
+            <div class="req-details-grid-2">
+              <div class="req-details-field">
+                <span class="req-details-label">Staff ID</span>
+                <span class="req-details-value">${req.requesterStaffId ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Staff Name</span>
+                <span class="req-details-value">${req.requesterStaffName ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Staff Email</span>
+                <span class="req-details-value">${req.requesterStaffEmail ?? '-'}</span>
+              </div>
+              <div class="req-details-field">
+                <span class="req-details-label">Phone Number</span>
+                <span class="req-details-value">${req.requesterStaffPhone ?? '-'}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
 
         ${['REJECTED', 'CANCELLED'].includes(req.status) && req.rejectionReason ? `
           <div class="req-details-section req-details-section-rejected">
@@ -5254,24 +7819,75 @@ function staffInitials(first, last) {
   return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || '??';
 }
 
-function staffGetDepts() {
-  return [...new Set(staffList.map(s => s.department).filter(Boolean))].sort();
+const STAFF_DEPARTMENTS = [
+  'Blood Bank',
+  'Emergency Room (ER)',
+  'ICU',
+  'Operating Room (OR)',
+  'Medical Ward',
+  'Surgical Ward',
+  'Pediatric Ward',
+  'Maternity Ward',
+  'NICU',
+  'Dialysis Unit',
+  'Oncology Ward',
+  'OPD'
+];
+
+const STAFF_NON_BLOOD_BANK_DEPARTMENTS = STAFF_DEPARTMENTS.filter((dept) => dept !== 'Blood Bank');
+const STAFF_POSITION_UPPER_TOKENS = new Set(['RMT', 'RN', 'MD', 'ICU', 'ER', 'OR', 'OPD', 'NICU']);
+const STAFF_ROMAN_NUMERALS = new Set(['I', 'II', 'III', 'IV', 'V']);
+
+function renderStaffDepartmentOptions(selectId, includeAllOption = false) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+
+  const current = select.value;
+  const options = selectId === 'add-staff-custom-dept'
+    ? STAFF_NON_BLOOD_BANK_DEPARTMENTS
+    : STAFF_DEPARTMENTS;
+
+  select.innerHTML = '';
+  if (includeAllOption) {
+    const allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = 'All Departments/ Wards';
+    select.appendChild(allOpt);
+  } else if (selectId === 'add-staff-custom-dept') {
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = 'Select department...';
+    select.appendChild(placeholderOpt);
+  }
+
+  options.forEach((dept) => {
+    const opt = document.createElement('option');
+    opt.value = dept;
+    opt.textContent = dept;
+    select.appendChild(opt);
+  });
+
+  if (current) {
+    if ([...select.options].some((opt) => opt.value === current)) {
+      select.value = current;
+    } else {
+      select.value = includeAllOption ? 'ALL' : '';
+    }
+  } else if (includeAllOption) {
+    select.value = 'ALL';
+  }
 }
 
 function staffPopulateDepts() {
-  const sel      = document.getElementById('staff-filter-dept');
-  const datalist = document.getElementById('staff-dept-list');
-  if (!sel) return;
-  const current = sel.value;
-  while (sel.options.length > 1) sel.remove(1);
-  if (datalist) datalist.innerHTML = '';
-  staffGetDepts().forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d; opt.textContent = d;
-    sel.appendChild(opt.cloneNode(true));
-    if (datalist) datalist.appendChild(opt);
-  });
-  if (current) sel.value = current;
+  renderStaffDepartmentOptions('staff-filter-dept', true);
+  const editDept = document.getElementById('edit-staff-dept');
+  if (editDept && editDept.options.length <= 1) {
+    renderStaffDepartmentOptions('edit-staff-dept', false);
+  }
+  const addCustomDept = document.getElementById('add-staff-custom-dept');
+  if (addCustomDept && addCustomDept.options.length <= 1) {
+    renderStaffDepartmentOptions('add-staff-custom-dept', false);
+  }
 }
 
 function staffTogglePass(inputId, icon) {
@@ -5289,6 +7905,188 @@ function escHtml(str) {
 
 function staffValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function setStaffFieldError(inputId, message) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.add('field-error');
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.style.display = message ? 'block' : 'none';
+  }
+  return false;
+}
+
+function clearStaffFieldError(inputId) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.remove('field-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  return true;
+}
+
+function focusStaffField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  try { el.focus(); } catch (_) {}
+  if (typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function normalizePersonName(value) {
+  const cleaned = String(value || '')
+    .replace(/[^A-Za-z .'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  return cleaned
+    .split(' ')
+    .map((word) => word.toLowerCase().replace(/(^|[-'.])[a-z]/g, (char) => char.toUpperCase()))
+    .join(' ');
+}
+
+function normalizePositionTitle(value) {
+  const cleaned = String(value || '')
+    .replace(/[^A-Za-z0-9 .'-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return '';
+
+  return cleaned
+    .split(' ')
+    .map((word) => {
+      const upper = word.toUpperCase();
+      const plain = upper.replace(/[^A-Z0-9]/g, '');
+      if (STAFF_POSITION_UPPER_TOKENS.has(plain) || STAFF_ROMAN_NUMERALS.has(plain)) {
+        return upper;
+      }
+      return word.toLowerCase().replace(/(^|[-'.])[a-z]/g, (char) => char.toUpperCase());
+    })
+    .join(' ');
+}
+
+function applyStaffNameFormatting() {
+  const nameFieldIds = ['add-staff-first', 'add-staff-last', 'edit-staff-first', 'edit-staff-last', 'staff-profile-firstname', 'staff-profile-lastname'];
+  nameFieldIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.nameFormattingBound === '1') return;
+    el.dataset.nameFormattingBound = '1';
+    el.addEventListener('input', () => {
+      el.value = String(el.value || '').replace(/[^A-Za-z .'-]/g, ' ').replace(/\s{2,}/g, ' ').slice(0, 25);
+      clearStaffFieldError(id);
+    });
+    el.addEventListener('blur', () => {
+      el.value = normalizePersonName(el.value).slice(0, 25);
+      validateStaffNameField(id);
+    });
+  });
+}
+
+function applyStaffPositionFormatting() {
+  const positionFieldIds = ['add-staff-position', 'edit-staff-position'];
+  positionFieldIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.positionFormattingBound === '1') return;
+    el.dataset.positionFormattingBound = '1';
+    el.addEventListener('blur', () => {
+      el.value = normalizePositionTitle(el.value);
+      validateStaffPositionField(id);
+    });
+  });
+}
+
+function validateStaffDepartment(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return true;
+
+  const selected = (select.value || '').trim();
+  const allowed = selectId === 'add-staff-custom-dept'
+    ? STAFF_NON_BLOOD_BANK_DEPARTMENTS
+    : STAFF_DEPARTMENTS;
+
+  if (!selected || !allowed.includes(selected)) {
+    return setStaffFieldError(selectId, 'Please select a department.');
+  }
+  return clearStaffFieldError(selectId);
+}
+
+function validateStaffNameField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const value = normalizePersonName(el.value);
+  el.value = value.slice(0, 25);
+  let message = 'Please enter a valid name.';
+  if (inputId.includes('first')) message = 'Please enter a valid first name.';
+  if (inputId.includes('last')) message = 'Please enter a valid last name.';
+  if (!value || !/^[A-Za-z][A-Za-z .'-]*$/.test(value)) {
+    return setStaffFieldError(inputId, message);
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function validateStaffPositionField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const value = normalizePositionTitle(el.value);
+  el.value = value.slice(0, 25);
+  if (!el.value) return clearStaffFieldError(inputId);
+  if (!/^[A-Za-z0-9][A-Za-z0-9 .'-]*$/.test(el.value)) {
+    return setStaffFieldError(inputId, 'Please enter a valid position.');
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function normalizeStaffId(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '')
+    .slice(0, 20)
+    .trim();
+}
+
+function validateStaffIdField(inputId) {
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+  const raw = String(el.value || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').trim();
+  const normalized = raw.slice(0, 20);
+  el.value = normalized;
+  if (raw.length > 20) {
+    return setStaffFieldError(inputId, 'Staff ID must not exceed 20 characters.');
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function normalizeStaffUsername(value) {
+  return String(value || '')
+    .replace(/[^A-Za-z0-9 ._-]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, 25);
+}
+
+function validateStaffProfileUsernameField() {
+  const inputId = 'staff-profile-username';
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+
+  el.value = normalizeStaffUsername(el.value).trim();
+  if (!el.value) {
+    return setStaffFieldError(inputId, 'Username is required.');
+  }
+  if (el.value.length > 25) {
+    return setStaffFieldError(inputId, 'Username must not exceed 25 characters.');
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/.test(el.value)) {
+    return setStaffFieldError(inputId, 'Username may only contain letters, numbers, spaces, dots, underscores, and hyphens.');
+  }
+  return clearStaffFieldError(inputId);
 }
 
 function staffHasDashboardAccess(staff) {
@@ -5314,7 +8112,10 @@ function staffToggleDepartmentInput() {
   if (wrap) wrap.style.display = isOther ? 'flex' : 'none';
   if (custom) {
     custom.required = isOther;
-    if (!isOther) custom.value = '';
+    if (!isOther) {
+      custom.value = '';
+      clearStaffFieldError('add-staff-custom-dept');
+    }
   }
   if (note) {
     note.innerHTML = isOther
@@ -5326,7 +8127,89 @@ function staffToggleDepartmentInput() {
 function staffGetAddDepartment() {
   const choice = document.getElementById('add-staff-dept-choice')?.value || 'Blood Bank';
   if (choice === 'Blood Bank') return 'Blood Bank';
-  return document.getElementById('add-staff-custom-dept')?.value.trim() || '';
+  return document.getElementById('add-staff-custom-dept')?.value || '';
+}
+
+const staffPhoneBindings = new Set();
+
+function bindStaffPhoneInput(inputId) {
+  if (staffPhoneBindings.has(inputId)) return;
+  staffPhoneBindings.add(inputId);
+
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  input.addEventListener('focus', () => {
+    if (!input.value.trim()) {
+      input.value = '+63';
+    } else {
+      lockPhilippinePhoneInput(inputId);
+    }
+    const pos = input.value.length;
+    if (typeof input.setSelectionRange === 'function') {
+      try { input.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  });
+
+  input.addEventListener('input', () => {
+    lockPhilippinePhoneInput(inputId);
+    const pos = input.value.length;
+    if (typeof input.setSelectionRange === 'function') {
+      try { input.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    lockPhilippinePhoneInput(inputId);
+  });
+
+  input.addEventListener('keydown', (event) => {
+    const selectionStart = input.selectionStart ?? 0;
+    const selectionEnd = input.selectionEnd ?? 0;
+    const isBackspace = event.key === 'Backspace';
+    const isDelete = event.key === 'Delete';
+
+    if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+      event.preventDefault();
+    }
+    if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+    }
+    if (event.key.length === 1 && /\d/.test(event.key)) {
+      const localDigits = input.value.slice(3).replace(/\D/g, '');
+      const selectedPrefix = input.value.slice(selectionStart, selectionEnd);
+      const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+      if (localDigits.length - selectedLocalDigits.length >= 10) {
+        event.preventDefault();
+      }
+    }
+  });
+}
+
+function bindAddStaffPhoneInput() {
+  bindStaffPhoneInput('add-staff-phone');
+}
+
+function bindEditStaffPhoneInput() {
+  bindStaffPhoneInput('edit-staff-phone');
+}
+
+function bindStaffProfilePhoneInput() {
+  bindStaffPhoneInput('staff-profile-phone');
+}
+
+function validateStaffProfilePhoneField(focusInvalid = false) {
+  const normalizedPhone = lockPhilippinePhoneInput('staff-profile-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    setStaffFieldError('staff-profile-phone', 'Phone number must start with +63 followed by exactly 10 digits.');
+    if (focusInvalid) focusStaffField('staff-profile-phone');
+    return false;
+  }
+
+  clearStaffFieldError('staff-profile-phone');
+  return true;
 }
 
 function staffCloseModals(exceptId = null) {
@@ -5472,6 +8355,7 @@ function staffNextPage() {
 function openAddStaffModal() {
   staffCloseModals('addStaffModal');
   staffCurrentViewId = null;
+  staffPopulateDepts();
   ['add-staff-email','add-staff-first','add-staff-last',
    'add-staff-phone','add-staff-position','add-staff-custom-dept'].forEach(id => {
     const el = document.getElementById(id);
@@ -5482,6 +8366,10 @@ function openAddStaffModal() {
 
   staffHideError('add-staff-error');
   staffToggleDepartmentInput();
+  ['add-staff-first', 'add-staff-last', 'add-staff-position', 'add-staff-custom-dept']
+    .forEach((id) => clearStaffFieldError(id));
+  const phoneEl = document.getElementById('add-staff-phone');
+  if (phoneEl) phoneEl.value = '+63';
   openModal('addStaffModal');
 }
 
@@ -5490,25 +8378,48 @@ function staffPreviewPassword() {
 }
 
 async function submitAddStaff() {
+  staffHideError('add-staff-error');
   const email    = document.getElementById('add-staff-email').value.trim();
-  const first    = document.getElementById('add-staff-first').value.trim();
-  const last     = document.getElementById('add-staff-last').value.trim();
-  const phone    = document.getElementById('add-staff-phone').value.trim();
+  const firstInput = document.getElementById('add-staff-first');
+  const lastInput = document.getElementById('add-staff-last');
+  const normalizedPhone = lockPhilippinePhoneInput('add-staff-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phone = phoneDigits.length === 10 ? normalizedPhone : null;
   const dept     = staffGetAddDepartment();
-  const position = document.getElementById('add-staff-position').value.trim();
+  const positionInput = document.getElementById('add-staff-position');
+  const customDeptInput = document.getElementById('add-staff-custom-dept');
+  if (firstInput) firstInput.value = normalizePersonName(firstInput.value).slice(0, 25);
+  if (lastInput) lastInput.value = normalizePersonName(lastInput.value).slice(0, 25);
+  if (positionInput) positionInput.value = normalizePositionTitle(positionInput.value).slice(0, 25);
+  const first = firstInput?.value || '';
+  const last = lastInput?.value || '';
+  const position = positionInput?.value || '';
+  const isOtherDepartment = document.getElementById('add-staff-dept-choice')?.value === 'Others';
 
-  if (!email || !first || !last || !dept) {
-    staffShowError('add-staff-error', 'Email, first name, last name, and department are required.');
+  let hasInlineError = false;
+  if (!validateStaffNameField('add-staff-first')) hasInlineError = true;
+  if (!validateStaffNameField('add-staff-last')) hasInlineError = true;
+  if (!validateStaffPositionField('add-staff-position')) hasInlineError = true;
+  if (isOtherDepartment) {
+    if (!validateStaffDepartment('add-staff-custom-dept')) hasInlineError = true;
+  } else {
+    clearStaffFieldError('add-staff-custom-dept');
+  }
+  if (hasInlineError || !dept) return;
+
+  if (!email) {
+    staffShowError('add-staff-error', 'Email is required.');
     return;
   }
   if (!staffValidEmail(email)) {
     staffShowError('add-staff-error', 'Please enter a valid email address.');
     return;
   }
-  if (document.getElementById('add-staff-dept-choice')?.value === 'Others' && !dept) {
-    staffShowError('add-staff-error', 'Please enter the custom department.');
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    staffShowError('add-staff-error', 'Phone number must start with +63 followed by exactly 10 digits.');
     return;
   }
+  if (customDeptInput) customDeptInput.value = dept;
 
   const btn = document.getElementById('add-staff-submit-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
@@ -5556,7 +8467,7 @@ function staffOpenView(id) {
   document.getElementById('view-staff-staffid').textContent  = s.staffId     || '-';
   document.getElementById('view-staff-dept').textContent     = s.department  || '-';
   document.getElementById('view-staff-phone').textContent    = s.phoneNumber || '-';
-  document.getElementById('view-staff-hiredate').textContent = staffFmtDate(s.hireDate);
+  // document.getElementById('view-staff-hiredate').textContent = staffFmtDate(s.hireDate);
   document.getElementById('view-staff-email').textContent    = s.email;
   document.getElementById('view-staff-access').textContent   = staffAccessStatus(s);
   document.getElementById('view-staff-code').textContent     = staffCodeLabel(s);
@@ -5590,11 +8501,25 @@ function staffOpenEdit(id) {
   document.getElementById('edit-staff-last').value           = s.lastName;
   document.getElementById('edit-staff-phone').value          = s.phoneNumber || '';
   document.getElementById('edit-staff-id').value             = s.staffId     || '';
-  document.getElementById('edit-staff-dept').value           = s.department  || '';
+  renderStaffDepartmentOptions('edit-staff-dept', false);
+  const editDeptInput = document.getElementById('edit-staff-dept');
+  if (editDeptInput) {
+    editDeptInput.value = STAFF_DEPARTMENTS.includes(s.department) ? s.department : '';
+  }
   document.getElementById('edit-staff-position').value       = s.position    || '';
   document.getElementById('edit-staff-status').value         = s.status || 'active';
   document.getElementById('edit-staff-password').value       = '';
   document.getElementById('edit-staff-target-id').value      = id;
+  const editPhoneEl = document.getElementById('edit-staff-phone');
+  if (editPhoneEl && !editPhoneEl.value.trim()) {
+    editPhoneEl.value = '+63';
+  } else {
+    lockPhilippinePhoneInput('edit-staff-phone');
+  }
+  const editStaffIdEl = document.getElementById('edit-staff-id');
+  if (editStaffIdEl) {
+    editStaffIdEl.value = normalizeStaffId(editStaffIdEl.value);
+  }
 
   const hasAccess = staffHasDashboardAccess(s);
   const statusWrap = document.getElementById('edit-staff-status-wrap');
@@ -5605,29 +8530,74 @@ function staffOpenEdit(id) {
   if (passwordRow) passwordRow.style.display = hasAccess ? 'flex' : 'none';
 
   staffHideError('edit-staff-error');
-  staffPopulateDepts();
+  ['edit-staff-first', 'edit-staff-last', 'edit-staff-position', 'edit-staff-dept']
+    .forEach((id) => clearStaffFieldError(id));
   openModal('editStaffModal');
 }
 
 async function submitEditStaff() {
+  staffHideError('edit-staff-error');
   const id       = parseInt(document.getElementById('edit-staff-target-id').value);
-  const first    = document.getElementById('edit-staff-first').value.trim();
-  const last     = document.getElementById('edit-staff-last').value.trim();
-  const phone    = document.getElementById('edit-staff-phone').value.trim();
-  const staffId  = document.getElementById('edit-staff-id').value.trim();
-  const dept     = document.getElementById('edit-staff-dept').value.trim();
-  const position = document.getElementById('edit-staff-position').value.trim();
+  const firstInput = document.getElementById('edit-staff-first');
+  const lastInput = document.getElementById('edit-staff-last');
+  const normalizedPhone = lockPhilippinePhoneInput('edit-staff-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phone = phoneDigits.length === 10 ? normalizedPhone : null;
+  const staffIdInput = document.getElementById('edit-staff-id');
+  if (staffIdInput) staffIdInput.value = normalizeStaffId(staffIdInput.value);
+  const staffId  = staffIdInput?.value || '';
+  const deptInput = document.getElementById('edit-staff-dept');
+  const positionInput = document.getElementById('edit-staff-position');
+  if (firstInput) firstInput.value = normalizePersonName(firstInput.value).slice(0, 25);
+  if (lastInput) lastInput.value = normalizePersonName(lastInput.value).slice(0, 25);
+  if (positionInput) positionInput.value = normalizePositionTitle(positionInput.value).slice(0, 25);
+  const first = firstInput?.value || '';
+  const last = lastInput?.value || '';
+  const dept = deptInput?.value || '';
+  const position = positionInput?.value || '';
   const status   = document.getElementById('edit-staff-status').value;
   const password = document.getElementById('edit-staff-password').value;
   const current  = staffList.find(s => s.id === id);
   const hasAccess = staffHasDashboardAccess(current || {});
 
+  const validators = [
+    ['edit-staff-first', () => validateStaffNameField('edit-staff-first')],
+    ['edit-staff-last', () => validateStaffNameField('edit-staff-last')],
+    ['edit-staff-position', () => validateStaffPositionField('edit-staff-position')],
+    ['edit-staff-dept', () => validateStaffDepartment('edit-staff-dept')]
+  ];
+
+  let firstInvalidId = '';
+  validators.forEach(([fieldId, validate]) => {
+    const valid = validate();
+    if (!valid && !firstInvalidId) firstInvalidId = fieldId;
+  });
+
   if (!first || !last || !dept) {
-    staffShowError('edit-staff-error', 'First name, last name, and department are required.');
+    if (!firstInvalidId) {
+      firstInvalidId = !first ? 'edit-staff-first' : (!last ? 'edit-staff-last' : 'edit-staff-dept');
+    }
+  }
+  if (firstInvalidId) {
+    focusStaffField(firstInvalidId);
     return;
   }
-  if (hasAccess && password && password.length < 6) {
-    staffShowError('edit-staff-error', 'New password must be at least 6 characters.');
+
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    staffShowError('edit-staff-error', 'Phone number must start with +63 followed by exactly 10 digits.');
+    focusStaffField('edit-staff-phone');
+    return;
+  }
+
+  const trimmedPassword = (password || '').trim();
+  if (password && !trimmedPassword) {
+    staffShowError('edit-staff-error', 'Password must be at least 8 characters.');
+    focusStaffField('edit-staff-password');
+    return;
+  }
+  if (hasAccess && trimmedPassword && trimmedPassword.length < 8) {
+    staffShowError('edit-staff-error', 'Password must be at least 8 characters.');
+    focusStaffField('edit-staff-password');
     return;
   }
 
@@ -5641,7 +8611,7 @@ async function submitEditStaff() {
                              staffId: staffId || null,
                              department: dept, position,
                              status: hasAccess ? status : null,
-                             newPassword: hasAccess ? (password || null) : null }),
+                             newPassword: hasAccess ? (trimmedPassword || null) : null }),
     });
 
     // Replace local copy
@@ -5817,6 +8787,29 @@ function staffHideError(elId) {
 
 function initStaffPanel() {
   staffPage = 1;
+  staffPopulateDepts();
+  bindAddStaffPhoneInput();
+  bindEditStaffPhoneInput();
+  applyStaffNameFormatting();
+  applyStaffPositionFormatting();
+
+  const addDeptChoice = document.getElementById('add-staff-dept-choice');
+  if (addDeptChoice && addDeptChoice.dataset.staffDeptBound !== '1') {
+    addDeptChoice.dataset.staffDeptBound = '1';
+    addDeptChoice.addEventListener('change', () => staffToggleDepartmentInput());
+  }
+
+  const addCustomDept = document.getElementById('add-staff-custom-dept');
+  if (addCustomDept && addCustomDept.dataset.staffCustomDeptBound !== '1') {
+    addCustomDept.dataset.staffCustomDeptBound = '1';
+    addCustomDept.addEventListener('change', () => validateStaffDepartment('add-staff-custom-dept'));
+  }
+
+  const editDept = document.getElementById('edit-staff-dept');
+  if (editDept && editDept.dataset.staffEditDeptBound !== '1') {
+    editDept.dataset.staffEditDeptBound = '1';
+    editDept.addEventListener('change', () => validateStaffDepartment('edit-staff-dept'));
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initStaffPanel);
@@ -5828,9 +8821,13 @@ const HOSPITAL_API = '/api/admin/hospitals';
 let hospData = [];
 let hospPage = 1;
 const hospPerPage = 5;
+let hospCreateValidationBound = false;
+let hospEditValidationBound = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     hospLoadAll();
+    initHospitalCreateValidation();
+    initHospitalEditValidation();
 });
 
 async function hospLoadAll() {
@@ -5896,6 +8893,7 @@ function hospRender() {
             <td><span class="tag tag-active">Active</span></td>
             <td>
                 <div style="display:flex;gap:6px">
+                    <button class="btn-ghost" style="font-size:12px" onclick="openHospitalViewModal(${h.id})">View</button>
                     <button class="btn-ghost" style="font-size:12px" onclick="hospOpenEdit(${h.id})">Edit</button>
                     <button class="btn-danger" onclick="hospConfirmDelete(${h.id})">Delete</button>
                 </div>
@@ -5966,27 +8964,1095 @@ function hospNextPage() {
     }
 }
 
+const HOSPITAL_VIEW_STATUS_ORDER = [
+    'PENDING',
+    'NEEDS_CONFIRMATION',
+    'APPROVED',
+    'ALLOCATED',
+    'READY_FOR_RELEASE',
+    'RELEASED',
+];
+const HOSPITAL_VIEW_ACTIVE_STATUS = new Set([
+    'PENDING',
+    'NEEDS_CONFIRMATION',
+    'APPROVED',
+    'ALLOCATED',
+    'READY_FOR_RELEASE',
+]);
+const HOSPITAL_VIEW_STATUS_META = {
+    PENDING:            { label: 'Pending',            tagClass: 'tag-pending' },
+    NEEDS_CONFIRMATION: { label: 'Needs Confirmation', tagClass: 'tag-needs-confirmation' },
+    APPROVED:           { label: 'Approved',           tagClass: 'tag-approved' },
+    ALLOCATED:          { label: 'Allocated',          tagClass: 'tag-allocated' },
+    READY_FOR_RELEASE:  { label: 'Ready for Release',  tagClass: 'tag-ready' },
+    RELEASED:           { label: 'Released',           tagClass: 'tag-released' },
+    REJECTED:           { label: 'Rejected',           tagClass: 'tag-rejected' },
+    CANCELLED:          { label: 'Cancelled',          tagClass: 'tag-inactive' },
+};
+let hospitalViewCurrentId = null;
+let hospitalViewCurrentData = null;
+
+function hospitalViewSafeText(value, fallback = 'Not Available') {
+    if (value === null || value === undefined) return fallback;
+    const text = String(value).trim();
+    return text ? text : fallback;
+}
+
+function hospitalViewFormatDate(value) {
+    if (!value) return 'Not Available';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return hospitalViewSafeText(value);
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function hospitalViewFormatDateTime(value) {
+    if (!value) return 'Not Available';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return hospitalViewSafeText(value);
+    return parsed.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
+function hospitalViewBloodLabel(value) {
+    const map = {
+        O_NEG: 'O-',
+        O_POS: 'O+',
+        A_POS: 'A+',
+        A_NEG: 'A-',
+        B_POS: 'B+',
+        B_NEG: 'B-',
+        AB_POS: 'AB+',
+        AB_NEG: 'AB-',
+    };
+    const key = String(value || '').trim().toUpperCase();
+    return map[key] || hospitalViewSafeText(value, '-');
+}
+
+function hospitalViewComponentLabel(value) {
+    if (!value) return '-';
+    const key = String(value).trim().toUpperCase();
+    return componentLabel(key);
+}
+
+function hospitalViewNormalizeStatus(status) {
+    return String(status || '').trim().toUpperCase();
+}
+
+function hospitalViewStatusBadge(status) {
+    const normalized = hospitalViewNormalizeStatus(status);
+    const meta = HOSPITAL_VIEW_STATUS_META[normalized];
+    if (!meta) return `<span class="tag tag-inactive">${escHtml(hospitalViewSafeText(status, 'Unknown'))}</span>`;
+    return `<span class="tag ${meta.tagClass}">${escHtml(meta.label)}</span>`;
+}
+
+function hospitalViewSetContainerHtml(containerId, html) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = html;
+}
+
+function hospitalViewSetLoadingState(message = 'Loading hospital details...') {
+    const loading = `<div class="hospital-view-placeholder">${escHtml(message)}</div>`;
+    [
+        'hospital-view-info',
+        'hospital-view-contact',
+        'hospital-view-account',
+        'hospital-view-analytics',
+        'hospital-view-active',
+        'hospital-view-components',
+        'hospital-view-activity',
+    ].forEach((id) => hospitalViewSetContainerHtml(id, loading));
+
+    hospitalViewSetContainerHtml(
+        'hospital-view-recent-body',
+        `<tr><td colspan="7" class="hospital-view-table-empty">${escHtml(message)}</td></tr>`
+    );
+}
+
+function hospitalViewFindById(id) {
+    return hospData.find((h) => String(h.id) === String(id)) || null;
+}
+
+function hospitalViewMatchesHospitalRequest(request, hospital) {
+    if (!request || !hospital) return false;
+
+    const reqHospitalIdRaw = request.hospitalId
+        ?? request.hospitalProfile?.id
+        ?? request.hospital?.id
+        ?? request.requestingHospital?.id;
+    const reqHospitalId = reqHospitalIdRaw !== undefined && reqHospitalIdRaw !== null
+        ? Number(reqHospitalIdRaw)
+        : null;
+    const targetId = Number(hospital.id);
+    if (reqHospitalId && targetId && reqHospitalId === targetId) return true;
+
+    const reqHospitalName = String(
+        request.hospitalName
+        ?? request.hospitalProfile?.hospitalName
+        ?? request.hospital?.hospitalName
+        ?? request.requestingHospital?.hospitalName
+        ?? request.requesterName
+        ?? ''
+    ).trim().toLowerCase();
+    const hospitalName = String(hospital.hospitalName || '').trim().toLowerCase();
+    if (reqHospitalName && hospitalName && reqHospitalName === hospitalName) return true;
+
+    const reqEmail = String(
+        request.hospitalContactEmail
+        ?? request.requesterEmail
+        ?? request.hospitalProfile?.user?.email
+        ?? ''
+    ).trim().toLowerCase();
+    const hospitalEmail = String(hospital.email || '').trim().toLowerCase();
+    if (reqEmail && hospitalEmail && reqEmail === hospitalEmail) return true;
+
+    return false;
+}
+
+function hospitalViewBuildFallbackActivity(requests) {
+    if (!Array.isArray(requests) || !requests.length) return [];
+
+    const sorted = [...requests].sort((a, b) => {
+        const aTs = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bTs = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bTs - aTs;
+    });
+
+    return sorted.slice(0, 8).map((item) => {
+        const status = hospitalViewNormalizeStatus(item.status);
+        const ref = item.referenceNumber || item.referenceNo || `Request #${item.id ?? '-'}`;
+        const eventText = status === 'RELEASED'
+            ? `Blood released for ${ref}`
+            : status === 'REJECTED'
+                ? `Request rejected: ${ref}`
+                : status === 'CANCELLED'
+                    ? `Request cancelled: ${ref}`
+                    : `Request ${ref} is ${hospitalViewSafeText(HOSPITAL_VIEW_STATUS_META[status]?.label || status, 'updated')}`;
+        return {
+            message: eventText,
+            timestamp: item.updatedAt || item.createdAt || null,
+        };
+    });
+}
+
+function hospitalViewNormalizeData(raw, hospital, fallbackRequests = []) {
+    const response = raw && typeof raw === 'object' ? raw : {};
+    const scopedHospital = response.hospital || hospital || {};
+    const requestList = Array.isArray(response.requests)
+        ? response.requests
+        : Array.isArray(response.recentRequests)
+            ? response.recentRequests
+        : Array.isArray(fallbackRequests) ? fallbackRequests : [];
+
+    const activeFromResponse = Array.isArray(response.activeRequests)
+        ? response.activeRequests
+        : requestList.filter((req) => HOSPITAL_VIEW_ACTIVE_STATUS.has(hospitalViewNormalizeStatus(req.status)));
+
+    const analyticsRaw = response.analytics && typeof response.analytics === 'object'
+        ? response.analytics
+        : {};
+    const statusCounts = {
+        PENDING: Number(analyticsRaw.pending ?? 0),
+        NEEDS_CONFIRMATION: Number(analyticsRaw.needsConfirmation ?? analyticsRaw.needs_confirm ?? 0),
+        APPROVED: Number(analyticsRaw.approved ?? 0),
+        ALLOCATED: Number(analyticsRaw.allocated ?? 0),
+        READY_FOR_RELEASE: Number(analyticsRaw.readyForRelease ?? analyticsRaw.ready_for_release ?? 0),
+        RELEASED: Number(analyticsRaw.released ?? 0),
+        REJECTED: Number(analyticsRaw.rejected ?? 0),
+        CANCELLED: Number(analyticsRaw.cancelled ?? 0),
+    };
+    const totalFromStatus = Object.values(statusCounts).reduce((sum, count) => sum + (Number.isFinite(count) ? count : 0), 0);
+    const computedTotal = Number(analyticsRaw.totalRequests ?? analyticsRaw.total ?? 0)
+        || totalFromStatus
+        || Number(scopedHospital.requestCount || 0);
+
+    const componentStats = Array.isArray(response.componentStats)
+        ? response.componentStats
+        : response.componentStats && typeof response.componentStats === 'object'
+            ? Object.entries(response.componentStats).map(([component, count]) => ({ component, count: Number(count) || 0 }))
+            : null;
+    const activityLogs = Array.isArray(response.activityLogs) ? response.activityLogs : null;
+
+    const recentRequests = Array.isArray(response.recentRequests)
+        ? response.recentRequests
+        : [...requestList]
+            .sort((a, b) => {
+                const aTs = new Date(a.createdAt || a.updatedAt || 0).getTime();
+                const bTs = new Date(b.createdAt || b.updatedAt || 0).getTime();
+                return bTs - aTs;
+            });
+
+    return {
+        hospital: scopedHospital,
+        account: response.account || response.hospitalAccount || null,
+        requests: requestList,
+        recentRequests,
+        activeRequests: activeFromResponse,
+        analytics: {
+            totalRequests: computedTotal,
+            ...statusCounts,
+        },
+        componentStats: componentStats,
+        activityLogs: activityLogs,
+    };
+}
+
+function hospitalViewComputeAnalyticsFromRequests(requests) {
+    const counts = {
+        totalRequests: Array.isArray(requests) ? requests.length : 0,
+        PENDING: 0,
+        NEEDS_CONFIRMATION: 0,
+        APPROVED: 0,
+        ALLOCATED: 0,
+        READY_FOR_RELEASE: 0,
+        RELEASED: 0,
+        REJECTED: 0,
+        CANCELLED: 0,
+    };
+    if (!Array.isArray(requests)) return counts;
+
+    requests.forEach((request) => {
+        const status = hospitalViewNormalizeStatus(request.status);
+        if (Object.prototype.hasOwnProperty.call(counts, status)) {
+            counts[status] += 1;
+        }
+    });
+    return counts;
+}
+
+function hospitalViewComputeComponentStats(requests) {
+    if (!Array.isArray(requests) || !requests.length) return [];
+    const tally = new Map();
+    requests.forEach((request) => {
+        const rawComponent = request.componentType || request.bloodComponent || request.component || '';
+        const key = String(rawComponent || '').trim().toUpperCase();
+        if (!key) return;
+        tally.set(key, (tally.get(key) || 0) + 1);
+    });
+    return [...tally.entries()]
+        .map(([component, count]) => ({ component, count }))
+        .sort((a, b) => b.count - a.count);
+}
+
+async function openHospitalViewModal(hospitalId) {
+    const hospital = hospitalViewFindById(hospitalId);
+    if (!hospital) {
+        showBloodPlusMessage('Hospital Not Found', 'The selected hospital record could not be loaded.', 'error');
+        return;
+    }
+
+    hospitalViewCurrentId = hospitalId;
+    hospitalViewCurrentData = null;
+
+    const titleEl = document.getElementById('hospital-view-title-name');
+    if (titleEl) titleEl.textContent = hospital.hospitalName || 'Hospital Details';
+    hospitalViewSetLoadingState('Loading hospital details...');
+    openModal('viewHospitalModal');
+    await loadHospitalDetails(hospitalId);
+}
+
+function closeHospitalViewModal() {
+    closeModal('viewHospitalModal');
+}
+
+function hospitalViewOpenAllRequests() {
+    closeHospitalViewModal();
+    const nav = document.getElementById('nav-bloodrequests');
+    showPanel('bloodrequests', nav || null);
+    if (typeof window.reqFetchAll === 'function') {
+        window.reqFetchAll();
+    }
+}
+
+function hospitalViewOpenCreateRequest() {
+    showBloodPlusMessage(
+        'Create Request',
+        'Use the public Blood Request Portal to create a new hospital request.',
+        'info'
+    );
+}
+
+function hospitalViewOpenEdit() {
+    if (!hospitalViewCurrentId) return;
+    closeHospitalViewModal();
+    hospOpenEdit(hospitalViewCurrentId);
+}
+
+function hospitalViewPrepareDeactivate() {
+    if (!hospitalViewCurrentId) return;
+    closeHospitalViewModal();
+    hospOpenEdit(hospitalViewCurrentId);
+    const statusEl = document.getElementById('hosp-edit-status');
+    if (statusEl) statusEl.value = 'inactive';
+    showBloodPlusMessage(
+        'Set Hospital Inactive',
+        'Review the hospital account, then save changes to apply the Inactive status.',
+        'warning'
+    );
+}
+
+async function loadHospitalDetails(hospitalId) {
+    const hospital = hospitalViewFindById(hospitalId);
+    if (!hospital) return;
+
+    let normalized = null;
+    try {
+        const detailRes = await fetch(`${HOSPITAL_API}/${hospitalId}/details`, {
+            headers: { Accept: 'application/json' },
+            credentials: 'include',
+        });
+        if (!detailRes.ok) {
+            throw new Error(`Hospital details endpoint returned ${detailRes.status}`);
+        }
+        const detailData = await detailRes.json();
+        normalized = hospitalViewNormalizeData(detailData, hospital);
+    } catch (error) {
+        try {
+            const reqRes = await fetch('/api/admin/blood-requests', {
+                headers: { Accept: 'application/json' },
+                credentials: 'include',
+            });
+            if (!reqRes.ok) throw new Error(`Blood requests endpoint returned ${reqRes.status}`);
+            const requestPayload = await reqRes.json();
+            const requestList = Array.isArray(requestPayload)
+                ? requestPayload
+                : Array.isArray(requestPayload?.content)
+                    ? requestPayload.content
+                    : Array.isArray(requestPayload?.data)
+                        ? requestPayload.data
+                        : [];
+            const scopedRequests = requestList.filter((request) => hospitalViewMatchesHospitalRequest(request, hospital));
+            normalized = hospitalViewNormalizeData({}, hospital, scopedRequests);
+            normalized.analytics = hospitalViewComputeAnalyticsFromRequests(scopedRequests);
+            normalized.componentStats = hospitalViewComputeComponentStats(scopedRequests);
+            normalized.activityLogs = hospitalViewBuildFallbackActivity(scopedRequests);
+        } catch (fallbackError) {
+            console.error('[Hospital View] Fallback load failed:', fallbackError);
+            normalized = hospitalViewNormalizeData({}, hospital, []);
+            normalized.analytics = hospitalViewComputeAnalyticsFromRequests([]);
+            normalized.componentStats = [];
+            normalized.activityLogs = [];
+        }
+        console.warn('[Hospital View] Detail API unavailable, fallback used.', error);
+    }
+
+    hospitalViewCurrentData = normalized;
+    renderHospitalInfo(normalized);
+    renderHospitalAnalytics(normalized);
+    renderRecentRequests(normalized);
+    renderActiveRequests(normalized);
+    renderComponentStats(normalized);
+    renderHospitalActivity(normalized);
+}
+
+function renderHospitalInfo(data) {
+    const hospital = data?.hospital || {};
+    const account = data?.account || {};
+    const status = hospital.status || account.status || 'active';
+    const statusTag = String(status).toLowerCase() === 'inactive'
+        ? `<span class="tag tag-inactive">Inactive</span>`
+        : `<span class="tag tag-active">Active</span>`;
+
+    const city = hospitalViewSafeText(hospital.city, '');
+    const province = hospitalViewSafeText(hospital.province, '');
+    const locationText = [city, province].filter(Boolean).join(', ') || 'Not Available';
+
+    hospitalViewSetContainerHtml('hospital-view-info', `
+        <div class="hospital-view-kv-grid">
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Name</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.hospitalName))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Location</div>
+                <div class="hospital-view-kv-value">${escHtml(locationText)}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Full Address</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.address))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Date Registered</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewFormatDate(hospital.createdAt || account.createdAt))}</div>
+            </div>
+        </div>
+    `);
+
+    hospitalViewSetContainerHtml('hospital-view-contact', `
+        <div class="hospital-view-kv-grid">
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Email</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.email || account.email))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Phone Number</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.phoneNumber))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Contact Person Name</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.contactPersonName))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Contact Person Phone</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(hospital.contactPersonPhone))}</div>
+            </div>
+        </div>
+    `);
+
+    hospitalViewSetContainerHtml('hospital-view-account', `
+        <div class="hospital-view-kv-grid">
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Hospital Account ID</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(account.id || hospital.id, '-'))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Login Email</div>
+                <div class="hospital-view-kv-value">${escHtml(hospitalViewSafeText(account.email || hospital.email))}</div>
+            </div>
+            <div class="hospital-view-kv-item">
+                <div class="hospital-view-kv-label">Account Status</div>
+                <div class="hospital-view-kv-value">${statusTag}</div>
+            </div>
+        </div>
+    `);
+}
+
+function renderHospitalAnalytics(data) {
+    const analytics = data?.analytics || {};
+    const cards = [
+        ['Total Requests', analytics.totalRequests, 'neutral'],
+        ['Pending', analytics.PENDING, 'PENDING'],
+        ['Needs Confirmation', analytics.NEEDS_CONFIRMATION, 'NEEDS_CONFIRMATION'],
+        ['Approved', analytics.APPROVED, 'APPROVED'],
+        ['Allocated', analytics.ALLOCATED, 'ALLOCATED'],
+        ['Ready for Release', analytics.READY_FOR_RELEASE, 'READY_FOR_RELEASE'],
+        ['Released', analytics.RELEASED, 'RELEASED'],
+        ['Rejected', analytics.REJECTED, 'REJECTED'],
+        ['Cancelled', analytics.CANCELLED, 'CANCELLED'],
+    ];
+
+    hospitalViewSetContainerHtml('hospital-view-analytics', `
+        <div class="hospital-view-stats-grid">
+            ${cards.map(([label, count, status]) => {
+                const cssStatus = status === 'neutral' ? 'neutral' : status.toLowerCase();
+                return `
+                    <div class="hospital-view-stat-card ${cssStatus}">
+                        <div class="hospital-view-stat-label">${escHtml(label)}</div>
+                        <div class="hospital-view-stat-value">${Number.isFinite(Number(count)) ? Number(count) : 0}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `);
+}
+
+function renderRecentRequests(data) {
+    const list = Array.isArray(data?.requests) && data.requests.length
+        ? data.requests
+        : Array.isArray(data?.recentRequests) ? data.recentRequests : [];
+    const sorted = [...list].sort((a, b) => {
+        const aTs = new Date(a.createdAt || a.updatedAt || 0).getTime();
+        const bTs = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        return bTs - aTs;
+    });
+
+    if (!sorted.length) {
+        hospitalViewSetContainerHtml(
+            'hospital-view-recent-body',
+            '<tr><td colspan="7" class="hospital-view-table-empty">No blood requests found.</td></tr>'
+        );
+        return;
+    }
+
+    hospitalViewSetContainerHtml(
+        'hospital-view-recent-body',
+        sorted.map((request) => {
+            const ref = request.referenceNumber || request.referenceNo || `#${request.id ?? '-'}`;
+            const patient = request.patientName || request.name || request.requesterName || '-';
+            const blood = hospitalViewBloodLabel(request.bloodType || request.bloodTypeEnum);
+            const component = hospitalViewComponentLabel(request.componentType || request.bloodComponent || request.component);
+            const units = request.unitsRequested ?? request.numberOfUnits ?? request.units ?? '-';
+            const date = hospitalViewFormatDate(request.createdAt || request.updatedAt);
+            return `
+                <tr>
+                    <td>${escHtml(hospitalViewSafeText(ref, '-'))}</td>
+                    <td>${escHtml(hospitalViewSafeText(patient, '-'))}</td>
+                    <td>${escHtml(hospitalViewSafeText(blood, '-'))}</td>
+                    <td>${escHtml(hospitalViewSafeText(component, '-'))}</td>
+                    <td>${escHtml(String(units))}</td>
+                    <td>${hospitalViewStatusBadge(request.status)}</td>
+                    <td>${escHtml(date)}</td>
+                </tr>
+            `;
+        }).join('')
+    );
+}
+
+function renderActiveRequests(data) {
+    const list = Array.isArray(data?.activeRequests) ? data.activeRequests : [];
+    const filtered = list.filter((request) => HOSPITAL_VIEW_ACTIVE_STATUS.has(hospitalViewNormalizeStatus(request.status)));
+
+    if (!filtered.length) {
+        hospitalViewSetContainerHtml('hospital-view-active', '<div class="hospital-view-placeholder">No active requests.</div>');
+        return;
+    }
+
+    hospitalViewSetContainerHtml('hospital-view-active', `
+        <div class="hospital-view-active-list">
+            ${filtered.map((request) => {
+                const ref = request.referenceNumber || request.referenceNo || `#${request.id ?? '-'}`;
+                const patient = request.patientName || request.name || request.requesterName || '-';
+                const component = hospitalViewComponentLabel(request.componentType || request.bloodComponent || request.component);
+                return `
+                    <div class="hospital-view-active-item">
+                        <div class="hospital-view-active-meta">
+                            <div class="hospital-view-active-ref">${escHtml(hospitalViewSafeText(ref, '-'))}</div>
+                            <div class="hospital-view-active-sub">${escHtml(hospitalViewSafeText(patient, '-'))} · ${escHtml(hospitalViewSafeText(component, '-'))}</div>
+                        </div>
+                        <div>${hospitalViewStatusBadge(request.status)}</div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `);
+}
+
+function renderComponentStats(data) {
+    const rawStats = Array.isArray(data?.componentStats) ? data.componentStats : hospitalViewComputeComponentStats(data?.requests || []);
+    const allComponents = Object.entries(COMPONENT_LABELS).map(([component, label]) => ({ component, label }));
+    const statMap = new Map();
+    rawStats.forEach((item) => {
+        const key = String(item.component || item.componentType || item.name || '').trim().toUpperCase();
+        if (!key) return;
+        statMap.set(key, Number(item.count || item.requests || 0) || 0);
+    });
+    const merged = allComponents.map((entry) => ({
+        component: entry.component,
+        label: entry.label,
+        count: statMap.get(entry.component) || 0,
+    }));
+    const extras = [...statMap.keys()]
+        .filter((key) => !COMPONENT_LABELS[key])
+        .map((key) => ({
+            component: key,
+            label: hospitalViewComponentLabel(key),
+            count: statMap.get(key) || 0,
+        }));
+    const stats = [...merged, ...extras];
+    const total = stats.reduce((sum, item) => sum + Number(item.count || 0), 0) || 1;
+
+    hospitalViewSetContainerHtml('hospital-view-components', `
+        <div class="hospital-view-component-list">
+            ${stats.map((item) => {
+                const count = Number(item.count || 0);
+                const label = item.label || hospitalViewComponentLabel(item.component || '-');
+                const pct = Math.max(2, Math.round((count / total) * 100));
+                return `
+                    <div class="hospital-view-component-item">
+                        <div class="hospital-view-component-row ${count <= 0 ? 'no-data' : ''}">
+                            <span>${escHtml(hospitalViewSafeText(label, '-'))}</span>
+                            ${count > 0 ? `<strong>${count}</strong>` : ''}
+                        </div>
+                        ${count > 0 ? `
+                            <div class="hospital-view-component-bar">
+                                <span style="width:${pct}%"></span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `);
+}
+
+function renderHospitalActivity(data) {
+    const list = Array.isArray(data?.activityLogs) && data.activityLogs.length
+        ? data.activityLogs
+        : hospitalViewBuildFallbackActivity(data?.requests || []);
+
+    if (!list.length) {
+        hospitalViewSetContainerHtml('hospital-view-activity', '<div class="hospital-view-placeholder">No recent activity found.</div>');
+        return;
+    }
+
+    const timeline = list.slice(0, 8).map((item) => {
+        const when = item.timestamp || item.createdAt || item.updatedAt || item.occurredAt;
+        const text = item.message || item.description || item.activity || item.event || 'Activity update';
+        const dateText = when ? hospitalViewFormatDate(when) : '';
+        return `
+            <div class="hospital-view-timeline-item">
+                <div class="hospital-view-timeline-dot"></div>
+                <div class="hospital-view-timeline-content">
+                    ${dateText && dateText !== 'Not Available'
+                        ? `<div class="hospital-view-timeline-date">${escHtml(dateText)}</div>`
+                        : ''}
+                    <div class="hospital-view-timeline-text">${escHtml(hospitalViewSafeText(text, 'Activity update'))}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    hospitalViewSetContainerHtml('hospital-view-activity', `<div class="hospital-view-timeline">${timeline}</div>`);
+}
+
+function setHospitalFieldError(inputId, message) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(`${inputId}-error`);
+    if (input) {
+        input.classList.add('field-error');
+        input.setAttribute('aria-invalid', 'true');
+    }
+    if (error) {
+        error.textContent = message || '';
+        error.style.display = message ? 'block' : 'none';
+    }
+    return false;
+}
+
+function clearHospitalFieldError(inputId) {
+    const input = document.getElementById(inputId);
+    const error = document.getElementById(`${inputId}-error`);
+    if (input) {
+        input.classList.remove('field-error');
+        input.removeAttribute('aria-invalid');
+    }
+    if (error) {
+        error.textContent = '';
+        error.style.display = 'none';
+    }
+    return true;
+}
+
+function enforceHospitalTextLimit(inputId, maxLength) {
+    const input = document.getElementById(inputId);
+    if (!input) return '';
+    const cleaned = String(input.value || '')
+        .replace(/<[^>]*>/g, '')
+        .slice(0, maxLength);
+    if (input.value !== cleaned) input.value = cleaned;
+    return cleaned;
+}
+
+function validateHospitalName(commitTrim = true) {
+    const inputId = 'hosp-add-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9 .'-]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Hospital name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalCity(commitTrim = true) {
+    const inputId = 'hosp-add-city';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'City is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalProvince(commitTrim = true) {
+    const inputId = 'hosp-add-province';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Province is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalAddress(commitTrim = true) {
+    const inputId = 'hosp-add-address';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9\s,.\-#]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Address is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEmail(commitTrim = true) {
+    const inputId = 'hosp-add-email';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const noSpaces = String(input.value || '').replace(/\s+/g, '');
+    if (input.value !== noSpaces) input.value = noSpaces;
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Enter a valid email address.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function lockPhilippinePhoneInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return '';
+    const raw = String(input.value || '');
+    const digits = raw.replace(/\D/g, '');
+    let local = digits.startsWith('63') ? digits.slice(2) : digits;
+    local = local.slice(0, 10);
+    input.value = `+63${local}`;
+    return input.value;
+}
+
+function validatePhilippinePhone(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    const value = lockPhilippinePhoneInput(inputId);
+    if (!/^\+63\d{10}$/.test(value)) {
+        return setHospitalFieldError(inputId, 'Phone number must start with +63 followed by exactly 10 digits.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalContactName(commitTrim = true) {
+    const inputId = 'hosp-add-contact-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 40);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 40 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Contact person name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditName(commitTrim = true) {
+    const inputId = 'hosp-edit-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9 .'-]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Hospital name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditCity(commitTrim = true) {
+    const inputId = 'hosp-edit-city';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'City is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditProvince(commitTrim = true) {
+    const inputId = 'hosp-edit-province';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 25);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 25 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Province is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditAddress(commitTrim = true) {
+    const inputId = 'hosp-edit-address';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z0-9\s,.\-#]+$/.test(value) && !/<\/?script/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Address is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditEmail(commitTrim = true) {
+    const inputId = 'hosp-edit-email';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 50);
+    const noSpaces = String(input.value || '').replace(/\s+/g, '');
+    if (input.value !== noSpaces) input.value = noSpaces;
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
+    if (!value || value.length > 50 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Enter a valid email address.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalEditContactName(commitTrim = true) {
+    const inputId = 'hosp-edit-contact-name';
+    const input = document.getElementById(inputId);
+    if (!input) return false;
+    enforceHospitalTextLimit(inputId, 40);
+    const value = input.value.trim();
+    if (commitTrim) input.value = value;
+    const validFormat = /^[A-Za-z .-]+$/.test(value);
+    if (!value || value.length > 40 || !validFormat) {
+        return setHospitalFieldError(inputId, 'Contact person name is required.');
+    }
+    return clearHospitalFieldError(inputId);
+}
+
+function validateHospitalCreateForm() {
+    const checks = [
+        { id: 'hosp-add-name', fn: validateHospitalName },
+        { id: 'hosp-add-city', fn: validateHospitalCity },
+        { id: 'hosp-add-province', fn: validateHospitalProvince },
+        { id: 'hosp-add-address', fn: validateHospitalAddress },
+        { id: 'hosp-add-email', fn: validateHospitalEmail },
+        { id: 'hosp-add-phone', fn: () => validatePhilippinePhone('hosp-add-phone') },
+        { id: 'hosp-add-contact-name', fn: validateHospitalContactName },
+        { id: 'hosp-add-contact-phone', fn: () => validatePhilippinePhone('hosp-add-contact-phone') },
+    ];
+
+    let firstInvalidId = '';
+    checks.forEach(check => {
+        const valid = check.fn();
+        if (!valid && !firstInvalidId) firstInvalidId = check.id;
+    });
+
+    if (firstInvalidId) {
+        const firstEl = document.getElementById(firstInvalidId);
+        if (firstEl) {
+            firstEl.focus();
+            firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+    }
+    return true;
+}
+
+function validateHospitalEditForm() {
+    const checks = [
+        { id: 'hosp-edit-name', fn: validateHospitalEditName },
+        { id: 'hosp-edit-city', fn: validateHospitalEditCity },
+        { id: 'hosp-edit-province', fn: validateHospitalEditProvince },
+        { id: 'hosp-edit-address', fn: validateHospitalEditAddress },
+        { id: 'hosp-edit-email', fn: validateHospitalEditEmail },
+        { id: 'hosp-edit-phone', fn: () => validatePhilippinePhone('hosp-edit-phone') },
+        { id: 'hosp-edit-contact-name', fn: validateHospitalEditContactName },
+        { id: 'hosp-edit-contact-phone', fn: () => validatePhilippinePhone('hosp-edit-contact-phone') },
+    ];
+
+    let firstInvalidId = '';
+    checks.forEach(check => {
+        const valid = check.fn();
+        if (!valid && !firstInvalidId) firstInvalidId = check.id;
+    });
+
+    if (firstInvalidId) {
+        const firstEl = document.getElementById(firstInvalidId);
+        if (firstEl) {
+            firstEl.focus();
+            firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return false;
+    }
+    return true;
+}
+
+function initHospitalCreateValidation() {
+    if (hospCreateValidationBound) return;
+    hospCreateValidationBound = true;
+
+    const textLimits = [
+        ['hosp-add-name', 50, validateHospitalName],
+        ['hosp-add-city', 25, validateHospitalCity],
+        ['hosp-add-province', 25, validateHospitalProvince],
+        ['hosp-add-address', 50, validateHospitalAddress],
+        ['hosp-add-email', 50, validateHospitalEmail],
+        ['hosp-add-contact-name', 40, validateHospitalContactName],
+    ];
+
+    textLimits.forEach(([id, max, validator]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            enforceHospitalTextLimit(id, max);
+            validator(false);
+        });
+        el.addEventListener('blur', () => validator(true));
+        if (id === 'hosp-add-email' || id === 'hosp-edit-email') {
+            el.addEventListener('keydown', (event) => {
+                if (event.key === ' ') event.preventDefault();
+            });
+        }
+    });
+
+    ['hosp-add-phone', 'hosp-add-contact-phone'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('focus', () => {
+            if (!el.value.trim()) {
+                el.value = '+63';
+            } else {
+                lockPhilippinePhoneInput(id);
+            }
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('input', () => {
+            lockPhilippinePhoneInput(id);
+            validatePhilippinePhone(id);
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('blur', () => validatePhilippinePhone(id));
+        el.addEventListener('keydown', (event) => {
+            const selectionStart = el.selectionStart ?? 0;
+            const selectionEnd = el.selectionEnd ?? 0;
+            const isBackspace = event.key === 'Backspace';
+            const isDelete = event.key === 'Delete';
+            if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && /\d/.test(event.key)) {
+                const localDigits = el.value.slice(3).replace(/\D/g, '');
+                const selectedPrefix = el.value.slice(selectionStart, selectionEnd);
+                const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+                if (localDigits.length - selectedLocalDigits.length >= 10) {
+                    event.preventDefault();
+                }
+            }
+        });
+    });
+}
+
+function initHospitalEditValidation() {
+    if (hospEditValidationBound) return;
+    hospEditValidationBound = true;
+
+    const textLimits = [
+        ['hosp-edit-name', 50, validateHospitalEditName],
+        ['hosp-edit-city', 25, validateHospitalEditCity],
+        ['hosp-edit-province', 25, validateHospitalEditProvince],
+        ['hosp-edit-address', 50, validateHospitalEditAddress],
+        ['hosp-edit-email', 50, validateHospitalEditEmail],
+        ['hosp-edit-contact-name', 40, validateHospitalEditContactName],
+    ];
+
+    textLimits.forEach(([id, max, validator]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            enforceHospitalTextLimit(id, max);
+            validator(false);
+        });
+        el.addEventListener('blur', () => validator(true));
+        if (id === 'hosp-edit-email') {
+            el.addEventListener('keydown', (event) => {
+                if (event.key === ' ') event.preventDefault();
+            });
+        }
+    });
+
+    ['hosp-edit-phone', 'hosp-edit-contact-phone'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('focus', () => {
+            if (!el.value.trim()) {
+                el.value = '+63';
+            } else {
+                lockPhilippinePhoneInput(id);
+            }
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('input', () => {
+            lockPhilippinePhoneInput(id);
+            validatePhilippinePhone(id);
+            const pos = el.value.length;
+            if (typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(pos, pos); } catch (_) {}
+            }
+        });
+        el.addEventListener('blur', () => validatePhilippinePhone(id));
+        el.addEventListener('keydown', (event) => {
+            const selectionStart = el.selectionStart ?? 0;
+            const selectionEnd = el.selectionEnd ?? 0;
+            const isBackspace = event.key === 'Backspace';
+            const isDelete = event.key === 'Delete';
+            if ((isBackspace && selectionStart <= 3) || (isDelete && selectionStart < 3)) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && !/\d/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                event.preventDefault();
+            }
+            if (event.key.length === 1 && /\d/.test(event.key)) {
+                const localDigits = el.value.slice(3).replace(/\D/g, '');
+                const selectedPrefix = el.value.slice(selectionStart, selectionEnd);
+                const selectedLocalDigits = selectedPrefix.replace(/\D/g, '');
+                if (localDigits.length - selectedLocalDigits.length >= 10) {
+                    event.preventDefault();
+                }
+            }
+        });
+    });
+}
+
 
 
 // ??????????????????????????????????????????????????????????????????????????
 // CREATE HOSPITAL – Submit form
 // ??????????????????????????????????????????????????????????????????????????
 async function hospCreate() {
+    if (!validateHospitalCreateForm()) return;
+
     const email = document.getElementById('hosp-add-email')?.value.trim();
     const name = document.getElementById('hosp-add-name')?.value.trim();
     const address = document.getElementById('hosp-add-address')?.value.trim();
     const city = document.getElementById('hosp-add-city')?.value.trim();
     const province = document.getElementById('hosp-add-province')?.value.trim();
-    const phone = document.getElementById('hosp-add-phone')?.value.trim() || null;
-    const contactName = document.getElementById('hosp-add-contact-name')?.value.trim() || null;
-    const contactPhone = document.getElementById('hosp-add-contact-phone')?.value.trim() || null;
-    
-    // Validation
-    if (!email) return alert('Email is required.');
-    if (!name) return alert('Hospital name is required.');
-    if (!address) return alert('Address is required.');
-    if (!city) return alert('City is required.');
-    if (!province) return alert('Province is required.');
+    const phone = document.getElementById('hosp-add-phone')?.value.trim();
+    const contactName = document.getElementById('hosp-add-contact-name')?.value.trim();
+    const contactPhone = document.getElementById('hosp-add-contact-phone')?.value.trim();
     
     const btn = document.querySelector('#addHospitalModal .btn-primary');
     if (btn) {
@@ -6020,6 +10086,10 @@ async function hospCreate() {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
+        ['hosp-add-email','hosp-add-name','hosp-add-address','hosp-add-city','hosp-add-province',
+         'hosp-add-phone','hosp-add-contact-name','hosp-add-contact-phone'].forEach(id => {
+            clearHospitalFieldError(id);
+        });
         
         closeModal('addHospitalModal');
         
@@ -6031,7 +10101,7 @@ async function hospCreate() {
         );
         
     } catch (err) {
-        alert('Error: ' + err.message);
+        showBloodPlusMessage('Create Hospital Failed', err.message || 'Creation failed', 'error');
         console.error('[Hospital] Create error:', err);
     } finally {
         if (btn) {
@@ -6047,7 +10117,7 @@ async function hospCreate() {
 function hospOpenEdit(id) {
     const h = hospData.find(x => x.id === id);
     if (!h) {
-        alert('Hospital not found');
+        showBloodPlusMessage('Hospital Not Found', 'The selected hospital record could not be loaded.', 'error');
         return;
     }
     
@@ -6062,6 +10132,13 @@ function hospOpenEdit(id) {
     document.getElementById('hosp-edit-email').value = h.email || '';
     document.getElementById('hosp-edit-pass').value = '';
     document.getElementById('hosp-edit-status').value = 'active';
+
+    ['hosp-edit-name', 'hosp-edit-city', 'hosp-edit-province', 'hosp-edit-address',
+     'hosp-edit-email', 'hosp-edit-phone', 'hosp-edit-contact-name', 'hosp-edit-contact-phone'].forEach(id => {
+        clearHospitalFieldError(id);
+    });
+    lockPhilippinePhoneInput('hosp-edit-phone');
+    lockPhilippinePhoneInput('hosp-edit-contact-phone');
     
     openModal('editHospitalModal');
 }
@@ -6070,16 +10147,25 @@ function hospOpenEdit(id) {
 // EDIT HOSPITAL – Save changes
 // ??????????????????????????????????????????????????????????????????????????
 async function hospSaveEdit() {
+    if (!validateHospitalEditForm()) return;
+
     const id = document.getElementById('hosp-edit-idx').value;
     const name = document.getElementById('hosp-edit-name')?.value.trim();
     const address = document.getElementById('hosp-edit-address')?.value.trim();
     const city = document.getElementById('hosp-edit-city')?.value.trim();
     const province = document.getElementById('hosp-edit-province')?.value.trim();
-    const phone = document.getElementById('hosp-edit-phone')?.value.trim() || null;
+    const email = document.getElementById('hosp-edit-email')?.value.trim().toLowerCase();
+    const newPassword = document.getElementById('hosp-edit-pass')?.value?.trim() || '';
+    const phone = lockPhilippinePhoneInput('hosp-edit-phone').trim();
     const contactName = document.getElementById('hosp-edit-contact-name')?.value.trim() || null;
-    const contactPhone = document.getElementById('hosp-edit-contact-phone')?.value.trim() || null;
-    
-    if (!name) return alert('Hospital name is required.');
+    const contactPhone = lockPhilippinePhoneInput('hosp-edit-contact-phone').trim();
+
+    if (newPassword && newPassword.length < 8) {
+        showBloodPlusMessage('Invalid Password', 'Reset password must be at least 8 characters.', 'error');
+        const passEl = document.getElementById('hosp-edit-pass');
+        if (passEl) passEl.focus();
+        return;
+    }
     
     const btn = document.querySelector('#editHospitalModal .btn-primary');
     if (btn) {
@@ -6093,6 +10179,8 @@ async function hospSaveEdit() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 hospitalName: name, address, city, province,
+                email,
+                newPassword: newPassword || null,
                 phoneNumber: phone, contactPersonName: contactName,
                 contactPersonPhone: contactPhone
             })
@@ -6117,7 +10205,7 @@ async function hospSaveEdit() {
         );
         
     } catch (err) {
-        alert('Error: ' + err.message);
+        showBloodPlusMessage('Update Hospital Failed', err.message || 'Update failed', 'error');
         console.error('[Hospital] Edit error:', err);
     } finally {
         if (btn) {
@@ -6453,6 +10541,7 @@ function populateStaffProfileForm(data) {
   const firstNameField = document.getElementById('staff-profile-firstname');
   const lastNameField = document.getElementById('staff-profile-lastname');
   const emailField = document.getElementById('staff-profile-email');
+  const usernameField = document.getElementById('staff-profile-username');
   const phoneField = document.getElementById('staff-profile-phone');
   const deptInputField = document.getElementById('staff-profile-department-input');
   const posInputField = document.getElementById('staff-profile-position-input');
@@ -6460,7 +10549,15 @@ function populateStaffProfileForm(data) {
   if (firstNameField) firstNameField.value = data.firstName || '';
   if (lastNameField) lastNameField.value = data.lastName || '';
   if (emailField) emailField.value = (data.user && data.user.email) || '';
-  if (phoneField) phoneField.value = data.phoneNumber || '';
+  if (usernameField) {
+    usernameField.value = normalizeStaffUsername(data.user?.username || '');
+    clearStaffFieldError('staff-profile-username');
+  }
+  if (phoneField) {
+    phoneField.value = data.phoneNumber || '+63';
+    lockPhilippinePhoneInput('staff-profile-phone');
+    clearStaffFieldError('staff-profile-phone');
+  }
   if (deptInputField) deptInputField.value = data.department || '';
   if (posInputField) posInputField.value = data.position || '';
 }
@@ -6490,13 +10587,30 @@ function showStaffProfileDefaultTab() {
 }
 
 async function submitStaffProfileUpdate() {
-  const firstName = document.getElementById('staff-profile-firstname').value;
-  const lastName = document.getElementById('staff-profile-lastname').value;
-  const phoneNumber = document.getElementById('staff-profile-phone').value;
+  const firstNameInput = document.getElementById('staff-profile-firstname');
+  const lastNameInput = document.getElementById('staff-profile-lastname');
+  const usernameInput = document.getElementById('staff-profile-username');
+  if (firstNameInput) firstNameInput.value = normalizePersonName(firstNameInput.value).slice(0, 25);
+  if (lastNameInput) lastNameInput.value = normalizePersonName(lastNameInput.value).slice(0, 25);
+  if (usernameInput) usernameInput.value = normalizeStaffUsername(usernameInput.value);
+
+  const firstName = firstNameInput?.value || '';
+  const lastName = lastNameInput?.value || '';
+  const normalizedPhone = lockPhilippinePhoneInput('staff-profile-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phoneNumber = phoneDigits.length === 10 ? normalizedPhone : null;
   
   // Validation
-  if (!firstName || !lastName) {
-    showStaffProfileError('First Name and Last Name are required');
+  let firstInvalidId = '';
+  if (!validateStaffNameField('staff-profile-firstname')) firstInvalidId = 'staff-profile-firstname';
+  if (!validateStaffNameField('staff-profile-lastname') && !firstInvalidId) firstInvalidId = 'staff-profile-lastname';
+  if (!validateStaffProfileUsernameField() && !firstInvalidId) firstInvalidId = 'staff-profile-username';
+  if (!validateStaffProfilePhoneField(true) && !firstInvalidId) firstInvalidId = 'staff-profile-phone';
+  const username = usernameInput?.value || '';
+
+  if (firstInvalidId) {
+    showStaffProfileError('Please correct the highlighted fields before saving.');
+    focusStaffField(firstInvalidId);
     return;
   }
   
@@ -6517,6 +10631,7 @@ async function submitStaffProfileUpdate() {
       body: JSON.stringify({
         firstName: firstName,
         lastName: lastName,
+        username: username,
         phoneNumber: phoneNumber
       })
     });
@@ -6551,6 +10666,8 @@ function resetStaffProfileForm() {
   populateStaffProfileForm(currentUserData);
   document.getElementById('staff-profile-edit-error').style.display = 'none';
   document.getElementById('staff-profile-edit-success').style.display = 'none';
+  ['staff-profile-firstname', 'staff-profile-lastname', 'staff-profile-username', 'staff-profile-phone']
+    .forEach((id) => clearStaffFieldError(id));
 }
 
 function updateSidebarUser(initials, name, role) {
@@ -6865,6 +10982,10 @@ function showPanel(panelName, element) {
     element.classList.add('active');
   }
 
+  if (panelName === 'bloodrequests' && typeof window.markBloodRequestsAsViewed === 'function') {
+    window.markBloodRequestsAsViewed();
+  }
+
   window.scrollTo(0, 0);
 }
 
@@ -6995,6 +11116,25 @@ function showStaffSecuritySuccess(message) {
 // ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function initializeProfileListeners() {
+  bindStaffProfilePhoneInput();
+  applyStaffNameFormatting();
+
+  const staffProfilePhone = document.getElementById('staff-profile-phone');
+  if (staffProfilePhone && staffProfilePhone.dataset.staffProfilePhoneValidationBound !== '1') {
+    staffProfilePhone.dataset.staffProfilePhoneValidationBound = '1';
+    staffProfilePhone.addEventListener('blur', validateStaffProfilePhoneField);
+  }
+
+  const staffProfileUsername = document.getElementById('staff-profile-username');
+  if (staffProfileUsername && staffProfileUsername.dataset.staffProfileUsernameBound !== '1') {
+    staffProfileUsername.dataset.staffProfileUsernameBound = '1';
+    staffProfileUsername.addEventListener('input', () => {
+      staffProfileUsername.value = normalizeStaffUsername(staffProfileUsername.value);
+      clearStaffFieldError('staff-profile-username');
+    });
+    staffProfileUsername.addEventListener('blur', validateStaffProfileUsernameField);
+  }
+
   // Add any additional event listeners if needed
   document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {

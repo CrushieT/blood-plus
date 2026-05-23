@@ -1076,7 +1076,7 @@ function injectIndicationStyles() {
       margin-left: 24px;
       margin-top: 8px;
       padding-left: 12px;
-      border-left: 3px solid var(--primary-blue, #1F5FBF);
+      border-left: 3px solid var(--secondary-blue, #2D3FA3);
       border-radius: 0 8px 8px 0;
       display: none !important;
     }

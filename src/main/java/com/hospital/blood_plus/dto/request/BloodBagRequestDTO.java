@@ -91,6 +91,7 @@ public class BloodBagRequestDTO {
     private String requesterRelationship;
     private String requesterContact;
     private String requesterEmail;
+    private String staffUniqueCode;
 
     // ─────────────────────────────────────────────────────────────
     // Getters & Setters
@@ -225,4 +226,7 @@ public class BloodBagRequestDTO {
 
     public String getRequesterEmail() { return requesterEmail; }
     public void setRequesterEmail(String requesterEmail) { this.requesterEmail = requesterEmail; }
+
+    public String getStaffUniqueCode() { return staffUniqueCode; }
+    public void setStaffUniqueCode(String staffUniqueCode) { this.staffUniqueCode = staffUniqueCode; }
 }

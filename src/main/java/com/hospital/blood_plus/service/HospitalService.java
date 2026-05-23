@@ -134,6 +134,7 @@ public class HospitalService {
     public HospitalResponse updateHospital(Long id, UpdateHospitalRequest req) {
         HospitalProfile hosp = hospitalRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Hospital not found"));
+        AppUser user = hosp.getUser();
 
         if (req.getHospitalName() != null && !req.getHospitalName().isBlank()) {
             hosp.setHospitalName(req.getHospitalName());
@@ -157,6 +158,25 @@ public class HospitalService {
             hosp.setContactPersonPhone(req.getContactPersonPhone());
         }
 
+        if (req.getEmail() != null && !req.getEmail().isBlank()) {
+            String normalizedEmail = req.getEmail().trim().toLowerCase();
+            AppUser existing = userRepository.findByEmail(normalizedEmail).orElse(null);
+            if (existing != null && !existing.getId().equals(user.getId())) {
+                throw new IllegalArgumentException("Email already registered");
+            }
+            user.setEmail(normalizedEmail);
+            user.setUsername(normalizedEmail);
+        }
+
+        if (req.getNewPassword() != null && !req.getNewPassword().isBlank()) {
+            String newPassword = req.getNewPassword().trim();
+            if (newPassword.length() < 8) {
+                throw new IllegalArgumentException("New password must be at least 8 characters");
+            }
+            user.setPassword(passwordEncoder.encode(newPassword));
+        }
+
+        userRepository.save(user);
         hosp = hospitalRepository.save(hosp);
         return toResponse(hosp);
     }

@@ -36,8 +36,9 @@
       <div class="nav-item" onclick="showPanel('bloodbank', this)">
         <span class="nav-icon">🩸</span> Blood Bank
       </div>
-      <div class="nav-item" onclick="showPanel('bloodrequests', this)">
+      <div class="nav-item" id="nav-bloodrequests" onclick="showPanel('bloodrequests', this)">
         <span class="nav-icon">📋</span> Blood Requests
+        <span id="blood-request-nav-badge" class="nav-badge nav-badge-requests" hidden>0</span>
       </div>
       <div class="nav-item" onclick="showPanel('hospitals', this)">
         <span class="nav-icon">🏥</span> Hospitals
@@ -710,11 +711,6 @@
               <input id="req-approved-units" class="req-remarks-input" type="number" min="1" step="1" inputmode="numeric">
               <div class="req-remarks-field-note">Must be greater than 0 and no more than the requested units.</div>
             </div>
-            <div class="form-group-m">
-              <label for="req-alternative-component">Alternative Component Suggestion</label>
-              <input id="req-alternative-component" class="req-remarks-input" type="text" placeholder="Optional alternative component suggestion">
-              <div class="req-remarks-field-note">Optional guidance if another component may help the requester.</div>
-            </div>
           </div>
 
           <div class="form-row full">
@@ -869,7 +865,7 @@
           oninput="staffRender()">
       </div>
       <select class="req-select" id="staff-filter-dept" onchange="staffRender()">
-        <option value="ALL">All Departments</option>
+        <option value="ALL">All Departments/ Wards</option>
       </select>
       <select class="req-select" id="staff-filter-status" onchange="staffRender()">
         <option value="ALL">All Access</option>
@@ -879,8 +875,8 @@
       <select class="req-select" id="staff-sort" onchange="staffRender()">
         <option value="name_asc">Name A–Z</option>
         <option value="name_desc">Name Z–A</option>
-        <option value="hire_desc">Newest hired</option>
-        <option value="hire_asc">Oldest hired</option>
+        <option value="hire_desc">Newest Created</option>
+        <option value="hire_asc">Oldest Created</option>
         <option value="dept">By department</option>
       </select>
     </div>
@@ -896,7 +892,7 @@
           <thead><tr>
             <th>Staff</th>
             <th>Staff ID</th>
-            <th>Department</th>
+            <th>Department/ Ward</th>
             <th>Position</th>
             <th>Phone</th>
             <th>Access</th>
@@ -1284,7 +1280,7 @@
                 <span class="profile-info-value" id="staff-profile-department">-</span>
               </div>
               <div class="profile-info-row">
-                <span class="profile-info-label">Hired</span>
+                <span class="profile-info-label">Created</span>
                 <span class="profile-info-value" id="staff-profile-hiredate">-</span>
               </div>
             </div>
@@ -1299,11 +1295,13 @@
             <div class="form-row">
               <div class="form-group-m">
                 <label>First Name <span style="color:var(--crimson)">*</span></label>
-                <input type="text" id="staff-profile-firstname" placeholder="First Name" required>
+                <input type="text" id="staff-profile-firstname" placeholder="First Name" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-firstname-error"></div>
               </div>
               <div class="form-group-m">
                 <label>Last Name <span style="color:var(--crimson)">*</span></label>
-                <input type="text" id="staff-profile-lastname" placeholder="Last Name" required>
+                <input type="text" id="staff-profile-lastname" placeholder="Last Name" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-lastname-error"></div>
               </div>
             </div>
 
@@ -1316,14 +1314,23 @@
 
             <div class="form-row">
               <div class="form-group-m">
-                <label>Phone Number</label>
-                <input type="tel" id="staff-profile-phone" placeholder="+63 9XX XXX XXXX">
+                <label>Username <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="staff-profile-username" placeholder="Username" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-username-error"></div>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group-m">
-                <label>Department <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <label>Phone Number</label>
+                <input type="tel" id="staff-profile-phone" placeholder="+639123456789" value="+63" maxlength="13" inputmode="numeric" autocomplete="off" pattern="\+63\d{10}" title="Phone number must start with +63 followed by 10 digits.">
+                <div class="form-inline-error" id="staff-profile-phone-error"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Department/ Ward <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
                 <input type="text" id="staff-profile-department-input" placeholder="Department" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
               </div>
               <div class="form-group-m">
@@ -1544,7 +1551,13 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Transaction #</label>
-            <input type="text" id="add-transaction-number" placeholder="e.g. TXN-2025-001">
+            <input
+              type="text"
+              id="add-transaction-number"
+              placeholder="e.g. 261498"
+              maxlength="10"
+              inputmode="numeric"
+              oninput="enforceTransactionNumberFormat(this)">
           </div>
         </div>
 
@@ -1557,7 +1570,14 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Serial # <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-serial-number" placeholder="Used for first row / single entry" required>
+            <input
+              type="text"
+              id="add-serial-number"
+              placeholder="e.g. V457679"
+              maxlength="10"
+              oninput="enforceSerialNumberFormat(this);validateSerialNumberField(this)"
+              required>
+            <div class="form-inline-error" id="add-serial-number-error"></div>
           </div>
 
           <div class="form-group-m">
@@ -1574,8 +1594,8 @@
           <div class="form-group-m">
             <label>Rh Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-rh-type" required>
-              <option value="POSITIVE">Positive (+)</option>
-              <option value="NEGATIVE">Negative (−)</option>
+              <option value="POSITIVE">POS</option>
+              <option value="NEGATIVE">NEG</option>
             </select>
           </div>
         </div>
@@ -1585,38 +1605,52 @@
             <label>Component Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-component-type" onchange="updateAddExpiry()" required>
               <option value="">Select...</option>
-              <option value="WHOLE_BLOOD">Whole Blood</option>
+              <option value="WHOLE_BLOOD">WB</option>
               <option value="PRBC">PRBC</option>
-              <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
-              <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
-              <option value="PLATELET_CONCENTRATE">Platelet Concentrate</option>
-              <option value="FRESH_FROZEN_PLASMA">Fresh Frozen Plasma</option>
-              <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
-              <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+              <option value="LEUKOREDUCED_PRBC">L-PRBC</option>
+              <option value="ALIQUOTED_PRBC">A-PRBC</option>
+              <option value="PLATELET_CONCENTRATE">PC</option>
+              <option value="FRESH_FROZEN_PLASMA">FFP</option>
+              <option value="CRYOPRECIPITATE">CRYO</option>
+              <option value="CRYOSUPERNATANT">CRYOSUP</option>
             </select>
           </div>
 
           <div class="form-group-m">
             <label>Volume (mL) <span style="color:var(--crimson)">*</span></label>
-            <input type="number" id="add-volume-ml" placeholder="e.g. 450" min="1" required>
+            <input
+              type="text"
+              id="add-volume-ml"
+              placeholder="e.g. 450"
+              maxlength="4"
+              inputmode="numeric"
+              oninput="enforceVolumeFormat(this);validateVolumeField(this)"
+              required>
+            <div class="form-inline-error" id="add-volume-ml-error"></div>
           </div>
 
           <div class="form-group-m">
             <label>Extraction Date <span style="color:var(--crimson)">*</span></label>
-            <input type="date" id="add-collected-at" onchange="updateAddExpiry()" required>
+            <input type="date" id="add-collected-at" placeholder="MM/DD/YYYY" onchange="updateAddExpiry()" required>
           </div>
 
           <div class="form-group-m">
             <label>Expiration Date <span style="color:var(--crimson)">*</span>
               <span id="add-expiry-hint" style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px"></span>
             </label>
-            <input type="date" id="add-expires-at" required>
+            <input type="date" id="add-expires-at" placeholder="MM/DD/YYYY" required>
           </div>
         </div>
 
         <div class="form-group-m" style="margin-bottom:16px">
           <label>Remarks</label>
-          <input type="text" id="add-remarks" placeholder="e.g. Platelet - Poor, Hemolyzed">
+          <input
+            type="text"
+            id="add-remarks"
+            placeholder="e.g. Hemolyzed"
+            maxlength="50"
+            oninput="enforceRemarksLimit(this);validateRemarksField(this)">
+          <div class="form-inline-error" id="add-remarks-error"></div>
         </div>
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
@@ -1625,6 +1659,30 @@
           <button class="btn-secondary" type="button" onclick="generateAddStockRows(10)">Generate 10 Rows</button>
           <button class="btn-ghost" type="button" onclick="addStockRow()">+ Add Row</button>
           <button class="btn-warning" type="button" onclick="clearEmptyAddStockRows()">Clear Empty Rows</button>
+        </div>
+
+        <div class="bb-scan-section">
+          <div class="bb-scan-header">
+            <h4>Import Blood Tracer Form</h4>
+            <p>Scan or upload a blood tracer form to auto-fill stock rows.</p>
+            <p style="margin-top:6px">
+              For best results, crop the image to the blood bag rows only. Keep the first five columns visible: Blood Group, Component, Serial No., Extraction Date, Expiry Date.
+            </p>
+          </div>
+
+          <div class="bb-scan-actions">
+            <button type="button" class="btn-ghost" id="scan-tracer-camera-btn">Capture Image</button>
+
+            <label for="scan-tracer-upload" class="btn-secondary bb-upload-btn">
+              Upload Image
+            </label>
+
+            <input type="file" id="scan-tracer-upload" accept="image/*" hidden>
+            <input type="file" id="scan-tracer-camera" accept="image/*" capture="environment" hidden>
+          </div>
+
+          <div id="scan-tracer-preview" class="bb-scan-preview"></div>
+          <div id="scan-tracer-status" class="bb-scan-status">No tracer form imported yet.</div>
         </div>
 
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Blood Bags / Units</div>
@@ -1670,6 +1728,62 @@
   </div>
 
 
+  <!-- Tracer OCR Review Modal -->
+  <div class="modal-overlay" id="tracerOcrReviewModal">
+    <div class="modal" style="max-width:980px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Review Scanned Blood Bags</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Confirm detected rows before generating intake entries.</div>
+        </div>
+        <button class="modal-close" onclick="closeTracerOcrReviewModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="tracer-ocr-review-summary" class="tracer-ocr-review-summary"></div>
+        <div class="form-row full" style="margin-bottom:10px">
+          <div class="form-group-m">
+            <label>Transaction Number <span style="color:var(--crimson)">*</span></label>
+            <input
+              type="text"
+              id="tracer-ocr-transaction-number"
+              placeholder="Enter transaction number"
+              maxlength="10"
+              inputmode="numeric"
+              oninput="enforceTransactionNumberFormat(this)">
+            <small style="color:var(--muted)">Auto-detected from tracer form when available.</small>
+          </div>
+        </div>
+        <div id="tracer-ocr-duplicate-error" class="tracer-ocr-duplicate-error" style="display:none"></div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;">
+          <table class="tracer-ocr-review-table">
+            <thead>
+              <tr>
+                <th style="width:56px">#</th>
+                <th style="width:56px">Import</th>
+                <th>Blood Group</th>
+                <th>Component</th>
+                <th>Serial Number</th>
+                <th>Extraction Date</th>
+                <th>Expiry Date</th>
+                <th style="width:170px">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tracer-ocr-review-rows"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+          Rows with missing critical fields are unchecked by default. You can still include them, then manually correct values before final stock submission.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button type="button" class="btn-secondary" onclick="printTracerScannedData()">Print Scanned Data</button>
+          <button type="button" class="btn-ghost" onclick="closeTracerOcrReviewModal()">Cancel</button>
+          <button type="button" class="btn-primary" id="tracer-ocr-import-btn" onclick="confirmTracerOcrImport()">Import Selected Rows</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- BloodPlus Message / Confirm Modal -->
   <div class="modal-overlay" id="bloodPlusActionModal">
     <div class="modal bp-modal" style="max-width:430px">
@@ -1705,22 +1819,54 @@
       </div>
       <div class="modal-body">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" id="hosp-add-name" placeholder="e.g. Philippine General Hospital"></div>
+          <div class="form-group-m">
+            <label>Hospital Name</label>
+            <input type="text" id="hosp-add-name" placeholder="e.g. Philippine General Hospital" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-name-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>City</label><input type="text" id="hosp-add-city" placeholder="e.g. Manila"></div>
-          <div class="form-group-m"><label>Province</label><input type="text" id="hosp-add-province" placeholder="e.g. Metro Manila"></div>
+          <div class="form-group-m">
+            <label>City</label>
+            <input type="text" id="hosp-add-city" placeholder="e.g. Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-city-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Province</label>
+            <input type="text" id="hosp-add-province" placeholder="e.g. Metro Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-province-error"></div>
+          </div>
         </div>
         <div class="form-row full">
-          <div class="form-group-m"><label>Address</label><input type="text" id="hosp-add-address" placeholder="Full street address"></div>
+          <div class="form-group-m">
+            <label>Address</label>
+            <input type="text" id="hosp-add-address" placeholder="Full street address" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-address-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email (Login)</label><input type="email" id="hosp-add-email" placeholder="hospital@email.com"></div>
-          <div class="form-group-m"><label>Phone Number</label><input type="tel" id="hosp-add-phone" placeholder="+63 2 XXXX XXXX"></div>
+          <div class="form-group-m">
+            <label>Email (Login)</label>
+            <input type="email" id="hosp-add-email" placeholder="hospital@email.com" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-email-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="hosp-add-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Contact Person Name</label><input type="text" id="hosp-add-contact-name" placeholder="Dr. Juan dela Cruz"></div>
-          <div class="form-group-m"><label>Contact Person Phone</label><input type="tel" id="hosp-add-contact-phone" placeholder="+63 9XX XXX XXXX"></div>
+          <div class="form-group-m">
+            <label>Contact Person Name</label>
+            <input type="text" id="hosp-add-contact-name" placeholder="Dr. Juan dela Cruz" maxlength="40" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-contact-name-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Contact Person Phone</label>
+            <input type="tel" id="hosp-add-contact-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-contact-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group-m"><label>Status</label><select id="hosp-add-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
@@ -1743,22 +1889,54 @@
       <div class="modal-body">
         <input type="hidden" id="hosp-edit-idx">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" id="hosp-edit-name"></div>
+          <div class="form-group-m">
+            <label>Hospital Name</label>
+            <input type="text" id="hosp-edit-name" placeholder="e.g. Philippine General Hospital" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-name-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>City</label><input type="text" id="hosp-edit-city"></div>
-          <div class="form-group-m"><label>Province</label><input type="text" id="hosp-edit-province"></div>
+          <div class="form-group-m">
+            <label>City</label>
+            <input type="text" id="hosp-edit-city" placeholder="e.g. Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-city-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Province</label>
+            <input type="text" id="hosp-edit-province" placeholder="e.g. Metro Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-province-error"></div>
+          </div>
         </div>
         <div class="form-row full">
-          <div class="form-group-m"><label>Address</label><input type="text" id="hosp-edit-address"></div>
+          <div class="form-group-m">
+            <label>Address</label>
+            <input type="text" id="hosp-edit-address" placeholder="Full street address" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-address-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email</label><input type="email" id="hosp-edit-email"></div>
-          <div class="form-group-m"><label>Phone Number</label><input type="tel" id="hosp-edit-phone"></div>
+          <div class="form-group-m">
+            <label>Email</label>
+            <input type="email" id="hosp-edit-email" placeholder="hospital@email.com" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-email-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="hosp-edit-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Contact Person Name</label><input type="text" id="hosp-edit-contact-name"></div>
-          <div class="form-group-m"><label>Contact Person Phone</label><input type="tel" id="hosp-edit-contact-phone"></div>
+          <div class="form-group-m">
+            <label>Contact Person Name</label>
+            <input type="text" id="hosp-edit-contact-name" placeholder="Dr. Juan dela Cruz" maxlength="40" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-contact-name-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Contact Person Phone</label>
+            <input type="tel" id="hosp-edit-contact-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-contact-phone-error"></div>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group-m"><label>Reset Password</label><input type="password" id="hosp-edit-pass" placeholder="Leave blank to keep current"></div>
@@ -1769,6 +1947,94 @@
           <button class="btn-danger" onclick="hospDelete()">Delete Hospital</button>
           <button class="btn-secondary" onclick="closeModal('editHospitalModal')">Cancel</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ VIEW HOSPITAL MODAL ═══════════ -->
+  <div class="modal-overlay" id="viewHospitalModal">
+    <div class="modal hospital-view-modal" style="max-width:1100px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Hospital Details</div>
+          <div id="hospital-view-title-name" style="font-size:13px;color:var(--charcoal);font-weight:600;margin-top:2px"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Operational overview and request analytics</div>
+        </div>
+        <button class="modal-close" onclick="closeHospitalViewModal()">✕</button>
+      </div>
+      <div class="modal-body hospital-view-body">
+
+        <div class="hospital-view-grid hospital-view-grid-3">
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Hospital Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-info"></div>
+          </section>
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Contact Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-contact"></div>
+          </section>
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Account Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-account"></div>
+          </section>
+        </div>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head">Request Analytics</div>
+          <div class="hospital-view-card-body" id="hospital-view-analytics"></div>
+        </section>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head-row">
+            <span>Recent Blood Requests</span>
+            <button class="btn-ghost" style="font-size:12px;padding:5px 10px" onclick="hospitalViewOpenAllRequests()">View All Requests</button>
+          </div>
+          <div class="hospital-view-card-body hospital-view-table-wrap">
+            <table class="hospital-view-table">
+              <thead>
+                <tr>
+                  <th>Reference No</th>
+                  <th>Patient</th>
+                  <th>Blood Type</th>
+                  <th>Component</th>
+                  <th>Units</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="hospital-view-recent-body">
+                <tr><td colspan="7" class="hospital-view-table-empty">Loading hospital details...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="hospital-view-grid hospital-view-grid-2">
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Active Requests</div>
+            <div class="hospital-view-card-body" id="hospital-view-active"></div>
+          </section>
+
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Most Requested Components</div>
+            <div class="hospital-view-card-body" id="hospital-view-components"></div>
+          </section>
+
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Recent Activity</div>
+            <div class="hospital-view-card-body" id="hospital-view-activity"></div>
+          </section>
+        </div>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head">Quick Actions</div>
+          <div class="hospital-view-card-body">
+            <div class="hospital-view-actions">
+              <button class="btn-secondary" type="button" onclick="hospitalViewOpenAllRequests()">View All Requests</button>
+              <button class="btn-primary" type="button" onclick="hospitalViewOpenEdit()">Edit Hospital</button>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -1841,7 +2107,7 @@
         <div class="form-row">
           <div class="form-group-m" style="flex:1">
             <label>Email (Login) <span style="color:var(--crimson)">*</span></label>
-            <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph">
+            <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph" maxlength="50" autocomplete="off">
           </div>
         </div>
         <div id="add-staff-access-note" style="display:flex;align-items:center;gap:8px;background:var(--blue-light,#E8F0FF);
@@ -1855,17 +2121,19 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>First Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-first" placeholder="Juan">
+            <input type="text" id="add-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-first-error"></div>
           </div>
           <div class="form-group-m">
             <label>Last Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-last" placeholder="Dela Cruz">
+            <input type="text" id="add-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-last-error"></div>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group-m">
             <label>Phone Number</label>
-            <input type="tel" id="add-staff-phone" placeholder="+63 9XX XXX XXXX">
+            <input type="tel" id="add-staff-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
           </div>
           
         </div>
@@ -1874,10 +2142,11 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Position</label>
-            <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist">
+            <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-position-error"></div>
           </div>
           <div class="form-group-m">
-            <label>Department <span style="color:var(--crimson)">*</span></label>
+            <label>Department/ Ward <span style="color:var(--crimson)">*</span></label>
             <select id="add-staff-dept-choice" onchange="staffToggleDepartmentInput()">
               <option value="Blood Bank">Blood Bank</option>
               <option value="Others">Others</option>
@@ -1886,8 +2155,22 @@
         </div>
         <div class="form-row full" id="add-staff-custom-dept-wrap" style="display:none">
           <div class="form-group-m" style="flex:1">
-            <label>Custom Department <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-staff-custom-dept" placeholder="Emergency Room, Ward, Laboratory">
+            <label>Ward <span style="color:var(--crimson)">*</span></label>
+            <select id="add-staff-custom-dept" autocomplete="off">
+              <option value="">Select Ward...</option>
+              <option value="Emergency Room (ER)">Emergency Room (ER)</option>
+              <option value="ICU">ICU</option>
+              <option value="Operating Room (OR)">Operating Room (OR)</option>
+              <option value="Medical Ward">Medical Ward</option>
+              <option value="Surgical Ward">Surgical Ward</option>
+              <option value="Pediatric Ward">Pediatric Ward</option>
+              <option value="Maternity Ward">Maternity Ward</option>
+              <option value="NICU">NICU</option>
+              <option value="Dialysis Unit">Dialysis Unit</option>
+              <option value="Oncology Ward">Oncology Ward</option>
+              <option value="OPD">OPD</option>
+            </select>
+            <div class="form-inline-error" id="add-staff-custom-dept-error"></div>
           </div>
         </div>
 
@@ -1918,17 +2201,19 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>First Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="edit-staff-first">
+            <input type="text" id="edit-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-first-error"></div>
           </div>
           <div class="form-group-m">
             <label>Last Name <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="edit-staff-last">
+            <input type="text" id="edit-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-last-error"></div>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group-m">
             <label>Phone Number</label>
-            <input type="tel" id="edit-staff-phone">
+            <input type="tel" id="edit-staff-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
           </div>
         </div>
   
@@ -1936,17 +2221,19 @@
         <div class="form-row">
           <div class="form-group-m">
             <label>Staff ID</label>
-            <input type="text" id="edit-staff-id" maxlength="20">
+            <input type="text" id="edit-staff-id" maxlength="20" autocomplete="off" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
           </div>
           <div class="form-group-m">
-            <label>Department</label>
-            <input type="text" id="edit-staff-dept" list="staff-dept-list">
+            <label>Department/ Ward</label>
+            <select id="edit-staff-dept"></select>
+            <div class="form-inline-error" id="edit-staff-dept-error"></div>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group-m">
             <label>Position</label>
-            <input type="text" id="edit-staff-position">
+            <input type="text" id="edit-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-position-error"></div>
           </div>
           <div class="form-group-m" id="edit-staff-status-wrap">
             <label>Status</label>
@@ -2007,7 +2294,7 @@
             <div id="view-staff-status-badge" style="margin-top:6px"></div>
           </div>
         </div>
-  
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <div style="background:var(--cream);border-radius:9px;padding:12px">
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Staff ID</div>
@@ -2020,10 +2307,6 @@
           <div style="background:var(--cream);border-radius:9px;padding:12px">
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Phone</div>
             <div id="view-staff-phone" style="font-size:13px;font-weight:600"></div>
-          </div>
-          <div style="background:var(--cream);border-radius:9px;padding:12px">
-            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Date Created</div>
-            <div id="view-staff-hiredate" style="font-size:13px;font-weight:600"></div>
           </div>
           <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
             <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Email</div>
@@ -2054,9 +2337,6 @@
   </div>
 
 
-  <datalist id="staff-dept-list"></datalist>
-
-  
   <!-- Delete Staff Confirm Modal -->
   <div class="modal-overlay" id="deleteStaffModal">
     <div class="modal" style="max-width:400px">
@@ -2077,16 +2357,26 @@
  
   <!-- Doc Preview Modal -->
   <div class="req-reject-overlay" id="req-doc-modal">
-    <div class="modal" style="max-width:560px">
+    <div class="modal req-doc-modal-dialog">
       <div class="modal-header">
-        <div class="modal-title">Blood Request Form</div>
-        <button class="modal-close" onclick="document.getElementById('req-doc-modal').classList.remove('open')">✕</button>
+        <div>
+          <div class="modal-title">Blood Request Form</div>
+          <div class="req-doc-subtitle">Zoom for better readability</div>
+        </div>
+        <button class="modal-close" onclick="reqCloseDocModal()">✕</button>
       </div>
-      <div class="modal-body">
-        <div id="req-doc-frame" style="width:100%;border-radius:10px;border:1.5px solid var(--border);
-            background:var(--cream);min-height:300px;display:flex;align-items:center;
-            justify-content:center;overflow:hidden"></div>
-        <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center" id="req-doc-label"></div>
+      <div class="modal-body req-doc-modal-body">
+        <div class="req-doc-toolbar">
+          <div class="req-doc-zoom-controls">
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-out" onclick="reqDocZoomOut()">-</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-reset" onclick="reqDocZoomReset()">Reset</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-in" onclick="reqDocZoomIn()">+</button>
+            <span class="req-doc-zoom-value" id="req-doc-zoom-value">100%</span>
+          </div>
+          <a id="req-doc-open-link" class="req-doc-open-link" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        </div>
+        <div id="req-doc-frame" class="req-doc-frame"></div>
+        <div class="req-doc-label" id="req-doc-label"></div>
       </div>
     </div>
   </div>
@@ -2359,7 +2649,8 @@
   });
   </script>
   <!-- <script src="js/auto-refresh-optimization.js"></script> -->
-  <script src="js/admin_dashboard.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
+  <script src="js/admin_dashboard.js?v=20260521c"></script>
 </body>
 </html>
 

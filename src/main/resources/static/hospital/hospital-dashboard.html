@@ -39,7 +39,6 @@
             </div>
             <div class="nav-item" onclick="showPanel('myrequests', this)">
             <span class="nav-icon">📋</span> My Requests
-            <span class="nav-badge" id="nav-pending-count">2</span>
             </div>
 
             <div class="nav-label">Account</div>
@@ -367,22 +366,26 @@
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Patient First Name <span class="req">*</span></label>
-                                    <input type="text" id="pat-firstname-hosp" placeholder="Juan" oninput="syncForm()">
+                                    <input type="text" id="pat-firstname-hosp" placeholder="Juan" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-firstname-hosp-error"></div>
                                 </div>
                                 <div class="fg">
                                     <label>Patient Middle Name</label>
-                                    <input type="text" id="pat-middlename-hosp" placeholder="Santos">
+                                    <input type="text" id="pat-middlename-hosp" placeholder="Santos" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-middlename-hosp-error"></div>
                                 </div>
                             </div>
 
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Patient Last Name <span class="req">*</span></label>
-                                    <input type="text" id="pat-lastname-hosp" placeholder="Dela Cruz" oninput="syncForm()">
+                                    <input type="text" id="pat-lastname-hosp" placeholder="Dela Cruz" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-lastname-hosp-error"></div>
                                 </div>
                                 <div class="fg">
                                     <label>Suffix</label>
-                                    <input type="text" id="pat-suffix-hosp" placeholder="Jr., Sr.">
+                                    <input type="text" id="pat-suffix-hosp" placeholder="e.g. Jr., Sr." maxlength="10" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-suffix-hosp-error"></div>
                                 </div>
                             </div>
 
@@ -415,33 +418,39 @@
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Ward</label>
-                                    <input type="text" id="pat-ward-hosp" placeholder="Ward A - Medical" oninput="syncForm()">
+                                    <input type="text" id="pat-ward-hosp" placeholder="e.g. Medical Ward" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-ward-hosp-error"></div>
                                 </div>
                                 <div class="fg">
                                     <label>Room No.</label>
-                                    <input type="text" id="pat-room-hosp" placeholder="e.g. 101, A-5" oninput="syncForm()">
+                                    <input type="text" id="pat-room-hosp" placeholder="e.g. 101, A-5" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-room-hosp-error"></div>
                                 </div>
                             </div>
 
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Purok</label>
-                                    <input type="text" id="pat-purok-hosp" placeholder="e.g. Purok 3" oninput="syncForm()">
+                                    <input type="text" id="pat-purok-hosp" placeholder="e.g. Purok 3" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-purok-hosp-error"></div>
                                 </div>
                                 <div class="fg">
                                     <label>Barangay</label>
-                                    <input type="text" id="pat-barangay-hosp" placeholder="e.g. San Roque" oninput="syncForm()">
+                                    <input type="text" id="pat-barangay-hosp" placeholder="e.g. San Roque" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-barangay-hosp-error"></div>
                                 </div>
                             </div>
 
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Municipality</label>
-                                    <input type="text" id="pat-municipality-hosp" placeholder="e.g. Daet" oninput="syncForm()">
+                                    <input type="text" id="pat-municipality-hosp" placeholder="e.g. Daet" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-municipality-hosp-error"></div>
                                 </div>
                                 <div class="fg">
                                     <label>Province</label>
-                                    <input type="text" id="pat-province-hosp" placeholder="e.g. Camarines Norte" oninput="syncForm()">
+                                    <input type="text" id="pat-province-hosp" placeholder="e.g. Camarines Norte" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-province-hosp-error"></div>
                                 </div>
                             </div>
 
@@ -449,7 +458,8 @@
                             <div class="form-grid-2">
                                 <div class="fg form-full">
                                     <label>Requesting Physician <span class="req">*</span></label>
-                                    <input type="text" id="pat-physician-hosp" placeholder="Dr. Maria Santos" oninput="syncForm()">
+                                    <input type="text" id="pat-physician-hosp" placeholder="e.g. Dr. Reyes" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-physician-hosp-error"></div>
                                 </div>
                             </div>
 
@@ -552,18 +562,21 @@
                             <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Number of Units <span class="req">*</span></label>
-                                    <input type="number" id="req-units-hosp" placeholder="e.g. 2" min="1" max="20" oninput="syncForm()">
+                                    <input type="number" id="req-units-hosp" placeholder="e.g. 2" min="1" max="99" inputmode="numeric" oninput="syncForm()">
+                                    <div class="form-inline-error" id="req-units-hosp-error"></div>
                                     <div class="hint">1 unit ≈ 450–500 mL</div>
                                 </div>
                                 <div class="fg">
                                     <label>Date Needed</label>
                                     <input type="date" id="req-date-needed-hosp" oninput="syncForm()">
+                                    <div class="form-inline-error" id="req-date-needed-hosp-error"></div>
                                 </div>
                             </div>
 
                             <div class="fg" id="platelet-count-field-hosp" style="display:none;margin-top:16px">
                                 <label>Platelet Count</label>
-                                <input type="number" id="req-platelet-count-hosp" placeholder="e.g. 50000" min="0" oninput="syncForm()">
+                                <input type="number" id="req-platelet-count-hosp" placeholder="e.g. 50000" min="0" step="1" inputmode="numeric" oninput="syncForm()">
+                                <div class="form-inline-error" id="req-platelet-count-hosp-error"></div>
                             </div>
 
                             <!-- Clinical Information -->
@@ -572,15 +585,18 @@
                                 <div class="form-grid-2">
                                     <div class="fg form-full">
                                         <label>Clinical Impression / Diagnosis</label>
-                                        <textarea id="pat-diagnosis-hosp" placeholder="Brief clinical reason for the blood request..." oninput="syncForm()"></textarea>
+                                        <textarea id="pat-diagnosis-hosp" placeholder="e.g. Acute bleeding, Hemophilia A, etc." maxlength="250" oninput="syncForm()"></textarea>
+                                        <div class="form-inline-error" id="pat-diagnosis-hosp-error"></div>
                                     </div>
                                     <div class="fg">
                                         <label>Hemoglobin (g/L)</label>
-                                        <input type="number" id="pat-hemoglobin-hosp" placeholder="e.g. 85" min="0" max="200" step="0.1" oninput="syncForm()">
+                                        <input type="text" id="pat-hemoglobin-hosp" placeholder="e.g. 85" maxlength="3" inputmode="numeric" autocomplete="off" oninput="syncForm()">
+                                        <div class="form-inline-error" id="pat-hemoglobin-hosp-error"></div>
                                     </div>
                                     <div class="fg">
-                                        <label>Hematocrit (as decimal, e.g. 0.25 for 25%)</label>
-                                        <input type="number" id="pat-hematocrit-hosp" placeholder="e.g. 0.25" min="0" max="1" step="0.01" oninput="syncForm()">
+                                        <label>Hematocrit</label>
+                                        <input type="text" id="pat-hematocrit-hosp" placeholder="e.g. .25" maxlength="5" inputmode="decimal" autocomplete="off" oninput="syncForm()">
+                                        <div class="form-inline-error" id="pat-hematocrit-hosp-error"></div>
                                     </div>
                                 </div>
                             </div>
@@ -638,7 +654,8 @@
                                         </div>
                                         <div class="fg">
                                             <label>Number of Units</label>
-                                            <input type="number" id="prev-transfusion-units-hosp" placeholder="e.g. 2" min="0" max="50" oninput="syncForm()">
+                                            <input type="number" id="prev-transfusion-units-hosp" placeholder="e.g. 2" min="0" max="99" inputmode="numeric" oninput="syncForm()">
+                                            <div class="form-inline-error" id="prev-transfusion-units-hosp-error"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -667,7 +684,8 @@
                                         </div>
                                         <div class="fg form-full">
                                             <label>Type / Details of Reaction</label>
-                                            <textarea id="prev-reaction-details-hosp" placeholder="e.g. Fever, rash, anaphylaxis, chills, etc." oninput="syncForm()"></textarea>
+                                            <textarea id="prev-reaction-details-hosp" placeholder="Describe the reaction..." maxlength="250" oninput="syncForm()"></textarea>
+                                            <div class="form-inline-error" id="prev-reaction-details-hosp-error"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -1458,6 +1476,15 @@
                                 </div>
                             </div>
 
+                            <!-- Acknowledgment Checkbox -->
+                            <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:12px;padding:16px;margin-top:20px;display:flex;align-items:flex-start;gap:12px">
+                                <input type="checkbox" id="ack-confirm-hosp" style="margin-top:3px;width:18px;height:18px;cursor:pointer;flex-shrink:0">
+                                <label for="ack-confirm-hosp" style="font-size:13px;line-height:1.6;color:var(--charcoal);cursor:pointer;flex:1">
+                                    I acknowledge that all information provided above is accurate and complete to the best of my knowledge. I understand that any false or misleading information may result in the rejection or cancellation of this blood request.
+                                </label>
+                            </div>
+                            <div class="form-inline-error" id="ack-confirm-hosp-error"></div>
+
                         </div>
                     </div>
                 </div>
@@ -2030,7 +2057,8 @@
                     <div class="form-grid-2" style="margin-bottom:14px">
                     <div class="fg">
                         <label>Hospital Name <span class="req">*</span></label>
-                        <input type="text" id="profile-hospital-name-input" placeholder="Hospital Name">
+                        <input type="text" id="profile-hospital-name-input" placeholder="Hospital Name" maxlength="25" aria-describedby="profile-hospital-name-input-error">
+                        <div class="form-inline-error" id="profile-hospital-name-input-error"></div>
                     </div>
                     <div class="fg">
                         <label>Hospital Type</label>
@@ -2044,15 +2072,18 @@
                     </div>
                     <div class="fg form-full">
                         <label>Complete Address <span class="req">*</span></label>
-                        <input type="text" id="profile-address-input" placeholder="Complete Address">
+                        <input type="text" id="profile-address-input" placeholder="Complete Address" maxlength="50" aria-describedby="profile-address-input-error">
+                        <div class="form-inline-error" id="profile-address-input-error"></div>
                     </div>
                     <div class="fg">
                         <label>City / Municipality <span class="req">*</span></label>
-                        <input type="text" id="profile-city-input" placeholder="City / Municipality">
+                        <input type="text" id="profile-city-input" placeholder="City / Municipality" maxlength="25" aria-describedby="profile-city-input-error">
+                        <div class="form-inline-error" id="profile-city-input-error"></div>
                     </div>
                     <div class="fg">
                         <label>Province / Region <span class="req">*</span></label>
-                        <input type="text" id="profile-province-input" placeholder="Province / Region">
+                        <input type="text" id="profile-province-input" placeholder="Province / Region" maxlength="25" aria-describedby="profile-province-input-error">
+                        <div class="form-inline-error" id="profile-province-input-error"></div>
                     </div>
                     </div>
         
@@ -2060,12 +2091,14 @@
                     <div class="form-grid-2">
                     <div class="fg">
                         <label>Email Address <span class="req">*</span></label>
-                        <input type="email" id="profile-email-input" placeholder="Email Address" readonly>
+                        <input type="email" id="profile-email-input" placeholder="Email Address" maxlength="50" readonly aria-describedby="profile-email-input-error">
+                        <div class="form-inline-error" id="profile-email-input-error"></div>
                         <div style="font-size:11px;color:var(--muted);margin-top:4px">Cannot be changed</div>
                     </div>
                     <div class="fg">
                         <label>Phone Number</label>
-                        <input type="tel" id="profile-phone-input" placeholder="Phone Number">
+                        <input type="tel" id="profile-phone-input" placeholder="+639XXXXXXXXX" value="+63" maxlength="13" inputmode="numeric" autocomplete="tel" aria-describedby="profile-phone-input-error">
+                        <div class="form-inline-error" id="profile-phone-input-error"></div>
                     </div>
                     <div class="fg">
                         <label>Blood Bank Contact Person</label>
@@ -2073,7 +2106,8 @@
                     </div>
                     <div class="fg">
                         <label>Blood Bank Hotline</label>
-                        <input type="tel" id="profile-contact-phone-input" placeholder="Direct line to your blood bank dept.">
+                        <input type="tel" id="profile-contact-phone-input" placeholder="+639XXXXXXXXX" value="+63" maxlength="13" inputmode="numeric" autocomplete="tel" aria-describedby="profile-contact-phone-input-error">
+                        <div class="form-inline-error" id="profile-contact-phone-input-error"></div>
                     </div>
                     </div>
         
@@ -2118,10 +2152,10 @@
                         <span style="font-size:12px;color:var(--muted)">Account Type</span>
                         <span style="font-size:12px;font-weight:700;color:var(--navy)" id="profile-account-type-display">HOSPITAL</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+                    <!-- <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
                         <span style="font-size:12px;color:var(--muted)">Email Verified</span>
                         <span style="font-size:12px;font-weight:700;color:var(--green)" id="profile-verified-display">✓ Verified</span>
-                    </div>
+                    </div> -->
                     <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
                         <span style="font-size:12px;color:var(--muted)">Total Requests</span>
                         <span style="font-size:12px;font-weight:700;color:var(--navy)" id="prof-total">—</span>
