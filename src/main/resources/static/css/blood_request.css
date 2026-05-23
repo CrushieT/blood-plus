@@ -486,35 +486,6 @@ nav {
     background: rgba(255,255,255,0.05);
   }
 
-  /* ── STATS BAR ── */
-  .stats-bar {
-    position: relative; z-index: 5;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    padding: 24px 60px;
-    display: flex;
-    justify-content: center;
-    gap: 64px;
-  }
-
-  .stat {
-    text-align: center;
-  }
-
-  .stat-num {
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    font-weight: 900;
-    color: white;
-  }
-
-  .stat-label {
-    font-size: 11px;
-    color: rgba(255,255,255,0.35);
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
-
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -1380,7 +1351,6 @@ nav {
   /* ── RESPONSIVE ── */
 @media (max-width: 680px) {
     nav { padding: 20px 24px; }
-    .stats-bar { gap: 32px; padding: 20px 24px; flex-wrap: wrap; }
   .form-body, .tracker-body { padding: 24px 20px; }
   .scan-fill-quick-action { flex-direction: column; align-items: stretch; }
   .btn-scan-populate { width: 100%; }
