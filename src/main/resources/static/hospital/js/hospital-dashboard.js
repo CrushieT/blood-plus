@@ -195,7 +195,6 @@ function renderDashboard() {
   document.getElementById('dash-stat-released').textContent = released;
   document.getElementById('dash-stat-total').textContent    = total;
   document.getElementById('dash-stat-units').textContent    = units;
-  document.getElementById('nav-pending-count').textContent  = pending;
   document.getElementById('prof-total').textContent = total;
 
   // Recent requests table
@@ -520,54 +519,341 @@ function hideErrorHosp() {
 // VALIDATION
 // ──────────────────────────────────────────────────────────────
 
-/**
- * Validate current step
- */
-function validateStepHosp(step) {
-  hideErrorHosp();
+let firstInvalidFieldHosp = null;
+
+function setFieldError(inputId, message) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) {
+    input.classList.add('field-error');
+    if (!firstInvalidFieldHosp) firstInvalidFieldHosp = input;
+  }
+  if (errorEl) {
+    errorEl.textContent = message || '';
+    errorEl.classList.add('show');
+  }
+}
+
+function clearFieldError(inputId) {
+  const input = document.getElementById(inputId);
+  const errorEl = document.getElementById(`${inputId}-error`);
+  if (input) input.classList.remove('field-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.classList.remove('show');
+  }
+}
+
+function clearAllFieldErrorsHosp() {
+  firstInvalidFieldHosp = null;
+  document.querySelectorAll('#panel-newrequest .field-error').forEach((el) => el.classList.remove('field-error'));
+  document.querySelectorAll('#panel-newrequest .form-inline-error').forEach((el) => {
+    el.textContent = '';
+    el.classList.remove('show');
+  });
+}
+
+function focusFirstInvalidField() {
+  if (!firstInvalidFieldHosp) return;
+  firstInvalidFieldHosp.focus();
+  firstInvalidFieldHosp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function normalizeWhitespaceHosp(value) {
+  return String(value || '').replace(/\s{2,}/g, ' ');
+}
+
+function toTitleCaseHosp(value) {
+  return normalizeWhitespaceHosp(value)
+    .split(' ')
+    .map((word) => word
+      .split(/([\-'.])/)
+      .map((part) => (/^[-'.]$/.test(part) || !part ? part : `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`))
+      .join(''))
+    .join(' ');
+}
+
+function hasScriptLikeInputHosp(value) {
+  return /<[^>]*>|<\/?script\b/i.test(String(value || ''));
+}
+
+function validatePersonNameField(inputId, label, required = false) {
+  const input = document.getElementById(inputId);
+  if (!input) return true;
+
+  input.value = toTitleCaseHosp(input.value).slice(0, 25);
+  clearFieldError(inputId);
+
+  if (!input.value) {
+    if (required) {
+      setFieldError(inputId, `Please enter a valid ${label}.`);
+      return false;
+    }
+    return true;
+  }
+
+  if (hasScriptLikeInputHosp(input.value) || !/^[A-Za-z .'-]+$/.test(input.value) || !/[A-Za-z]/.test(input.value)) {
+    setFieldError(inputId, `Please enter a valid ${label}.`);
+    return false;
+  }
+
+  return true;
+}
+
+function validateSuffixFieldHosp() {
+  const input = document.getElementById('pat-suffix-hosp');
+  if (!input) return true;
+
+  input.value = normalizeWhitespaceHosp(input.value).slice(0, 10);
+  clearFieldError('pat-suffix-hosp');
+
+  if (!input.value) return true;
+
+  if (hasScriptLikeInputHosp(input.value) || !/^[A-Za-z0-9. ]+$/.test(input.value)) {
+    setFieldError('pat-suffix-hosp', 'Suffix may only contain letters, numbers, spaces, and periods.');
+    return false;
+  }
+
+  return true;
+}
+
+function validateSimpleTextField(inputId, label, maxLength, required, pattern, customMessage) {
+  const input = document.getElementById(inputId);
+  if (!input) return true;
+
+  const shouldTitleCase = ['pat-purok-hosp', 'pat-barangay-hosp', 'pat-municipality-hosp', 'pat-province-hosp', 'pat-ward-hosp'].includes(inputId);
+  input.value = (shouldTitleCase ? toTitleCaseHosp(input.value) : normalizeWhitespaceHosp(input.value)).slice(0, maxLength);
+  clearFieldError(inputId);
+
+  if (!input.value) {
+    if (required) {
+      setFieldError(inputId, `${label} is required.`);
+      return false;
+    }
+    return true;
+  }
+
+  if (hasScriptLikeInputHosp(input.value) || (pattern && !pattern.test(input.value))) {
+    setFieldError(inputId, customMessage || `${label} contains invalid characters.`);
+    return false;
+  }
+
+  return true;
+}
+
+function enforceHemoglobinFormatHosp() {
+  const input = document.getElementById('pat-hemoglobin-hosp');
+  if (!input) return;
+  input.value = String(input.value || '').replace(/\D/g, '').slice(0, 3);
+}
+
+function validateHemoglobinFieldHosp() {
+  const input = document.getElementById('pat-hemoglobin-hosp');
+  if (!input) return true;
+
+  input.value = normalizeWhitespaceHosp(input.value);
+  clearFieldError('pat-hemoglobin-hosp');
+  if (!input.value) return true;
+
+  if (!/^\d{1,3}$/.test(input.value)) {
+    setFieldError('pat-hemoglobin-hosp', 'Hemoglobin must contain numbers only and up to 3 digits.');
+    return false;
+  }
+
+  return true;
+}
+
+function enforceHematocritFormatHosp() {
+  const input = document.getElementById('pat-hematocrit-hosp');
+  if (!input) return;
+
+  let raw = String(input.value || '');
+  if (!raw.trim()) {
+    input.value = '.';
+    return;
+  }
+
+  raw = raw.replace(/\s+/g, '').replace(/[^0-9.]/g, '');
+  const dotIdx = raw.indexOf('.');
+  const tail = (dotIdx >= 0 ? raw.slice(dotIdx + 1) : raw).replace(/\./g, '');
+  input.value = tail ? `.${tail.slice(0, 4)}` : '.';
+}
+
+function validateHematocritFieldHosp() {
+  const input = document.getElementById('pat-hematocrit-hosp');
+  if (!input) return true;
+
+  input.value = normalizeWhitespaceHosp(input.value);
+  clearFieldError('pat-hematocrit-hosp');
+  if (!input.value || input.value === '.') return true;
+
+  if (!/^\.\d{1,4}$/.test(input.value)) {
+    setFieldError('pat-hematocrit-hosp', 'Hematocrit must follow decimal format like .25.');
+    return false;
+  }
+
+  const numeric = Number(`0${input.value}`);
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 1) {
+    setFieldError('pat-hematocrit-hosp', 'Hematocrit must follow decimal format like .25.');
+    return false;
+  }
+
+  return true;
+}
+
+function validateUnitsFieldHosp() {
+  const input = document.getElementById('req-units-hosp');
+  if (!input) return true;
+
+  clearFieldError('req-units-hosp');
+  input.value = String(input.value || '').replace(/\D/g, '').slice(0, 2);
+  if (!input.value || !/^\d{1,2}$/.test(input.value)) {
+    setFieldError('req-units-hosp', 'Units must be between 1 and 99.');
+    return false;
+  }
+
+  const numeric = Number(input.value);
+  if (!Number.isFinite(numeric) || numeric < 1 || numeric > 99) {
+    setFieldError('req-units-hosp', 'Units must be between 1 and 99.');
+    return false;
+  }
+
+  return true;
+}
+
+function validatePlateletCountFieldHosp() {
+  const input = document.getElementById('req-platelet-count-hosp');
+  if (!input) return true;
+
+  clearFieldError('req-platelet-count-hosp');
+  input.value = String(input.value || '').replace(/\D/g, '');
+  if (!input.value) return true;
+
+  if (!/^\d+$/.test(input.value)) {
+    setFieldError('req-platelet-count-hosp', 'Platelet count must be a valid number.');
+    return false;
+  }
+  return true;
+}
+
+function validatePrevTransfusionUnitsFieldHosp() {
+  const input = document.getElementById('prev-transfusion-units-hosp');
+  if (!input) return true;
+
+  clearFieldError('prev-transfusion-units-hosp');
+  input.value = String(input.value || '').replace(/\D/g, '').slice(0, 2);
+  const isYes = document.querySelector('input[name="prev-transfusion-hosp"][value="yes"]')?.checked;
+  if (!isYes || !input.value) return true;
+
+  const numeric = Number(input.value);
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 99) {
+    setFieldError('prev-transfusion-units-hosp', 'Previous transfusion units must be between 0 and 99.');
+    return false;
+  }
+  return true;
+}
+
+function validateDateNeededFieldHosp() {
+  const input = document.getElementById('req-date-needed-hosp');
+  if (!input) return true;
+
+  clearFieldError('req-date-needed-hosp');
+  if (!input.value) return true;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selected = new Date(input.value);
+  selected.setHours(0, 0, 0, 0);
+
+  if (selected < today) {
+    setFieldError('req-date-needed-hosp', 'Date needed cannot be in the past.');
+    return false;
+  }
+  return true;
+}
+
+function validateHospitalFieldGroupsHosp(step) {
+  let valid = true;
 
   if (step === 1) {
-    // Validate patient info
-    const firstName = document.getElementById('pat-firstname-hosp')?.value?.trim();
-    const lastName = document.getElementById('pat-lastname-hosp')?.value?.trim();
+    valid = validatePersonNameField('pat-firstname-hosp', 'first name', true) && valid;
+    valid = validatePersonNameField('pat-middlename-hosp', 'middle name', false) && valid;
+    valid = validatePersonNameField('pat-lastname-hosp', 'last name', true) && valid;
+    valid = validateSuffixFieldHosp() && valid;
+    valid = validateSimpleTextField('pat-purok-hosp', 'Purok', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-province-hosp', 'Province', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-ward-hosp', 'Ward', 25, false, /^[A-Za-z0-9()\- ]*$/, 'Ward must not exceed 25 characters.') && valid;
+    valid = validateSimpleTextField('pat-room-hosp', 'Room number', 25, false, /^[A-Za-z0-9,\- ]*$/, 'Room number must not exceed 25 characters.') && valid;
+    const physicianValid = validatePersonNameField('pat-physician-hosp', 'requesting physician', true);
+    if (!physicianValid) setFieldError('pat-physician-hosp', 'Please enter a valid requesting physician.');
+    valid = physicianValid && valid;
+  }
+
+  if (step === 2) {
+    valid = validateUnitsFieldHosp() && valid;
+    valid = validatePlateletCountFieldHosp() && valid;
+    valid = validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.') && valid;
+    valid = validateHemoglobinFieldHosp() && valid;
+    valid = validateHematocritFieldHosp() && valid;
+    valid = validatePrevTransfusionUnitsFieldHosp() && valid;
+    valid = validateSimpleTextField('prev-reaction-details-hosp', 'Reaction details', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Reaction details must not exceed 250 characters.') && valid;
+    valid = validateDateNeededFieldHosp() && valid;
+  }
+
+  return valid;
+}
+
+function validateAcknowledgementHosp() {
+  const ack = document.getElementById('ack-confirm-hosp');
+  if (!ack) return true;
+
+  clearFieldError('ack-confirm-hosp');
+  if (ack.checked) return true;
+
+  setFieldError('ack-confirm-hosp', 'Please acknowledge that the information provided is accurate before submitting.');
+  showErrorHosp('Please acknowledge that the information provided is accurate before submitting.');
+  ack.focus();
+  ack.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return false;
+}
+
+function validateStepHosp(step) {
+  hideErrorHosp();
+  clearAllFieldErrorsHosp();
+
+  if (!validateHospitalFieldGroupsHosp(step)) {
+    showErrorHosp('Please correct the highlighted fields before proceeding.');
+    focusFirstInvalidField();
+    return false;
+  }
+
+  if (step === 1) {
     const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
     const sex = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
-    const physician = document.getElementById('pat-physician-hosp')?.value?.trim();
     const category = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
 
     if (!category) {
       showErrorHosp('Please select a request category.');
       return false;
     }
-    if (!firstName) {
-      showErrorHosp('Please enter patient first name.');
-      return false;
-    }
-    if (!lastName) {
-      showErrorHosp('Please enter patient last name.');
-      return false;
-    }
     if (!birthdate) {
+      setFieldError('pat-birthdate-hosp', 'Please enter patient date of birth.');
       showErrorHosp('Please enter patient date of birth.');
+      focusFirstInvalidField();
       return false;
     }
     if (!sex) {
       showErrorHosp('Please select patient sex.');
       return false;
     }
-    if (!physician) {
-      showErrorHosp('Please enter requesting physician name.');
-      return false;
-    }
-
     return true;
   }
 
   if (step === 2) {
-    // Validate blood details
     const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
     const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
-    const units = document.getElementById('req-units-hosp')?.value;
     const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
     const plateletCount = document.getElementById('req-platelet-count-hosp')?.value;
 
@@ -579,20 +865,15 @@ function validateStepHosp(step) {
       showErrorHosp('Please select blood component.');
       return false;
     }
-    if (!units || parseInt(units) < 1) {
-      showErrorHosp('Please enter number of units (minimum 1).');
-      return false;
-    }
     if (!requestType) {
       showErrorHosp('Please select request type (STAT or ROUTINE).');
       return false;
     }
     if (component === 'PLATELET_CONCENTRATE' && plateletCount && parseInt(plateletCount, 10) < 0) {
-      showErrorHosp('Platelet count cannot be negative.');
+      showErrorHosp('Platelet count must be a valid number.');
       return false;
     }
 
-    // Check urgency
     if (requestType === 'ROUTINE') {
       const urgency = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value;
       if (!urgency) {
@@ -601,7 +882,6 @@ function validateStepHosp(step) {
       }
     }
 
-    // Check indication
     const indicationSelected = document.querySelector('#panel-newrequest .indication-checkbox[id*="-hosp"]:checked');
     if (INDICATION_REQUIRED_COMPONENTS_HOSP.includes(component) && !indicationSelected) {
       document.getElementById('err-indication-hosp').style.display = 'block';
@@ -612,18 +892,14 @@ function validateStepHosp(step) {
       showErrorHosp('Please specify the indication for this component.');
       return false;
     }
-
     return true;
   }
 
   if (step === 3) {
-    // Validate documents - Check the global variable, not the input element
-    console.log('Validating documents. docFileHosp:', docFileHosp);
     if (!docFileHosp) {
       showErrorHosp('Please upload Doctor\'s Blood Request Form.');
       return false;
     }
-
     return true;
   }
 
@@ -656,7 +932,7 @@ function calculateAgeHosp() {
   }
 
   // Auto-determine patient type
-  const patientType = age >= 13 ? 'Adult (≥13 years)' : 'Pediatric (<13 years)';
+  const patientType = age <= 13 ? 'Pediatric (<=13 years)' : 'Adult (>=14 years)';
   document.getElementById('patient-type-display-hosp').textContent = `${patientType} - Age: ${age} years`;
 
   // Update indication groups when patient type changes
@@ -679,7 +955,7 @@ function getPatientTypeHosp() {
     age--;
   }
 
-  return age >= 13 ? 'ADULT' : 'PEDIA';
+  return age <= 13 ? 'PEDIA' : 'ADULT';
 }
 
 /**
@@ -942,6 +1218,7 @@ function togglePrevTransfusionFieldsHosp() {
       fieldsDiv.style.display = 'none';
       document.getElementById('prev-transfusion-date-hosp').value = '';
       document.getElementById('prev-transfusion-units-hosp').value = '';
+      clearFieldError('prev-transfusion-units-hosp');
     }
   }
 }
@@ -960,6 +1237,7 @@ function togglePrevReactionFieldsHosp() {
       fieldsDiv.style.display = 'none';
       document.getElementById('prev-reaction-date-hosp').value = '';
       document.getElementById('prev-reaction-details-hosp').value = '';
+      clearFieldError('prev-reaction-details-hosp');
     }
   }
 }
@@ -1106,7 +1384,8 @@ function populateReviewHosp() {
   
   document.getElementById('review-hemoglobin').textContent = document.getElementById('pat-hemoglobin-hosp').value || '—';
   const hematocrit = document.getElementById('pat-hematocrit-hosp').value;
-  document.getElementById('review-hematocrit').textContent = hematocrit ? (parseFloat(hematocrit) * 100).toFixed(1) + '%' : '—';
+  const hematocritNumeric = /^\.\d{1,4}$/.test(String(hematocrit || '').trim()) ? Number(`0${hematocrit}`) : null;
+  document.getElementById('review-hematocrit').textContent = Number.isFinite(hematocritNumeric) ? (hematocritNumeric * 100).toFixed(1) + '%' : '—';
   document.getElementById('review-diagnosis').textContent = document.getElementById('pat-diagnosis-hosp').value || '—';
   
   if (indicationSubmission.reviewItems.length > 0) {
@@ -1318,7 +1597,22 @@ function newAnotherRequest() {
 async function submitRequestHosp() {
   hideErrorHosp();
 
-  if (!validateStepHosp(TOTAL_STEPS_HOSP - 1)) {
+  if (!validateStepHosp(1)) {
+    currentStepHosp = 1;
+    updateStepUI();
+    return;
+  }
+  if (!validateStepHosp(2)) {
+    currentStepHosp = 2;
+    updateStepUI();
+    return;
+  }
+  if (!validateStepHosp(3)) {
+    currentStepHosp = 3;
+    updateStepUI();
+    return;
+  }
+  if (!validateAcknowledgementHosp()) {
     return;
   }
 
@@ -1349,8 +1643,8 @@ async function submitRequestHosp() {
   const urgencyLevel = getUrgencyLevelHosp();
   const requiredBy = document.getElementById('req-date-needed-hosp').value;
 
-  const hemoglobin = document.getElementById('pat-hemoglobin-hosp').value;
-  const hematocrit = document.getElementById('pat-hematocrit-hosp').value;
+  const hemoglobin = normalizeWhitespaceHosp(document.getElementById('pat-hemoglobin-hosp').value);
+  const hematocrit = normalizeWhitespaceHosp(document.getElementById('pat-hematocrit-hosp').value);
 
   const hadPreviousTransfusion = document.querySelector('input[name="prev-transfusion-hosp"]:checked')?.value === 'yes';
   const previousTransfusionDate = hadPreviousTransfusion ? document.getElementById('prev-transfusion-date-hosp').value : null;
@@ -1400,8 +1694,8 @@ async function submitRequestHosp() {
     urgencyLevel: urgencyLevel,
     requiredBy: requiredBy || null,
 
-    hemoglobin: hemoglobin ? parseFloat(hemoglobin) : null,
-    hematocrit: hematocrit ? parseFloat(hematocrit) : null,
+    hemoglobin: hemoglobin && /^\d{1,3}$/.test(hemoglobin) ? parseInt(hemoglobin, 10) : null,
+    hematocrit: hematocrit && /^\.\d{1,4}$/.test(hematocrit) ? Number(`0${hematocrit}`) : null,
 
     hadPreviousTransfusion: hadPreviousTransfusion,
     previousTransfusionDate: previousTransfusionDate,
@@ -1509,11 +1803,70 @@ function resetFormHosp() {
   document.getElementById('platelet-count-field-hosp').style.display = 'none';
   document.getElementById('err-indication-hosp').style.display = 'none';
 
+  clearAllFieldErrorsHosp();
   hideErrorHosp();
 }
 
 function buildIndicationOtherSpecify() {
   return buildIndicationOtherSpecifyHosp();
+}
+
+function bindHospitalValidationInput(inputId, onInputHandler, onBlurHandler, onFocusHandler) {
+  const input = document.getElementById(inputId);
+  if (!input || input.dataset.validationBoundHosp === '1') return;
+
+  input.dataset.validationBoundHosp = '1';
+  if (onInputHandler) input.addEventListener('input', onInputHandler);
+  if (onBlurHandler) input.addEventListener('blur', onBlurHandler);
+  if (onFocusHandler) input.addEventListener('focus', onFocusHandler);
+}
+
+function attachHospitalRequestValidationListeners() {
+  bindHospitalValidationInput('pat-firstname-hosp', () => validatePersonNameField('pat-firstname-hosp', 'first name', true), () => validatePersonNameField('pat-firstname-hosp', 'first name', true));
+  bindHospitalValidationInput('pat-middlename-hosp', () => validatePersonNameField('pat-middlename-hosp', 'middle name', false), () => validatePersonNameField('pat-middlename-hosp', 'middle name', false));
+  bindHospitalValidationInput('pat-lastname-hosp', () => validatePersonNameField('pat-lastname-hosp', 'last name', true), () => validatePersonNameField('pat-lastname-hosp', 'last name', true));
+  bindHospitalValidationInput('pat-birthdate-hosp', () => clearFieldError('pat-birthdate-hosp'));
+  bindHospitalValidationInput('pat-suffix-hosp', validateSuffixFieldHosp, validateSuffixFieldHosp);
+
+  bindHospitalValidationInput('pat-purok-hosp', () => validateSimpleTextField('pat-purok-hosp', 'Purok', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-purok-hosp', 'Purok', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-barangay-hosp', () => validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-municipality-hosp', () => validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-province-hosp', () => validateSimpleTextField('pat-province-hosp', 'Province', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-province-hosp', 'Province', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-ward-hosp', () => validateSimpleTextField('pat-ward-hosp', 'Ward', 25, false, /^[A-Za-z0-9()\- ]*$/, 'Ward must not exceed 25 characters.'), () => validateSimpleTextField('pat-ward-hosp', 'Ward', 25, false, /^[A-Za-z0-9()\- ]*$/, 'Ward must not exceed 25 characters.'));
+  bindHospitalValidationInput('pat-room-hosp', () => validateSimpleTextField('pat-room-hosp', 'Room number', 25, false, /^[A-Za-z0-9,\- ]*$/, 'Room number must not exceed 25 characters.'), () => validateSimpleTextField('pat-room-hosp', 'Room number', 25, false, /^[A-Za-z0-9,\- ]*$/, 'Room number must not exceed 25 characters.'));
+  bindHospitalValidationInput('pat-physician-hosp', () => validatePersonNameField('pat-physician-hosp', 'requesting physician', true), () => validatePersonNameField('pat-physician-hosp', 'requesting physician', true));
+
+  bindHospitalValidationInput('req-units-hosp', validateUnitsFieldHosp, validateUnitsFieldHosp);
+  bindHospitalValidationInput('req-platelet-count-hosp', validatePlateletCountFieldHosp, validatePlateletCountFieldHosp);
+  bindHospitalValidationInput('pat-diagnosis-hosp', () => validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.'), () => validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.'));
+
+  bindHospitalValidationInput('pat-hemoglobin-hosp', () => {
+    enforceHemoglobinFormatHosp();
+    validateHemoglobinFieldHosp();
+  }, validateHemoglobinFieldHosp);
+
+  bindHospitalValidationInput('pat-hematocrit-hosp', () => {
+    enforceHematocritFormatHosp();
+    validateHematocritFieldHosp();
+  }, validateHematocritFieldHosp, () => {
+    const input = document.getElementById('pat-hematocrit-hosp');
+    if (input && !String(input.value || '').trim()) input.value = '.';
+  });
+
+  bindHospitalValidationInput('prev-transfusion-units-hosp', validatePrevTransfusionUnitsFieldHosp, validatePrevTransfusionUnitsFieldHosp);
+  bindHospitalValidationInput('prev-reaction-details-hosp', () => validateSimpleTextField('prev-reaction-details-hosp', 'Reaction details', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Reaction details must not exceed 250 characters.'), () => validateSimpleTextField('prev-reaction-details-hosp', 'Reaction details', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Reaction details must not exceed 250 characters.'));
+  bindHospitalValidationInput('req-date-needed-hosp', validateDateNeededFieldHosp, validateDateNeededFieldHosp);
+
+  const ack = document.getElementById('ack-confirm-hosp');
+  if (ack && ack.dataset.validationBoundHosp !== '1') {
+    ack.dataset.validationBoundHosp = '1';
+    ack.addEventListener('change', () => {
+      if (ack.checked) {
+        clearFieldError('ack-confirm-hosp');
+        hideErrorHosp();
+      }
+    });
+  }
 }
 
 /**
@@ -1528,6 +1881,8 @@ function syncForm() {
 // ──────────────────────────────────────────────────────────────
 
 function initializeFormHosp() {
+  attachHospitalRequestValidationListeners();
+
   const birthdateInput = document.getElementById('pat-birthdate-hosp');
   if (birthdateInput) {
     const today = new Date().toISOString().split('T')[0];
@@ -2774,20 +3129,22 @@ function populateProfileForm(data) {
     document.getElementById('profile-province-input').value = data.province || '';
     
     // Phone
-    document.getElementById('profile-phone-input').value = data.phoneNumber || '';
+    document.getElementById('profile-phone-input').value = formatProfilePhoneValue(data.phoneNumber || '');
     
     // Contact person
     document.getElementById('profile-contact-name-input').value = data.contactPersonName || '';
-    document.getElementById('profile-contact-phone-input').value = data.contactPersonPhone || '';
+    document.getElementById('profile-contact-phone-input').value = formatProfilePhoneValue(data.contactPersonPhone || '');
     
-    // Verified status
-    if (data.emailVerified) {
-        document.getElementById('profile-verified-display').textContent = '✓ Verified';
-        document.getElementById('profile-verified-tag').textContent = '✓ Verified';
-    } else {
-        document.getElementById('profile-verified-display').textContent = '⚠ Pending';
-        document.getElementById('profile-verified-tag').textContent = '⚠ Pending';
-    }
+    clearProfileFieldErrors();
+    
+    // // Verified status
+    // if (data.emailVerified) {
+    //     document.getElementById('profile-verified-display').textContent = '✓ Verified';
+    //     document.getElementById('profile-verified-tag').textContent = '✓ Verified';
+    // } else {
+    //     document.getElementById('profile-verified-display').textContent = '⚠ Pending';
+    //     document.getElementById('profile-verified-tag').textContent = '⚠ Pending';
+    // }
     
     // Member since
     if (data.createdAt) {
@@ -2811,30 +3168,176 @@ function resetProfileForm() {
 // Save Profile Modal & Confirmation
 // ──────────────────────────────────────────────────────────────
 
+const profileTextLimits = {
+    'profile-hospital-name-input': { label: 'Hospital name', max: 25, required: true },
+    'profile-address-input': { label: 'Complete address', max: 50, required: true },
+    'profile-city-input': { label: 'City / Municipality', max: 25, required: true },
+    'profile-province-input': { label: 'Province / Region', max: 25, required: true },
+    'profile-email-input': { label: 'Email address', max: 50, required: true }
+};
+
+function clearProfileFieldErrors() {
+    firstInvalidFieldHosp = null;
+    document.querySelectorAll('#panel-profile .field-error').forEach((el) => el.classList.remove('field-error'));
+    document.querySelectorAll('#panel-profile .form-inline-error').forEach((el) => {
+        el.textContent = '';
+        el.classList.remove('show');
+    });
+}
+
+function enforceProfileTextLimit(inputId) {
+    const input = document.getElementById(inputId);
+    const config = profileTextLimits[inputId];
+    if (!input || !config) return;
+
+    input.value = normalizeWhitespaceHosp(input.value).slice(0, config.max);
+    clearFieldError(inputId);
+}
+
+function validateProfileTextField(inputId) {
+    const input = document.getElementById(inputId);
+    const config = profileTextLimits[inputId];
+    if (!input || !config) return true;
+
+    input.value = normalizeWhitespaceHosp(input.value).trim();
+    clearFieldError(inputId);
+
+    if (!input.value) {
+        if (config.required) {
+            setFieldError(inputId, `${config.label} is required.`);
+            return false;
+        }
+        return true;
+    }
+
+    if (input.value.length > config.max) {
+        setFieldError(inputId, `${config.label} must not exceed ${config.max} characters.`);
+        return false;
+    }
+
+    if (hasScriptLikeInputHosp(input.value)) {
+        setFieldError(inputId, `${config.label} contains invalid characters.`);
+        return false;
+    }
+
+    return true;
+}
+
+function validateProfileEmailField() {
+    const input = document.getElementById('profile-email-input');
+    if (!input) return true;
+
+    const valid = validateProfileTextField('profile-email-input');
+    if (!valid || !input.value) return valid;
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
+        setFieldError('profile-email-input', 'Please enter a valid email address.');
+        return false;
+    }
+
+    return true;
+}
+
+function formatProfilePhoneValue(value) {
+    let digits = String(value || '').replace(/\D/g, '');
+
+    if (digits.startsWith('63')) {
+        digits = digits.slice(2);
+    }
+    if (digits.startsWith('0')) {
+        digits = digits.slice(1);
+    }
+
+    return `+63${digits.slice(0, 10)}`;
+}
+
+function validateProfilePhoneField(inputId = 'profile-phone-input', label = 'Phone number') {
+    const input = document.getElementById(inputId);
+    if (!input) return true;
+
+    input.value = formatProfilePhoneValue(input.value);
+    clearFieldError(inputId);
+
+    const digitsAfterPrefix = input.value.slice(3);
+    if (!digitsAfterPrefix) return true;
+
+    if (!/^\d{10}$/.test(digitsAfterPrefix)) {
+        setFieldError(inputId, `${label} must have +63 followed by 10 digits.`);
+        return false;
+    }
+
+    return true;
+}
+
+function enforceProfilePhoneInput(inputId = 'profile-phone-input') {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    input.value = formatProfilePhoneValue(input.value);
+    clearFieldError(inputId);
+}
+
+function getProfilePhoneValueForSave(inputId = 'profile-phone-input') {
+    const input = document.getElementById(inputId);
+    if (!input) return '';
+
+    input.value = formatProfilePhoneValue(input.value);
+    return input.value === '+63' ? '' : input.value;
+}
+
+function validateProfileForm() {
+    clearProfileFieldErrors();
+
+    let valid = true;
+    valid = validateProfileTextField('profile-hospital-name-input') && valid;
+    valid = validateProfileTextField('profile-address-input') && valid;
+    valid = validateProfileTextField('profile-city-input') && valid;
+    valid = validateProfileTextField('profile-province-input') && valid;
+    valid = validateProfileEmailField() && valid;
+    valid = validateProfilePhoneField() && valid;
+    valid = validateProfilePhoneField('profile-contact-phone-input', 'Blood Bank Hotline') && valid;
+
+    if (!valid) {
+        focusFirstInvalidField();
+    }
+
+    return valid;
+}
+
+function attachProfileValidationListeners() {
+    Object.keys(profileTextLimits).forEach((inputId) => {
+        if (inputId === 'profile-email-input') return;
+        bindHospitalValidationInput(inputId, () => enforceProfileTextLimit(inputId), () => validateProfileTextField(inputId));
+    });
+
+    bindHospitalValidationInput('profile-email-input', null, validateProfileEmailField);
+    bindHospitalValidationInput('profile-phone-input', () => enforceProfilePhoneInput('profile-phone-input'), () => validateProfilePhoneField('profile-phone-input', 'Phone number'), () => {
+        const input = document.getElementById('profile-phone-input');
+        if (input && !input.value.trim()) input.value = '+63';
+    });
+    bindHospitalValidationInput(
+        'profile-contact-phone-input',
+        () => enforceProfilePhoneInput('profile-contact-phone-input'),
+        () => validateProfilePhoneField('profile-contact-phone-input', 'Blood Bank Hotline'),
+        () => {
+            const input = document.getElementById('profile-contact-phone-input');
+            if (input && !input.value.trim()) input.value = '+63';
+        }
+    );
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachProfileValidationListeners);
+} else {
+    attachProfileValidationListeners();
+}
+
 /**
  * Open save confirmation modal
  */
 function openSaveConfirmModal() {
-    // Validate required fields
-    const hospitalName = document.getElementById('profile-hospital-name-input').value.trim();
-    const address = document.getElementById('profile-address-input').value.trim();
-    const city = document.getElementById('profile-city-input').value.trim();
-    const province = document.getElementById('profile-province-input').value.trim();
-    
-    if (!hospitalName) {
-        showProfileError('Hospital name is required');
-        return;
-    }
-    if (!address) {
-        showProfileError('Address is required');
-        return;
-    }
-    if (!city) {
-        showProfileError('City is required');
-        return;
-    }
-    if (!province) {
-        showProfileError('Province is required');
+    if (!validateProfileForm()) {
+        showProfileError('Please correct the highlighted fields before saving.');
         return;
     }
     
@@ -2847,6 +3350,11 @@ function openSaveConfirmModal() {
 async function confirmSaveProfile() {
     closeModal('saveProfileConfirmModal');
     
+    if (!validateProfileForm()) {
+        showProfileError('Please correct the highlighted fields before saving.');
+        return;
+    }
+    
     const btn = document.getElementById('btn-save-profile');
     const originalText = btn.textContent;
     btn.disabled = true;
@@ -2858,9 +3366,9 @@ async function confirmSaveProfile() {
             address: document.getElementById('profile-address-input').value.trim(),
             city: document.getElementById('profile-city-input').value.trim(),
             province: document.getElementById('profile-province-input').value.trim(),
-            phoneNumber: document.getElementById('profile-phone-input').value.trim(),
+            phoneNumber: getProfilePhoneValueForSave(),
             contactPersonName: document.getElementById('profile-contact-name-input').value.trim(),
-            contactPersonPhone: document.getElementById('profile-contact-phone-input').value.trim()
+            contactPersonPhone: getProfilePhoneValueForSave('profile-contact-phone-input')
         };
         
         const response = await fetch('/api/hospital/profile', {

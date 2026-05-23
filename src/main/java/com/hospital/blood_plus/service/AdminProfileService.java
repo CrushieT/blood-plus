@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -98,17 +99,13 @@ public class AdminProfileService {
         }
 
         // Validate email uniqueness
-        if (!user.getEmail().equals(request.getEmail())) {
-            if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-                throw new RuntimeException("Email already in use");
-            }
+        if (!user.getEmail().equals(request.getEmail()) && emailBelongsToAnotherUser(request.getEmail(), user)) {
+            throw new RuntimeException("Email already in use");
         }
 
         // Validate username uniqueness
-        if (!user.getUsername().equals(request.getUsername())) {
-            if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-                throw new RuntimeException("Username already in use");
-            }
+        if (!user.getUsername().equals(request.getUsername()) && usernameBelongsToAnotherUser(request.getUsername(), user)) {
+            throw new RuntimeException("Username already in use");
         }
 
         user.setEmail(request.getEmail());
@@ -146,7 +143,7 @@ public class AdminProfileService {
     }
 
     /**
-     * Update staff profile (first name, last name, phone number)
+     * Update staff profile (first name, last name, username, phone number)
      */
     public StaffProfileDTO updateStaffProfile(String email, UpdateStaffProfileRequest request) {
         AppUser user = userRepository.findByEmail(email)
@@ -159,11 +156,25 @@ public class AdminProfileService {
         StaffProfile staff = staffProfileRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Staff profile not found for user: " + email));
 
-        // Update fields
-        staff.setFirstName(request.getFirstName());
-        staff.setLastName(request.getLastName());
-        staff.setPhoneNumber(request.getPhoneNumber());
+        String firstName = normalizeRequiredProfileText(request.getFirstName(), "First name", 25);
+        String lastName = normalizeRequiredProfileText(request.getLastName(), "Last name", 25);
+        String username = normalizeRequiredProfileText(request.getUsername(), "Username", 25);
 
+        if (!username.matches("^[A-Za-z0-9][A-Za-z0-9 ._-]*$")) {
+            throw new RuntimeException("Username may only contain letters, numbers, spaces, dots, underscores, and hyphens.");
+        }
+
+        if (!username.equals(user.getUsername()) && usernameBelongsToAnotherUser(username, user)) {
+            throw new RuntimeException("Username already in use");
+        }
+
+        // Update fields
+        staff.setFirstName(firstName);
+        staff.setLastName(lastName);
+        staff.setPhoneNumber(blankToNull(request.getPhoneNumber()));
+        user.setUsername(username);
+
+        userRepository.save(user);
         staffProfileRepository.save(staff);
 
         return staffProfileToDTO(staff);
@@ -204,6 +215,35 @@ public class AdminProfileService {
     // ═════════════════════════════════════════════════════════════════
     // HELPER METHODS
     // ═════════════════════════════════════════════════════════════════
+
+    private String normalizeRequiredProfileText(String value, String label, int maxLength) {
+        String normalized = value == null ? "" : value.trim().replaceAll("\\s+", " ");
+        if (normalized.isEmpty()) {
+            throw new RuntimeException(label + " is required");
+        }
+        if (normalized.length() > maxLength) {
+            throw new RuntimeException(label + " must not exceed " + maxLength + " characters");
+        }
+        return normalized;
+    }
+
+    private String blankToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean usernameBelongsToAnotherUser(String username, AppUser currentUser) {
+        return userRepository.findByUsername(username)
+                .filter(existing -> !Objects.equals(existing.getId(), currentUser.getId()))
+                .isPresent();
+    }
+
+    private boolean emailBelongsToAnotherUser(String email, AppUser currentUser) {
+        return userRepository.findByEmail(email)
+                .filter(existing -> !Objects.equals(existing.getId(), currentUser.getId()))
+                .isPresent();
+    }
 
     /**
      * Convert StaffProfile entity to DTO
