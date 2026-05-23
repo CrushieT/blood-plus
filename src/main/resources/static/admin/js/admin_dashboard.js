@@ -7974,13 +7974,17 @@ function normalizePositionTitle(value) {
 }
 
 function applyStaffNameFormatting() {
-  const nameFieldIds = ['add-staff-first', 'add-staff-last', 'edit-staff-first', 'edit-staff-last'];
+  const nameFieldIds = ['add-staff-first', 'add-staff-last', 'edit-staff-first', 'edit-staff-last', 'staff-profile-firstname', 'staff-profile-lastname'];
   nameFieldIds.forEach((id) => {
     const el = document.getElementById(id);
     if (!el || el.dataset.nameFormattingBound === '1') return;
     el.dataset.nameFormattingBound = '1';
+    el.addEventListener('input', () => {
+      el.value = String(el.value || '').replace(/[^A-Za-z .'-]/g, ' ').replace(/\s{2,}/g, ' ').slice(0, 25);
+      clearStaffFieldError(id);
+    });
     el.addEventListener('blur', () => {
-      el.value = normalizePersonName(el.value);
+      el.value = normalizePersonName(el.value).slice(0, 25);
       validateStaffNameField(id);
     });
   });
@@ -8018,7 +8022,7 @@ function validateStaffNameField(inputId) {
   const el = document.getElementById(inputId);
   if (!el) return true;
   const value = normalizePersonName(el.value);
-  el.value = value;
+  el.value = value.slice(0, 25);
   let message = 'Please enter a valid name.';
   if (inputId.includes('first')) message = 'Please enter a valid first name.';
   if (inputId.includes('last')) message = 'Please enter a valid last name.';
@@ -8056,6 +8060,31 @@ function validateStaffIdField(inputId) {
   el.value = normalized;
   if (raw.length > 20) {
     return setStaffFieldError(inputId, 'Staff ID must not exceed 20 characters.');
+  }
+  return clearStaffFieldError(inputId);
+}
+
+function normalizeStaffUsername(value) {
+  return String(value || '')
+    .replace(/[^A-Za-z0-9 ._-]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, 25);
+}
+
+function validateStaffProfileUsernameField() {
+  const inputId = 'staff-profile-username';
+  const el = document.getElementById(inputId);
+  if (!el) return true;
+
+  el.value = normalizeStaffUsername(el.value).trim();
+  if (!el.value) {
+    return setStaffFieldError(inputId, 'Username is required.');
+  }
+  if (el.value.length > 25) {
+    return setStaffFieldError(inputId, 'Username must not exceed 25 characters.');
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/.test(el.value)) {
+    return setStaffFieldError(inputId, 'Username may only contain letters, numbers, spaces, dots, underscores, and hyphens.');
   }
   return clearStaffFieldError(inputId);
 }
@@ -8163,6 +8192,24 @@ function bindAddStaffPhoneInput() {
 
 function bindEditStaffPhoneInput() {
   bindStaffPhoneInput('edit-staff-phone');
+}
+
+function bindStaffProfilePhoneInput() {
+  bindStaffPhoneInput('staff-profile-phone');
+}
+
+function validateStaffProfilePhoneField(focusInvalid = false) {
+  const normalizedPhone = lockPhilippinePhoneInput('staff-profile-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+
+  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+    setStaffFieldError('staff-profile-phone', 'Phone number must start with +63 followed by exactly 10 digits.');
+    if (focusInvalid) focusStaffField('staff-profile-phone');
+    return false;
+  }
+
+  clearStaffFieldError('staff-profile-phone');
+  return true;
 }
 
 function staffCloseModals(exceptId = null) {
@@ -10107,9 +10154,18 @@ async function hospSaveEdit() {
     const address = document.getElementById('hosp-edit-address')?.value.trim();
     const city = document.getElementById('hosp-edit-city')?.value.trim();
     const province = document.getElementById('hosp-edit-province')?.value.trim();
+    const email = document.getElementById('hosp-edit-email')?.value.trim().toLowerCase();
+    const newPassword = document.getElementById('hosp-edit-pass')?.value?.trim() || '';
     const phone = lockPhilippinePhoneInput('hosp-edit-phone').trim();
     const contactName = document.getElementById('hosp-edit-contact-name')?.value.trim() || null;
     const contactPhone = lockPhilippinePhoneInput('hosp-edit-contact-phone').trim();
+
+    if (newPassword && newPassword.length < 8) {
+        showBloodPlusMessage('Invalid Password', 'Reset password must be at least 8 characters.', 'error');
+        const passEl = document.getElementById('hosp-edit-pass');
+        if (passEl) passEl.focus();
+        return;
+    }
     
     const btn = document.querySelector('#editHospitalModal .btn-primary');
     if (btn) {
@@ -10123,6 +10179,8 @@ async function hospSaveEdit() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 hospitalName: name, address, city, province,
+                email,
+                newPassword: newPassword || null,
                 phoneNumber: phone, contactPersonName: contactName,
                 contactPersonPhone: contactPhone
             })
@@ -10483,6 +10541,7 @@ function populateStaffProfileForm(data) {
   const firstNameField = document.getElementById('staff-profile-firstname');
   const lastNameField = document.getElementById('staff-profile-lastname');
   const emailField = document.getElementById('staff-profile-email');
+  const usernameField = document.getElementById('staff-profile-username');
   const phoneField = document.getElementById('staff-profile-phone');
   const deptInputField = document.getElementById('staff-profile-department-input');
   const posInputField = document.getElementById('staff-profile-position-input');
@@ -10490,7 +10549,15 @@ function populateStaffProfileForm(data) {
   if (firstNameField) firstNameField.value = data.firstName || '';
   if (lastNameField) lastNameField.value = data.lastName || '';
   if (emailField) emailField.value = (data.user && data.user.email) || '';
-  if (phoneField) phoneField.value = data.phoneNumber || '';
+  if (usernameField) {
+    usernameField.value = normalizeStaffUsername(data.user?.username || '');
+    clearStaffFieldError('staff-profile-username');
+  }
+  if (phoneField) {
+    phoneField.value = data.phoneNumber || '+63';
+    lockPhilippinePhoneInput('staff-profile-phone');
+    clearStaffFieldError('staff-profile-phone');
+  }
   if (deptInputField) deptInputField.value = data.department || '';
   if (posInputField) posInputField.value = data.position || '';
 }
@@ -10520,13 +10587,30 @@ function showStaffProfileDefaultTab() {
 }
 
 async function submitStaffProfileUpdate() {
-  const firstName = document.getElementById('staff-profile-firstname').value;
-  const lastName = document.getElementById('staff-profile-lastname').value;
-  const phoneNumber = document.getElementById('staff-profile-phone').value;
+  const firstNameInput = document.getElementById('staff-profile-firstname');
+  const lastNameInput = document.getElementById('staff-profile-lastname');
+  const usernameInput = document.getElementById('staff-profile-username');
+  if (firstNameInput) firstNameInput.value = normalizePersonName(firstNameInput.value).slice(0, 25);
+  if (lastNameInput) lastNameInput.value = normalizePersonName(lastNameInput.value).slice(0, 25);
+  if (usernameInput) usernameInput.value = normalizeStaffUsername(usernameInput.value);
+
+  const firstName = firstNameInput?.value || '';
+  const lastName = lastNameInput?.value || '';
+  const normalizedPhone = lockPhilippinePhoneInput('staff-profile-phone');
+  const phoneDigits = normalizedPhone.slice(3).replace(/\D/g, '');
+  const phoneNumber = phoneDigits.length === 10 ? normalizedPhone : null;
   
   // Validation
-  if (!firstName || !lastName) {
-    showStaffProfileError('First Name and Last Name are required');
+  let firstInvalidId = '';
+  if (!validateStaffNameField('staff-profile-firstname')) firstInvalidId = 'staff-profile-firstname';
+  if (!validateStaffNameField('staff-profile-lastname') && !firstInvalidId) firstInvalidId = 'staff-profile-lastname';
+  if (!validateStaffProfileUsernameField() && !firstInvalidId) firstInvalidId = 'staff-profile-username';
+  if (!validateStaffProfilePhoneField(true) && !firstInvalidId) firstInvalidId = 'staff-profile-phone';
+  const username = usernameInput?.value || '';
+
+  if (firstInvalidId) {
+    showStaffProfileError('Please correct the highlighted fields before saving.');
+    focusStaffField(firstInvalidId);
     return;
   }
   
@@ -10547,6 +10631,7 @@ async function submitStaffProfileUpdate() {
       body: JSON.stringify({
         firstName: firstName,
         lastName: lastName,
+        username: username,
         phoneNumber: phoneNumber
       })
     });
@@ -10581,6 +10666,8 @@ function resetStaffProfileForm() {
   populateStaffProfileForm(currentUserData);
   document.getElementById('staff-profile-edit-error').style.display = 'none';
   document.getElementById('staff-profile-edit-success').style.display = 'none';
+  ['staff-profile-firstname', 'staff-profile-lastname', 'staff-profile-username', 'staff-profile-phone']
+    .forEach((id) => clearStaffFieldError(id));
 }
 
 function updateSidebarUser(initials, name, role) {
@@ -11029,6 +11116,25 @@ function showStaffSecuritySuccess(message) {
 // ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 function initializeProfileListeners() {
+  bindStaffProfilePhoneInput();
+  applyStaffNameFormatting();
+
+  const staffProfilePhone = document.getElementById('staff-profile-phone');
+  if (staffProfilePhone && staffProfilePhone.dataset.staffProfilePhoneValidationBound !== '1') {
+    staffProfilePhone.dataset.staffProfilePhoneValidationBound = '1';
+    staffProfilePhone.addEventListener('blur', validateStaffProfilePhoneField);
+  }
+
+  const staffProfileUsername = document.getElementById('staff-profile-username');
+  if (staffProfileUsername && staffProfileUsername.dataset.staffProfileUsernameBound !== '1') {
+    staffProfileUsername.dataset.staffProfileUsernameBound = '1';
+    staffProfileUsername.addEventListener('input', () => {
+      staffProfileUsername.value = normalizeStaffUsername(staffProfileUsername.value);
+      clearStaffFieldError('staff-profile-username');
+    });
+    staffProfileUsername.addEventListener('blur', validateStaffProfileUsernameField);
+  }
+
   // Add any additional event listeners if needed
   document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {

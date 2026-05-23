@@ -875,8 +875,8 @@
       <select class="req-select" id="staff-sort" onchange="staffRender()">
         <option value="name_asc">Name A–Z</option>
         <option value="name_desc">Name Z–A</option>
-        <option value="hire_desc">Newest hired</option>
-        <option value="hire_asc">Oldest hired</option>
+        <option value="hire_desc">Newest Created</option>
+        <option value="hire_asc">Oldest Created</option>
         <option value="dept">By department</option>
       </select>
     </div>
@@ -1280,7 +1280,7 @@
                 <span class="profile-info-value" id="staff-profile-department">-</span>
               </div>
               <div class="profile-info-row">
-                <span class="profile-info-label">Hired</span>
+                <span class="profile-info-label">Created</span>
                 <span class="profile-info-value" id="staff-profile-hiredate">-</span>
               </div>
             </div>
@@ -1295,11 +1295,13 @@
             <div class="form-row">
               <div class="form-group-m">
                 <label>First Name <span style="color:var(--crimson)">*</span></label>
-                <input type="text" id="staff-profile-firstname" placeholder="First Name" required>
+                <input type="text" id="staff-profile-firstname" placeholder="First Name" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-firstname-error"></div>
               </div>
               <div class="form-group-m">
                 <label>Last Name <span style="color:var(--crimson)">*</span></label>
-                <input type="text" id="staff-profile-lastname" placeholder="Last Name" required>
+                <input type="text" id="staff-profile-lastname" placeholder="Last Name" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-lastname-error"></div>
               </div>
             </div>
 
@@ -1312,8 +1314,17 @@
 
             <div class="form-row">
               <div class="form-group-m">
+                <label>Username <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="staff-profile-username" placeholder="Username" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-username-error"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
                 <label>Phone Number</label>
-                <input type="tel" id="staff-profile-phone" placeholder="+63 9XX XXX XXXX">
+                <input type="tel" id="staff-profile-phone" placeholder="+639123456789" value="+63" maxlength="13" inputmode="numeric" autocomplete="off" pattern="\+63\d{10}" title="Phone number must start with +63 followed by 10 digits.">
+                <div class="form-inline-error" id="staff-profile-phone-error"></div>
               </div>
             </div>
 

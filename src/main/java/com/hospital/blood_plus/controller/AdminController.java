@@ -866,14 +866,18 @@ public class AdminController {
      */
     @PutMapping("/profile")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdminProfileDTO> updateAdminProfile(
+    public ResponseEntity<?> updateAdminProfile(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody UpdateAdminProfileRequest request) {
-        AdminProfileDTO updated = adminProfileService.updateAdminProfile(
-                userDetails.getUsername(),
-                request
-        );
-        return ResponseEntity.ok(updated);
+        try {
+            AdminProfileDTO updated = adminProfileService.updateAdminProfile(
+                    userDetails.getUsername(),
+                    request
+            );
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
  
     /**
@@ -911,14 +915,18 @@ public class AdminController {
      */
     @PutMapping("/staff/profile")
     @PreAuthorize("hasRole('STAFF')")
-    public ResponseEntity<StaffProfileDTO> updateStaffProfile(
+    public ResponseEntity<?> updateStaffProfile(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody UpdateStaffProfileRequest request) {
-        StaffProfileDTO updated = adminProfileService.updateStaffProfile(
-                userDetails.getUsername(),
-                request
-        );
-        return ResponseEntity.ok(updated);
+        try {
+            StaffProfileDTO updated = adminProfileService.updateStaffProfile(
+                    userDetails.getUsername(),
+                    request
+            );
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
  
     /**

@@ -47,6 +47,8 @@ public class HospitalDTOs {
         private String phoneNumber;
         private String contactPersonName;
         private String contactPersonPhone;
+        private String email;
+        private String newPassword;
 
         public String getHospitalName() { return hospitalName; }
         public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
@@ -68,6 +70,12 @@ public class HospitalDTOs {
 
         public String getContactPersonPhone() { return contactPersonPhone; }
         public void setContactPersonPhone(String contactPersonPhone) { this.contactPersonPhone = contactPersonPhone; }
+
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+
+        public String getNewPassword() { return newPassword; }
+        public void setNewPassword(String newPassword) { this.newPassword = newPassword; }
     }
 
     // ── Hospital Response ──

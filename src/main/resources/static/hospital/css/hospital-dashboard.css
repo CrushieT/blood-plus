@@ -278,6 +278,24 @@ body {
 .fg textarea { resize: none; height: 72px; }
 .fg .hint { font-size: 11px; color: var(--muted); }
 
+.field-error {
+  border-color: #C41E3A !important;
+  box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.12);
+}
+
+.form-inline-error {
+  display: none;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #C41E3A;
+  margin-top: 4px;
+  padding-left: 2px;
+}
+
+.form-inline-error.show {
+  display: block;
+}
+
 /* ── CHIP SELECTORS ───────────────────────── */
 .chip-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 .chip-opt   { position: relative; cursor: pointer; }
