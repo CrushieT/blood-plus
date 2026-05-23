@@ -1,11 +1,11 @@
 
-// ── State ────────────────────────────────────────────────────
+// State
 let registeredEmail    = '';
 let registeredUsername = '';
 let resendInterval     = null;
 let resendSeconds      = 60;
 
-// ── Step navigation ──────────────────────────────────────────
+// Step navigation
 function goToStep(n) {
 document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
 document.getElementById('step' + n).classList.add('active');
@@ -18,7 +18,7 @@ for (let i = 1; i <= 3; i++) {
 }
 }
 
-// ── Field validation ─────────────────────────────────────────
+// Field validation
 function setFieldState(inputId, errId, isValid, forced) {
 const inp = document.getElementById(inputId);
 const err = document.getElementById(errId);
@@ -83,7 +83,7 @@ return setFieldState('confirmPassword', 'confirm-err', cpw.length > 0 && pw === 
 function togglePw(id, btn) {
 const inp = document.getElementById(id);
 inp.type = inp.type === 'password' ? 'text' : 'password';
-btn.textContent = inp.type === 'text' ? '🙈' : '👁';
+btn.textContent = inp.type === 'text' ? 'Hide' : 'Show';
 }
 
 function showAlert(step, msg, type = 'error') {
@@ -98,7 +98,7 @@ const el = document.getElementById(step + '-alert');
 if (el) el.classList.remove('show');
 }
 
-// ── Step 1 submit ────────────────────────────────────────────
+// Step 1 submit
 async function submitStep1() {
 hideAlert('step1');
 const ok = validateUsername(true) & validateEmail(true) & checkPassword() & validateConfirm(true);
@@ -135,7 +135,7 @@ try {
     showAlert('step1', data.message || 'Registration failed. Please try again.');
     }
 } catch {
-    // ── Dev / no-backend fallback ────────────────────────────
+    // Dev / no-backend fallback
     registeredEmail    = payload.email;
     registeredUsername = payload.username;
     document.getElementById('displayEmail').textContent = registeredEmail;
@@ -147,7 +147,7 @@ try {
 }
 }
 
-// ── OTP helpers ──────────────────────────────────────────────
+// OTP helpers
 function otpInput(el, idx) {
 el.value = el.value.replace(/\D/g, '');
 el.classList.toggle('filled', el.value.length > 0);
@@ -192,7 +192,7 @@ if (digits.length === 4) {
 }
 });
 
-// ── Step 2 submit ────────────────────────────────────────────
+// Step 2 submit
 async function submitVerification() {
 hideAlert('step2');
 const code = getOtp();
@@ -224,7 +224,7 @@ try {
     btn.classList.remove('loading'); btn.disabled = false;
     }
 } catch {
-    // Dev fallback — accept any 4-digit input
+    // Dev fallback: accept any 4-digit input
     onVerified();
 }
 }
@@ -240,7 +240,7 @@ setTimeout(() => {
 }, 1200);
 }
 
-// ── Resend ───────────────────────────────────────────────────
+// Resend
 function startResendTimer() {
 resendSeconds = 60;
 const btn     = document.getElementById('resendBtn');

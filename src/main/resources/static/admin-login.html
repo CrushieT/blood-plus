@@ -3,17 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CNPH Blood Bank — Request Portal</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <title>CNPH Blood Bank - Admin Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
   <script src="js/AuthGuard.js"></script>
   <link href="css/admin-login.css" rel="stylesheet" />
-  
 </head>
 <body>
 
-  <!-- Animated background -->
-  <div class="bg-canvas">
+  <div class="bg-canvas" aria-hidden="true">
     <div class="particle"></div>
     <div class="particle"></div>
     <div class="particle"></div>
@@ -21,40 +19,43 @@
     <div class="particle"></div>
   </div>
 
-  <!-- NAV -->
   <nav>
-    <a class="nav-logo" href="#"><span>CNPH</span> Blood Bank</a>
+    <a class="nav-logo logo" href="blood-request.html" aria-label="CNPH Blood Bank">
+      <div class="logo-drop"><span></span></div>
+      <div>
+        <div class="logo-text">CNPH Blood Bank</div>
+        <div class="logo-sub">Camarines Norte Provincial Hospital</div>
+      </div>
+    </a>
     <ul class="nav-links">
       <li><a href="blood-request.html" class="nav-cta">Submit Request</a></li>
     </ul>
   </nav>
 
-  <!-- HERO -->
   <section class="hero">
-
-    <!-- LEFT: copy -->
     <div class="hero-left">
-      <div class="hero-eyebrow">CNPH Blood Bank Request System</div>
+      <div class="hero-eyebrow">
+        <span class="pulse-dot"></span>
+        Blood Dispensing System
+      </div>
 
       <h1 class="hero-title">
-        Request Blood.<br>
-        <em>Save Lives.</em><br>
-        Secure & Fast.
+        CNPH Blood Bank<br>
+        <em>Admin Portal</em>
       </h1>
 
       <p class="hero-desc">
-        Submit blood unit requests directly to Camarines Norte Provincial Hospital blood bank.
-        Fast approval, real-time status tracking, and secure digital documentation for all your blood supply needs.
+        Secure access for blood bank administrators and authorized staff managing requests, approvals, inventory, and release records.
       </p>
 
       <div class="hero-stats">
         <div class="stat-item">
           <div class="stat-val red">24/7</div>
-          <div class="stat-label">Request Processing</div>
+          <div class="stat-label">Admin Access</div>
         </div>
         <div class="stat-item">
-          <div class="stat-val">2-4 Hrs</div>
-          <div class="stat-label">Approval Response</div>
+          <div class="stat-val">8</div>
+          <div class="stat-label">Blood Types</div>
         </div>
         <div class="stat-item">
           <div class="stat-val gold">100%</div>
@@ -63,39 +64,25 @@
       </div>
 
       <div class="hero-actions">
-        <a href="#login-section" class="btn-hero-primary">
-          🩸 Sign In
-        </a>
-        <a href="blood-request.html" class="btn-hero-secondary">
-          Submit Request →
-        </a>
+        <a href="#login-section" class="btn-hero-primary">Sign In</a>
+        <a href="blood-request.html" class="btn-hero-secondary">Submit Request &rarr;</a>
       </div>
     </div>
 
-    <!-- RIGHT: login widget -->
     <div class="hero-right" id="login-section">
-
-      <!-- ══════════════════════════════════════════════════════
-           ALL original classes & IDs preserved exactly as-is
-           login(), registerUser(), closePopup(), verifyOtpCode(),
-           resendVerifyOtp() — all still wire up to your JS files
-      ══════════════════════════════════════════════════════ -->
-
       <div class="login-br">
         <div class="cont">
-
-          <!-- Sign In Panel Only -->
           <div class="auth-panel active" id="auth-signin">
-            <h2>Request Portal Login</h2>
-            <p class="auth-intro">Hospital or Institution Credentials</p>
-            
-            <!-- Email Field with Error State -->
+            <div class="auth-badge">Secure Login</div>
+            <h2>Admin Portal Login</h2>
+            <p class="auth-intro">Blood bank administrator and staff credentials.</p>
+
             <label class="form-label">
               <span>Institution Email</span>
               <div class="input-wrapper">
-                <input 
-                  type="email" 
-                  id="login-email" 
+                <input
+                  type="email"
+                  id="login-email"
                   placeholder="hospital@email.com"
                   class="form-input"
                   onblur="validateEmail()"
@@ -107,28 +94,29 @@
               </div>
               <span class="error-message" id="email-error-msg"></span>
             </label>
-            
-            <!-- Password Field with Visibility Toggle and Error State -->
-            <label class="form-label">
+
+            <label class="form-label password-field">
               <span>Password</span>
               <div class="input-wrapper">
-                <input 
-                  type="password" 
-                  id="login-password" 
-                  placeholder="••••••••"
+                <input
+                  type="password"
+                  id="login-password"
+                  placeholder="Password"
                   class="form-input"
                   onblur="validatePassword()"
                   oninput="clearPasswordError()"
                   autocomplete="new-password"
                 />
-                <button 
-                  type="button" 
-                  class="toggle-password" 
+                <button
+                  type="button"
+                  class="toggle-password"
                   id="password-toggle"
                   onclick="togglePasswordVisibility()"
                   tabindex="-1"
+                  aria-label="Toggle password visibility"
                 >
                   <i class="fas fa-eye"></i>
+                  <span class="toggle-label"></span>
                 </button>
                 <span class="input-icon-error" id="password-error-icon">
                   <i class="fas fa-exclamation-circle"></i>
@@ -136,15 +124,14 @@
               </div>
               <span class="error-message" id="password-error-msg"></span>
             </label>
-            
+
             <button type="button" class="submit" onclick="validateAndLogin()">Sign In</button>
-            
+
             <p class="auth-footer">
-              No Account? <a href="blood-request.html" >Send Blood Request</a>
+              No Account? <a href="blood-request.html">Send Blood Request</a>
             </p>
           </div>
 
-          <!-- Keep original hidden structure so login.js selectors still work -->
           <div class="sub-cont" style="display:none!important">
             <div class="img">
               <div class="img__text m--up"></div>
@@ -157,11 +144,9 @@
             <div class="form sign-up"></div>
           </div>
           <div class="form sign-in" style="display:none!important"></div>
-
         </div>
       </div>
 
-      <!-- Login popup -->
       <div id="login-popup" class="login-popup">
         <div class="login-popup-content">
           <p id="login-popupMessage"></p>
@@ -169,7 +154,6 @@
         </div>
       </div>
 
-      <!-- OTP Verification popup -->
       <div id="verify-popup" class="verify-popup">
         <div class="verify-popup-content verify-otp-box">
           <h3>Email Verification</h3>
@@ -184,11 +168,9 @@
           <p class="verify-resend" onclick="resendVerifyOtp()">Resend Code</p>
         </div>
       </div>
-
-    </div><!-- /hero-right -->
+    </div>
   </section>
 
-  <!-- FEATURES -->
   <section class="features">
     <div class="features-header">
       <div class="features-eyebrow">Why Use This Portal</div>
@@ -196,57 +178,41 @@
     </div>
     <div class="features-grid">
       <div class="feature-card">
-        <div class="feature-icon">📋</div>
+        <div class="feature-icon">FORM</div>
         <div class="feature-title">Digital Request Forms</div>
         <div class="feature-desc">Submit standardized request forms digitally with required physician signatures and patient details. No more paper or messaging.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">✓</div>
+        <div class="feature-icon success">OK</div>
         <div class="feature-title">Real-Time Approval Status</div>
         <div class="feature-desc">Track your request status instantly. Get notified when approved and ready for pickup or delivery to your facility.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">📦</div>
+        <div class="feature-icon gold">INV</div>
         <div class="feature-title">Inventory Visibility</div>
         <div class="feature-desc">View current blood type availability and component status. Know what's in stock before you request.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🔐</div>
+        <div class="feature-icon">SEC</div>
         <div class="feature-title">Secure & Verified</div>
         <div class="feature-desc">All requests are verified against physician credentials and institutional registration. Multi-factor authentication ensures security.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">📊</div>
+        <div class="feature-icon gold">AUD</div>
         <div class="feature-title">Compliance Reporting</div>
         <div class="feature-desc">Automatic audit trails and documented request history for DOH compliance and institutional record-keeping.</div>
       </div>
       <div class="feature-card">
-        <div class="feature-icon">🚚</div>
+        <div class="feature-icon success">LOG</div>
         <div class="feature-title">Pickup & Delivery Tracking</div>
         <div class="feature-desc">Track tracer documents and blood unit transport. Confirm receipt with digital signatures for accountability.</div>
       </div>
     </div>
   </section>
 
-  <!-- BLOOD TYPE AVAILABILITY STRIP -->
-  <section class="blood-strip">
-    <div class="strip-label">Current Blood Type Availability — CNPH Blood Bank</div>
-    <div class="blood-types-row">
-      <div class="bt-chip urgent">O−</div>
-      <div class="bt-chip available">O+</div>
-      <div class="bt-chip available">A+</div>
-      <div class="bt-chip">A−</div>
-      <div class="bt-chip available">B+</div>
-      <div class="bt-chip">B−</div>
-      <div class="bt-chip urgent">AB−</div>
-      <div class="bt-chip available">AB+</div>
-    </div>
-  </section>
-
-  <!-- INFO BANNER -->
   <section class="info-banner">
     <div class="banner-content">
-      <div class="banner-icon">ℹ️</div>
+      <div class="banner-icon">i</div>
       <div class="banner-text">
         <h3>About Blood Unit Requests</h3>
         <p>CNPH Blood Bank accepts requests from in-patient wards, external hospitals, and registered medical institutions. All requests must be accompanied by licensed physician authorization and originating from registered health facilities. For questions about institutional registration or credential verification, contact CNPH Blood Bank administration.</p>
@@ -254,13 +220,12 @@
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer>
     <div class="footer-logo"><span>CNPH</span> Blood Bank</div>
     <ul class="footer-links">
       <li><a href="#">Privacy</a></li>
     </ul>
-    <div class="footer-copy">© CNPH Blood Bank 2026. All rights reserved.</div>
+    <div class="footer-copy">&copy; CNPH Blood Bank 2026. All rights reserved.</div>
   </footer>
 
   <script src="js/admin-login.js"></script>
