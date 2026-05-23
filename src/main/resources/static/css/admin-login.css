@@ -206,14 +206,15 @@ nav {
   z-index: 1;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
   align-items: center;
-  gap: 64px;
+  gap: 72px;
   padding: 126px 60px 80px;
 }
 
 .hero-left {
-  max-width: 680px;
+  order: 2;
+  max-width: 720px;
   animation: fadeUp 0.6s ease 0.1s both;
 }
 
@@ -360,17 +361,19 @@ nav {
 .hero-right {
   position: relative;
   z-index: 1;
+  order: 1;
+  width: 100%;
   animation: fadeUp 0.6s ease 0.22s both;
 }
 
 .login-br {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .cont {
   width: 100%;
-  max-width: 430px;
+  max-width: 460px;
   overflow: hidden;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -924,7 +927,14 @@ footer {
   }
 
   .hero-left {
+    order: 1;
     max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .hero-right {
+    order: 2;
+    max-width: 480px;
     margin: 0 auto;
   }
 
@@ -935,6 +945,10 @@ footer {
 
   .hero-stats,
   .hero-actions {
+    justify-content: center;
+  }
+
+  .login-br {
     justify-content: center;
   }
 

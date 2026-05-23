@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CNPH Blood Bank - Admin Login</title>
+  <title>CNPH Blood Bank - Hospital Login</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
   <script src="js/AuthGuard.js"></script>
@@ -28,7 +28,7 @@
       </div>
     </a>
     <ul class="nav-links">
-      <li><a href="blood-request.html" class="nav-cta">Submit Request</a></li>
+      <li><a href="blood-request.html" class="nav-cta">Blood Request</a></li>
     </ul>
   </nav>
 
@@ -36,35 +36,21 @@
     <div class="hero-left">
       <div class="hero-eyebrow">
         <span class="pulse-dot"></span>
-        Blood Dispensing System
+        Hospital Blood Request Access
       </div>
 
       <h1 class="hero-title">
         CNPH Blood Bank<br>
-        <em>Admin Portal</em>
+        <em>Hospital Portal</em>
       </h1>
 
       <p class="hero-desc">
-        Secure access for blood bank administrators and authorized staff managing requests, approvals, inventory, and release records.
+        Secure access for registered hospitals, CNPH blood bank staff, and administrators coordinating blood requests, approvals, inventory, and release records.
       </p>
 
-      <div class="hero-stats">
-        <div class="stat-item">
-          <div class="stat-val red">24/7</div>
-          <div class="stat-label">Admin Access</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-val">8</div>
-          <div class="stat-label">Blood Types</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-val gold">100%</div>
-          <div class="stat-label">Documented Trail</div>
-        </div>
-      </div>
 
       <div class="hero-actions">
-        <a href="#login-section" class="btn-hero-primary">Sign In</a>
+        <a href="#login-section" class="btn-hero-primary">Hospital Sign In</a>
         <a href="blood-request.html" class="btn-hero-secondary">Submit Request &rarr;</a>
       </div>
     </div>
@@ -73,17 +59,17 @@
       <div class="login-br">
         <div class="cont">
           <div class="auth-panel active" id="auth-signin">
-            <div class="auth-badge">Secure Login</div>
-            <h2>Admin Portal Login</h2>
-            <p class="auth-intro">Blood bank administrator and staff credentials.</p>
+            <div class="auth-badge">Hospital Portal</div>
+            <h2>Hospital Login</h2>
+            <p class="auth-intro">Use your registered hospital account, or authorized CNPH admin and staff credentials, to access the correct dashboard.</p>
 
             <label class="form-label">
-              <span>Institution Email</span>
+              <span>Hospital Email</span>
               <div class="input-wrapper">
                 <input
                   type="email"
                   id="login-email"
-                  placeholder="hospital@email.com"
+                  placeholder="hospital@facility.gov.ph"
                   class="form-input"
                   onblur="validateEmail()"
                   oninput="clearEmailError()"
@@ -125,10 +111,10 @@
               <span class="error-message" id="password-error-msg"></span>
             </label>
 
-            <button type="button" class="submit" onclick="validateAndLogin()">Sign In</button>
+            <button type="button" class="submit" onclick="validateAndLogin()">Access Portal</button>
 
             <p class="auth-footer">
-              No Account? <a href="blood-request.html">Send Blood Request</a>
+              Need blood units? <a href="blood-request.html">Submit a request</a>
             </p>
           </div>
 
@@ -173,39 +159,39 @@
 
   <section class="features">
     <div class="features-header">
-      <div class="features-eyebrow">Why Use This Portal</div>
-      <h2 class="features-title">Streamlined blood request<br>management for hospitals.</h2>
+      <div class="features-eyebrow">Built For Hospital Requests</div>
+      <h2 class="features-title">Coordinate blood requests<br>with CNPH Blood Bank.</h2>
     </div>
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-icon">FORM</div>
         <div class="feature-title">Digital Request Forms</div>
-        <div class="feature-desc">Submit standardized request forms digitally with required physician signatures and patient details. No more paper or messaging.</div>
+        <div class="feature-desc">Registered hospitals can submit standardized request details with patient, physician, and component information in one place.</div>
       </div>
       <div class="feature-card">
         <div class="feature-icon success">OK</div>
-        <div class="feature-title">Real-Time Approval Status</div>
-        <div class="feature-desc">Track your request status instantly. Get notified when approved and ready for pickup or delivery to your facility.</div>
+        <div class="feature-title">Approval Status</div>
+        <div class="feature-desc">Track each request through review, approval, and release so hospital teams know when blood units are ready.</div>
       </div>
       <div class="feature-card">
         <div class="feature-icon gold">INV</div>
         <div class="feature-title">Inventory Visibility</div>
-        <div class="feature-desc">View current blood type availability and component status. Know what's in stock before you request.</div>
+        <div class="feature-desc">Reference current blood type and component availability before submitting or following up on a request.</div>
       </div>
       <div class="feature-card">
         <div class="feature-icon">SEC</div>
-        <div class="feature-title">Secure & Verified</div>
-        <div class="feature-desc">All requests are verified against physician credentials and institutional registration. Multi-factor authentication ensures security.</div>
+        <div class="feature-title">Verified Access</div>
+        <div class="feature-desc">Hospital accounts, blood bank staff, and administrators use the same secure sign-in with role-based dashboard access.</div>
       </div>
       <div class="feature-card">
         <div class="feature-icon gold">AUD</div>
-        <div class="feature-title">Compliance Reporting</div>
-        <div class="feature-desc">Automatic audit trails and documented request history for DOH compliance and institutional record-keeping.</div>
+        <div class="feature-title">Request History</div>
+        <div class="feature-desc">Maintain documented request records for hospital coordination, blood bank review, and institutional reporting.</div>
       </div>
       <div class="feature-card">
         <div class="feature-icon success">LOG</div>
-        <div class="feature-title">Pickup & Delivery Tracking</div>
-        <div class="feature-desc">Track tracer documents and blood unit transport. Confirm receipt with digital signatures for accountability.</div>
+        <div class="feature-title">Release Tracking</div>
+        <div class="feature-desc">Follow prepared units through release documentation, pickup coordination, and receiving confirmation.</div>
       </div>
     </div>
   </section>
@@ -214,8 +200,8 @@
     <div class="banner-content">
       <div class="banner-icon">i</div>
       <div class="banner-text">
-        <h3>About Blood Unit Requests</h3>
-        <p>CNPH Blood Bank accepts requests from in-patient wards, external hospitals, and registered medical institutions. All requests must be accompanied by licensed physician authorization and originating from registered health facilities. For questions about institutional registration or credential verification, contact CNPH Blood Bank administration.</p>
+        <h3>Hospital Portal Access</h3>
+        <p>CNPH Blood Bank accepts requests from in-patient wards, external hospitals, and registered medical institutions. Hospital users can sign in with their issued account, while CNPH administrators and staff continue to use their authorized credentials on this same portal.</p>
       </div>
     </div>
   </section>
