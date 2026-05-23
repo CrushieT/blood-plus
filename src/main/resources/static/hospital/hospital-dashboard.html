@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>BloodPlus — Hospital Dashboard</title>
+        <title>CNPH Blood Bank - Hospital Dashboard</title>
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <link href="css/hospital-dashboard.css" rel="stylesheet" />
@@ -12,7 +12,7 @@
 
         <!-- Mobile header -->
         <div class="mobile-header" id="mobileHeader">
-        <div class="mobile-logo"><span>Blood</span>Plus</div>
+        <div class="mobile-logo">CNPH Blood Bank</div>
         <div class="hamburger" id="hamburger" onclick="toggleSidebar()">
             <span></span><span></span><span></span>
         </div>
@@ -22,28 +22,28 @@
         <!-- ── SIDEBAR ────────────────────────────── -->
         <aside class="sidebar" id="sidebar">
         <div class="logo-area">
-            <div class="logo"><span>Blood</span>Plus</div>
-            <div class="logo-sub">Blood Bank System</div>
-            <div class="hospital-badge">🏥 Hospital</div>
+            <div class="logo">CNPH Blood Bank</div>
+            <div class="logo-sub">Camarines Norte Provincial Hospital</div>
+            <div class="hospital-badge">Hospital Portal</div>
         </div>
 
         <nav class="nav-section">
             <div class="nav-label">Overview</div>
             <div class="nav-item active" onclick="showPanel('dashboard', this)">
-            <span class="nav-icon">🏠</span> Dashboard
+            <span class="nav-icon">DB</span> Dashboard
             </div>
 
             <div class="nav-label">Blood Requests</div>
             <div class="nav-item" onclick="showPanel('newrequest', this)">
-            <span class="nav-icon">🩸</span> New Request
+            <span class="nav-icon">RQ</span> New Request
             </div>
             <div class="nav-item" onclick="showPanel('myrequests', this)">
-            <span class="nav-icon">📋</span> My Requests
+            <span class="nav-icon">LOG</span> My Requests
             </div>
 
             <div class="nav-label">Account</div>
             <div class="nav-item" onclick="showPanel('profile', this)">
-            <span class="nav-icon">🏥</span> Hospital Profile
+            <span class="nav-icon">HSP</span> Hospital Profile
             </div>
         </nav>
 
@@ -2035,7 +2035,6 @@
         
             <!-- Hero -->
             <div class="profile-hero">
-            <div class="profile-avatar-lg" id="profile-avatar">PG</div>
             <div class="profile-hero-info">
                 <div class="profile-hero-name" id="profile-hospital-name">Philippine General Hospital</div>
                 <div class="profile-hero-sub"><span id="profile-email">pgh@doh.gov.ph</span>  ·  <span id="profile-account-type">Registered Hospital Account</span></div>
