@@ -1,5 +1,7 @@
 # BloodPlus Project Summary
 
+Last updated: 2026-05-23
+
 ## 1. Project Overview
 - BloodPlus is a full-stack blood bank operations system for CNPH workflows, implemented as a Spring Boot backend plus role-specific static web UIs.
 - It serves four active user contexts:
@@ -18,6 +20,7 @@
 - CSRF disabled for `/api/**` only.
 - File upload/cloud storage: doctor-request files uploaded to Cloudinary (`CloudinaryService`, `cloudinary-*` properties).
 - Email integration: Brevo API key + sender config (`application.properties`, `EmailService`).
+- OCR integration: OCR.space-backed backend scanning for public blood request forms and admin add-stock tracer images (`OCR_SPACE_API_KEY`, `OCR_SPACE_API_URL`).
 - Build tools: Maven + `spring-boot-maven-plugin` (`pom.xml`).
 - Frontend export tooling: SheetJS (`admin/assets/xlsx.full.min.js`) for Excel exports.
 
@@ -38,6 +41,8 @@
 - Inventory summary, bag list, status computations, compatibility fetch, low-stock visibility.
 - Blood bag management:
 - Intake (`/api/admin/blood-bank/intake`), discard (`/discard`), open-system conversion (`/convert-open-system`).
+- Add-stock scanning:
+- Admin add-stock modal can upload/capture tracer images, review OCR-detected rows, import selected rows, and print scanned OCR data before final intake.
 - Blood request management:
 - Full workflow actions (approve, approve-with-remarks, reject, allocate, reallocate, ready, release, cancel).
 - Allocation/release workflow:
@@ -61,6 +66,9 @@
 - Add stock / batch intake:
 - Backend intake endpoint accepts one record per call (`BloodBankIntakeRequest`).
 - Frontend supports multi-row intake staging in `admin/js/admin_dashboard.js` (`addStockRow`, `generateAddStockRows`, `submitAddBloodStock` loops calls).
+- Tracer OCR-assisted intake:
+- `POST /api/admin/blood-bank/tracer-ocr` scans uploaded tracer images via `TracerOcrService`, returns up to 10 parsed rows, estimated confidence, raw text, transaction number, and warnings.
+- OCR import blocks existing duplicate serial numbers with `DUPLICATE_SERIALS` and lets admins edit/select rows before staging them into add-stock inputs.
 - Discard:
 - Disallow discard if already `DISCARDED` or `DISPENSED`; create `BloodBagDispatch` record with `DISCARDED` type.
 - Open system conversion:
@@ -79,7 +87,8 @@
 - Submission:
 - Public: `POST /api/req/blood-requests` (`submitAnonymousRequest`).
 - Hospital: `POST /api/hospital/blood-requests` (`submitHospitalRequest`).
-- Both require doctor�s note file and indication data validation.
+- Public OCR prefill: `POST /api/req/blood-requests/ocr` scans PDF/image uploads via `BloodRequestOcrService` and returns normalized request fields, confidence, raw text, and warnings.
+- Both require doctor's note file and indication data validation.
 - Approval:
 - `approve`: `PENDING -> APPROVED` only when compatible available bags are sufficient.
 - `approve-with-remarks`: `PENDING -> NEEDS_CONFIRMATION`, stores `approvedUnits`, `approvalRemarks`, optional `alternativeComponentSuggestion`, 24h token expiry, email dispatch.
@@ -147,7 +156,7 @@
 - `POST /api/auth/admin/setup`, `POST /api/auth/admin/verify`, `POST /api/auth/admin/resend-verification`, `GET /api/auth/system-status`.
 - Logout endpoint from security config: `POST /api/auth/logout`.
 - Public request endpoints (`BloodRequestController`):
-- `POST /api/req/blood-requests`, `GET /api/req/blood-requests/track/{refNum}`, `POST /api/blood-requests/confirm-remarks`.
+- `POST /api/req/blood-requests`, `GET /api/req/blood-requests/track/{refNum}`, `POST /api/blood-requests/confirm-remarks`, `POST /api/req/blood-requests/ocr`.
 - Hospital endpoints (`HospitalController`):
 - Requests: `POST/GET /api/hospital/blood-requests`.
 - Availability: `/api/hospital/blood-bank/availability`, `/blood-types`, `/blood-types/{bloodType}`, `/components`, `/components/{componentType}`.
@@ -155,6 +164,7 @@
 - Admin endpoints (`AdminController`, grouped):
 - Dashboard: `/api/admin/dashboard`.
 - Blood bank: `/api/admin/blood-bank/bags`, `/inventory`, `/intake`, `/bags/{id}/discard`, `/bags/{id}/convert-open-system`, `/available`.
+- Blood bank OCR: `POST /api/admin/blood-bank/tracer-ocr` (`AdminTracerOcrController`).
 - Requests: `/api/admin/blood-requests` + actions `/approve`, `/approve-with-remarks`, `/reject`, `/allocate`, `/reallocate`, `/ready`, `/release`, `/cancel`.
 - Tracer: `GET/PUT /api/admin/blood-requests/{id}/tracer`.
 - Analytics/system: `/api/admin/analytics`, `/health`, `/refresh`.
@@ -165,20 +175,20 @@
 
 ## 10. Frontend Structure
 - `src/main/resources/static/admin/admin_dashboard.html`:
-- Admin shell with panels for Dashboard, Blood Bank tabs, Blood Requests, Hospitals, Staff, Request Logs, Profile.
-- Loads `admin/assets/xlsx.full.min.js` and `admin/js/admin_dashboard.js`.
+- Admin shell with panels for Dashboard, Blood Bank tabs, Blood Requests, Hospitals, Staff, Request Logs, Profile, plus add-stock OCR review modals.
+- Loads `admin/assets/xlsx.full.min.js`, Tesseract.js, and `admin/js/admin_dashboard.js`.
 - `src/main/resources/static/admin/js/admin_dashboard.js`:
-- Central admin state + fetch/AJAX flow, request lifecycle actions, bag picker/allocation, blood bag filtering and pagination, add-stock batch UI, analytics rendering, print/export, logs exports, hospital/staff CRUD, profile/security forms.
+- Central admin state + fetch/AJAX flow, request lifecycle actions, bag picker/allocation, blood bag filtering and pagination, add-stock batch/OCR UI, analytics rendering, print/export, logs exports, hospital/staff CRUD, profile/security forms.
 - Note: `admin/js/script.js` is not present; active file is `admin/js/admin_dashboard.js`.
 - Public request flow:
-- `blood-request.html` + `js/blood_request.js` implement multi-step request form, tracker tab, indication logic, document upload, hospital-session-aware request mode, and OCR scanner integration (`Tesseract.js`).
+- `blood-request.html` + `js/blood_request.js` implement multi-step request form, tracker tab, indication logic, document upload, hospital-session-aware request mode, and backend OCR scanner integration.
 - Request confirmation page:
 - `blood-request-confirmation.html` + `js/blood_request_confirmation.js` parse token/action query params and call `/api/blood-requests/confirm-remarks`.
 - Hospital pages:
 - `hospital/hospital-dashboard.html` + `hospital/js/hospital-dashboard.js` handle dashboard metrics, blood bank availability view, request wizard, request history/detail/cancel UI, profile update and password change.
 - Auth/setup pages:
-- `admin-login.html` + `js/admin-login.js` for session login and legacy verify/resend UI.
-- `admin-setup.html` + `js/admin_setup.js` for first-admin bootstrap and verification.
+- `admin-login.html` + `js/admin-login.js` for admin/staff/hospital session login redirects and legacy verify/resend UI.
+- `admin-setup.html` + `js/admin_setup.js` + `css/admin_setup.css` for first-admin bootstrap, verification, password strength, OTP, and responsive setup styling.
 - Guards/auth scripts:
 - `js/AuthGuard.js` performs initialization guard (`/api/auth/system-status`) and auth/role redirects.
 - CSS/theme files:
@@ -220,6 +230,7 @@
 - Startup/config behavior:
 - Scheduling enabled globally (`@EnableScheduling`).
 - `.env` keys loaded into JVM props via `DotenvConfig`.
+- OCR.space config is read from `ocr.space.api.key` / `ocr.space.api.url`, backed by `OCR_SPACE_API_KEY` / `OCR_SPACE_API_URL` in `application.properties`.
 - Route/public asset rules are centralized in `SecurityConfig`.
 
 ## 13. Recently Updated Features
@@ -234,9 +245,13 @@
 - Admin dashboard enhancements in `admin/js/admin_dashboard.js`:
 - Analytics tab rendering + print export.
 - Blood bag report print/export with date-range options.
-- Batch add-stock row tools and reusable modals.
+- Batch add-stock row tools, OCR-assisted tracer import, and reusable modals.
 - Expanded logs module:
 - Served details and inside/outside summaries with export endpoints and frontend integration.
+- Public request OCR:
+- `BloodRequestOcrService` and `/api/req/blood-requests/ocr` provide backend PDF/image scanning and normalized prefill data for `blood-request.html`.
+- Recent UI polishing:
+- Admin login now supports hospital login routing, and admin setup styling has been rebuilt around the multi-step bootstrap/verification flow.
 
 ## 14. Remaining TODO / Risks
 - Frontend/backend route mismatches found:
@@ -249,6 +264,10 @@
 - Duplicate `showPanel` and `renderRecentActivities` function declarations, increasing maintenance/regression risk.
 - Native `alert()` usage remains in multiple flows:
 - Present in `admin/js/admin_dashboard.js`, `hospital/js/hospital-dashboard.js`, and `js/blood_request.js`.
+- Auto-refresh timing mismatch:
+- `initializeAutoRefresh()` says it checks every 30 seconds, but the current constant is `1000` ms.
+- OCR configuration/runtime risk:
+- Request-form and tracer scanning require `OCR_SPACE_API_KEY`; missing or unreachable OCR.space service returns `503`/`502` style API errors.
 - Schema drift risk:
 - `ddl-auto=update` is enabled while manual SQL migration files also exist under `database/migrations`; environments can diverge if migration scripts are not applied consistently.
 - Notes for repository expectations:
