@@ -1,6 +1,6 @@
 # BloodPlus Project Summary
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## 1. Project Overview
 - BloodPlus is a full-stack blood bank operations system for CNPH workflows, implemented as a Spring Boot backend plus role-specific static web UIs.
@@ -272,3 +272,128 @@ Last updated: 2026-05-23
 - `ddl-auto=update` is enabled while manual SQL migration files also exist under `database/migrations`; environments can diverge if migration scripts are not applied consistently.
 - Notes for repository expectations:
 - `admin/js/script.js` does not exist in current repo; admin dashboard uses `admin/js/admin_dashboard.js`.
+
+## 15. Project Structure (All Tracked Files)
+- Source of truth: generated from repository-tracked files (`git ls-files`).
+
+```text
+.github/workflows/ci.yml
+.gitignore
+.mvn/wrapper/maven-wrapper.properties
+.vscode/settings.json
+HELP.md
+README.md
+REPO_SUMMARY.md
+mvnw
+mvnw.cmd
+pom.xml
+src/main/java/com/hospital/blood_plus/BloodPlusApplication.java
+src/main/java/com/hospital/blood_plus/config/AdminCheck.java
+src/main/java/com/hospital/blood_plus/config/DotenvConfig.java
+src/main/java/com/hospital/blood_plus/config/RedirectIfLoggedInFilter.java
+src/main/java/com/hospital/blood_plus/config/SecurityConfig.java
+src/main/java/com/hospital/blood_plus/controller/AdminController.java
+src/main/java/com/hospital/blood_plus/controller/AdminTracerOcrController.java
+src/main/java/com/hospital/blood_plus/controller/AuthController.java
+src/main/java/com/hospital/blood_plus/controller/BloodRequestController.java
+src/main/java/com/hospital/blood_plus/controller/HospitalController.java
+src/main/java/com/hospital/blood_plus/dto/request/AllocateRequestDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/AnalyticsDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/ApproveRequestDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/BloodBagRequestDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/BloodBankIntakeRequest.java
+src/main/java/com/hospital/blood_plus/dto/request/BloodTracerSaveDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/ChangePasswordRequestDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/DeferralRequest.java
+src/main/java/com/hospital/blood_plus/dto/request/DiscardBagRequest.java
+src/main/java/com/hospital/blood_plus/dto/request/EmailConfirmationRequest.java
+src/main/java/com/hospital/blood_plus/dto/request/HospitalDTOs.java
+src/main/java/com/hospital/blood_plus/dto/request/ProfileDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/RecentActivityDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/RegisterRequest.java
+src/main/java/com/hospital/blood_plus/dto/request/RequestStatusLogDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/StaffDTOs.java
+src/main/java/com/hospital/blood_plus/dto/request/UpdateHospitalProfileDTO.java
+src/main/java/com/hospital/blood_plus/dto/request/VerifyEmailRequest.java
+src/main/java/com/hospital/blood_plus/dto/response/AdminDashboardDTO.java
+src/main/java/com/hospital/blood_plus/dto/response/AdminDashboardResponse.java
+src/main/java/com/hospital/blood_plus/dto/response/BloodBagAvailableDTO.java
+src/main/java/com/hospital/blood_plus/dto/response/BloodBagResponse.java
+src/main/java/com/hospital/blood_plus/dto/response/BloodRequestOcrFieldsDTO.java
+src/main/java/com/hospital/blood_plus/dto/response/BloodRequestOcrResponseDTO.java
+src/main/java/com/hospital/blood_plus/dto/response/InsideServedSummaryRow.java
+src/main/java/com/hospital/blood_plus/dto/response/LogsSummaryResponse.java
+src/main/java/com/hospital/blood_plus/dto/response/OutsideServedSummaryRow.java
+src/main/java/com/hospital/blood_plus/dto/response/PaginatedResponse.java
+src/main/java/com/hospital/blood_plus/dto/response/ServedBagDetailResponse.java
+src/main/java/com/hospital/blood_plus/dto/response/ServedRequestSummaryResponse.java
+src/main/java/com/hospital/blood_plus/dto/response/TracerOcrResponseDTO.java
+src/main/java/com/hospital/blood_plus/dto/response/TracerOcrRowDTO.java
+src/main/java/com/hospital/blood_plus/model/AppUser.java
+src/main/java/com/hospital/blood_plus/model/BloodBag.java
+src/main/java/com/hospital/blood_plus/model/BloodBagDispatch.java
+src/main/java/com/hospital/blood_plus/model/BloodBagRequest.java
+src/main/java/com/hospital/blood_plus/model/BloodTracer.java
+src/main/java/com/hospital/blood_plus/model/HospitalProfile.java
+src/main/java/com/hospital/blood_plus/model/RequestFulfillment.java
+src/main/java/com/hospital/blood_plus/model/RequestStatusLog.java
+src/main/java/com/hospital/blood_plus/model/StaffProfile.java
+src/main/java/com/hospital/blood_plus/repository/BloodBagDispatchRepository.java
+src/main/java/com/hospital/blood_plus/repository/BloodBagRepository.java
+src/main/java/com/hospital/blood_plus/repository/BloodBagRequestRepository.java
+src/main/java/com/hospital/blood_plus/repository/BloodTracerRepository.java
+src/main/java/com/hospital/blood_plus/repository/HospitalProfileRepository.java
+src/main/java/com/hospital/blood_plus/repository/RequestFulfillmentRepository.java
+src/main/java/com/hospital/blood_plus/repository/RequestStatusLogRepository.java
+src/main/java/com/hospital/blood_plus/repository/StaffProfileRepository.java
+src/main/java/com/hospital/blood_plus/repository/UserRepository.java
+src/main/java/com/hospital/blood_plus/scheduler/BloodBagScheduler.java
+src/main/java/com/hospital/blood_plus/service/AdminProfileService.java
+src/main/java/com/hospital/blood_plus/service/AnalyticsService.java
+src/main/java/com/hospital/blood_plus/service/AppUserDetails.java
+src/main/java/com/hospital/blood_plus/service/AppUserDetailsService.java
+src/main/java/com/hospital/blood_plus/service/BloodBagExpiryService.java
+src/main/java/com/hospital/blood_plus/service/BloodBagRequestService.java
+src/main/java/com/hospital/blood_plus/service/BloodBagService.java
+src/main/java/com/hospital/blood_plus/service/BloodRequestOcrService.java
+src/main/java/com/hospital/blood_plus/service/BloodTracerService.java
+src/main/java/com/hospital/blood_plus/service/CloudinaryService.java
+src/main/java/com/hospital/blood_plus/service/DashboardService.java
+src/main/java/com/hospital/blood_plus/service/DuplicateSerialException.java
+src/main/java/com/hospital/blood_plus/service/EmailService.java
+src/main/java/com/hospital/blood_plus/service/HospitalProfileService.java
+src/main/java/com/hospital/blood_plus/service/HospitalService.java
+src/main/java/com/hospital/blood_plus/service/RecentActivityService.java
+src/main/java/com/hospital/blood_plus/service/RequestLogsService.java
+src/main/java/com/hospital/blood_plus/service/RequestStatusLogService.java
+src/main/java/com/hospital/blood_plus/service/StaffService.java
+src/main/java/com/hospital/blood_plus/service/TracerOcrService.java
+src/main/java/com/hospital/blood_plus/service/UserService.java
+src/main/resources/application.properties
+src/main/resources/static/admin-login.html
+src/main/resources/static/admin-setup.html
+src/main/resources/static/admin/admin_dashboard.html
+src/main/resources/static/admin/assets/xlsx.full.min.js
+src/main/resources/static/admin/css/admin_dashboard.css
+src/main/resources/static/admin/js/admin_dashboard.js
+src/main/resources/static/admin/receipt/blood-bank-header.png
+src/main/resources/static/admin/receipt/blood-release-receipt.html
+src/main/resources/static/admin/receipt/blood-request-tracer.html
+src/main/resources/static/blood-request-confirmation.html
+src/main/resources/static/blood-request.html
+src/main/resources/static/css/admin-login.css
+src/main/resources/static/css/admin_setup.css
+src/main/resources/static/css/blood_request.css
+src/main/resources/static/forms/Blood_Request_Form_Adult.pdf
+src/main/resources/static/forms/Blood_Request_Form_Pediatric.pdf
+src/main/resources/static/hospital/css/hospital-dashboard.css
+src/main/resources/static/hospital/hospital-dashboard.html
+src/main/resources/static/hospital/js/hospital-dashboard.js
+src/main/resources/static/js/AuthGuard.js
+src/main/resources/static/js/admin-login.js
+src/main/resources/static/js/admin_setup.js
+src/main/resources/static/js/blood_request.js
+src/main/resources/static/js/blood_request_confirmation.js
+src/test/java/com/hospital/blood_plus/BloodPlusApplicationTests.java
+summary.md
+```
