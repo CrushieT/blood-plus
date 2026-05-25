@@ -5,6 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hospital.blood_plus.dto.response.TracerOcrResponseDTO;
 import com.hospital.blood_plus.dto.response.TracerOcrRowDTO;
 import com.hospital.blood_plus.repository.BloodBagRepository;
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -15,10 +20,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -38,6 +50,8 @@ import java.util.regex.Pattern;
 public class TracerOcrService {
     private static final int MAX_ROWS = 10;
     private static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
+    private static final long OCR_SPACE_SOFT_LIMIT_BYTES = 1400L * 1024L;
+    private static final int OCR_MAX_IMAGE_WIDTH = 1800;
 
     private static final Pattern DATE_PATTERN = Pattern.compile(
             "\\b([0-3SO]?[0-9])\\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)\\s*([12][0-9]{3}|[0-9]{2})\\b");
@@ -90,6 +104,14 @@ public class TracerOcrService {
         }
 
         if (best == null) {
+            String uploadFailure = allWarnings.stream()
+                    .filter(message -> message != null && message.contains("OCR service request failed"))
+                    .findFirst()
+                    .orElse(null);
+            if (uploadFailure != null) {
+                String detail = uploadFailure.replaceFirst("^Engine\\s+\\d+:\\s*", "").trim();
+                throw new IllegalStateException(detail);
+            }
             throw new IllegalArgumentException("Unable to parse tracer form with OCR.");
         }
 
@@ -161,6 +183,7 @@ public class TracerOcrService {
 
     private JsonNode requestOcrSpace(MultipartFile file, int engine) {
         try {
+            PreparedUpload upload = prepareUpload(file);
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("apikey", ocrApiKey);
             body.add("language", "eng");
@@ -168,7 +191,7 @@ public class TracerOcrService {
             body.add("scale", "true");
             body.add("detectOrientation", "true");
             body.add("OCREngine", String.valueOf(engine));
-            body.add("file", asResource(file));
+            body.add("file", asResource(upload));
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -180,22 +203,162 @@ public class TracerOcrService {
                 throw new IllegalArgumentException("OCR service returned an empty response.");
             }
             return objectMapper.readTree(payload);
+        } catch (HttpStatusCodeException ex) {
+            String detail = buildOcrHttpFailureDetail(ex);
+            throw new IllegalArgumentException("OCR service request failed: " + detail);
+        } catch (ResourceAccessException ex) {
+            throw new IllegalArgumentException("OCR service request failed: unable to reach OCR.space endpoint.");
         } catch (RestClientException ex) {
-            throw new IllegalArgumentException("OCR service request failed.");
+            String message = ex.getMessage() != null ? ex.getMessage() : "unexpected client error";
+            throw new IllegalArgumentException("OCR service request failed: " + message);
         } catch (IOException ex) {
             throw new IllegalArgumentException("Failed to process OCR response.");
         }
     }
 
-    private ByteArrayResource asResource(MultipartFile file) throws IOException {
-        String filename = sanitizeFileName(file.getOriginalFilename());
-        byte[] bytes = file.getBytes();
+    private String buildOcrHttpFailureDetail(HttpStatusCodeException ex) {
+        int status = ex.getStatusCode().value();
+        String body = ex.getResponseBodyAsString();
+        String compactBody = body == null ? "" : body.replaceAll("\\s+", " ").trim();
+        if (compactBody.length() > 220) {
+            compactBody = compactBody.substring(0, 220) + "...";
+        }
+
+        if (status == 401 || status == 403) {
+            return "HTTP " + status + " (API key rejected or unauthorized).";
+        }
+        if (status == 429) {
+            return "HTTP 429 (rate limit or plan quota exceeded).";
+        }
+        if (!compactBody.isBlank()) {
+            return "HTTP " + status + " response: " + compactBody;
+        }
+        return "HTTP " + status + ".";
+    }
+
+    private ByteArrayResource asResource(PreparedUpload upload) {
+        String filename = sanitizeFileName(upload.filename);
+        byte[] bytes = upload.bytes;
         return new ByteArrayResource(bytes) {
             @Override
             public String getFilename() {
                 return filename;
             }
         };
+    }
+
+    private PreparedUpload prepareUpload(MultipartFile file) throws IOException {
+        byte[] originalBytes = file.getBytes();
+        String resolvedType = resolveContentType(file);
+        String filename = sanitizeFileName(file.getOriginalFilename());
+
+        if (resolvedType.startsWith("image/") && originalBytes.length > OCR_SPACE_SOFT_LIMIT_BYTES) {
+            byte[] optimized = optimizeImageBytes(originalBytes);
+            if (optimized != null && optimized.length > 0) {
+                return new PreparedUpload(forceJpgExtension(filename), optimized);
+            }
+        }
+        return new PreparedUpload(filename, originalBytes);
+    }
+
+    private byte[] optimizeImageBytes(byte[] originalBytes) {
+        try {
+            BufferedImage src = ImageIO.read(new ByteArrayInputStream(originalBytes));
+            if (src == null) return originalBytes;
+
+            BufferedImage working = toRgb(src);
+            if (working.getWidth() > OCR_MAX_IMAGE_WIDTH) {
+                working = resizeByWidth(working, OCR_MAX_IMAGE_WIDTH);
+            }
+
+            byte[] best = encodeJpeg(working, 0.85f);
+            if (best.length <= OCR_SPACE_SOFT_LIMIT_BYTES) {
+                return best;
+            }
+
+            float[] qualities = new float[] {0.78f, 0.72f, 0.66f, 0.58f, 0.50f, 0.42f};
+            for (float quality : qualities) {
+                byte[] candidate = encodeJpeg(working, quality);
+                if (candidate.length < best.length) {
+                    best = candidate;
+                }
+                if (candidate.length <= OCR_SPACE_SOFT_LIMIT_BYTES) {
+                    return candidate;
+                }
+                int nextWidth = Math.max(1000, (int) Math.round(working.getWidth() * 0.88));
+                if (nextWidth < working.getWidth()) {
+                    working = resizeByWidth(working, nextWidth);
+                }
+            }
+
+            return best;
+        } catch (Exception ex) {
+            return originalBytes;
+        }
+    }
+
+    private BufferedImage toRgb(BufferedImage src) {
+        if (src.getType() == BufferedImage.TYPE_INT_RGB) {
+            return src;
+        }
+        BufferedImage rgb = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = rgb.createGraphics();
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return rgb;
+    }
+
+    private BufferedImage resizeByWidth(BufferedImage src, int targetWidth) {
+        if (src.getWidth() <= targetWidth) return src;
+        int targetHeight = Math.max(1, (int) Math.round((double) src.getHeight() * targetWidth / src.getWidth()));
+        BufferedImage resized = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = resized.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(src, 0, 0, targetWidth, targetHeight, null);
+        g.dispose();
+        return resized;
+    }
+
+    private byte[] encodeJpeg(BufferedImage image, float quality) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+        ImageWriteParam param = writer.getDefaultWriteParam();
+        if (param.canWriteCompressed()) {
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(Math.max(0.1f, Math.min(1.0f, quality)));
+        }
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            writer.setOutput(ios);
+            writer.write(null, new IIOImage(image, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+        return baos.toByteArray();
+    }
+
+    private String resolveContentType(MultipartFile file) {
+        String contentType = file.getContentType();
+        if (contentType != null && !contentType.isBlank()) {
+            return contentType.toLowerCase(Locale.ROOT);
+        }
+        String name = sanitizeFileName(file.getOriginalFilename()).toLowerCase(Locale.ROOT);
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".jfif")) return "image/jpeg";
+        if (name.endsWith(".png")) return "image/png";
+        if (name.endsWith(".webp")) return "image/webp";
+        if (name.endsWith(".bmp")) return "image/bmp";
+        if (name.endsWith(".tif") || name.endsWith(".tiff")) return "image/tiff";
+        return "application/octet-stream";
+    }
+
+    private String forceJpgExtension(String filename) {
+        String safe = sanitizeFileName(filename);
+        int dot = safe.lastIndexOf('.');
+        if (dot > 0) {
+            safe = safe.substring(0, dot);
+        }
+        return safe + ".jpg";
     }
 
     private List<TracerOcrRowDTO> parseRows(String rawText, List<String> warnings) {
@@ -543,7 +706,11 @@ public class TracerOcrService {
             throw new IllegalArgumentException("Please upload an image to scan.");
         }
         String contentType = safeUpper(file.getContentType()).toLowerCase(Locale.ROOT);
-        if (contentType.isBlank() || !ACCEPTED_FILE_TYPES.contains(contentType)) {
+        String fileName = safeUpper(file.getOriginalFilename()).toLowerCase(Locale.ROOT);
+        boolean acceptedByName = fileName.matches(".*\\.(jpe?g|png|webp|bmp|tiff?|jfif)$");
+        boolean genericType = contentType.isBlank() || "application/octet-stream".equals(contentType);
+
+        if ((!genericType || !acceptedByName) && !ACCEPTED_FILE_TYPES.contains(contentType)) {
             throw new IllegalArgumentException("Unsupported image type. Please upload JPG, PNG, WEBP, BMP, or TIFF.");
         }
         if (file.getSize() > MAX_FILE_BYTES) {
@@ -556,6 +723,16 @@ public class TracerOcrService {
             return "tracer-upload.jpg";
         }
         return original.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private static class PreparedUpload {
+        private final String filename;
+        private final byte[] bytes;
+
+        private PreparedUpload(String filename, byte[] bytes) {
+            this.filename = filename;
+            this.bytes = bytes;
+        }
     }
 
     private boolean isSixDigitSerial(String serial) {
