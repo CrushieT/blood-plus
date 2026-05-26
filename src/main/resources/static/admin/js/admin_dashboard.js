@@ -1289,9 +1289,9 @@ async function handleTracerFilePicked(event) {
 }
 
 async function processTracerScanFile(file, sourceName = 'upload') {
-  if (!file || !file.type || !file.type.startsWith('image/')) {
+  if (!isSupportedTracerImageFile(file)) {
     setTracerScanStatus('Unsupported image format.', 'error');
-    showBloodPlusMessage('Unsupported Image', 'Please upload or capture a valid image file.', 'warning');
+    showBloodPlusMessage('Unsupported Image', 'Please upload or capture a JPG, PNG, WEBP, BMP, TIFF, or JFIF image.', 'warning');
     return;
   }
 
@@ -1365,6 +1365,15 @@ async function processTracerScanFile(file, sourceName = 'upload') {
       'error'
     );
   }
+}
+
+function isSupportedTracerImageFile(file) {
+  if (!file) return false;
+  const type = String(file.type || '').toLowerCase();
+  if (type.startsWith('image/')) return true;
+
+  const name = String(file.name || '').toLowerCase();
+  return /\.(jpe?g|png|webp|bmp|tiff?|jfif)$/.test(name);
 }
 
 async function scanBloodTracerFormViaBackend(file) {
@@ -12320,7 +12329,6 @@ function forceRefreshAll() {
   }
   console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }
-
 
 
 
