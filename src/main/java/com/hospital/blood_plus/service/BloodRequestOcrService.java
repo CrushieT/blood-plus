@@ -44,9 +44,12 @@ import java.util.regex.Pattern;
 
 @Service
 public class BloodRequestOcrService {
-    private static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
+    private static final long MAX_FILE_BYTES = 5L * 1024 * 1024;
     private static final long OCR_SPACE_SOFT_LIMIT_BYTES = 1024L * 1024L;
     private static final int OCR_MAX_IMAGE_WIDTH = 1800;
+    private static final int PRIMARY_OCR_ENGINE = 2;
+    private static final List<Integer> FALLBACK_OCR_ENGINES = List.of(1);
+    private static final int MIN_CONFIDENCE_BEFORE_FALLBACK = 60;
     private static final Set<String> ACCEPTED_FILE_TYPES = new LinkedHashSet<>(Arrays.asList(
             "application/pdf",
             "image/jpeg",
@@ -89,20 +92,34 @@ public class BloodRequestOcrService {
             throw new IllegalStateException("OCR service is not configured. Missing OCR_SPACE_API_KEY.");
         }
 
-        List<Integer> engines = Arrays.asList(2, 1, 3);
         OcrAttempt best = null;
         List<String> engineErrors = new ArrayList<>();
+        boolean runFallback = false;
 
-        for (Integer engine : engines) {
-            try {
-                OcrAttempt attempt = runOcrAttempt(file, engine);
-                if (best == null || attempt.score > best.score) {
-                    best = attempt;
+        try {
+            OcrAttempt primaryAttempt = runOcrAttempt(file, PRIMARY_OCR_ENGINE);
+            best = primaryAttempt;
+            runFallback = shouldTryFallback(primaryAttempt);
+        } catch (IllegalArgumentException ex) {
+            engineErrors.add("Engine " + PRIMARY_OCR_ENGINE + ": " + ex.getMessage());
+            runFallback = true;
+        } catch (RuntimeException ex) {
+            engineErrors.add("Engine " + PRIMARY_OCR_ENGINE + ": OCR request failed.");
+            runFallback = true;
+        }
+
+        if (runFallback) {
+            for (Integer engine : FALLBACK_OCR_ENGINES) {
+                try {
+                    OcrAttempt attempt = runOcrAttempt(file, engine);
+                    if (best == null || attempt.score > best.score) {
+                        best = attempt;
+                    }
+                } catch (IllegalArgumentException ex) {
+                    engineErrors.add("Engine " + engine + ": " + ex.getMessage());
+                } catch (RuntimeException ex) {
+                    engineErrors.add("Engine " + engine + ": OCR request failed.");
                 }
-            } catch (IllegalArgumentException ex) {
-                engineErrors.add("Engine " + engine + ": " + ex.getMessage());
-            } catch (RuntimeException ex) {
-                engineErrors.add("Engine " + engine + ": OCR request failed.");
             }
         }
 
@@ -172,6 +189,12 @@ public class BloodRequestOcrService {
         int score = buildAttemptScore(fields, confidence);
 
         return new OcrAttempt(rawText, fields, confidence, warnings, score);
+    }
+
+    private boolean shouldTryFallback(OcrAttempt attempt) {
+        if (attempt == null) return true;
+        if (countRecognizedFields(attempt.fields) < 2) return true;
+        return attempt.confidence < MIN_CONFIDENCE_BEFORE_FALLBACK;
     }
 
     private JsonNode requestOcrSpace(MultipartFile file, int engine) {
@@ -1139,7 +1162,7 @@ public class BloodRequestOcrService {
             throw new IllegalArgumentException("Unsupported file type. Please upload PDF, JPG, PNG, WEBP, BMP, or TIFF.");
         }
         if (file.getSize() > MAX_FILE_BYTES) {
-            throw new IllegalArgumentException("File is too large. Maximum upload size is 10MB.");
+            throw new IllegalArgumentException("File is too large. Maximum upload size is 5MB.");
         }
     }
 

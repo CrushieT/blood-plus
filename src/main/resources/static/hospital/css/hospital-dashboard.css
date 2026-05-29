@@ -105,7 +105,7 @@ body {
   padding: 5px 10px; border-radius: 20px;
 }
 
-.nav-section { position: relative; z-index: 1; flex:1; padding:16px; overflow-y:auto; }
+.nav-section { position: relative; z-index: 1; flex:1; padding:16px; overflow: hidden; }
 
 .nav-label {
   font-size: 10px; letter-spacing: 0; text-transform: uppercase;

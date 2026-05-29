@@ -2315,8 +2315,8 @@ async function handleScan(file) {
   if (!uploadZone || !errorDiv) return;
 
   // Validation
-  if (file.size > 10 * 1024 * 1024) {
-    showScannerError("File exceeds 10MB limit.");
+  if (file.size > SCANNER_MAX_FILE_BYTES) {
+    showScannerError("File exceeds 5MB limit.");
     return;
   }
 
@@ -2625,6 +2625,9 @@ birthdateInput.min = minDate.toISOString().split("T")[0];
 
 // Scanner overrides: backend OCR.space integration (no frontend Tesseract)
 var scannedMeta = null;
+let scannerProgressTimer = null;
+let scannerProgressValue = 0;
+let scannerProgressStage = 'Scanning form...';
 
 const SCANNER_ACCEPTED_TYPES = new Set([
   'application/pdf',
@@ -2636,6 +2639,7 @@ const SCANNER_ACCEPTED_TYPES = new Set([
   'image/tiff',
   'image/jfif'
 ]);
+const SCANNER_MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 function scannerEscapeHtml(value) {
   return String(value == null ? '' : value)
@@ -2705,6 +2709,7 @@ function setScanPopulateActionVisible(visible) {
 }
 
 function clearScan() {
+  stopScanProgress();
   scannedData = null;
   scannedMeta = null;
   setScanPopulateActionVisible(false);
@@ -2720,6 +2725,41 @@ function clearScan() {
   if (fieldsFound) fieldsFound.innerHTML = '';
   const uploadZone = document.getElementById('scanner-upload-zone');
   if (uploadZone) uploadZone.classList.remove('has-file');
+}
+
+function renderScanProgressStatus() {
+  const statusEl = document.getElementById('scan-status');
+  if (!statusEl) return;
+  const pct = Math.max(0, Math.min(100, Math.round(scannerProgressValue)));
+  statusEl.innerHTML = `<span class="scanner-spinner"></span> ${scannerProgressStage} ${pct}%`;
+}
+
+function stopScanProgress() {
+  if (scannerProgressTimer) {
+    clearInterval(scannerProgressTimer);
+    scannerProgressTimer = null;
+  }
+}
+
+function startScanProgress(stage = 'Scanning form...') {
+  stopScanProgress();
+  scannerProgressStage = stage;
+  scannerProgressValue = 0;
+  renderScanProgressStatus();
+  scannerProgressTimer = setInterval(() => {
+    if (scannerProgressValue >= 95) return;
+    const step = scannerProgressValue < 50 ? 5 : (scannerProgressValue < 80 ? 3 : 1);
+    scannerProgressValue = Math.min(95, scannerProgressValue + step);
+    renderScanProgressStatus();
+  }, 350);
+}
+
+function bumpScanProgress(stage, minValue) {
+  if (stage) scannerProgressStage = stage;
+  if (Number.isFinite(minValue)) {
+    scannerProgressValue = Math.max(scannerProgressValue, Math.min(95, Number(minValue)));
+  }
+  renderScanProgressStatus();
 }
 
 function normalizeScannerResponse(payload) {
@@ -3052,8 +3092,8 @@ async function handleScan(file) {
   const statusEl = document.getElementById('scan-status');
   if (!uploadZone || !placeholder || !preview || !fileName || !statusEl) return;
 
-  if (file.size > 10 * 1024 * 1024) {
-    showScannerError('File is too large. Maximum upload size is 10MB.');
+  if (file.size > SCANNER_MAX_FILE_BYTES) {
+    showScannerError('File is too large. Maximum upload size is 5MB.');
     return;
   }
 
@@ -3072,10 +3112,11 @@ async function handleScan(file) {
   placeholder.style.display = 'none';
   preview.style.display = 'block';
   fileName.textContent = file.name;
-  statusEl.innerHTML = '<span class="scanner-spinner"></span> Scanning form...';
+  startScanProgress('Preparing scan...');
   uploadZone.classList.add('has-file');
 
   try {
+    bumpScanProgress('Uploading for OCR...', 20);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -3106,6 +3147,7 @@ async function handleScan(file) {
       throw new Error(extractServerErrorMessage(response, payload, fallbackText));
     }
 
+    bumpScanProgress('Processing OCR response...', 78);
     const normalized = normalizeScannerResponse(payload);
     console.log('[Blood Request OCR] Normalized fields:', normalized.fields);
     console.log('[Blood Request OCR] Confidence:', normalized.confidence, '| Warnings:', normalized.warnings);
@@ -3122,9 +3164,14 @@ async function handleScan(file) {
       return;
     }
 
+    bumpScanProgress('Finalizing scan...', 95);
+    scannerProgressValue = 100;
+    renderScanProgressStatus();
+    stopScanProgress();
     displayScanResults();
   } catch (err) {
     console.error('Blood request OCR scan failed:', err);
+    stopScanProgress();
     showScannerError(err && err.message
       ? err.message
       : 'Unable to scan the form. Please try a clearer image or fill the form manually.');
