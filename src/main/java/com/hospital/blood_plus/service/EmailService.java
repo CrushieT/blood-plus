@@ -600,11 +600,12 @@ public class EmailService {
                         .detail-row:last-child { border-bottom: none; }
                         .detail-label { font-weight: 600; color: #666; }
                         .detail-value { color: #333; text-align: right; }
-                        .remarks-box { background: #fff8e1; border-left: 4px solid #FF9800; padding: 14px; margin: 18px 0; border-radius: 4px; }
+                        .remarks-box { background: #FFF4DA; border-left: 4px solid #D48200; padding: 14px; margin: 18px 0; border-radius: 4px; color: #4A3500; }
                         .actions { display: flex; gap: 12px; margin-top: 24px; }
-                        .btn { display: inline-block; padding: 12px 18px; border-radius: 6px; font-weight: 700; text-decoration: none; text-align: center; }
-                        .btn-accept { background: #22863A; color: white; }
-                        .btn-reject { background: #C41E3A; color: white; }
+                        .btn { display: inline-block; padding: 12px 18px; border-radius: 6px; font-weight: 700; text-decoration: none !important; text-align: center; border: 1px solid transparent; }
+                        .btn, .btn:link, .btn:visited, .btn:hover, .btn:active { color: #FFFFFF !important; }
+                        .btn-accept { background: #1F7A35; border-color: #1B6A2E; }
+                        .btn-reject { background: #A61B33; border-color: #8F172C; }
                         .footer { border-top: 1px solid #eee; margin-top: 30px; padding-top: 15px; font-size: 12px; color: #666; }
                     </style>
                 </head>
@@ -641,8 +642,8 @@ public class EmailService {
                             <p>Please choose one:</p>
 
                             <div class="actions">
-                                <a class="btn btn-accept" href="%s">Proceed / Accept</a>
-                                <a class="btn btn-reject" href="%s">Reject / Cancel</a>
+                                <a class="btn btn-accept" href="%s" style="color:#FFFFFF !important;text-decoration:none !important;">Proceed / Accept</a>
+                                <a class="btn btn-reject" href="%s" style="color:#FFFFFF !important;text-decoration:none !important;">Reject / Cancel</a>
                             </div>
 
                             <p style="margin-top: 20px; color: #666;">This confirmation link will expire in 24 hours.</p>
