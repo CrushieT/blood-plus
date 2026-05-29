@@ -18,6 +18,7 @@ public interface BloodBagDispatchRepository extends JpaRepository<BloodBagDispat
     List<BloodBagDispatch> findByBloodBag_Id(Long bloodBagId);
 
     Long countByDispatchType(DispatchType dispatchType);
+    Long countByDispatchTypeAndDispatchedAtBetween(DispatchType dispatchType, LocalDateTime startDate, LocalDateTime endDate);
  
     @Query("SELECT d FROM BloodBagDispatch d ORDER BY d.dispatchedAt DESC")
     List<BloodBagDispatch> findAllDispatches();

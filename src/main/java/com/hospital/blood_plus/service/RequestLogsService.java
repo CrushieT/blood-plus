@@ -53,50 +53,27 @@ public class RequestLogsService {
     public Page<RequestStatusLog> getStatusLogs(
             String search,
             String statusFilter,
+            LocalDate dateFrom,
+            LocalDate dateTo,
             String sort,
             int page,
             int size) {
 
         Pageable pageable = createPageableForStatusLogs(sort, page, size);
-        
-        if (search != null && !search.isEmpty()) {
-            // Search by request ID
-            try {
-                Long requestId = Long.parseLong(search);
-                if (statusFilter != null && !statusFilter.equals("ALL")) {
-                    // ✓ FIXED: Convert String to enum before passing
-                    return statusLogRepository.findByRequestIdAndNewStatus(
-                            requestId,
-                            BloodBagRequest.RequestStatus.valueOf(statusFilter),
-                            pageable
-                    );
-                }
-                return statusLogRepository.findByRequestId(requestId, pageable);
-            } catch (NumberFormatException e) {
-                // Search by reference number
-                if (statusFilter != null && !statusFilter.equals("ALL")) {
-                    // ✓ FIXED: Convert String to enum before passing
-                    return statusLogRepository.findByRequestReferenceNumberAndNewStatus(
-                            "%" + search + "%",
-                            BloodBagRequest.RequestStatus.valueOf(statusFilter),
-                            pageable
-                    );
-                }
-                return statusLogRepository.findByRequestReferenceNumber("%" + search + "%", pageable);
-            }
-        }
+        String normalizedSearch = hasText(search) ? search.trim() : null;
+        Long searchId = parseLongOrNull(normalizedSearch);
+        BloodBagRequest.RequestStatus status = parseStatusFilter(statusFilter);
+        LocalDateTime from = dateFrom != null ? dateFrom.atStartOfDay() : null;
+        LocalDateTime to = dateTo != null ? dateTo.plusDays(1).atStartOfDay().minusNanos(1) : null;
 
-        // No search, filter by status only
-        if (statusFilter != null && !statusFilter.equals("ALL")) {
-            // ✓ FIXED: Convert String to enum before passing
-            return statusLogRepository.findByNewStatus(
-                    BloodBagRequest.RequestStatus.valueOf(statusFilter),
-                    pageable
-            );
-        }
-
-        // Return all logs
-        return statusLogRepository.findAll(pageable);
+        return statusLogRepository.findForTable(
+                normalizedSearch,
+                searchId,
+                status,
+                from,
+                to,
+                pageable
+        );
     }
 
     /**

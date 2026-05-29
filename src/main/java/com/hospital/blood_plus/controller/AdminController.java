@@ -73,6 +73,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin")
 public class AdminController {
     private static final long MAX_SERVED_EXPORT_DAYS = 31;
+    private static final long MAX_ANALYTICS_EXPORT_DAYS = 366;
 
     private final BloodBagService         bloodBagService;
     private final UserRepository          userRepository;
@@ -614,14 +615,47 @@ public class AdminController {
      */
     @GetMapping("/analytics")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-    public ResponseEntity<AnalyticsDTO> getDashboardMetrics() {
+    public ResponseEntity<?> getDashboardMetrics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        if ((startDate == null) != (endDate == null)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Both startDate and endDate are required when filtering analytics."
+            ));
+        }
+
+        String validationError = validateAnalyticsRange(startDate, endDate, false);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
+
         try {
-            AnalyticsDTO metrics = analyticsService.getDashboardMetrics();
+            AnalyticsDTO metrics = analyticsService.getDashboardMetrics(startDate, endDate);
             return ResponseEntity.ok(metrics);
         } catch (Exception e) {
             return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(null);
+        }
+    }
+
+    @GetMapping("/analytics/export")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<?> exportDashboardMetrics(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        String validationError = validateAnalyticsRange(startDate, endDate, true);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
+
+        try {
+            AnalyticsDTO metrics = analyticsService.getDashboardMetrics(startDate, endDate);
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to export analytics metrics."));
         }
     }
  
@@ -1011,6 +1045,8 @@ public class AdminController {
     public ResponseEntity<PaginatedResponse<RequestStatusLog>> getStatusLogs(
             @RequestParam(required = false) String search,
             @RequestParam(name = "status", defaultValue = "ALL") String statusFilter,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(defaultValue = "date_desc") String sort,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -1018,6 +1054,8 @@ public class AdminController {
         Page<RequestStatusLog> logsPage = requestLogsService.getStatusLogs(
                 search,
                 statusFilter,
+                dateFrom,
+                dateTo,
                 sort,
                 page,
                 size
@@ -1255,39 +1293,46 @@ public class AdminController {
         }
 
         String filename = buildExportFileName(type);
-        ExportJobStatusDTO job = switch (type) {
-            case "STATUS_LOGS" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportStatusLogs(
-                            request.getSearch(),
-                            request.getStatus() != null ? request.getStatus() : "ALL",
-                            request.getStartDate(),
-                            request.getEndDate()
-                    )
-            );
-            case "FULFILLMENTS" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportFulfillments(
-                            request.getSearch(),
-                            request.getStartDate(),
-                            request.getEndDate()
-                    )
-            );
-            case "SERVED_DETAILS" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportServedDetails(
-                            request.getSearch(),
-                            request.getStartDate(),
-                            request.getEndDate(),
-                            request.getRequestGroup() != null ? request.getRequestGroup() : "ALL",
-                            request.getSort() != null ? request.getSort() : "date_desc"
-                    )
-            );
-            case "SERVED_INSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportInsideServedSummary(request.getStartDate(), request.getEndDate())
-            );
-            case "SERVED_OUTSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportOutsideServedSummary(request.getStartDate(), request.getEndDate())
-            );
-            default -> null;
-        };
+        ExportJobStatusDTO job;
+        try {
+            job = switch (type) {
+                case "STATUS_LOGS" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportStatusLogs(
+                                request.getSearch(),
+                                request.getStatus() != null ? request.getStatus() : "ALL",
+                                request.getStartDate(),
+                                request.getEndDate()
+                        )
+                );
+                case "FULFILLMENTS" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportFulfillments(
+                                request.getSearch(),
+                                request.getStartDate(),
+                                request.getEndDate()
+                        )
+                );
+                case "SERVED_DETAILS" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportServedDetails(
+                                request.getSearch(),
+                                request.getStartDate(),
+                                request.getEndDate(),
+                                request.getRequestGroup() != null ? request.getRequestGroup() : "ALL",
+                                request.getSort() != null ? request.getSort() : "date_desc"
+                        )
+                );
+                case "SERVED_INSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportInsideServedSummary(request.getStartDate(), request.getEndDate())
+                );
+                case "SERVED_OUTSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportOutsideServedSummary(request.getStartDate(), request.getEndDate())
+                );
+                default -> null;
+            };
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                    "error", ex.getMessage()
+            ));
+        }
 
         if (job == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Unable to create export job."));
@@ -1382,6 +1427,28 @@ public class AdminController {
             return "Date range too large for synchronous export. Maximum allowed is "
                     + MAX_SERVED_EXPORT_DAYS
                     + " days. Use async export job endpoint instead.";
+        }
+        return null;
+    }
+
+    private String validateAnalyticsRange(LocalDate startDate, LocalDate endDate, boolean required) {
+        if (required && (startDate == null || endDate == null)) {
+            return "startDate and endDate are required for analytics export.";
+        }
+        if (startDate == null && endDate == null) {
+            return null;
+        }
+        if (startDate == null || endDate == null) {
+            return "Both startDate and endDate are required when filtering analytics.";
+        }
+        if (startDate.isAfter(endDate)) {
+            return "startDate must be on or before endDate.";
+        }
+        long daysInclusive = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        if (daysInclusive > MAX_ANALYTICS_EXPORT_DAYS) {
+            return "Analytics date range too large. Maximum allowed is "
+                    + MAX_ANALYTICS_EXPORT_DAYS
+                    + " days.";
         }
         return null;
     }

@@ -160,6 +160,32 @@ public interface RequestStatusLogRepository extends JpaRepository<RequestStatusL
     @Query("""
         SELECT l
         FROM RequestStatusLog l
+        JOIN l.request r
+        LEFT JOIN l.changedBy cb
+        WHERE (:status IS NULL OR l.newStatus = :status)
+          AND (:dateFrom IS NULL OR l.changedAt >= :dateFrom)
+          AND (:dateTo IS NULL OR l.changedAt <= :dateTo)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR (:searchId IS NOT NULL AND r.id = :searchId)
+                OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.requesterName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+    """)
+    Page<RequestStatusLog> findForTable(
+            @Param("search") String search,
+            @Param("searchId") Long searchId,
+            @Param("status") BloodBagRequest.RequestStatus status,
+            @Param("dateFrom") LocalDateTime dateFrom,
+            @Param("dateTo") LocalDateTime dateTo,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT l
+        FROM RequestStatusLog l
         JOIN FETCH l.request r
         LEFT JOIN FETCH l.changedBy cb
         WHERE (:status IS NULL OR l.newStatus = :status)

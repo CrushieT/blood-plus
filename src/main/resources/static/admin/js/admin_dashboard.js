@@ -737,6 +737,11 @@ function renderBagsTable() {
   const comp   = document.getElementById('bags-filter-comp')?.value   || 'ALL';
   const status = document.getElementById('bags-filter-status')?.value || 'ALL';
   const sort   = document.getElementById('bags-sort')?.value          || 'expiry_asc';
+  const fromDate = document.getElementById('bags-print-from-date')?.value || '';
+  const toDate = document.getElementById('bags-print-to-date')?.value || '';
+
+  const rangeStart = fromDate ? new Date(`${fromDate}T00:00:00`) : null;
+  const rangeEnd = toDate ? new Date(`${toDate}T23:59:59.999`) : null;
 
   let list = BLOOD_BAGS.map(bag => ({ ...bag, computedStatus: computeBagStatus(bag) }));
 
@@ -748,6 +753,16 @@ function renderBagsTable() {
   }
   if (comp   !== 'ALL') list = list.filter(b => b.componentType === comp);
   if (status !== 'ALL') list = list.filter(b => b.computedStatus === status);
+  if (rangeStart || rangeEnd) {
+    list = list.filter((b) => {
+      const collected = parseBloodBagDateValue(b.collectedAt);
+      if (!collected) return false;
+      const ts = collected.getTime();
+      if (rangeStart && ts < rangeStart.getTime()) return false;
+      if (rangeEnd && ts > rangeEnd.getTime()) return false;
+      return true;
+    });
+  }
   if (q) list = list.filter(b =>
     (b.serialNumber      || '').toLowerCase().includes(q) ||
     (b.transactionNumber || '').toLowerCase().includes(q) ||
@@ -3952,11 +3967,59 @@ const AnalyticsDashboard = {
     });
   },
 
-  loadMetrics: function() {
-    if (this.isLoading) return;
+  getSelectedDateRange: function() {
+    const startEl = document.getElementById('analytics-export-from-date');
+    const endEl = document.getElementById('analytics-export-to-date');
+    return {
+      startDate: startEl ? startEl.value : '',
+      endDate: endEl ? endEl.value : ''
+    };
+  },
+
+  buildMetricsUrl: function() {
+    const { startDate, endDate } = this.getSelectedDateRange();
+    const hasStart = Boolean(startDate);
+    const hasEnd = Boolean(endDate);
+
+    if (!hasStart && !hasEnd) {
+      return `${this.apiConfig.baseUrl}${this.apiConfig.endpoint}`;
+    }
+    if (hasStart !== hasEnd) {
+      return null;
+    }
+    if (startDate > endDate) {
+      throw new Error('Start date must be on or before end date.');
+    }
+
+    const query = new URLSearchParams({ startDate, endDate });
+    return `${this.apiConfig.baseUrl}${this.apiConfig.endpoint}?${query.toString()}`;
+  },
+
+  onDateRangeChanged: function() {
+    this.loadMetrics(true);
+  },
+
+  loadMetrics: function(force = false) {
+    if (this.isLoading) {
+      if (force) this._refreshAfterLoad = true;
+      return;
+    }
     this.isLoading = true;
 
-    fetch(`${this.apiConfig.baseUrl}${this.apiConfig.endpoint}`)
+    let url = '';
+    try {
+      url = this.buildMetricsUrl();
+      if (!url) {
+        this.isLoading = false;
+        return;
+      }
+    } catch (error) {
+      console.error('Invalid analytics date range:', error);
+      this.isLoading = false;
+      return;
+    }
+
+    fetch(url)
       .then(response => {
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
@@ -3971,8 +4034,14 @@ const AnalyticsDashboard = {
       })
       .catch(error => {
         console.error('Error fetching analytics data:', error);
-        this.isLoading = false;
         this.showErrorState();
+      })
+      .finally(() => {
+        this.isLoading = false;
+        if (this._refreshAfterLoad) {
+          this._refreshAfterLoad = false;
+          this.loadMetrics(true);
+        }
       });
   },
 
@@ -4886,6 +4955,63 @@ window.AnalyticsDashboard = AnalyticsDashboard;
 // -------------------------------------------------------------------------------
 // PRINTING FUNCTIONS - PDF & EXCEL EXPORTS (UPDATED)
 // -------------------------------------------------------------------------------
+window.printAnalyticsWithRange = async function() {
+  const fromInput = document.getElementById('analytics-export-from-date');
+  const toInput = document.getElementById('analytics-export-to-date');
+  const startDate = fromInput ? fromInput.value : '';
+  const endDate = toInput ? toInput.value : '';
+
+  if (!startDate || !endDate) {
+    alert('Please select both start and end dates before exporting analytics.');
+    return;
+  }
+  if (startDate > endDate) {
+    alert('Start date must be on or before end date.');
+    return;
+  }
+
+  let exportData = null;
+  try {
+    const query = new URLSearchParams({ startDate, endDate });
+    const response = await fetch(`${window.location.origin}/api/admin/analytics/export?${query.toString()}`);
+    if (!response.ok) {
+      let message = 'Failed to export analytics for the selected date range.';
+      try {
+        const errorBody = await response.json();
+        if (errorBody && errorBody.error) {
+          message = errorBody.error;
+        }
+      } catch (_) {}
+      alert(message);
+      return;
+    }
+    exportData = await response.json();
+  } catch (error) {
+    console.error('Error exporting analytics with range:', error);
+    alert('Unable to export analytics right now. Please try again.');
+    return;
+  }
+
+  const previousData = window.AnalyticsDashboard ? window.AnalyticsDashboard.data : null;
+  const previousRange = window.__analyticsExportRangeLabel;
+  const exportRangeLabel = `${startDate} to ${endDate}`;
+
+  try {
+    if (window.AnalyticsDashboard) {
+      window.AnalyticsDashboard.data = exportData;
+      window.AnalyticsDashboard.render();
+    }
+    window.__analyticsExportRangeLabel = exportRangeLabel;
+    window.printAnalytics();
+  } finally {
+    window.__analyticsExportRangeLabel = previousRange;
+    if (window.AnalyticsDashboard) {
+      window.AnalyticsDashboard.data = previousData;
+      window.AnalyticsDashboard.render();
+    }
+  }
+};
+
 /**
  * Print Analytics Report (PDF) - Compact Professional Design
  */
@@ -4961,6 +5087,10 @@ window.printAnalytics = function() {
     hour: '2-digit',
     minute: '2-digit'
   });
+  const rangeFrom = document.getElementById('analytics-export-from-date')?.value || '';
+  const rangeTo = document.getElementById('analytics-export-to-date')?.value || '';
+  const liveRangeLabel = (rangeFrom && rangeTo) ? `${rangeFrom} to ${rangeTo}` : '';
+  const analyticsRangeLabel = window.__analyticsExportRangeLabel || liveRangeLabel || 'Current dashboard snapshot';
 
   const styleNodes = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
     .map((node) => {
@@ -5074,6 +5204,7 @@ window.printAnalytics = function() {
           <div class="analytics-print-head">
             <h1 class="analytics-print-title">BloodPlus - Blood Bank Analytics Report</h1>
             <div class="analytics-print-sub">Generated from current analytics dashboard</div>
+            <div class="analytics-print-meta">Range: ${analyticsRangeLabel}</div>
             <div class="analytics-print-meta">Generated: ${generatedAt}</div>
           </div>
           <div id="bb-tab-analytics">
@@ -11362,7 +11493,7 @@ function initializeLoggingPanel() {
   const statusStartEl = document.getElementById('logging-status-date-from');
   const statusEndEl = document.getElementById('logging-status-date-to');
   if (statusStartEl && statusEndEl && !statusStartEl.value && !statusEndEl.value) {
-    setStatusRange('thisMonth');
+    setStatusRange('thisMonth', false);
   }
 
   loadLoggingData();
@@ -11451,15 +11582,21 @@ function loggingStatusRender(resetPage = false) {
 
     const searchEl = document.getElementById('logging-status-search');
     const statusFilterEl = document.getElementById('logging-status-filter-status');
+    const dateFromEl = document.getElementById('logging-status-date-from');
+    const dateToEl = document.getElementById('logging-status-date-to');
     const sortEl = document.getElementById('logging-status-sort');
 
     const search = searchEl ? searchEl.value.trim() : '';
     const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
+    const dateFrom = dateFromEl ? dateFromEl.value : '';
+    const dateTo = dateToEl ? dateToEl.value : '';
     const sort = sortEl ? sortEl.value : 'date_desc';
 
     const queryParams = new URLSearchParams();
     if (search) queryParams.append('search', search);
     if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
+    if (dateFrom) queryParams.append('dateFrom', dateFrom);
+    if (dateTo) queryParams.append('dateTo', dateTo);
     queryParams.append('sort', sort);
     queryParams.append('page', String(loggingState.statusLogsPage));
     queryParams.append('size', String(loggingState.itemsPerPage));
@@ -11826,10 +11963,14 @@ function setServedRange(range, shouldRender = true) {
   }
 }
 
-function setStatusRange(range) {
+function setStatusRange(range, shouldRender = true) {
   const startEl = document.getElementById('logging-status-date-from');
   const endEl = document.getElementById('logging-status-date-to');
   applyQuickDateRange(startEl, endEl, range);
+  if (shouldRender) {
+    loggingState.statusLogsPage = 1;
+    loggingStatusRender();
+  }
 }
 
 function exportStatusLogsExcel() {

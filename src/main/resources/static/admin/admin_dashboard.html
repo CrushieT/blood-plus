@@ -258,11 +258,11 @@
           <div class="bb-export-controls">
             <div class="bb-export-field">
               <label for="bags-print-from-date">From Date</label>
-              <input type="date" id="bags-print-from-date" class="req-select">
+              <input type="date" id="bags-print-from-date" class="req-select" onchange="renderBagsTable()">
             </div>
             <div class="bb-export-field">
               <label for="bags-print-to-date">To Date</label>
-              <input type="date" id="bags-print-to-date" class="req-select">
+              <input type="date" id="bags-print-to-date" class="req-select" onchange="renderBagsTable()">
             </div>
             <div class="bb-export-buttons">
               <button class="btn-secondary" type="button" onclick="printBloodBags('current')">Print Current Results</button>
@@ -397,7 +397,11 @@
             <div class="an-actions-sub">Blood bank performance and request activity overview</div>
           </div>
           <div class="bb-export-buttons">
-            <button class="btn-ghost an-export-btn" type="button" onclick="printAnalytics()">Export Analytics</button>
+            <label for="analytics-export-from-date" style="font-size:12px;color:var(--muted)">From</label>
+            <input type="date" id="analytics-export-from-date" class="req-select" onchange="window.AnalyticsDashboard && window.AnalyticsDashboard.onDateRangeChanged()">
+            <label for="analytics-export-to-date" style="font-size:12px;color:var(--muted)">To</label>
+            <input type="date" id="analytics-export-to-date" class="req-select" onchange="window.AnalyticsDashboard && window.AnalyticsDashboard.onDateRangeChanged()">
+            <button class="btn-ghost an-export-btn" type="button" onclick="printAnalyticsWithRange()">Export Analytics</button>
           </div>
         </div>
 
@@ -974,18 +978,18 @@
         </div>
         <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
           <label style="font-size:12px;color:var(--muted);font-weight:700">Start Date:</label>
-          <input class="req-select" type="date" id="logging-status-date-from"
+          <input class="req-select" type="date" id="logging-status-date-from" onchange="loggingStatusRender(true)"
                  style="padding:8px 12px;border:1px solid var(--border)">
           <label style="font-size:12px;color:var(--muted);font-weight:700">End Date:</label>
-          <input class="req-select" type="date" id="logging-status-date-to"
+          <input class="req-select" type="date" id="logging-status-date-to" onchange="loggingStatusRender(true)"
                  style="padding:8px 12px;border:1px solid var(--border)">
 
-          <button class="btn-ghost" onclick="setStatusRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
-          <button class="btn-ghost" onclick="setStatusRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
-          <button class="btn-ghost" onclick="setStatusRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
-          <button class="btn-ghost" onclick="setStatusRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
+          <button class="btn-ghost" type="button" onclick="setStatusRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
+          <button class="btn-ghost" type="button" onclick="setStatusRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
+          <button class="btn-ghost" type="button" onclick="setStatusRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
+          <button class="btn-ghost" type="button" onclick="setStatusRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
 
-          <button class="btn-primary" onclick="exportStatusLogsExcel()">Export Status Logs</button>
+          <button class="btn-primary" type="button" onclick="exportStatusLogsExcel()">Export Status Logs</button>
         </div>
       </div>
 
@@ -1042,9 +1046,9 @@
             padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
           <span id="logging-status-showing"></span>
           <div style="display:flex;gap:6px">
-            <button class="btn-ghost" id="logging-status-prev" onclick="loggingStatusPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
+            <button class="btn-ghost" type="button" id="logging-status-prev" onclick="loggingStatusPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
             <span id="logging-status-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
-            <button class="btn-ghost" id="logging-status-next" onclick="loggingStatusNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
+            <button class="btn-ghost" type="button" id="logging-status-next" onclick="loggingStatusNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
           </div>
         </div>
       </div>
@@ -1063,12 +1067,12 @@
           <input class="req-select" type="date" id="logging-served-date-to" onchange="loggingServedRender(true)"
                  style="padding:8px 12px;border:1px solid var(--border)">
 
-          <button class="btn-ghost" onclick="setServedRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
-          <button class="btn-ghost" onclick="setServedRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
-          <button class="btn-ghost" onclick="setServedRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
-          <button class="btn-ghost" onclick="setServedRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
+          <button class="btn-ghost" type="button" onclick="setServedRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
+          <button class="btn-ghost" type="button" onclick="setServedRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
+          <button class="btn-ghost" type="button" onclick="setServedRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
+          <button class="btn-ghost" type="button" onclick="setServedRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
 
-          <button class="btn-primary" onclick="exportDetailedServedLogs()">Export Detailed Served Logs</button>
+          <button class="btn-primary" type="button" onclick="exportDetailedServedLogs()">Export Detailed Served Logs</button>
         </div>
       </div>
 
@@ -1123,9 +1127,9 @@
             padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
           <span id="logging-served-showing"></span>
           <div style="display:flex;gap:6px">
-            <button class="btn-ghost" id="logging-served-prev" onclick="loggingServedPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
+            <button class="btn-ghost" type="button" id="logging-served-prev" onclick="loggingServedPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
             <span id="logging-served-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
-            <button class="btn-ghost" id="logging-served-next" onclick="loggingServedNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
+            <button class="btn-ghost" type="button" id="logging-served-next" onclick="loggingServedNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
           </div>
         </div>
       </div>
