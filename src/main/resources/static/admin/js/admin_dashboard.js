@@ -640,11 +640,11 @@ function renderInventoryGrid(apiData) {
   if (!grid) return;
 
   const levelMap = {
-    EMPTY:    { label:'? Empty',    cls:'level-critical' },
-    CRITICAL: { label:'? Critical', cls:'level-critical' },
-    LOW:      { label:'? Low',      cls:'level-low' },
-    GOOD:     { label:'? Good',     cls:'level-ok' },
-    HIGH:     { label:'? High',     cls:'level-high' },
+    EMPTY:    { label:' Empty',    cls:'level-critical' },
+    CRITICAL: { label:' Critical', cls:'level-critical' },
+    LOW:      { label:' Low',      cls:'level-low' },
+    GOOD:     { label:' Good',     cls:'level-ok' },
+    HIGH:     { label:' High',     cls:'level-high' },
   };
 
   const barColorMap = {
@@ -845,22 +845,22 @@ function renderBagsPage() {
     if (bag.computedStatus === 'EXPIRED') {
       expiryPill = `<span class="expiry-pill expiry-expired">Expired</span>`;
     } else if (bag.openSystem) {
-      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft <= 0 ? '<1' : daysLeft}d (open)</span>`;
+      expiryPill = `<span class="expiry-pill expiry-critical">${daysLeft <= 0 ? '<1' : daysLeft}d (open)</span>`;
     } else if (exp && exp <= twoDays) {
-      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft}d left</span>`;
+      expiryPill = `<span class="expiry-pill expiry-critical">${daysLeft}d left</span>`;
     } else if (exp && exp <= soon) {
-      expiryPill = `<span class="expiry-pill expiry-soon">? ${daysLeft}d left</span>`;
+      expiryPill = `<span class="expiry-pill expiry-soon">${daysLeft}d left</span>`;
     } else {
       expiryPill = `<span class="expiry-pill expiry-ok">${daysLeft}d left</span>`;
     }
 
     const statusBadgeMap = {
-      AVAILABLE:    `<span class="bag-status bag-status-available">? Available</span>`,
-      EXPIRING:     `<span class="bag-status bag-status-expiring">? Expiring</span>`,
-      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">?? Reserved for patient </span>`,
-      DISPENSED:    `<span class="bag-status bag-status-dispensed">? Dispensed</span>`,
-      EXPIRED:      `<span class="bag-status bag-status-expired">? Expired</span>`,
-      DISCARDED:    `<span class="bag-status bag-status-discarded">? Discarded</span>`,
+      AVAILABLE:    `<span class="bag-status bag-status-available">Available</span>`,
+      EXPIRING:     `<span class="bag-status bag-status-expiring">Expiring</span>`,
+      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">Reserved for patient</span>`,
+      DISPENSED:    `<span class="bag-status bag-status-dispensed">Dispensed</span>`,
+      EXPIRED:      `<span class="bag-status bag-status-expired">Expired</span>`,
+      DISCARDED:    `<span class="bag-status bag-status-discarded">Discarded</span>`,
     };
     const statusBadge = statusBadgeMap[bag.computedStatus] || '';
 
@@ -940,12 +940,12 @@ function openBagDetail(id) {
   const cs = computeBagStatus(bag);
 
   const statusBadgeMap = {
-    AVAILABLE:    `<span class="bag-status bag-status-available"  style="font-size:13px;padding:5px 14px">? Available</span>`,
-    EXPIRING:     `<span class="bag-status bag-status-expiring"   style="font-size:13px;padding:5px 14px">? Expiring Soon</span>`,
-    CROSSMATCHED: `<span class="bag-status bag-status-crossmatched" style="font-size:13px;padding:5px 14px">?? Crossmatched</span>`,
-    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">? Dispensed</span>`,
-    EXPIRED:      `<span class="bag-status bag-status-expired"    style="font-size:13px;padding:5px 14px">? Expired</span>`,
-    DISCARDED:    `<span class="bag-status bag-status-discarded"  style="font-size:13px;padding:5px 14px">? Discarded</span>`,
+    AVAILABLE:    `<span class="bag-status bag-status-available"  style="font-size:13px;padding:5px 14px">Available</span>`,
+    EXPIRING:     `<span class="bag-status bag-status-expiring"   style="font-size:13px;padding:5px 14px">Expiring Soon</span>`,
+    CROSSMATCHED: `<span class="bag-status bag-status-crossmatched" style="font-size:13px;padding:5px 14px">Crossmatched</span>`,
+    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">Dispensed</span>`,
+    EXPIRED:      `<span class="bag-status bag-status-expired"    style="font-size:13px;padding:5px 14px">Expired</span>`,
+    DISCARDED:    `<span class="bag-status bag-status-discarded"  style="font-size:13px;padding:5px 14px">Discarded</span>`,
   };
 
   document.getElementById('bagd-id').textContent        = bag.serialNumber;
@@ -1008,7 +1008,7 @@ function openBagDetail(id) {
 async function confirmOpenSystem(id, bagLabel) {
   const confirmed = confirm(
     `Convert bag ${bagLabel} from Whole Blood to PRBC (Open System)?\n\n` +
-    `? This is irreversible. The expiry will reset to 24 hours from now.\n` +
+    `Note: This is irreversible. The expiry will reset to 24 hours from now.\n` +
     `Only proceed if the patient is stable and IV line is patent.`
   );
   if (!confirmed) return;
@@ -6120,11 +6120,11 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
  
   function reqShowLoading() {
     const el = document.getElementById('req-list');
-    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">?</div>Loading requests…</div>`;
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">...</div>Loading requests…</div>`;
   }
   function reqShowError(msg) {
     const el = document.getElementById('req-list');
-    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">??</div>${msg}</div>`;
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">Error</div>${msg}</div>`;
   }
  
   async function reqFetchAll() {
@@ -7825,7 +7825,7 @@ function staffFmtDate(iso) {
 }
 
 function staffInitials(first, last) {
-  return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || '??';
+  return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || 'NA';
 }
 
 const STAFF_DEPARTMENTS = [
@@ -10762,7 +10762,7 @@ function togglePasswordVisibility(fieldId) {
   const field = document.getElementById(fieldId);
   const isPassword = field.type === 'password';
   field.type = isPassword ? 'text' : 'password';
-  event.target.textContent = isPassword ? '??' : '??';
+  event.target.textContent = isPassword ? 'Hide' : 'Show';
 }
 
 async function submitPasswordChange() {
@@ -11349,12 +11349,12 @@ function renderStatusLogsTable(response) {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>#${log.request?.id || 'N/A'}</td>
-        <td>${log.request?.referenceNumber || '?'}</td>
-        <td><span class="status-badge" style="background:#F8FAFC;color:#475569">${log.oldStatus || '?'}</span></td>
-        <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus || '?'}</span></td>
+        <td>${log.request?.referenceNumber || 'N/A'}</td>
+        <td><span class="status-badge" style="background:#F8FAFC;color:#475569">${log.oldStatus || 'N/A'}</span></td>
+        <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus || 'N/A'}</span></td>
         <td>${log.changedBy?.username || 'System'}</td>
         <td>${formatDateTime(log.changedAt)}</td>
-        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '?'}</td>
+        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || 'N/A'}</td>
         <td>
           <button class="btn-ghost" onclick="viewStatusLogDetail(${log.id})" style="padding:4px 8px;font-size:11px">View</button>
         </td>
@@ -11480,11 +11480,11 @@ function renderServedTable(response) {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td><strong>${rowData.referenceNumber || 'N/A'}</strong></td>
-        <td>${rowData.patientName || '?'}</td>
-        <td>${toDisplayEnum(rowData.requestCategory) || '?'}</td>
+        <td>${rowData.patientName || 'N/A'}</td>
+        <td>${toDisplayEnum(rowData.requestCategory) || 'N/A'}</td>
         <td>${resolveHospitalWard(rowData)}</td>
-        <td>${toDisplayEnum(rowData.bloodType) || '?'}</td>
-        <td>${toDisplayEnum(rowData.bloodComponent) || '?'}</td>
+        <td>${toDisplayEnum(rowData.bloodType) || 'N/A'}</td>
+        <td>${toDisplayEnum(rowData.bloodComponent) || 'N/A'}</td>
         <td>${safeNumber(rowData.requestedUnits)}</td>
         <td>${safeNumber(rowData.servedUnits)}</td>
         <td>${safeNumber(rowData.unservedUnits)}</td>
@@ -11535,12 +11535,12 @@ function viewStatusLogDetail(logId) {
 function populateLoggingStatusModal(log) {
   try {
     document.getElementById('logging-status-modal-request-id').textContent = `#${log.request?.id || 'N/A'}`;
-    document.getElementById('logging-status-modal-ref-num').textContent = log.request?.referenceNumber || '?';
-    document.getElementById('logging-status-modal-old-status').textContent = log.oldStatus || '?';
-    document.getElementById('logging-status-modal-new-status').textContent = log.newStatus || '?';
+    document.getElementById('logging-status-modal-ref-num').textContent = log.request?.referenceNumber || 'N/A';
+    document.getElementById('logging-status-modal-old-status').textContent = log.oldStatus || 'N/A';
+    document.getElementById('logging-status-modal-new-status').textContent = log.newStatus || 'N/A';
     document.getElementById('logging-status-modal-changed-by').textContent = log.changedBy?.fullName || log.changedBy?.username || 'System';
     document.getElementById('logging-status-modal-changed-at').textContent = formatDateTime(log.changedAt);
-    document.getElementById('logging-status-modal-notes').textContent = log.notes || '?';
+    document.getElementById('logging-status-modal-notes').textContent = log.notes || 'N/A';
     document.getElementById('logging-status-modal').style.display = 'flex';
   } catch (error) {
     console.error('Error populating status log modal:', error);
@@ -11582,13 +11582,13 @@ function populateLoggingServedModal(detail) {
     }
 
     document.getElementById('logging-served-modal-request-id').textContent = detail.referenceNumber || `#${detail.requestId || 'N/A'}`;
-    document.getElementById('logging-served-modal-patient').textContent = detail.patientName || '?';
-    document.getElementById('logging-served-modal-blood').textContent = `${toDisplayEnum(detail.bloodType) || '?'} / ${toDisplayEnum(detail.bloodComponent) || '?'}`;
+    document.getElementById('logging-served-modal-patient').textContent = detail.patientName || 'N/A';
+    document.getElementById('logging-served-modal-blood').textContent = `${toDisplayEnum(detail.bloodType) || 'N/A'} / ${toDisplayEnum(detail.bloodComponent) || 'N/A'}`;
     document.getElementById('logging-served-modal-requested').textContent = `${safeNumber(detail.requestedUnits)} unit(s)`;
     document.getElementById('logging-served-modal-served').textContent = `${servedUnits} unit(s)`;
     document.getElementById('logging-served-modal-unserved-count').textContent = `${unservedUnits} unit(s)`;
-    document.getElementById('logging-served-modal-result').textContent = detail.result || '?';
-    document.getElementById('logging-served-modal-requester-type').textContent = toDisplayEnum(detail.requestCategory) || '?';
+    document.getElementById('logging-served-modal-result').textContent = detail.result || 'N/A';
+    document.getElementById('logging-served-modal-requester-type').textContent = toDisplayEnum(detail.requestCategory) || 'N/A';
     document.getElementById('logging-served-modal-hospital-ward').textContent = resolveHospitalWard(detail);
     document.getElementById('logging-served-modal-last-served').textContent = formatDateTime(detail.lastServedAt);
 
@@ -12070,8 +12070,8 @@ function showToast(message, type = 'info', duration = 3000) {
     const textColor = type === 'success' ? 'var(--green, #2E7D32)' : 
                       type === 'error' ? 'var(--crimson, #C41E3A)' : 
                       'var(--blue, #1E40AF)';
-    const icon = type === 'success' ? '?' : 
-                 type === 'error' ? '?' : '?';
+    const icon = type === 'success' ? 'OK' : 
+                 type === 'error' ? 'X' : 'i';
 
     toast.style.cssText = `
         background: ${bgColor};
@@ -12234,9 +12234,10 @@ function initializeAutoRefresh() {
 
   console.log('[Auto-Refresh] Initialized - checking for changes every 30 seconds');
 
-  const REFRESH_INTERVAL = 1000; // 30 seconds for checking
+  const REFRESH_INTERVAL = 30000; // 30 seconds for checking
 
   autoRefreshIntervals.combined = setInterval(() => {
+    if (document.hidden) return;
     checkDashboardUpdates();
     checkBloodBankUpdates();
     checkBloodRequestsUpdates();
@@ -12276,6 +12277,7 @@ function changeRefreshInterval(seconds) {
   const REFRESH_INTERVAL = seconds * 1000;
 
   autoRefreshIntervals.combined = setInterval(() => {
+    if (document.hidden) return;
     console.log(`[Auto-Refresh] Checking for changes (${seconds}s interval)...`);
     
     checkDashboardUpdates();

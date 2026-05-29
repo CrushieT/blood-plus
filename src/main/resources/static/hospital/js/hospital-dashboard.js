@@ -3599,6 +3599,7 @@ let autoRefreshInterval = null;
  */
 function startAutoRefresh() {
   autoRefreshInterval = setInterval(() => {
+    if (document.hidden) return;
     loadHospitalRequests();
     loadBloodBankAvailability();
   }, 5000); // 30 seconds

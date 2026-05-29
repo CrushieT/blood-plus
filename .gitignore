@@ -40,3 +40,4 @@ target
 # summary.md
 database
 .github/java-upgrade
+.fix-guide.md
