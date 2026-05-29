@@ -5,6 +5,7 @@ import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.response.AdminDashboardResponse;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.dto.response.BloodBagResponse;
+import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.model.*;
 import com.hospital.blood_plus.model.BloodBag.BagSource;
 import com.hospital.blood_plus.model.BloodBag.BagStatus;
@@ -12,6 +13,10 @@ import com.hospital.blood_plus.model.BloodBag.ComponentType;
 import com.hospital.blood_plus.model.BloodBag.RhType;
 import com.hospital.blood_plus.model.BloodBag.BloodType;
 import com.hospital.blood_plus.repository.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -73,6 +78,38 @@ public class BloodBagService {
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    public PaginatedResponse<BloodBagResponse> getBagsPage(
+            int page,
+            int size,
+            BagStatus status,
+            String search
+    ) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
+
+        Pageable pageable = PageRequest.of(
+                safePage - 1,
+                safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        Page<BloodBag> bagsPage = bloodBagRepository.findForAdmin(status, normalizedSearch, pageable);
+        List<BloodBagResponse> rows = bagsPage.getContent()
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        int totalPages = Math.max(bagsPage.getTotalPages(), 1);
+        return new PaginatedResponse<>(
+                rows,
+                bagsPage.getNumber() + 1,
+                totalPages,
+                bagsPage.getTotalElements(),
+                bagsPage.getSize()
+        );
     }
 
     // ── Inventory summary ─────────────────────────────────────────

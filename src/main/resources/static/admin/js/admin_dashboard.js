@@ -530,9 +530,15 @@ async function loadInventory() {
 
 async function loadBloodBags() {
   try {
-    const res = await fetch('/api/admin/blood-bank/bags', { credentials: 'include' });
+    const params = new URLSearchParams({
+      page: '1',
+      size: '200',
+      status: 'ALL'
+    });
+    const res = await fetch(`/api/admin/blood-bank/bags?${params.toString()}`, { credentials: 'include' });
     if (!res.ok) return;
-    const data = await res.json();
+    const payload = await res.json();
+    const data = Array.isArray(payload) ? payload : (payload.data ?? []);
 
     BLOOD_BAGS = data.map(b => ({
       id:                b.id,
@@ -640,11 +646,11 @@ function renderInventoryGrid(apiData) {
   if (!grid) return;
 
   const levelMap = {
-    EMPTY:    { label:'? Empty',    cls:'level-critical' },
-    CRITICAL: { label:'? Critical', cls:'level-critical' },
-    LOW:      { label:'? Low',      cls:'level-low' },
-    GOOD:     { label:'? Good',     cls:'level-ok' },
-    HIGH:     { label:'? High',     cls:'level-high' },
+    EMPTY:    { label:' Empty',    cls:'level-critical' },
+    CRITICAL: { label:' Critical', cls:'level-critical' },
+    LOW:      { label:' Low',      cls:'level-low' },
+    GOOD:     { label:' Good',     cls:'level-ok' },
+    HIGH:     { label:' High',     cls:'level-high' },
   };
 
   const barColorMap = {
@@ -845,22 +851,22 @@ function renderBagsPage() {
     if (bag.computedStatus === 'EXPIRED') {
       expiryPill = `<span class="expiry-pill expiry-expired">Expired</span>`;
     } else if (bag.openSystem) {
-      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft <= 0 ? '<1' : daysLeft}d (open)</span>`;
+      expiryPill = `<span class="expiry-pill expiry-critical">${daysLeft <= 0 ? '<1' : daysLeft}d (open)</span>`;
     } else if (exp && exp <= twoDays) {
-      expiryPill = `<span class="expiry-pill expiry-critical">? ${daysLeft}d left</span>`;
+      expiryPill = `<span class="expiry-pill expiry-critical">${daysLeft}d left</span>`;
     } else if (exp && exp <= soon) {
-      expiryPill = `<span class="expiry-pill expiry-soon">? ${daysLeft}d left</span>`;
+      expiryPill = `<span class="expiry-pill expiry-soon">${daysLeft}d left</span>`;
     } else {
       expiryPill = `<span class="expiry-pill expiry-ok">${daysLeft}d left</span>`;
     }
 
     const statusBadgeMap = {
-      AVAILABLE:    `<span class="bag-status bag-status-available">? Available</span>`,
-      EXPIRING:     `<span class="bag-status bag-status-expiring">? Expiring</span>`,
-      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">?? Reserved for patient </span>`,
-      DISPENSED:    `<span class="bag-status bag-status-dispensed">? Dispensed</span>`,
-      EXPIRED:      `<span class="bag-status bag-status-expired">? Expired</span>`,
-      DISCARDED:    `<span class="bag-status bag-status-discarded">? Discarded</span>`,
+      AVAILABLE:    `<span class="bag-status bag-status-available">Available</span>`,
+      EXPIRING:     `<span class="bag-status bag-status-expiring">Expiring</span>`,
+      CROSSMATCHED: `<span class="bag-status bag-status-crossmatched">Reserved for patient</span>`,
+      DISPENSED:    `<span class="bag-status bag-status-dispensed">Dispensed</span>`,
+      EXPIRED:      `<span class="bag-status bag-status-expired">Expired</span>`,
+      DISCARDED:    `<span class="bag-status bag-status-discarded">Discarded</span>`,
     };
     const statusBadge = statusBadgeMap[bag.computedStatus] || '';
 
@@ -940,12 +946,12 @@ function openBagDetail(id) {
   const cs = computeBagStatus(bag);
 
   const statusBadgeMap = {
-    AVAILABLE:    `<span class="bag-status bag-status-available"  style="font-size:13px;padding:5px 14px">? Available</span>`,
-    EXPIRING:     `<span class="bag-status bag-status-expiring"   style="font-size:13px;padding:5px 14px">? Expiring Soon</span>`,
-    CROSSMATCHED: `<span class="bag-status bag-status-crossmatched" style="font-size:13px;padding:5px 14px">?? Crossmatched</span>`,
-    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">? Dispensed</span>`,
-    EXPIRED:      `<span class="bag-status bag-status-expired"    style="font-size:13px;padding:5px 14px">? Expired</span>`,
-    DISCARDED:    `<span class="bag-status bag-status-discarded"  style="font-size:13px;padding:5px 14px">? Discarded</span>`,
+    AVAILABLE:    `<span class="bag-status bag-status-available"  style="font-size:13px;padding:5px 14px">Available</span>`,
+    EXPIRING:     `<span class="bag-status bag-status-expiring"   style="font-size:13px;padding:5px 14px">Expiring Soon</span>`,
+    CROSSMATCHED: `<span class="bag-status bag-status-crossmatched" style="font-size:13px;padding:5px 14px">Crossmatched</span>`,
+    DISPENSED:    `<span class="bag-status bag-status-dispensed"  style="font-size:13px;padding:5px 14px">Dispensed</span>`,
+    EXPIRED:      `<span class="bag-status bag-status-expired"    style="font-size:13px;padding:5px 14px">Expired</span>`,
+    DISCARDED:    `<span class="bag-status bag-status-discarded"  style="font-size:13px;padding:5px 14px">Discarded</span>`,
   };
 
   document.getElementById('bagd-id').textContent        = bag.serialNumber;
@@ -1008,7 +1014,7 @@ function openBagDetail(id) {
 async function confirmOpenSystem(id, bagLabel) {
   const confirmed = confirm(
     `Convert bag ${bagLabel} from Whole Blood to PRBC (Open System)?\n\n` +
-    `? This is irreversible. The expiry will reset to 24 hours from now.\n` +
+    `Note: This is irreversible. The expiry will reset to 24 hours from now.\n` +
     `Only proceed if the patient is stable and IV line is patent.`
   );
   if (!confirmed) return;
@@ -5851,7 +5857,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   };
  
   const API_BASE = '/api';
- 
+  const REQ_PAGE_SIZE = 25;
+
   /* ----------------------------------------------------------------------------
      STATE
   -------------------------------------------------------------------------------- */
@@ -5861,6 +5868,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let reqPendingRejectId = null;
   let reqPendingResolutionMode = 'reject';
   let reqPendingRemarksId = null;
+  let reqCurrentPage = 1;
+  let reqTotalPages = 1;
+  let reqTotalElements = 0;
+  let reqSearchDebounceTimer = null;
   const REQ_STATUS_PRIORITY = {
     PENDING: 0,
     NEEDS_CONFIRMATION: 1,
@@ -5985,7 +5996,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   /* ----------------------------------------------------------------------------
      DATA MAPPING
   -------------------------------------------------------------------------------- */
-  function mapRequest(r) {
+  function mapRequest(r, options = {}) {
+    const isDetailPayload = Boolean(options.detail);
     const docUrl = r.doctorsNoteUrl ?? '';
     const docLabel = docUrl
       ? 'DoctorsNote_' + (r.referenceNumber ?? r.id) + '_' +
@@ -6000,7 +6012,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
               ?? r.requesterName
               ?? '–';
  
-    const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
+    const allocatedBags = r.reservedBags ?? r.allocatedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
  
     const bloodTypeEnum = r.bloodType ?? '–';
     const displayBloodType = formatBloodType(bloodTypeEnum);
@@ -6089,6 +6101,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
       allocatedBags,
+      isDetailLoaded: isDetailPayload,
     };
   }
 
@@ -6120,49 +6133,111 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
  
   function reqShowLoading() {
     const el = document.getElementById('req-list');
-    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">?</div>Loading requests…</div>`;
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">...</div>Loading requests…</div>`;
   }
   function reqShowError(msg) {
     const el = document.getElementById('req-list');
-    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">??</div>${msg}</div>`;
+    if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">Error</div>${msg}</div>`;
   }
- 
-  async function reqFetchAll() {
+
+  function reqGetSearchQuery() {
+    return (document.getElementById('req-search')?.value || '').trim();
+  }
+
+  function reqBuildListQuery(page) {
+    const params = new URLSearchParams({
+      page: String(Math.max(page, 1)),
+      size: String(REQ_PAGE_SIZE),
+    });
+
+    if (reqCurrentFilter !== 'ALL') {
+      params.append('status', reqCurrentFilter);
+    }
+
+    const searchQuery = reqGetSearchQuery();
+    if (searchQuery) {
+      params.append('search', searchQuery);
+    }
+
+    return params;
+  }
+
+  async function reqFetchPage(page = 1) {
     reqShowLoading();
     try {
-      const res  = await fetch(`${API_BASE}/admin/blood-requests`, { headers: { Accept: 'application/json' } });
+      const params = reqBuildListQuery(page);
+      const res = await fetch(`${API_BASE}/admin/blood-requests?${params.toString()}`, {
+        headers: { Accept: 'application/json' }
+      });
       if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
       const json = await res.json();
-      reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
-      detectNewBloodRequests(reqData);
-      reqRender();
-      reqUpdateCounts();  
-    } catch (err) {
-      console.error('[BloodRequests] fetch failed', err);
-      reqShowError(`Failed to load requests – ${err.message}`);
-    }
-  }
- 
- 
-  async function reqFetchByStatus(status) {
-    reqShowLoading();
-    try {
-      const url  = status === 'ALL'
-        ? `${API_BASE}/admin/blood-requests`
-        : `${API_BASE}/admin/blood-requests?status=${status}`;
-      const res  = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const json = await res.json();
-      reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
-      if (status === 'ALL') {
-        detectNewBloodRequests(reqData);
+
+      const rows = Array.isArray(json) ? json : (json.data ?? json.content ?? []);
+      const mapped = rows.map(r => mapRequest(r, { detail: false }));
+      const nextExpanded = {};
+      mapped.forEach(r => {
+        if (reqExpanded[r.id]) nextExpanded[r.id] = true;
+      });
+
+      reqData = mapped;
+      reqExpanded = nextExpanded;
+
+      if (Array.isArray(json)) {
+        reqCurrentPage = 1;
+        reqTotalPages = 1;
+        reqTotalElements = mapped.length;
+      } else {
+        reqCurrentPage = Math.max(Number(json.page) || page, 1);
+        reqTotalPages = Math.max(Number(json.totalPages) || 1, 1);
+        reqTotalElements = Math.max(Number(json.totalElements) || mapped.length, 0);
       }
+
+      if (reqCurrentPage > reqTotalPages) {
+        reqCurrentPage = reqTotalPages;
+        await reqFetchPage(reqCurrentPage);
+        return;
+      }
+
+      detectNewBloodRequests(reqData);
       reqRender();
       reqUpdateCounts();
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests - ${err.message}`);
+      reqTotalElements = 0;
+      reqTotalPages = 1;
+      reqCurrentPage = 1;
+      reqUpdatePaginationUi(0);
     }
+  }
+
+  async function reqFetchAll() {
+    await reqFetchPage(reqCurrentPage);
+  }
+
+  async function reqFetchByStatus(status) {
+    reqCurrentFilter = status === 'ALL' ? 'ALL' : status;
+    reqCurrentPage = 1;
+    await reqFetchPage(1);
+  }
+
+  async function reqLoadDetail(reqId, force = false) {
+    const idx = reqData.findIndex(r => r.id === reqId);
+    if (idx < 0) return null;
+    const existing = reqData[idx];
+    if (existing.isDetailLoaded && !force) return existing;
+
+    const res = await fetch(`${API_BASE}/admin/blood-requests/${reqId}`, {
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to load request details (${res.status})`);
+    }
+
+    const json = await res.json();
+    const detailed = mapRequest(json, { detail: true });
+    reqData[idx] = { ...existing, ...detailed, isDetailLoaded: true };
+    return reqData[idx];
   }
  
   async function reqFetchCompatibleBags(req) {
@@ -6424,7 +6499,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       }
       const data = await res.json();
       req.status = data.status ?? 'ALLOCATED';
-      reqRender();
+      await reqFetchPage(reqCurrentPage);
     } catch (err) {
       console.error(`[req${isChange ? 'Reallocate' : 'Allocate'}] failed`, err);
       req.status        = prevStatus;
@@ -6498,7 +6573,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       }
       const data = await res.json();
       r.status   = data.status ?? next.next;
-      reqRender();
+      await reqFetchPage(reqCurrentPage);
       if (endpoint === 'release') {
         r.reviewedAt = data.reviewedAt ?? r.reviewedAt ?? null;
         openReleaseTracer(r, data);
@@ -6815,7 +6890,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
       delete reqBagCache[req.id];
       reqCloseApproveWithRemarks();
-      reqRender();
+      await reqFetchPage(reqCurrentPage);
       setTimeout(() => reqFetchCompatibleBags(req), 0);
 
       const successMessage = data.message
@@ -6928,6 +7003,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `Server error ${res.status}`);
       }
+      await reqFetchPage(reqCurrentPage);
     } catch (err) {
       console.error('[reqConfirmReject] failed', err);
       r.status = prevState.status;
@@ -7040,19 +7116,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   };
  
   function reqGetFiltered() {
-    const q       = (document.getElementById('req-search')?.value || '').toLowerCase().trim();
     const urgency = document.getElementById('req-filter-urgency')?.value || 'ALL';
     const sort    = document.getElementById('req-sort')?.value || 'date_desc';
     let list = reqData.slice();
-    if (reqCurrentFilter !== 'ALL') list = list.filter(r => r.status === reqCurrentFilter);
     if (urgency !== 'ALL')          list = list.filter(r => r.urgency === urgency);
-    if (q) list = list.filter(r =>
-      r.name.toLowerCase().includes(q)      ||
-      r.patient.toLowerCase().includes(q)   ||
-      r.bloodType.toLowerCase().includes(q) ||
-      r.component.toLowerCase().includes(q)||
-      r.referenceNumber.toLowerCase().includes(q)
-    );
     if (sort === 'date_desc') {
       list.sort((a, b) => {
         const statusDiff =
@@ -7123,12 +7190,60 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     }
     return list;
   }
- 
-  window.reqFilterBy = function (status, btn) {
+
+  function reqUpdatePaginationUi(filteredCount) {
+    const showingEl = document.getElementById('req-showing');
+    const pageLabelEl = document.getElementById('req-page-label');
+    const prevEl = document.getElementById('req-prev');
+    const nextEl = document.getElementById('req-next');
+    const urgency = document.getElementById('req-filter-urgency')?.value || 'ALL';
+
+    const safePage = Math.max(reqCurrentPage, 1);
+    const safeTotalPages = Math.max(reqTotalPages, 1);
+    const safeTotalElements = Math.max(reqTotalElements, 0);
+    const start = safeTotalElements === 0 ? 0 : ((safePage - 1) * REQ_PAGE_SIZE) + 1;
+    const end = safeTotalElements === 0 ? 0 : Math.min((safePage - 1) * REQ_PAGE_SIZE + reqData.length, safeTotalElements);
+
+    if (showingEl) {
+      showingEl.textContent = urgency === 'ALL'
+        ? `Showing ${start}-${end} of ${safeTotalElements}`
+        : `Showing ${filteredCount} filtered on page ${safePage} (${safeTotalElements} total)`;
+    }
+    if (pageLabelEl) pageLabelEl.textContent = `${safePage} / ${safeTotalPages}`;
+    if (prevEl) prevEl.disabled = safePage <= 1;
+    if (nextEl) nextEl.disabled = safePage >= safeTotalPages;
+  }
+
+  function reqApplyClientFilters() {
+    reqRender();
+  }
+
+  function reqHandleSearchInput() {
+    if (reqSearchDebounceTimer) clearTimeout(reqSearchDebounceTimer);
+    reqSearchDebounceTimer = setTimeout(() => {
+      reqCurrentPage = 1;
+      reqFetchPage(1);
+    }, 300);
+  }
+
+  async function reqPrevPage() {
+    if (reqCurrentPage <= 1) return;
+    reqCurrentPage -= 1;
+    await reqFetchPage(reqCurrentPage);
+  }
+
+  async function reqNextPage() {
+    if (reqCurrentPage >= reqTotalPages) return;
+    reqCurrentPage += 1;
+    await reqFetchPage(reqCurrentPage);
+  }
+
+  window.reqFilterBy = async function (status, btn) {
     reqCurrentFilter = status;
+    reqCurrentPage = 1;
     document.querySelectorAll('#req-filters .req-filter-chip').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    reqRender();
+    await reqFetchPage(1);
   };
  
   function reqUsesConfirmationFlow(req) {
@@ -7372,7 +7487,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     list.innerHTML = filtered.length
       ? filtered.map(reqRenderCard).join('')
       : `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.35">No match</div>No requests match the current filters.</div>`;
-    if (info) info.textContent = `Showing ${filtered.length} of ${reqData.length} request${reqData.length !== 1 ? 's' : ''}`;
+    if (info) info.textContent = `Page ${reqCurrentPage} of ${reqTotalPages} . ${reqTotalElements} total request${reqTotalElements !== 1 ? 's' : ''}`;
+    reqUpdatePaginationUi(filtered.length);
     reqUpdateCounts();
   }
  
@@ -7411,7 +7527,18 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     });
   }
  
-  window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
+  window.reqToggle = async id => {
+    const willExpand = !reqExpanded[id];
+    reqExpanded[id] = willExpand;
+    if (willExpand) {
+      try {
+        await reqLoadDetail(id);
+      } catch (err) {
+        console.error('[BloodRequests] detail load failed', err);
+      }
+    }
+    reqRender();
+  };
   window.reqRender = reqRender;
   window.updateBloodRequestBadge = updateBloodRequestBadge;
   window.markBloodRequestsAsViewed = markBloodRequestsAsViewed;
@@ -7419,6 +7546,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
   window.reqFetchAll = reqFetchAll;
   window.reqFetchByStatus = reqFetchByStatus;
+  window.reqApplyClientFilters = reqApplyClientFilters;
+  window.reqHandleSearchInput = reqHandleSearchInput;
+  window.reqPrevPage = reqPrevPage;
+  window.reqNextPage = reqNextPage;
   window.reqFetchCompatibleBags = reqFetchCompatibleBags;
   window.reqInvalidateBagCache = function() {
     for (const key in reqBagCache) {
@@ -7456,12 +7587,20 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     backdrop.addEventListener('click', () => window.closeReqDetailsModal());
   };
 
-  window.openReqDetailsModal = function (reqId) {
+  window.openReqDetailsModal = async function (reqId) {
     window.initReqDetailsModal();
-    
-    const req = reqData.find(x => x.id === reqId);
+
+    let req = reqData.find(x => x.id === reqId);
     if (!req) {
       console.warn('[ReqDetailsModal] Request not found:', reqId);
+      return;
+    }
+
+    try {
+      req = await reqLoadDetail(reqId);
+    } catch (err) {
+      console.error('[ReqDetailsModal] Failed to load detail:', err);
+      alert('Failed to load complete request details.');
       return;
     }
     
@@ -7825,7 +7964,7 @@ function staffFmtDate(iso) {
 }
 
 function staffInitials(first, last) {
-  return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || '??';
+  return ((first?.[0] || '') + (last?.[0] || '')).toUpperCase() || 'NA';
 }
 
 const STAFF_DEPARTMENTS = [
@@ -10762,7 +10901,7 @@ function togglePasswordVisibility(fieldId) {
   const field = document.getElementById(fieldId);
   const isPassword = field.type === 'password';
   field.type = isPassword ? 'text' : 'password';
-  event.target.textContent = isPassword ? '??' : '??';
+  event.target.textContent = isPassword ? 'Hide' : 'Show';
 }
 
 async function submitPasswordChange() {
@@ -10792,10 +10931,14 @@ async function submitPasswordChange() {
   }
   
   // Show loading state
-  const submitBtn = event.target;
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Updating...';
-  submitBtn.disabled = true;
+  const submitBtn = (typeof event !== 'undefined' && event?.target)
+    ? event.target
+    : document.querySelector('#profile-tab-security .btn-primary');
+  const originalText = submitBtn ? submitBtn.textContent : '';
+  if (submitBtn) {
+    submitBtn.textContent = 'Updating...';
+    submitBtn.disabled = true;
+  }
   
   try {
     const response = await fetch('/api/admin/change-password', {
@@ -10812,10 +10955,12 @@ async function submitPasswordChange() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       showSecurityError(errorData.message || 'Failed to change password');
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
+      if (submitBtn) {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
       return;
     }
 
@@ -10826,13 +10971,17 @@ async function submitPasswordChange() {
     document.getElementById('password-strength').classList.remove('show');
     
     showSecuritySuccess('Password updated successfully');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   } catch (error) {
     console.error('Error changing password:', error);
     showSecurityError('An error occurred while changing password');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   }
 }
 
@@ -10863,13 +11012,17 @@ async function submitStaffPasswordChange() {
   }
   
   // Show loading state
-  const submitBtn = event.target;
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Updating...';
-  submitBtn.disabled = true;
+  const submitBtn = (typeof event !== 'undefined' && event?.target)
+    ? event.target
+    : document.querySelector('#staff-profile-tab-security .btn-primary');
+  const originalText = submitBtn ? submitBtn.textContent : '';
+  if (submitBtn) {
+    submitBtn.textContent = 'Updating...';
+    submitBtn.disabled = true;
+  }
   
   try {
-    const response = await fetch('/api/auth/change-password', {
+    const response = await fetch('/api/admin/staff/change-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -10883,10 +11036,12 @@ async function submitStaffPasswordChange() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       showStaffSecurityError(errorData.message || 'Failed to change password');
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
+      if (submitBtn) {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
       return;
     }
 
@@ -10897,13 +11052,17 @@ async function submitStaffPasswordChange() {
     document.getElementById('staff-password-strength').classList.remove('show');
     
     showStaffSecuritySuccess('Password updated successfully');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   } catch (error) {
     console.error('Error changing password:', error);
     showStaffSecurityError('An error occurred while changing password');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   }
 }
 
@@ -11349,12 +11508,12 @@ function renderStatusLogsTable(response) {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>#${log.request?.id || 'N/A'}</td>
-        <td>${log.request?.referenceNumber || '?'}</td>
-        <td><span class="status-badge" style="background:#F8FAFC;color:#475569">${log.oldStatus || '?'}</span></td>
-        <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus || '?'}</span></td>
+        <td>${log.request?.referenceNumber || 'N/A'}</td>
+        <td><span class="status-badge" style="background:#F8FAFC;color:#475569">${log.oldStatus || 'N/A'}</span></td>
+        <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus || 'N/A'}</span></td>
         <td>${log.changedBy?.username || 'System'}</td>
         <td>${formatDateTime(log.changedAt)}</td>
-        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || '?'}</td>
+        <td style="max-width:200px;white-space:normal;word-break:break-word;font-size:12px">${log.notes || 'N/A'}</td>
         <td>
           <button class="btn-ghost" onclick="viewStatusLogDetail(${log.id})" style="padding:4px 8px;font-size:11px">View</button>
         </td>
@@ -11480,11 +11639,11 @@ function renderServedTable(response) {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td><strong>${rowData.referenceNumber || 'N/A'}</strong></td>
-        <td>${rowData.patientName || '?'}</td>
-        <td>${toDisplayEnum(rowData.requestCategory) || '?'}</td>
+        <td>${rowData.patientName || 'N/A'}</td>
+        <td>${toDisplayEnum(rowData.requestCategory) || 'N/A'}</td>
         <td>${resolveHospitalWard(rowData)}</td>
-        <td>${toDisplayEnum(rowData.bloodType) || '?'}</td>
-        <td>${toDisplayEnum(rowData.bloodComponent) || '?'}</td>
+        <td>${toDisplayEnum(rowData.bloodType) || 'N/A'}</td>
+        <td>${toDisplayEnum(rowData.bloodComponent) || 'N/A'}</td>
         <td>${safeNumber(rowData.requestedUnits)}</td>
         <td>${safeNumber(rowData.servedUnits)}</td>
         <td>${safeNumber(rowData.unservedUnits)}</td>
@@ -11535,12 +11694,12 @@ function viewStatusLogDetail(logId) {
 function populateLoggingStatusModal(log) {
   try {
     document.getElementById('logging-status-modal-request-id').textContent = `#${log.request?.id || 'N/A'}`;
-    document.getElementById('logging-status-modal-ref-num').textContent = log.request?.referenceNumber || '?';
-    document.getElementById('logging-status-modal-old-status').textContent = log.oldStatus || '?';
-    document.getElementById('logging-status-modal-new-status').textContent = log.newStatus || '?';
+    document.getElementById('logging-status-modal-ref-num').textContent = log.request?.referenceNumber || 'N/A';
+    document.getElementById('logging-status-modal-old-status').textContent = log.oldStatus || 'N/A';
+    document.getElementById('logging-status-modal-new-status').textContent = log.newStatus || 'N/A';
     document.getElementById('logging-status-modal-changed-by').textContent = log.changedBy?.fullName || log.changedBy?.username || 'System';
     document.getElementById('logging-status-modal-changed-at').textContent = formatDateTime(log.changedAt);
-    document.getElementById('logging-status-modal-notes').textContent = log.notes || '?';
+    document.getElementById('logging-status-modal-notes').textContent = log.notes || 'N/A';
     document.getElementById('logging-status-modal').style.display = 'flex';
   } catch (error) {
     console.error('Error populating status log modal:', error);
@@ -11582,13 +11741,13 @@ function populateLoggingServedModal(detail) {
     }
 
     document.getElementById('logging-served-modal-request-id').textContent = detail.referenceNumber || `#${detail.requestId || 'N/A'}`;
-    document.getElementById('logging-served-modal-patient').textContent = detail.patientName || '?';
-    document.getElementById('logging-served-modal-blood').textContent = `${toDisplayEnum(detail.bloodType) || '?'} / ${toDisplayEnum(detail.bloodComponent) || '?'}`;
+    document.getElementById('logging-served-modal-patient').textContent = detail.patientName || 'N/A';
+    document.getElementById('logging-served-modal-blood').textContent = `${toDisplayEnum(detail.bloodType) || 'N/A'} / ${toDisplayEnum(detail.bloodComponent) || 'N/A'}`;
     document.getElementById('logging-served-modal-requested').textContent = `${safeNumber(detail.requestedUnits)} unit(s)`;
     document.getElementById('logging-served-modal-served').textContent = `${servedUnits} unit(s)`;
     document.getElementById('logging-served-modal-unserved-count').textContent = `${unservedUnits} unit(s)`;
-    document.getElementById('logging-served-modal-result').textContent = detail.result || '?';
-    document.getElementById('logging-served-modal-requester-type').textContent = toDisplayEnum(detail.requestCategory) || '?';
+    document.getElementById('logging-served-modal-result').textContent = detail.result || 'N/A';
+    document.getElementById('logging-served-modal-requester-type').textContent = toDisplayEnum(detail.requestCategory) || 'N/A';
     document.getElementById('logging-served-modal-hospital-ward').textContent = resolveHospitalWard(detail);
     document.getElementById('logging-served-modal-last-served').textContent = formatDateTime(detail.lastServedAt);
 
@@ -11687,13 +11846,19 @@ function exportStatusLogsExcel() {
   const queryParams = new URLSearchParams();
   if (search) queryParams.append('search', search);
   if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
-  if (startDate) queryParams.append('startDate', startDate);
-  if (endDate) queryParams.append('endDate', endDate);
+  if (!startDate || !endDate) {
+    alert('Please select both start and end dates before exporting.');
+    return;
+  }
+  queryParams.append('startDate', startDate);
+  queryParams.append('endDate', endDate);
 
   fetch(`${API_BASE_URL}/export/status-logs?${queryParams.toString()}`)
     .then((response) => {
       if (!response.ok) {
-        throw new Error('Failed to export data');
+        return response.json().catch(() => ({})).then((errorBody) => {
+          throw new Error(errorBody.error || 'Failed to export data');
+        });
       }
       return response.json();
     })
@@ -11704,11 +11869,11 @@ function exportStatusLogsExcel() {
       }
 
       const rows = data.map((log) => ({
-        'Reference No.': log.request?.id || '',
-        'Reference #': log.request?.referenceNumber || '',
+        'Reference No.': log.requestId || '',
+        'Reference #': log.referenceNumber || '',
         'Old Status': log.oldStatus || '',
         'New Status': log.newStatus || '',
-        'Changed By': log.changedBy?.username || 'System',
+        'Changed By': log.changedByUsername || 'System',
         'Changed At': formatExcelDate(log.changedAt),
         Notes: log.notes || '',
       }));
@@ -12070,8 +12235,8 @@ function showToast(message, type = 'info', duration = 3000) {
     const textColor = type === 'success' ? 'var(--green, #2E7D32)' : 
                       type === 'error' ? 'var(--crimson, #C41E3A)' : 
                       'var(--blue, #1E40AF)';
-    const icon = type === 'success' ? '?' : 
-                 type === 'error' ? '?' : '?';
+    const icon = type === 'success' ? 'OK' : 
+                 type === 'error' ? 'X' : 'i';
 
     toast.style.cssText = `
         background: ${bgColor};
@@ -12234,9 +12399,10 @@ function initializeAutoRefresh() {
 
   console.log('[Auto-Refresh] Initialized - checking for changes every 30 seconds');
 
-  const REFRESH_INTERVAL = 1000; // 30 seconds for checking
+  const REFRESH_INTERVAL = 30000; // 30 seconds for checking
 
   autoRefreshIntervals.combined = setInterval(() => {
+    if (document.hidden) return;
     checkDashboardUpdates();
     checkBloodBankUpdates();
     checkBloodRequestsUpdates();
@@ -12276,6 +12442,7 @@ function changeRefreshInterval(seconds) {
   const REFRESH_INTERVAL = seconds * 1000;
 
   autoRefreshIntervals.combined = setInterval(() => {
+    if (document.hidden) return;
     console.log(`[Auto-Refresh] Checking for changes (${seconds}s interval)...`);
     
     checkDashboardUpdates();

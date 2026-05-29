@@ -575,16 +575,16 @@
           <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
           <input class="req-search-input" id="req-search" type="text"
             placeholder="Search hospital, patient, blood type…"
-            oninput="reqRender()">
+            oninput="reqHandleSearchInput()">
         </div>
-        <select class="req-select" id="req-filter-urgency" onchange="reqRender()">
+        <select class="req-select" id="req-filter-urgency" onchange="reqApplyClientFilters()">
           <option value="ALL">All Urgency</option>
           <option value="CRITICAL"> Critical</option>
           <option value="HIGH"> High</option>
           <option value="MEDIUM"> Medium</option> 
           <option value="LOW"> Low</option>
         </select>
-        <select class="req-select" id="req-sort" onchange="reqRender()">
+        <select class="req-select" id="req-sort" onchange="reqApplyClientFilters()">
           <option value="date_desc">Newest first</option>
           <option value="date_asc">Oldest first</option>
           <option value="urgency">By urgency</option>
@@ -606,6 +606,15 @@
 
       <div class="req-results-info" id="req-results-info"></div>
       <div style="display:flex;flex-direction:column;gap:8px" id="req-list"></div>
+      <div id="req-footer" style="display:flex;align-items:center;justify-content:space-between;
+          padding:14px 2px 0 2px;font-size:13px;color:var(--muted)">
+        <span id="req-showing"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" id="req-prev" onclick="reqPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+          <span id="req-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+          <button class="btn-ghost" id="req-next" onclick="reqNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+        </div>
+      </div>
 
       </div>
 

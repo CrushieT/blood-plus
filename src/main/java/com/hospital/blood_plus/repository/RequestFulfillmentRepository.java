@@ -96,4 +96,39 @@ public interface RequestFulfillmentRepository extends JpaRepository<RequestFulfi
  
     @Query("SELECT rf FROM RequestFulfillment rf WHERE rf.request.id = :requestId")
     List<RequestFulfillment> findByRequestId(Long requestId);
+
+    @Query("""
+        SELECT f
+        FROM RequestFulfillment f
+        LEFT JOIN FETCH f.bloodBag
+        LEFT JOIN FETCH f.fulfilledBy
+        WHERE f.request.id IN :requestIds
+        ORDER BY f.request.id ASC, f.fulfilledAt DESC
+    """)
+    List<RequestFulfillment> findByRequestIdsForServedSummary(@Param("requestIds") List<Long> requestIds);
+
+    @Query("""
+        SELECT f
+        FROM RequestFulfillment f
+        JOIN FETCH f.request r
+        JOIN FETCH f.bloodBag b
+        LEFT JOIN FETCH f.fulfilledBy u
+        WHERE (:dateFrom IS NULL OR f.fulfilledAt >= :dateFrom)
+          AND (:dateTo IS NULL OR f.fulfilledAt <= :dateTo)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR (:searchId IS NOT NULL AND r.id = :searchId)
+                OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(b.serialNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+        ORDER BY f.fulfilledAt DESC
+    """)
+    List<RequestFulfillment> findForExport(
+            @Param("search") String search,
+            @Param("searchId") Long searchId,
+            @Param("dateFrom") LocalDateTime dateFrom,
+            @Param("dateTo") LocalDateTime dateTo
+    );
 }

@@ -3,6 +3,7 @@ package com.hospital.blood_plus.controller;
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
 import com.hospital.blood_plus.dto.request.ChangePasswordRequestDTO;
 import com.hospital.blood_plus.dto.request.UpdateHospitalProfileDTO;
+import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.model.HospitalProfile;
@@ -14,6 +15,7 @@ import com.hospital.blood_plus.repository.HospitalProfileRepository;
 import com.hospital.blood_plus.repository.UserRepository;
 
 import org.apache.el.stream.Optional;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/hospital")
@@ -97,16 +100,52 @@ public class HospitalController {
  
     @GetMapping("/blood-requests")
     @PreAuthorize("hasRole('HOSPITAL')")
-    public ResponseEntity<?> getHospitalRequestHistory(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<?> getHospitalRequestHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) BloodBagRequest.RequestStatus status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
         try {
             AppUser currentUser = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
             HospitalProfile hospital = hospitalProfileRepository.findByUser(currentUser)
                     .orElseThrow(() -> new IllegalArgumentException("No hospital profile found."));
- 
+
+            boolean paginationRequested = page != null || size != null;
+            if (paginationRequested) {
+                int resolvedPage = page != null ? page : 1;
+                int resolvedSize = size != null ? size : 25;
+
+                PaginatedResponse<BloodBagRequest> requestsPage = bloodBagRequestService.getByHospitalPaged(
+                        hospital,
+                        resolvedPage,
+                        resolvedSize,
+                        status,
+                        search,
+                        dateFrom,
+                        dateTo
+                );
+
+                List<Map<String, Object>> rows = requestsPage.getData().stream()
+                        .map(this::buildHospitalRequestResponse)
+                        .toList();
+
+                PaginatedResponse<Map<String, Object>> response = new PaginatedResponse<>(
+                        rows,
+                        requestsPage.getCurrentPage(),
+                        requestsPage.getTotalPages(),
+                        requestsPage.getTotalElements(),
+                        requestsPage.getPageSize()
+                );
+                return ResponseEntity.ok(response);
+            }
+
             List<BloodBagRequest> requests = bloodBagRequestService.populateReservedBags(
                     bloodBagRequestService.getByHospital(hospital));
- 
+
             return ResponseEntity.ok(requests.stream()
                     .map(this::buildHospitalRequestResponse)
                     .toList());
