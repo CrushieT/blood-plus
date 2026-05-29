@@ -1157,6 +1157,7 @@ const ADD_STOCK_EXPIRY_DAYS = {
   CRYOSUPERNATANT: 365,
 };
 const ADD_STOCK_SCAN_MAX_ROWS = 10;
+const ADD_STOCK_SCAN_MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ADD_STOCK_OCR_LOW_CONFIDENCE = 60;
 const ADD_STOCK_SERIAL_MAX_LENGTH = 10;
 const ADD_STOCK_VOLUME_MAX_LENGTH = 4;
@@ -1260,6 +1261,9 @@ let addStockValidationBound = false;
 let addStockScanPreviewUrl = null;
 let pendingTracerReviewRows = [];
 let pendingTracerScanMeta = null;
+let tracerScanProgressTimer = null;
+let tracerScanProgressValue = 0;
+let tracerScanProgressStage = 'Preparing tracer OCR...';
 
 function initAddStockScanner() {
   if (addStockScanBound) return;
@@ -1284,6 +1288,7 @@ function initAddStockScanner() {
 }
 
 function resetAddStockScannerUI() {
+  stopTracerScanProgress();
   const previewEl = document.getElementById('scan-tracer-preview');
   if (previewEl) {
     previewEl.innerHTML = '';
@@ -1320,6 +1325,39 @@ function setTracerScanStatus(message, tone = 'info') {
   if (tone === 'error') statusEl.classList.add('is-error');
 }
 
+function renderTracerScanProgress() {
+  const safeValue = Math.max(0, Math.min(100, Math.round(tracerScanProgressValue)));
+  setTracerScanStatus(`${tracerScanProgressStage} ${safeValue}%`, 'loading');
+}
+
+function startTracerScanProgress(stage = 'Preparing tracer OCR...') {
+  stopTracerScanProgress();
+  tracerScanProgressStage = stage;
+  tracerScanProgressValue = 0;
+  renderTracerScanProgress();
+  tracerScanProgressTimer = setInterval(() => {
+    if (tracerScanProgressValue >= 95) return;
+    const step = tracerScanProgressValue < 50 ? 5 : (tracerScanProgressValue < 80 ? 3 : 1);
+    tracerScanProgressValue = Math.min(95, tracerScanProgressValue + step);
+    renderTracerScanProgress();
+  }, 350);
+}
+
+function bumpTracerScanProgress(stage, minValue) {
+  if (stage) tracerScanProgressStage = stage;
+  if (Number.isFinite(minValue)) {
+    tracerScanProgressValue = Math.max(tracerScanProgressValue, Math.min(95, Number(minValue)));
+  }
+  renderTracerScanProgress();
+}
+
+function stopTracerScanProgress() {
+  if (tracerScanProgressTimer) {
+    clearInterval(tracerScanProgressTimer);
+    tracerScanProgressTimer = null;
+  }
+}
+
 function setTracerPreviewImage(file) {
   const previewEl = document.getElementById('scan-tracer-preview');
   if (!previewEl || !file) return;
@@ -1350,18 +1388,24 @@ async function processTracerScanFile(file, sourceName = 'upload') {
     showBloodPlusMessage('Unsupported Image', 'Please upload or capture a JPG, PNG, WEBP, BMP, TIFF, or JFIF image.', 'warning');
     return;
   }
+  if (Number(file?.size || 0) > ADD_STOCK_SCAN_MAX_FILE_BYTES) {
+    setTracerScanStatus('Image exceeds 5MB limit.', 'error');
+    showBloodPlusMessage('File Too Large', 'Please upload an image smaller than 5MB for tracer OCR.', 'warning');
+    return;
+  }
 
   setTracerPreviewImage(file);
-  setTracerScanStatus('Preparing tracer OCR...', 'loading');
+  startTracerScanProgress('Preparing tracer OCR...');
 
   try {
     let scanResult = null;
-    setTracerScanStatus('Uploading to secure OCR service...', 'loading');
+    bumpTracerScanProgress('Uploading to secure OCR service...', 20);
     try {
       scanResult = await scanBloodTracerFormViaBackend(file);
     } catch (backendError) {
       if (backendError?.code === 'DUPLICATE_SERIALS') {
         const duplicates = Array.isArray(backendError?.duplicateSerials) ? backendError.duplicateSerials : [];
+        stopTracerScanProgress();
         setTracerScanStatus('Duplicate serial numbers detected. Import blocked.', 'error');
         openTracerDuplicateErrorModal(duplicates);
         return;
@@ -1369,11 +1413,13 @@ async function processTracerScanFile(file, sourceName = 'upload') {
       throw backendError;
     }
 
+    bumpTracerScanProgress('Processing OCR results...', 78);
     logTracerScanResult(scanResult, file, sourceName);
     const rows = sanitizeOCRImportedRows(Array.isArray(scanResult?.entries) ? scanResult.entries : []);
     scanResult.entries = rows;
 
     if (!rows.length) {
+      stopTracerScanProgress();
       setTracerScanStatus('No valid blood bag rows detected.', 'warning');
       showBloodPlusMessage(
         'No Valid Rows',
@@ -1410,10 +1456,15 @@ async function processTracerScanFile(file, sourceName = 'upload') {
       showBloodPlusMessage('OCR Review Notice', warningMessages.join(' '), 'warning');
     }
 
+    bumpTracerScanProgress('Finalizing scan...', 95);
+    tracerScanProgressValue = 100;
+    renderTracerScanProgress();
+    stopTracerScanProgress();
     openTracerOcrReviewModal(rows, scanResult, sourceName);
     setTracerScanStatus(`${rows.length} row(s) detected. Review and confirm import.`, 'success');
   } catch (error) {
     console.error('[Tracer OCR] Scan failed:', error);
+    stopTracerScanProgress();
     setTracerScanStatus('OCR failed. Please try another image.', 'error');
     showBloodPlusMessage(
       'OCR Failed',
