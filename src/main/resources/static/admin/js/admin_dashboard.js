@@ -530,9 +530,15 @@ async function loadInventory() {
 
 async function loadBloodBags() {
   try {
-    const res = await fetch('/api/admin/blood-bank/bags', { credentials: 'include' });
+    const params = new URLSearchParams({
+      page: '1',
+      size: '200',
+      status: 'ALL'
+    });
+    const res = await fetch(`/api/admin/blood-bank/bags?${params.toString()}`, { credentials: 'include' });
     if (!res.ok) return;
-    const data = await res.json();
+    const payload = await res.json();
+    const data = Array.isArray(payload) ? payload : (payload.data ?? []);
 
     BLOOD_BAGS = data.map(b => ({
       id:                b.id,

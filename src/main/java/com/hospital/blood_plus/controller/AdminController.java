@@ -23,6 +23,7 @@ import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
 import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
 import com.hospital.blood_plus.dto.response.AdminDashboardDTO;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
+import com.hospital.blood_plus.dto.response.BloodBagResponse;
 import com.hospital.blood_plus.dto.response.InsideServedSummaryRow;
 import com.hospital.blood_plus.dto.response.LogsSummaryResponse;
 import com.hospital.blood_plus.dto.response.OutsideServedSummaryRow;
@@ -120,8 +121,25 @@ public class AdminController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/blood-bank/bags")
-    public ResponseEntity<?> getAllBags() {
-        return ResponseEntity.ok(bloodBagService.getAllBags());
+    public ResponseEntity<?> getAllBags(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(required = false) String search) {
+        try {
+            BloodBag.BagStatus statusFilter = parseBagStatus(status);
+            PaginatedResponse<BloodBagResponse> response = bloodBagService.getBagsPage(
+                    page,
+                    size,
+                    statusFilter,
+                    search
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Invalid status value. Use ALL or a valid BagStatus enum."
+            ));
+        }
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
@@ -1196,5 +1214,12 @@ public class AdminController {
         dto.setChangedAt(log.getChangedAt());
         dto.setNotes(log.getNotes());
         return dto;
+    }
+
+    private BloodBag.BagStatus parseBagStatus(String status) {
+        if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
+            return null;
+        }
+        return BloodBag.BagStatus.valueOf(status.trim().toUpperCase());
     }
 }

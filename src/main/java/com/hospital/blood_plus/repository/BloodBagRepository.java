@@ -6,6 +6,7 @@ import com.hospital.blood_plus.model.BloodBag.RhType;
 import com.hospital.blood_plus.model.BloodBag.BloodType;
 import com.hospital.blood_plus.model.BloodBag.ComponentType;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -30,6 +31,23 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
     List<String> findExistingSerialNumbers(@Param("serials") List<String> serials);
 
     List<BloodBag> findByStatus(BagStatus status);
+
+    @Query("""
+        SELECT b
+        FROM BloodBag b
+        WHERE (:status IS NULL OR b.status = :status)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(b.serialNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(b.transactionNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+    """)
+    Page<BloodBag> findForAdmin(
+            @Param("status") BagStatus status,
+            @Param("search") String search,
+            Pageable pageable
+    );
 
     List<BloodBag> findByBloodTypeAndStatus(BloodType bloodType, BagStatus status);
 
