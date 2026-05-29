@@ -9,6 +9,7 @@
   --slate:         #3D3D3D;
   --muted:         #7A7A7A;
   --border:        #E8DDD5;
+  --border-strong: #D9CABC;
   --gold:          #C9903A;
   --soft-red:      #FFF0F1;
   --green:         #2E7D4F;
@@ -444,14 +445,15 @@ body {
 /* ── CARDS ────────────────────────────────────────────────── */
 .card {
   background: white;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border-strong);
   border-radius: 16px;
   overflow: hidden;
+  box-shadow: 0 6px 18px rgba(26, 26, 26, 0.04);
 }
 
 .card-header {
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1.5px solid var(--border-strong);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -483,16 +485,21 @@ body {
 }
 
 .stat-card {
-  background: white;
-  border: 1px solid var(--border);
+  background: #FFFCF9;
+  border: 1.5px solid var(--border-strong);
   border-radius: 16px;
   padding: 22px 22px 18px;
   position: relative;
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.04);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
-.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.07); }
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: #CDB9A9;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.09);
+}
 
 .stat-card::after {
   content: '';
@@ -605,15 +612,20 @@ body {
 }
 
 .blood-unit {
-  background: var(--cream);
-  border: 1px solid var(--border);
+  background: #FFFCF9;
+  border: 1.5px solid var(--border-strong);
   border-radius: 12px;
   padding: 16px 12px;
   text-align: center;
-  transition: transform 0.2s;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.035);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
-.blood-unit:hover { transform: translateY(-2px); }
+.blood-unit:hover {
+  transform: translateY(-2px);
+  border-color: #CDB9A9;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
 .blood-unit.critical { border-color: rgba(196,30,58,0.3); background: var(--soft-red); }
 
 .bu-type {
@@ -634,7 +646,7 @@ body {
 
 .bu-bar-wrap {
   height: 5px;
-  background: var(--border);
+  background: #D5CCC6;
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 10px;
@@ -1661,6 +1673,10 @@ body {
 }
 
 .bb-strip-item { border-radius: 12px; padding: 16px; text-align: center; }
+.bb-strip-item {
+  border: 1.5px solid rgba(183, 160, 141, 0.35);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
 
 .bb-strip-val {
   font-family: 'Playfair Display', serif;

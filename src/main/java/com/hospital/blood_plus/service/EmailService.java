@@ -559,6 +559,117 @@ public class EmailService {
         }
     }
 
+    public void sendRequestClosedEmail(String to,
+                                       String requesterName,
+                                       String referenceNumber,
+                                       String status,
+                                       String note) {
+        try {
+            String url = "https://api.brevo.com/v3/smtp/email";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("api-key", apiKey);
+
+            String normalizedStatus = status == null ? "CLOSED" : status.trim().toUpperCase();
+            String statusLabel = switch (normalizedStatus) {
+                case "REJECTED" -> "Rejected";
+                case "CANCELLED" -> "Cancelled";
+                default -> "Closed";
+            };
+            String headerColor = "REJECTED".equals(normalizedStatus) ? "#A61B33" : "#5B6472";
+            String badgeBg = "REJECTED".equals(normalizedStatus) ? "#FBEAEC" : "#EEF0F3";
+            String badgeColor = "REJECTED".equals(normalizedStatus) ? "#8F172C" : "#434A57";
+            String safeNote = (note == null || note.isBlank())
+                    ? "No additional note was provided."
+                    : escapeHtml(note);
+            String safeRequester = escapeHtml(requesterName == null || requesterName.isBlank() ? "Requester" : requesterName);
+            String safeReference = escapeHtml(referenceNumber == null || referenceNumber.isBlank() ? "-" : referenceNumber);
+
+            String htmlContent = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                        .header { background: %s; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+                        .header h1 { margin: 0; }
+                        .details { background: #f9f9f9; padding: 15px; border-radius: 6px; margin: 16px 0; }
+                        .detail-row { display: flex; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid #eee; }
+                        .detail-row:last-child { border-bottom: none; }
+                        .detail-label { font-weight: 600; color: #666; }
+                        .detail-value { color: #333; font-weight: 600; text-align: right; }
+                        .status-pill { display: inline-block; background: %s; color: %s; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.2px; }
+                        .note-box { background: #FFF4DA; border-left: 4px solid #D48200; padding: 14px; margin-top: 16px; border-radius: 4px; color: #4A3500; }
+                        .footer { border-top: 1px solid #eee; margin-top: 30px; padding-top: 15px; font-size: 12px; color: #666; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>Blood Request Status Update</h1>
+                        </div>
+                        <div style="padding: 20px 0;">
+                            <p>Hello <strong>%s</strong>,</p>
+                            <p>Your blood request status has been updated by the blood bank.</p>
+
+                            <div class="details">
+                                <div class="detail-row">
+                                    <span class="detail-label">Reference Number:</span>
+                                    <span class="detail-value">%s</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">New Status:</span>
+                                    <span class="detail-value"><span class="status-pill">%s</span></span>
+                                </div>
+                            </div>
+
+                            <div class="note-box">
+                                <strong>Note:</strong><br>
+                                %s
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <p>CNPH Blood Bank · Camarines Norte Provincial Hospital</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """.formatted(
+                    headerColor,
+                    badgeBg,
+                    badgeColor,
+                    safeRequester,
+                    safeReference,
+                    statusLabel,
+                    safeNote
+                );
+
+            String textContent =
+                    "Hello " + (requesterName == null || requesterName.isBlank() ? "Requester" : requesterName) + ",\n\n" +
+                    "Your blood request status has been updated.\n\n" +
+                    "Reference Number: " + (referenceNumber == null ? "-" : referenceNumber) + "\n" +
+                    "New Status: " + statusLabel + "\n" +
+                    "Note: " + (note == null || note.isBlank() ? "No additional note was provided." : note) + "\n\n" +
+                    "CNPH Blood Bank";
+
+            Map<String, Object> body = Map.of(
+                    "sender", Map.of("email", fromEmail, "name", "Blood+ System"),
+                    "to", new Object[]{Map.of("email", to)},
+                    "subject", "Blood Request " + statusLabel + " - Ref: " + (referenceNumber == null ? "-" : referenceNumber),
+                    "htmlContent", htmlContent,
+                    "textContent", textContent
+            );
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+            System.out.println("[BloodRequest] " + statusLabel + " email sent to: " + to + " | Ref: " + referenceNumber + " | Status: " + response.getStatusCode());
+        } catch (Exception e) {
+            System.err.println("[BloodRequest] " + status + " email failed: " + e.getMessage());
+        }
+    }
+
     public void sendApprovalRemarksConfirmationEmail(BloodBagRequest request) {
         try {
             String url = "https://api.brevo.com/v3/smtp/email";
@@ -703,5 +814,15 @@ public class EmailService {
             return baseUrl.substring(0, baseUrl.length() - 1);
         }
         return baseUrl;
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) return "";
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

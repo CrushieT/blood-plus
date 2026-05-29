@@ -1420,10 +1420,10 @@ async function processTracerScanFile(file, sourceName = 'upload') {
 
     if (!rows.length) {
       stopTracerScanProgress();
-      setTracerScanStatus('No valid blood bag rows detected.', 'warning');
+      setTracerScanStatus('Please verify the scan and review data before importing.', 'warning');
       showBloodPlusMessage(
-        'No Valid Rows',
-        'No valid blood bag rows were detected. Try a clearer photo or crop the table area.',
+        'Review Required',
+        'Please verify the scanned data before importing.',
         'warning'
       );
       return;
@@ -1437,7 +1437,7 @@ async function processTracerScanFile(file, sourceName = 'upload') {
       warningMessages.push(`Detected ${rows.length} rows. Only the first ${ADD_STOCK_SCAN_MAX_ROWS} rows are available for import.`);
     }
     if (scanResult.confidence < ADD_STOCK_OCR_LOW_CONFIDENCE) {
-      warningMessages.push('OCR confidence is low. Please review detected rows before importing.');
+      warningMessages.push('Always review extracted data before importing.');
     }
     const unknownComponentRows = rows.filter(row => !row.componentType).length;
     if (unknownComponentRows > 0) {
@@ -1834,7 +1834,7 @@ function confirmTracerOcrImport() {
 
     const warningBits = [];
     if (stats.unknownCount > 0) warningBits.push(`${stats.unknownCount} row(s) have unknown components.`);
-    if (stats.lowConfidenceCount > 0) warningBits.push(`${stats.lowConfidenceCount} row(s) were low confidence.`);
+    if (stats.lowConfidenceCount > 0) warningBits.push('Always review extracted data before importing.');
     const extra = warningBits.length ? ` ${warningBits.join(' ')}` : '';
 
     showBloodPlusMessage(
