@@ -190,10 +190,10 @@ public class TracerOcrService {
         List<TracerOcrRowDTO> rows = parseRows(rawText, warnings);
         int confidence = estimateConfidence(rows);
         if (confidence < 60) {
-            warnings.add("OCR confidence is low. Please review detected rows before importing.");
+            warnings.add("Always review extracted data before importing.");
         }
         if (rows.isEmpty()) {
-            warnings.add("No valid blood bag rows were detected. Try a clearer photo or crop the table area.");
+            warnings.add("Always review extracted data before importing.");
         }
 
         return new OcrAttempt(rawText, rows, confidence, warnings);

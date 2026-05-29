@@ -454,6 +454,20 @@ public class BloodBagRequestService {
         clearAllocatedBagSelection(req);
         applyReview(req, reviewer);
         BloodBagRequest savedReq = repository.save(req);
+        String notificationEmail = getRequesterNotificationEmail(savedReq);
+        if (notificationEmail != null) {
+            try {
+                emailService.sendRequestClosedEmail(
+                        notificationEmail,
+                        savedReq.getRequesterName(),
+                        savedReq.getReferenceNumber(),
+                        "REJECTED",
+                        reason
+                );
+            } catch (Exception e) {
+                System.err.println("[BloodBagRequest] Failed to send rejected email: " + e.getMessage());
+            }
+        }
         return populateReservedBags(savedReq);
     }
 
@@ -568,6 +582,20 @@ public class BloodBagRequestService {
         clearAllocatedBagSelection(req);
         applyReview(req, reviewer);
         BloodBagRequest savedReq = repository.save(req);
+        String notificationEmail = getRequesterNotificationEmail(savedReq);
+        if (notificationEmail != null) {
+            try {
+                emailService.sendRequestClosedEmail(
+                        notificationEmail,
+                        savedReq.getRequesterName(),
+                        savedReq.getReferenceNumber(),
+                        "CANCELLED",
+                        reason
+                );
+            } catch (Exception e) {
+                System.err.println("[BloodBagRequest] Failed to send cancelled email: " + e.getMessage());
+            }
+        }
         return populateReservedBags(savedReq);
     }
 
@@ -1087,6 +1115,11 @@ public class BloodBagRequestService {
 
     private boolean hasRequesterEmail(BloodBagRequest request) {
         return request.getRequesterEmail() != null && !request.getRequesterEmail().trim().isEmpty();
+    }
+
+    private String getRequesterNotificationEmail(BloodBagRequest request) {
+        if (request == null) return null;
+        return normalizeOptionalEmail(request.getRequesterEmail());
     }
 
     private AdminBloodRequestListItemDTO toAdminListItem(BloodBagRequest request) {
