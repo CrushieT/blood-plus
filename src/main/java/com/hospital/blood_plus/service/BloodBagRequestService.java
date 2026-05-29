@@ -803,6 +803,43 @@ public class BloodBagRequestService {
         return repository.findByHospitalProfile(hospital);
     }
 
+    public PaginatedResponse<BloodBagRequest> getByHospitalPaged(
+            HospitalProfile hospital,
+            int page,
+            int size,
+            BloodBagRequest.RequestStatus status,
+            String search,
+            LocalDateTime dateFrom,
+            LocalDateTime dateTo) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
+
+        Pageable pageable = PageRequest.of(
+                safePage - 1,
+                safeSize,
+                Sort.by(Sort.Direction.DESC, "requestedAt")
+        );
+
+        Page<BloodBagRequest> pageData = repository.findForHospitalList(
+                hospital,
+                status,
+                normalizedSearch,
+                dateFrom,
+                dateTo,
+                pageable
+        );
+
+        List<BloodBagRequest> rows = populateReservedBags(pageData.getContent());
+        return new PaginatedResponse<>(
+                rows,
+                pageData.getNumber() + 1,
+                Math.max(pageData.getTotalPages(), 1),
+                pageData.getTotalElements(),
+                pageData.getSize()
+        );
+    }
+
     // ─────────────────────────────────────────────
     // VALIDATION
     // ─────────────────────────────────────────────

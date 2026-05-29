@@ -70,6 +70,30 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     @Query("""
         SELECT r
         FROM BloodBagRequest r
+        WHERE r.hospitalProfile = :hospital
+          AND (:status IS NULL OR r.status = :status)
+          AND (:from IS NULL OR r.requestedAt >= :from)
+          AND (:to IS NULL OR r.requestedAt <= :to)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.requesterName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+    """)
+    Page<BloodBagRequest> findForHospitalList(
+            @Param("hospital") HospitalProfile hospital,
+            @Param("status") BloodBagRequest.RequestStatus status,
+            @Param("search") String search,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT r
+        FROM BloodBagRequest r
         LEFT JOIN r.hospitalProfile hp
         WHERE (
             EXISTS (SELECT 1 FROM RequestFulfillment f WHERE f.request = r)

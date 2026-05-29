@@ -6,6 +6,7 @@ import com.hospital.blood_plus.dto.request.ApproveRequestDTO;
 import com.hospital.blood_plus.dto.request.BloodTracerSaveDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
+import com.hospital.blood_plus.dto.request.ExportJobCreateRequestDTO;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.UpdateHospitalRequest;
 import com.hospital.blood_plus.dto.request.ProfileDTO.AdminProfileDTO;
@@ -25,11 +26,14 @@ import com.hospital.blood_plus.dto.response.AdminDashboardDTO;
 import com.hospital.blood_plus.dto.response.AdminBloodRequestListItemDTO;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.dto.response.BloodBagResponse;
+import com.hospital.blood_plus.dto.response.ExportJobStatusDTO;
+import com.hospital.blood_plus.dto.response.FulfillmentExportRowDTO;
 import com.hospital.blood_plus.dto.response.InsideServedSummaryRow;
 import com.hospital.blood_plus.dto.response.LogsSummaryResponse;
 import com.hospital.blood_plus.dto.response.OutsideServedSummaryRow;
 import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.dto.response.ServedRequestSummaryResponse;
+import com.hospital.blood_plus.dto.response.StatusLogExportRowDTO;
 import com.hospital.blood_plus.repository.UserRepository;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
@@ -42,6 +46,7 @@ import com.hospital.blood_plus.service.BloodBagRequestService;
 import com.hospital.blood_plus.service.BloodBagService;
 import com.hospital.blood_plus.service.BloodTracerService;
 import com.hospital.blood_plus.service.DashboardService;
+import com.hospital.blood_plus.service.ExportJobService;
 import com.hospital.blood_plus.service.StaffService;
 
 import java.time.LocalDate;
@@ -55,7 +60,9 @@ import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -75,6 +82,7 @@ public class AdminController {
     private final DashboardService        dashboardService;
     private final AdminProfileService     adminProfileService;
     private final BloodTracerService      bloodTracerService;
+    private final ExportJobService        exportJobService;
     private AnalyticsService              analyticsService;
     private RequestStatusLogService requestStatusLogService;
     private RequestLogsService requestLogsService;
@@ -89,7 +97,8 @@ public class AdminController {
                            BloodTracerService bloodTracerService,
                            AnalyticsService analyticsService,
                            RequestStatusLogService requestStatusLogService,
-                           RequestLogsService requestLogsService) {
+                           RequestLogsService requestLogsService,
+                           ExportJobService exportJobService) {
         this.bloodBagService         = bloodBagService;
         this.userRepository          = userRepository;
         this.bloodBagRequestService  = bloodBagRequestService;
@@ -101,6 +110,7 @@ public class AdminController {
         this.analyticsService = analyticsService;
         this.requestStatusLogService = requestStatusLogService;
         this.requestLogsService = requestLogsService;
+        this.exportJobService = exportJobService;
     }
 
 
@@ -1137,13 +1147,21 @@ public class AdminController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/export/status-logs")
-    public ResponseEntity<List<RequestStatusLog>> exportStatusLogs(
+    public ResponseEntity<?> exportStatusLogs(
             @RequestParam(required = false) String search,
             @RequestParam(name = "status", defaultValue = "ALL") String statusFilter,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
- 
-        List<RequestStatusLog> logs = requestLogsService.exportStatusLogs(search, statusFilter, startDate, endDate);
+
+        String validationError = validateSyncExportRange(startDate, endDate);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", validationError,
+                    "asyncExportEndpoint", "/api/admin/logs/export/jobs"
+            ));
+        }
+
+        List<StatusLogExportRowDTO> logs = requestLogsService.exportStatusLogs(search, statusFilter, startDate, endDate);
         return ResponseEntity.ok(logs);
     }
  
@@ -1158,12 +1176,20 @@ public class AdminController {
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/export/fulfillments")
-    public ResponseEntity<List<RequestFulfillment>> exportFulfillments(
+    public ResponseEntity<?> exportFulfillments(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime dateFrom,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDateTime dateTo) {
- 
-        List<RequestFulfillment> fulfillments = requestLogsService.exportFulfillments(search, dateFrom, dateTo);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        String validationError = validateSyncExportRange(startDate, endDate);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", validationError,
+                    "asyncExportEndpoint", "/api/admin/logs/export/jobs"
+            ));
+        }
+
+        List<FulfillmentExportRowDTO> fulfillments = requestLogsService.exportFulfillments(search, startDate, endDate);
         return ResponseEntity.ok(fulfillments);
     }
 
@@ -1175,9 +1201,12 @@ public class AdminController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue = "ALL") String requestGroup,
             @RequestParam(defaultValue = "date_desc") String sort) {
-        String validationError = validateServedExportRange(startDate, endDate);
+        String validationError = validateSyncExportRange(startDate, endDate);
         if (validationError != null) {
-            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", validationError,
+                    "asyncExportEndpoint", "/api/admin/logs/export/jobs"
+            ));
         }
         return ResponseEntity.ok(requestLogsService.exportServedDetails(search, startDate, endDate, requestGroup, sort));
     }
@@ -1187,9 +1216,12 @@ public class AdminController {
     public ResponseEntity<?> exportInsideServedSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        String validationError = validateServedExportRange(startDate, endDate);
+        String validationError = validateSyncExportRange(startDate, endDate);
         if (validationError != null) {
-            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", validationError,
+                    "asyncExportEndpoint", "/api/admin/logs/export/jobs"
+            ));
         }
         return ResponseEntity.ok(requestLogsService.exportInsideServedSummary(startDate, endDate));
     }
@@ -1199,11 +1231,104 @@ public class AdminController {
     public ResponseEntity<?> exportOutsideServedSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        String validationError = validateServedExportRange(startDate, endDate);
+        String validationError = validateSyncExportRange(startDate, endDate);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", validationError,
+                    "asyncExportEndpoint", "/api/admin/logs/export/jobs"
+            ));
+        }
+        return ResponseEntity.ok(requestLogsService.exportOutsideServedSummary(startDate, endDate));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @PostMapping("/logs/export/jobs")
+    public ResponseEntity<?> createExportJob(@RequestBody ExportJobCreateRequestDTO request) {
+        String validationError = validateAsyncExportRange(request.getStartDate(), request.getEndDate());
         if (validationError != null) {
             return ResponseEntity.badRequest().body(Map.of("error", validationError));
         }
-        return ResponseEntity.ok(requestLogsService.exportOutsideServedSummary(startDate, endDate));
+
+        String type = normalizeExportType(request.getType());
+        if (type == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Unsupported export job type."));
+        }
+
+        String filename = buildExportFileName(type);
+        ExportJobStatusDTO job = switch (type) {
+            case "STATUS_LOGS" -> exportJobService.submitJsonJob(type, filename, () ->
+                    requestLogsService.exportStatusLogs(
+                            request.getSearch(),
+                            request.getStatus() != null ? request.getStatus() : "ALL",
+                            request.getStartDate(),
+                            request.getEndDate()
+                    )
+            );
+            case "FULFILLMENTS" -> exportJobService.submitJsonJob(type, filename, () ->
+                    requestLogsService.exportFulfillments(
+                            request.getSearch(),
+                            request.getStartDate(),
+                            request.getEndDate()
+                    )
+            );
+            case "SERVED_DETAILS" -> exportJobService.submitJsonJob(type, filename, () ->
+                    requestLogsService.exportServedDetails(
+                            request.getSearch(),
+                            request.getStartDate(),
+                            request.getEndDate(),
+                            request.getRequestGroup() != null ? request.getRequestGroup() : "ALL",
+                            request.getSort() != null ? request.getSort() : "date_desc"
+                    )
+            );
+            case "SERVED_INSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
+                    requestLogsService.exportInsideServedSummary(request.getStartDate(), request.getEndDate())
+            );
+            case "SERVED_OUTSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
+                    requestLogsService.exportOutsideServedSummary(request.getStartDate(), request.getEndDate())
+            );
+            default -> null;
+        };
+
+        if (job == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Unable to create export job."));
+        }
+        decorateJobLinks(job);
+        return ResponseEntity.accepted().body(job);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/logs/export/jobs/{jobId}")
+    public ResponseEntity<?> getExportJobStatus(@PathVariable String jobId) {
+        ExportJobStatusDTO job = exportJobService.getJobStatus(jobId);
+        if (job == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Export job not found."));
+        }
+        decorateJobLinks(job);
+        return ResponseEntity.ok(job);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/logs/export/jobs/{jobId}/download")
+    public ResponseEntity<?> downloadExportJob(@PathVariable String jobId) {
+        ExportJobService.ExportJobDownload download = exportJobService.getDownload(jobId);
+        if (download == null) {
+            ExportJobStatusDTO job = exportJobService.getJobStatus(jobId);
+            if (job == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Export job not found."));
+            }
+            if ("FAILED".equalsIgnoreCase(job.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Export job failed.", "details", job.getError()));
+            }
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "Export job is not ready for download yet."));
+        }
+
+        byte[] data = download.getData();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.getFileName() + "\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .contentLength(data.length)
+                .body(data);
     }
 
 
@@ -1245,18 +1370,55 @@ public class AdminController {
         return dto;
     }
 
-    private String validateServedExportRange(LocalDate startDate, LocalDate endDate) {
+    private String validateSyncExportRange(LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null) {
-            return "startDate and endDate are required for served export endpoints.";
+            return "startDate and endDate are required for export endpoints.";
         }
         if (startDate.isAfter(endDate)) {
             return "startDate must be on or before endDate.";
         }
         long daysInclusive = ChronoUnit.DAYS.between(startDate, endDate) + 1;
         if (daysInclusive > MAX_SERVED_EXPORT_DAYS) {
-            return "Date range too large. Maximum allowed is " + MAX_SERVED_EXPORT_DAYS + " days.";
+            return "Date range too large for synchronous export. Maximum allowed is "
+                    + MAX_SERVED_EXPORT_DAYS
+                    + " days. Use async export job endpoint instead.";
         }
         return null;
+    }
+
+    private String validateAsyncExportRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            return "startDate and endDate are required.";
+        }
+        if (startDate.isAfter(endDate)) {
+            return "startDate must be on or before endDate.";
+        }
+        long daysInclusive = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        if (daysInclusive > 366) {
+            return "Date range too large. Async export supports up to 366 days per job.";
+        }
+        return null;
+    }
+
+    private String normalizeExportType(String type) {
+        if (type == null || type.trim().isEmpty()) return null;
+        String normalized = type.trim().toUpperCase();
+        return switch (normalized) {
+            case "STATUS_LOGS", "FULFILLMENTS", "SERVED_DETAILS", "SERVED_INSIDE_SUMMARY", "SERVED_OUTSIDE_SUMMARY" -> normalized;
+            default -> null;
+        };
+    }
+
+    private String buildExportFileName(String type) {
+        String dateStamp = LocalDate.now().toString();
+        String suffix = type.toLowerCase();
+        return "export-" + suffix + "-" + dateStamp + ".json";
+    }
+
+    private void decorateJobLinks(ExportJobStatusDTO job) {
+        String base = "/api/admin/logs/export/jobs/" + job.getJobId();
+        job.setStatusUrl(base);
+        job.setDownloadUrl(base + "/download");
     }
 
     private BloodBag.BagStatus parseBagStatus(String status) {

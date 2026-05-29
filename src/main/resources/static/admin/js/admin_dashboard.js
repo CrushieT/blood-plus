@@ -10931,10 +10931,14 @@ async function submitPasswordChange() {
   }
   
   // Show loading state
-  const submitBtn = event.target;
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Updating...';
-  submitBtn.disabled = true;
+  const submitBtn = (typeof event !== 'undefined' && event?.target)
+    ? event.target
+    : document.querySelector('#profile-tab-security .btn-primary');
+  const originalText = submitBtn ? submitBtn.textContent : '';
+  if (submitBtn) {
+    submitBtn.textContent = 'Updating...';
+    submitBtn.disabled = true;
+  }
   
   try {
     const response = await fetch('/api/admin/change-password', {
@@ -10951,10 +10955,12 @@ async function submitPasswordChange() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       showSecurityError(errorData.message || 'Failed to change password');
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
+      if (submitBtn) {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
       return;
     }
 
@@ -10965,13 +10971,17 @@ async function submitPasswordChange() {
     document.getElementById('password-strength').classList.remove('show');
     
     showSecuritySuccess('Password updated successfully');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   } catch (error) {
     console.error('Error changing password:', error);
     showSecurityError('An error occurred while changing password');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   }
 }
 
@@ -11002,13 +11012,17 @@ async function submitStaffPasswordChange() {
   }
   
   // Show loading state
-  const submitBtn = event.target;
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Updating...';
-  submitBtn.disabled = true;
+  const submitBtn = (typeof event !== 'undefined' && event?.target)
+    ? event.target
+    : document.querySelector('#staff-profile-tab-security .btn-primary');
+  const originalText = submitBtn ? submitBtn.textContent : '';
+  if (submitBtn) {
+    submitBtn.textContent = 'Updating...';
+    submitBtn.disabled = true;
+  }
   
   try {
-    const response = await fetch('/api/auth/change-password', {
+    const response = await fetch('/api/admin/staff/change-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -11022,10 +11036,12 @@ async function submitStaffPasswordChange() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       showStaffSecurityError(errorData.message || 'Failed to change password');
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
+      if (submitBtn) {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
       return;
     }
 
@@ -11036,13 +11052,17 @@ async function submitStaffPasswordChange() {
     document.getElementById('staff-password-strength').classList.remove('show');
     
     showStaffSecuritySuccess('Password updated successfully');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   } catch (error) {
     console.error('Error changing password:', error);
     showStaffSecurityError('An error occurred while changing password');
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   }
 }
 
@@ -11826,13 +11846,19 @@ function exportStatusLogsExcel() {
   const queryParams = new URLSearchParams();
   if (search) queryParams.append('search', search);
   if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
-  if (startDate) queryParams.append('startDate', startDate);
-  if (endDate) queryParams.append('endDate', endDate);
+  if (!startDate || !endDate) {
+    alert('Please select both start and end dates before exporting.');
+    return;
+  }
+  queryParams.append('startDate', startDate);
+  queryParams.append('endDate', endDate);
 
   fetch(`${API_BASE_URL}/export/status-logs?${queryParams.toString()}`)
     .then((response) => {
       if (!response.ok) {
-        throw new Error('Failed to export data');
+        return response.json().catch(() => ({})).then((errorBody) => {
+          throw new Error(errorBody.error || 'Failed to export data');
+        });
       }
       return response.json();
     })
@@ -11843,11 +11869,11 @@ function exportStatusLogsExcel() {
       }
 
       const rows = data.map((log) => ({
-        'Reference No.': log.request?.id || '',
-        'Reference #': log.request?.referenceNumber || '',
+        'Reference No.': log.requestId || '',
+        'Reference #': log.referenceNumber || '',
         'Old Status': log.oldStatus || '',
         'New Status': log.newStatus || '',
-        'Changed By': log.changedBy?.username || 'System',
+        'Changed By': log.changedByUsername || 'System',
         'Changed At': formatExcelDate(log.changedAt),
         Notes: log.notes || '',
       }));

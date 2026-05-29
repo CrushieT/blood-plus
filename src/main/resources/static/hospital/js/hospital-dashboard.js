@@ -3602,7 +3602,7 @@ function startAutoRefresh() {
     if (document.hidden) return;
     loadHospitalRequests();
     loadBloodBankAvailability();
-  }, 5000); // 30 seconds
+  }, 30000); // 30 seconds
 }
 
 /**

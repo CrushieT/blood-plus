@@ -13,6 +13,8 @@ import com.hospital.blood_plus.dto.response.OutsideServedSummaryRow;
 import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.dto.response.ServedBagDetailResponse;
 import com.hospital.blood_plus.dto.response.ServedRequestSummaryResponse;
+import com.hospital.blood_plus.dto.response.StatusLogExportRowDTO;
+import com.hospital.blood_plus.dto.response.FulfillmentExportRowDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -241,65 +243,37 @@ public class RequestLogsService {
     /**
      * Export status logs as list
      */
-    public List<RequestStatusLog> exportStatusLogs(String search, String statusFilter) {
-        if (search != null && !search.isEmpty()) {
-            try {
-                Long requestId = Long.parseLong(search);
-                if (statusFilter != null && !statusFilter.equals("ALL")) {
-                    // ✓ FIXED: Convert String to enum before passing
-                    return statusLogRepository.findByRequestIdAndNewStatusNoPage(
-                            requestId,
-                            BloodBagRequest.RequestStatus.valueOf(statusFilter)
-                    );
-                }
-                return statusLogRepository.findByRequestIdNoPage(requestId);
-            } catch (NumberFormatException e) {
-                if (statusFilter != null && !statusFilter.equals("ALL")) {
-                    // ✓ FIXED: Convert String to enum before passing
-                    return statusLogRepository.findByRequestReferenceNumberAndNewStatusNoPage(
-                            "%" + search + "%",
-                            BloodBagRequest.RequestStatus.valueOf(statusFilter)
-                    );
-                }
-                return statusLogRepository.findByRequestReferenceNumberNoPage("%" + search + "%");
-            }
-        }
+    public List<StatusLogExportRowDTO> exportStatusLogs(
+            String search,
+            String statusFilter,
+            LocalDate startDate,
+            LocalDate endDate) {
+        String normalizedSearch = hasText(search) ? search.trim() : null;
+        Long searchId = parseLongOrNull(normalizedSearch);
+        BloodBagRequest.RequestStatus status = parseStatusFilter(statusFilter);
+        LocalDateTime from = startDate.atStartOfDay();
+        LocalDateTime to = endDate.plusDays(1).atStartOfDay().minusNanos(1);
 
-        if (statusFilter != null && !statusFilter.equals("ALL")) {
-            // ✓ FIXED: Convert String to enum before passing
-            return statusLogRepository.findByNewStatusNoPage(
-                    BloodBagRequest.RequestStatus.valueOf(statusFilter)
-            );
-        }
-
-        return statusLogRepository.findAll();
+        return statusLogRepository.findForExport(normalizedSearch, searchId, status, from, to).stream()
+                .map(this::toStatusLogExportRow)
+                .collect(Collectors.toList());
     }
 
     /**
      * Export fulfillments as list
      */
-    public List<RequestFulfillment> exportFulfillments(String search, LocalDateTime dateFrom, LocalDateTime dateTo) {
-        if (search != null && !search.isEmpty()) {
-            try {
-                Long requestId = Long.parseLong(search);
-                if (dateFrom != null || dateTo != null) {
-                    return fulfillmentRepository.findByRequestIdAndDateRangeNoPage(requestId, dateFrom, dateTo);
-                }
-                return fulfillmentRepository.findByRequestIdNoPage(requestId);
-            } catch (NumberFormatException e) {
-                // For non-numeric searches, return date-filtered results without search
-                if (dateFrom != null || dateTo != null) {
-                    return fulfillmentRepository.findByDateRangeNoPage(dateFrom, dateTo);
-                }
-                return fulfillmentRepository.findAll();
-            }
-        }
+    public List<FulfillmentExportRowDTO> exportFulfillments(
+            String search,
+            LocalDate startDate,
+            LocalDate endDate) {
+        String normalizedSearch = hasText(search) ? search.trim() : null;
+        Long searchId = parseLongOrNull(normalizedSearch);
+        LocalDateTime from = startDate.atStartOfDay();
+        LocalDateTime to = endDate.plusDays(1).atStartOfDay().minusNanos(1);
 
-        if (dateFrom != null || dateTo != null) {
-            return fulfillmentRepository.findByDateRangeNoPage(dateFrom, dateTo);
-        }
-
-        return fulfillmentRepository.findAll();
+        return fulfillmentRepository.findForExport(normalizedSearch, searchId, from, to).stream()
+                .map(this::toFulfillmentExportRow)
+                .collect(Collectors.toList());
     }
 
     public PaginatedResponse<ServedRequestSummaryResponse> getServedRequests(
@@ -603,29 +577,49 @@ public class RequestLogsService {
         return hasServedBags || markedReleased || hasUnservedReason;
     }
 
-    public List<RequestStatusLog> exportStatusLogs(
-            String search,
-            String statusFilter,
-            LocalDate startDate,
-            LocalDate endDate) {
-        return exportStatusLogs(search, statusFilter).stream()
-                .filter(log -> isWithinRange(log.getChangedAt(), startDate, endDate))
-                .sorted(Comparator.comparing(RequestStatusLog::getChangedAt, Comparator.nullsLast(LocalDateTime::compareTo)).reversed())
-                .collect(Collectors.toList());
+    private BloodBagRequest.RequestStatus parseStatusFilter(String statusFilter) {
+        if (!hasText(statusFilter) || "ALL".equalsIgnoreCase(statusFilter.trim())) {
+            return null;
+        }
+        return BloodBagRequest.RequestStatus.valueOf(statusFilter.trim().toUpperCase());
     }
 
-    private boolean isWithinRange(LocalDateTime value, LocalDate startDate, LocalDate endDate) {
-        if (value == null) {
-            return startDate == null && endDate == null;
-        }
-        LocalDate date = value.toLocalDate();
-        if (startDate != null && date.isBefore(startDate)) {
-            return false;
-        }
-        if (endDate != null && date.isAfter(endDate)) {
-            return false;
-        }
-        return true;
+    private StatusLogExportRowDTO toStatusLogExportRow(RequestStatusLog log) {
+        StatusLogExportRowDTO row = new StatusLogExportRowDTO();
+        row.setLogId(log.getId());
+        row.setRequestId(log.getRequest() != null ? log.getRequest().getId() : null);
+        row.setReferenceNumber(log.getRequest() != null ? log.getRequest().getReferenceNumber() : null);
+        row.setOldStatus(log.getOldStatus() != null ? log.getOldStatus().name() : null);
+        row.setNewStatus(log.getNewStatus() != null ? log.getNewStatus().name() : null);
+        row.setChangedByUsername(log.getChangedBy() != null ? log.getChangedBy().getUsername() : "System");
+        row.setChangedByEmail(log.getChangedBy() != null ? log.getChangedBy().getEmail() : null);
+        row.setChangedAt(log.getChangedAt());
+        row.setNotes(log.getNotes());
+        return row;
+    }
+
+    private FulfillmentExportRowDTO toFulfillmentExportRow(RequestFulfillment fulfillment) {
+        FulfillmentExportRowDTO row = new FulfillmentExportRowDTO();
+        row.setFulfillmentId(fulfillment.getId());
+        row.setRequestId(fulfillment.getRequest() != null ? fulfillment.getRequest().getId() : null);
+        row.setReferenceNumber(fulfillment.getRequest() != null ? fulfillment.getRequest().getReferenceNumber() : null);
+        row.setBloodBagId(fulfillment.getBloodBag() != null ? fulfillment.getBloodBag().getId() : null);
+        row.setSerialNumber(fulfillment.getBloodBag() != null ? fulfillment.getBloodBag().getSerialNumber() : null);
+        row.setBloodType(
+                fulfillment.getBloodBag() != null && fulfillment.getBloodBag().getBloodType() != null
+                        ? fulfillment.getBloodBag().getBloodType().name()
+                        : null
+        );
+        row.setComponentType(
+                fulfillment.getBloodBag() != null && fulfillment.getBloodBag().getComponentType() != null
+                        ? fulfillment.getBloodBag().getComponentType().name()
+                        : null
+        );
+        row.setVolumeMl(fulfillment.getBloodBag() != null ? fulfillment.getBloodBag().getVolumeMl() : null);
+        row.setFulfilledAt(fulfillment.getFulfilledAt());
+        row.setFulfilledByUsername(fulfillment.getFulfilledBy() != null ? fulfillment.getFulfilledBy().getUsername() : "System");
+        row.setNotes(fulfillment.getNotes());
+        return row;
     }
 
     private String normalizeRequestGroup(String requestGroup) {
