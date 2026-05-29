@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 public class RequestLogsService {
+    private static final int SERVED_EXPORT_BATCH_SIZE = 250;
 
     @Autowired
     private RequestStatusLogRepository statusLogRepository;
@@ -220,6 +221,24 @@ public class RequestLogsService {
     }
 
     /**
+     * Helper method to create Pageable with sorting for served logs.
+     */
+    private Pageable createPageableForServed(String sort, int page, int size) {
+        Sort.Direction direction = Sort.Direction.DESC;
+        String sortField = "requestedAt";
+
+        if ("date_asc".equalsIgnoreCase(sort)) {
+            direction = Sort.Direction.ASC;
+            sortField = "requestedAt";
+        } else if ("request_id".equalsIgnoreCase(sort)) {
+            direction = Sort.Direction.ASC;
+            sortField = "id";
+        }
+
+        return PageRequest.of(Math.max(page - 1, 0), Math.max(size, 1), Sort.by(direction, sortField));
+    }
+
+    /**
      * Export status logs as list
      */
     public List<RequestStatusLog> exportStatusLogs(String search, String statusFilter) {
@@ -291,20 +310,20 @@ public class RequestLogsService {
             String sort,
             int page,
             int size) {
-
-        List<ServedRequestSummaryResponse> rows = buildServedSummaries(search, startDate, endDate, false, requestGroup);
-        sortServedRows(rows, sort);
-
-        int safeSize = Math.max(size, 1);
-        int totalPages = rows.isEmpty() ? 1 : (int) Math.ceil((double) rows.size() / safeSize);
         int safePage = Math.max(page, 1);
-        int effectivePage = Math.min(safePage, totalPages);
-
-        int fromIndex = Math.min((effectivePage - 1) * safeSize, rows.size());
-        int toIndex = Math.min(fromIndex + safeSize, rows.size());
-        List<ServedRequestSummaryResponse> pageData = rows.subList(fromIndex, toIndex);
-
-        return new PaginatedResponse<>(pageData, effectivePage, totalPages, rows.size(), safeSize);
+        int safeSize = Math.max(size, 1);
+        Page<BloodBagRequest> requestPage = fetchServedRequestPage(
+                search, startDate, endDate, requestGroup, sort, safePage, safeSize
+        );
+        List<ServedRequestSummaryResponse> rows = mapServedRequests(requestPage.getContent(), false);
+        int totalPages = Math.max(requestPage.getTotalPages(), 1);
+        return new PaginatedResponse<>(
+                rows,
+                requestPage.getNumber() + 1,
+                totalPages,
+                requestPage.getTotalElements(),
+                safeSize
+        );
     }
 
     public ServedRequestSummaryResponse getServedRequestDetail(Long requestId) {
@@ -323,8 +342,21 @@ public class RequestLogsService {
             LocalDate endDate,
             String requestGroup,
             String sort) {
-        List<ServedRequestSummaryResponse> rows = buildServedSummaries(search, startDate, endDate, true, requestGroup);
-        sortServedRows(rows, sort);
+        List<ServedRequestSummaryResponse> rows = new ArrayList<>();
+        int page = 1;
+        while (true) {
+            Page<BloodBagRequest> requestPage = fetchServedRequestPage(
+                    search, startDate, endDate, requestGroup, sort, page, SERVED_EXPORT_BATCH_SIZE
+            );
+            if (!requestPage.hasContent()) {
+                break;
+            }
+            rows.addAll(mapServedRequests(requestPage.getContent(), true));
+            if (page >= requestPage.getTotalPages()) {
+                break;
+            }
+            page++;
+        }
         return rows;
     }
 
@@ -383,50 +415,63 @@ public class RequestLogsService {
                 .collect(Collectors.toList());
     }
 
-    private List<ServedRequestSummaryResponse> buildServedSummaries(
+    private Page<BloodBagRequest> fetchServedRequestPage(
             String search,
             LocalDate startDate,
             LocalDate endDate,
-            boolean includeBagDetails,
-            String requestGroup) {
-        List<RequestFulfillment> allFulfillments = fulfillmentRepository.findAll();
-        Map<Long, List<RequestFulfillment>> byRequestId = allFulfillments.stream()
+            String requestGroup,
+            String sort,
+            int page,
+            int size) {
+        String normalizedSearch = hasText(search) ? search.trim() : null;
+        Long searchId = parseLongOrNull(normalizedSearch);
+        String normalizedGroup = normalizeRequestGroup(requestGroup);
+        LocalDateTime basisFrom = startDate != null ? startDate.atStartOfDay() : null;
+        LocalDateTime basisTo = endDate != null ? endDate.plusDays(1).atStartOfDay().minusNanos(1) : null;
+        Pageable pageable = createPageableForServed(sort, page, size);
+
+        return requestRepository.findServedRequestsForLogs(
+                normalizedSearch,
+                searchId,
+                normalizedGroup,
+                BloodBagRequest.RequesterType.HOSPITAL,
+                BloodBagRequest.RequestCategory.OUTPATIENT,
+                BloodBagRequest.RequestCategory.INPATIENT,
+                BloodBagRequest.RequestCategory.HOSPITAL,
+                basisFrom,
+                basisTo,
+                BloodBagRequest.RequestStatus.RELEASED,
+                pageable
+        );
+    }
+
+    private List<ServedRequestSummaryResponse> mapServedRequests(
+            List<BloodBagRequest> requests,
+            boolean includeBagDetails) {
+        if (requests == null || requests.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Long> requestIds = requests.stream()
+                .map(BloodBagRequest::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (requestIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<RequestFulfillment> fulfillments = fulfillmentRepository.findByRequestIdsForServedSummary(requestIds);
+        Map<Long, List<RequestFulfillment>> byRequestId = fulfillments.stream()
                 .filter(f -> f.getRequest() != null && f.getRequest().getId() != null)
                 .collect(Collectors.groupingBy(f -> f.getRequest().getId()));
 
-        List<ServedRequestSummaryResponse> rows = new ArrayList<>();
-        for (Map.Entry<Long, List<RequestFulfillment>> entry : byRequestId.entrySet()) {
-            Long requestId = entry.getKey();
-            List<RequestFulfillment> requestFulfillments = entry.getValue();
-            if (requestFulfillments == null || requestFulfillments.isEmpty()) {
-                continue;
-            }
-
-            BloodBagRequest request = requestFulfillments.stream()
-                    .map(RequestFulfillment::getRequest)
-                    .filter(Objects::nonNull)
-                    .findFirst()
-                    .orElseGet(() -> requestRepository.findById(requestId).orElse(null));
-            if (request == null) {
-                continue;
-            }
-
+        List<ServedRequestSummaryResponse> rows = new ArrayList<>(requests.size());
+        for (BloodBagRequest request : requests) {
+            List<RequestFulfillment> requestFulfillments = byRequestId.getOrDefault(request.getId(), new ArrayList<>());
             ServedRequestSummaryResponse row = toServedSummary(request, requestFulfillments, includeBagDetails);
-
             if (!shouldIncludeInServedTab(request, row)) {
                 continue;
             }
-            if (!matchesServedSearch(row, search)) {
-                continue;
-            }
-            if (!matchesServedRequestGroup(request, requestGroup)) {
-                continue;
-            }
-            LocalDateTime basisDate = resolveDateBasis(request, row.getLastServedAt());
-            if (!isWithinRange(basisDate, startDate, endDate)) {
-                continue;
-            }
-
             rows.add(row);
         }
         return rows;
@@ -558,58 +603,6 @@ public class RequestLogsService {
         return hasServedBags || markedReleased || hasUnservedReason;
     }
 
-    private boolean matchesServedSearch(ServedRequestSummaryResponse row, String search) {
-        if (!hasText(search)) {
-            return true;
-        }
-        String q = search.trim().toLowerCase();
-
-        if (row.getRequestId() != null && q.matches("\\d+")) {
-            if (row.getRequestId().equals(Long.parseLong(q))) {
-                return true;
-            }
-        }
-
-        return containsIgnoreCase(row.getReferenceNumber(), q)
-                || containsIgnoreCase(row.getPatientName(), q)
-                || containsIgnoreCase(row.getHospitalName(), q)
-                || containsIgnoreCase(row.getWardRoom(), q)
-                || containsIgnoreCase(row.getBloodType(), q)
-                || containsIgnoreCase(row.getBloodComponent(), q);
-    }
-
-    private boolean matchesServedRequestGroup(BloodBagRequest request, String requestGroup) {
-        if (!hasText(requestGroup)) {
-            return true;
-        }
-
-        String normalized = requestGroup.trim().toUpperCase();
-        if ("ALL".equals(normalized)) {
-            return true;
-        }
-
-        if ("HOSPITAL_OUTPATIENT".equals(normalized)) {
-            boolean isHospital = request.getRequesterType() == BloodBagRequest.RequesterType.HOSPITAL;
-            boolean isOutpatient = request.getRequestCategory() == BloodBagRequest.RequestCategory.OUTPATIENT;
-            return isHospital || isOutpatient;
-        }
-
-        if ("INHOUSE".equals(normalized) || "INPATIENT".equals(normalized)) {
-            return request.getRequestCategory() == BloodBagRequest.RequestCategory.INPATIENT;
-        }
-
-        if ("OPD".equals(normalized) || "OUTPATIENT".equals(normalized)) {
-            return request.getRequestCategory() == BloodBagRequest.RequestCategory.OUTPATIENT;
-        }
-
-        if ("HOSPITAL".equals(normalized)) {
-            return request.getRequesterType() == BloodBagRequest.RequesterType.HOSPITAL
-                    || request.getRequestCategory() == BloodBagRequest.RequestCategory.HOSPITAL;
-        }
-
-        return true;
-    }
-
     public List<RequestStatusLog> exportStatusLogs(
             String search,
             String statusFilter,
@@ -635,43 +628,40 @@ public class RequestLogsService {
         return true;
     }
 
-    private LocalDateTime resolveDateBasis(BloodBagRequest request, LocalDateTime lastServedAt) {
-        if (lastServedAt != null) {
-            return lastServedAt;
+    private String normalizeRequestGroup(String requestGroup) {
+        if (!hasText(requestGroup)) {
+            return "ALL";
         }
-        if (request.getReviewedAt() != null) {
-            return request.getReviewedAt();
+        String normalized = requestGroup.trim().toUpperCase();
+        if ("INPATIENT".equals(normalized)) {
+            return "INHOUSE";
         }
-        return request.getRequestedAt();
+        if ("OUTPATIENT".equals(normalized)) {
+            return "OPD";
+        }
+        if ("ALL".equals(normalized)
+                || "HOSPITAL_OUTPATIENT".equals(normalized)
+                || "INHOUSE".equals(normalized)
+                || "OPD".equals(normalized)
+                || "HOSPITAL".equals(normalized)) {
+            return normalized;
+        }
+        return "ALL";
     }
 
-    private void sortServedRows(List<ServedRequestSummaryResponse> rows, String sort) {
-        Comparator<ServedRequestSummaryResponse> comparator;
-        if ("date_asc".equalsIgnoreCase(sort)) {
-            comparator = Comparator.comparing(
-                    ServedRequestSummaryResponse::getLastServedAt,
-                    Comparator.nullsLast(LocalDateTime::compareTo)
-            );
-        } else if ("request_id".equalsIgnoreCase(sort)) {
-            comparator = Comparator.comparing(
-                    ServedRequestSummaryResponse::getRequestId,
-                    Comparator.nullsLast(Long::compareTo)
-            );
-        } else {
-            comparator = Comparator.comparing(
-                    ServedRequestSummaryResponse::getLastServedAt,
-                    Comparator.nullsFirst(LocalDateTime::compareTo)
-            ).reversed();
+    private Long parseLongOrNull(String value) {
+        if (!hasText(value)) {
+            return null;
         }
-        rows.sort(comparator);
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
-    }
-
-    private boolean containsIgnoreCase(String value, String q) {
-        return value != null && value.toLowerCase().contains(q);
     }
 
     private int safeInt(Integer value) {

@@ -3,7 +3,9 @@ package com.hospital.blood_plus.service;
 import com.hospital.blood_plus.dto.request.ApproveRequestDTO;
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
 import com.hospital.blood_plus.dto.request.EmailConfirmationRequest;
+import com.hospital.blood_plus.dto.response.AdminBloodRequestListItemDTO;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
+import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
@@ -19,6 +21,10 @@ import com.hospital.blood_plus.repository.StaffProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -197,6 +203,45 @@ public class BloodBagRequestService {
 
     public List<BloodBagRequest> getAllRequests() {
         return repository.findAllByOrderByRequestedAtDesc();
+    }
+
+    public PaginatedResponse<AdminBloodRequestListItemDTO> getAdminRequestList(
+            int page,
+            int size,
+            BloodBagRequest.RequestStatus status,
+            String search,
+            LocalDateTime dateFrom,
+            LocalDateTime dateTo
+    ) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
+
+        Pageable pageable = PageRequest.of(
+                safePage - 1,
+                safeSize,
+                Sort.by(Sort.Direction.DESC, "requestedAt")
+        );
+
+        Page<BloodBagRequest> pageData = repository.findForAdminList(
+                status,
+                normalizedSearch,
+                dateFrom,
+                dateTo,
+                pageable
+        );
+
+        List<AdminBloodRequestListItemDTO> rows = pageData.getContent().stream()
+                .map(this::toAdminListItem)
+                .toList();
+
+        return new PaginatedResponse<>(
+                rows,
+                pageData.getNumber() + 1,
+                Math.max(pageData.getTotalPages(), 1),
+                pageData.getTotalElements(),
+                pageData.getSize()
+        );
     }
     public List<BloodBagRequest> getByStatus(BloodBagRequest.RequestStatus status) {
         return repository.findByStatus(status);
@@ -815,6 +860,10 @@ public class BloodBagRequestService {
                 .orElseThrow(() -> new IllegalArgumentException("Blood request not found with id: " + id));
     }
 
+    public BloodBagRequest getRequestDetailForAdmin(Long id) {
+        return populateReservedBags(getRequestById(id));
+    }
+
     public BloodBagRequest populateReservedBags(BloodBagRequest request) {
         if (request == null) return null;
         request.setReservedBags(loadAllocatedBags(request));
@@ -966,6 +1015,64 @@ public class BloodBagRequestService {
 
     private boolean hasRequesterEmail(BloodBagRequest request) {
         return request.getRequesterEmail() != null && !request.getRequesterEmail().trim().isEmpty();
+    }
+
+    private AdminBloodRequestListItemDTO toAdminListItem(BloodBagRequest request) {
+        AdminBloodRequestListItemDTO dto = new AdminBloodRequestListItemDTO();
+        dto.setId(request.getId());
+        dto.setReferenceNumber(request.getReferenceNumber());
+        dto.setStatus(request.getStatus());
+        dto.setRequesterType(request.getRequesterType());
+        dto.setRequestCategory(request.getRequestCategory());
+        dto.setUrgencyLevel(request.getUrgencyLevel());
+        dto.setRequestType(request.getRequestType());
+        dto.setRequestedAt(request.getRequestedAt());
+        dto.setRequiredBy(request.getRequiredBy());
+
+        dto.setPatientName(request.getPatientName());
+        dto.setPatientMiddle(request.getPatientMiddle());
+        dto.setPatientLast(request.getPatientLast());
+        dto.setPatientSuffix(request.getPatientSuffix());
+        dto.setPatientAge(request.getPatientAge());
+        dto.setPatientSex(request.getPatientSex());
+        dto.setPatientBirthdate(request.getPatientBirthdate());
+        dto.setWardRoom(request.getWardRoom());
+        dto.setRoomNo(request.getRoomNo());
+        dto.setPatientPurok(request.getPatientPurok());
+        dto.setPatientBarangay(request.getPatientBarangay());
+        dto.setPatientMunicipality(request.getPatientMunicipality());
+        dto.setPatientProvince(request.getPatientProvince());
+        dto.setRequestingPhysician(request.getRequestingPhysician());
+        dto.setAgeGroup(request.getAgeGroup());
+
+        dto.setBloodType(request.getBloodType());
+        dto.setBloodComponent(request.getBloodComponent());
+        dto.setNumberOfUnits(request.getNumberOfUnits());
+        dto.setApprovedUnits(request.getApprovedUnits());
+        dto.setPatientAcceptedRemarks(request.getPatientAcceptedRemarks());
+        dto.setApprovalRemarks(request.getApprovalRemarks());
+        dto.setConfirmationEmailSentAt(request.getConfirmationEmailSentAt());
+        dto.setPlateletCount(request.getPlateletCount());
+        dto.setVolumeMl(request.getVolumeMl());
+
+        dto.setRequesterName(request.getRequesterName());
+        dto.setRequesterRelationship(request.getRequesterRelationship());
+        dto.setRequesterContact(request.getRequesterContact());
+        dto.setRequesterEmail(request.getRequesterEmail());
+
+        if (request.getHospitalProfile() != null) {
+            dto.setHospitalName(request.getHospitalProfile().getHospitalName());
+            dto.setHospitalContactName(request.getHospitalProfile().getContactPersonName());
+            dto.setHospitalPhoneNumber(request.getHospitalProfile().getPhoneNumber());
+            if (request.getHospitalProfile().getUser() != null) {
+                dto.setHospitalContactEmail(request.getHospitalProfile().getUser().getEmail());
+            }
+        }
+
+        dto.setNotes(request.getNotes());
+        dto.setDoctorsNoteUrl(request.getDoctorsNoteUrl());
+        dto.setRejectionReason(request.getRejectionReason());
+        return dto;
     }
 
     private int getEffectiveUnits(BloodBagRequest request) {

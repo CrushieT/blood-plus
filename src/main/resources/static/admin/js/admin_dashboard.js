@@ -5857,7 +5857,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   };
  
   const API_BASE = '/api';
- 
+  const REQ_PAGE_SIZE = 25;
+
   /* ----------------------------------------------------------------------------
      STATE
   -------------------------------------------------------------------------------- */
@@ -5867,6 +5868,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let reqPendingRejectId = null;
   let reqPendingResolutionMode = 'reject';
   let reqPendingRemarksId = null;
+  let reqCurrentPage = 1;
+  let reqTotalPages = 1;
+  let reqTotalElements = 0;
+  let reqSearchDebounceTimer = null;
   const REQ_STATUS_PRIORITY = {
     PENDING: 0,
     NEEDS_CONFIRMATION: 1,
@@ -5991,7 +5996,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   /* ----------------------------------------------------------------------------
      DATA MAPPING
   -------------------------------------------------------------------------------- */
-  function mapRequest(r) {
+  function mapRequest(r, options = {}) {
+    const isDetailPayload = Boolean(options.detail);
     const docUrl = r.doctorsNoteUrl ?? '';
     const docLabel = docUrl
       ? 'DoctorsNote_' + (r.referenceNumber ?? r.id) + '_' +
@@ -6006,7 +6012,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
               ?? r.requesterName
               ?? '–';
  
-    const allocatedBags = r.reservedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
+    const allocatedBags = r.reservedBags ?? r.allocatedBags ?? (r.fulfilledByBag ? [r.fulfilledByBag] : []);
  
     const bloodTypeEnum = r.bloodType ?? '–';
     const displayBloodType = formatBloodType(bloodTypeEnum);
@@ -6095,6 +6101,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       docLabel,
       rejectionReason: r.rejectionReason ?? null,
       allocatedBags,
+      isDetailLoaded: isDetailPayload,
     };
   }
 
@@ -6132,43 +6139,105 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     const el = document.getElementById('req-list');
     if (el) el.innerHTML = `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.45">Error</div>${msg}</div>`;
   }
- 
-  async function reqFetchAll() {
+
+  function reqGetSearchQuery() {
+    return (document.getElementById('req-search')?.value || '').trim();
+  }
+
+  function reqBuildListQuery(page) {
+    const params = new URLSearchParams({
+      page: String(Math.max(page, 1)),
+      size: String(REQ_PAGE_SIZE),
+    });
+
+    if (reqCurrentFilter !== 'ALL') {
+      params.append('status', reqCurrentFilter);
+    }
+
+    const searchQuery = reqGetSearchQuery();
+    if (searchQuery) {
+      params.append('search', searchQuery);
+    }
+
+    return params;
+  }
+
+  async function reqFetchPage(page = 1) {
     reqShowLoading();
     try {
-      const res  = await fetch(`${API_BASE}/admin/blood-requests`, { headers: { Accept: 'application/json' } });
+      const params = reqBuildListQuery(page);
+      const res = await fetch(`${API_BASE}/admin/blood-requests?${params.toString()}`, {
+        headers: { Accept: 'application/json' }
+      });
       if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
       const json = await res.json();
-      reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
-      detectNewBloodRequests(reqData);
-      reqRender();
-      reqUpdateCounts();  
-    } catch (err) {
-      console.error('[BloodRequests] fetch failed', err);
-      reqShowError(`Failed to load requests – ${err.message}`);
-    }
-  }
- 
- 
-  async function reqFetchByStatus(status) {
-    reqShowLoading();
-    try {
-      const url  = status === 'ALL'
-        ? `${API_BASE}/admin/blood-requests`
-        : `${API_BASE}/admin/blood-requests?status=${status}`;
-      const res  = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const json = await res.json();
-      reqData    = (Array.isArray(json) ? json : (json.data ?? json.content ?? [])).map(mapRequest);
-      if (status === 'ALL') {
-        detectNewBloodRequests(reqData);
+
+      const rows = Array.isArray(json) ? json : (json.data ?? json.content ?? []);
+      const mapped = rows.map(r => mapRequest(r, { detail: false }));
+      const nextExpanded = {};
+      mapped.forEach(r => {
+        if (reqExpanded[r.id]) nextExpanded[r.id] = true;
+      });
+
+      reqData = mapped;
+      reqExpanded = nextExpanded;
+
+      if (Array.isArray(json)) {
+        reqCurrentPage = 1;
+        reqTotalPages = 1;
+        reqTotalElements = mapped.length;
+      } else {
+        reqCurrentPage = Math.max(Number(json.page) || page, 1);
+        reqTotalPages = Math.max(Number(json.totalPages) || 1, 1);
+        reqTotalElements = Math.max(Number(json.totalElements) || mapped.length, 0);
       }
+
+      if (reqCurrentPage > reqTotalPages) {
+        reqCurrentPage = reqTotalPages;
+        await reqFetchPage(reqCurrentPage);
+        return;
+      }
+
+      detectNewBloodRequests(reqData);
       reqRender();
       reqUpdateCounts();
     } catch (err) {
       console.error('[BloodRequests] fetch failed', err);
       reqShowError(`Failed to load requests - ${err.message}`);
+      reqTotalElements = 0;
+      reqTotalPages = 1;
+      reqCurrentPage = 1;
+      reqUpdatePaginationUi(0);
     }
+  }
+
+  async function reqFetchAll() {
+    await reqFetchPage(reqCurrentPage);
+  }
+
+  async function reqFetchByStatus(status) {
+    reqCurrentFilter = status === 'ALL' ? 'ALL' : status;
+    reqCurrentPage = 1;
+    await reqFetchPage(1);
+  }
+
+  async function reqLoadDetail(reqId, force = false) {
+    const idx = reqData.findIndex(r => r.id === reqId);
+    if (idx < 0) return null;
+    const existing = reqData[idx];
+    if (existing.isDetailLoaded && !force) return existing;
+
+    const res = await fetch(`${API_BASE}/admin/blood-requests/${reqId}`, {
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to load request details (${res.status})`);
+    }
+
+    const json = await res.json();
+    const detailed = mapRequest(json, { detail: true });
+    reqData[idx] = { ...existing, ...detailed, isDetailLoaded: true };
+    return reqData[idx];
   }
  
   async function reqFetchCompatibleBags(req) {
@@ -6430,7 +6499,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       }
       const data = await res.json();
       req.status = data.status ?? 'ALLOCATED';
-      reqRender();
+      await reqFetchPage(reqCurrentPage);
     } catch (err) {
       console.error(`[req${isChange ? 'Reallocate' : 'Allocate'}] failed`, err);
       req.status        = prevStatus;
@@ -6504,7 +6573,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       }
       const data = await res.json();
       r.status   = data.status ?? next.next;
-      reqRender();
+      await reqFetchPage(reqCurrentPage);
       if (endpoint === 'release') {
         r.reviewedAt = data.reviewedAt ?? r.reviewedAt ?? null;
         openReleaseTracer(r, data);
@@ -6821,7 +6890,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
       delete reqBagCache[req.id];
       reqCloseApproveWithRemarks();
-      reqRender();
+      await reqFetchPage(reqCurrentPage);
       setTimeout(() => reqFetchCompatibleBags(req), 0);
 
       const successMessage = data.message
@@ -6934,6 +7003,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `Server error ${res.status}`);
       }
+      await reqFetchPage(reqCurrentPage);
     } catch (err) {
       console.error('[reqConfirmReject] failed', err);
       r.status = prevState.status;
@@ -7046,19 +7116,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   };
  
   function reqGetFiltered() {
-    const q       = (document.getElementById('req-search')?.value || '').toLowerCase().trim();
     const urgency = document.getElementById('req-filter-urgency')?.value || 'ALL';
     const sort    = document.getElementById('req-sort')?.value || 'date_desc';
     let list = reqData.slice();
-    if (reqCurrentFilter !== 'ALL') list = list.filter(r => r.status === reqCurrentFilter);
     if (urgency !== 'ALL')          list = list.filter(r => r.urgency === urgency);
-    if (q) list = list.filter(r =>
-      r.name.toLowerCase().includes(q)      ||
-      r.patient.toLowerCase().includes(q)   ||
-      r.bloodType.toLowerCase().includes(q) ||
-      r.component.toLowerCase().includes(q)||
-      r.referenceNumber.toLowerCase().includes(q)
-    );
     if (sort === 'date_desc') {
       list.sort((a, b) => {
         const statusDiff =
@@ -7129,12 +7190,60 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     }
     return list;
   }
- 
-  window.reqFilterBy = function (status, btn) {
+
+  function reqUpdatePaginationUi(filteredCount) {
+    const showingEl = document.getElementById('req-showing');
+    const pageLabelEl = document.getElementById('req-page-label');
+    const prevEl = document.getElementById('req-prev');
+    const nextEl = document.getElementById('req-next');
+    const urgency = document.getElementById('req-filter-urgency')?.value || 'ALL';
+
+    const safePage = Math.max(reqCurrentPage, 1);
+    const safeTotalPages = Math.max(reqTotalPages, 1);
+    const safeTotalElements = Math.max(reqTotalElements, 0);
+    const start = safeTotalElements === 0 ? 0 : ((safePage - 1) * REQ_PAGE_SIZE) + 1;
+    const end = safeTotalElements === 0 ? 0 : Math.min((safePage - 1) * REQ_PAGE_SIZE + reqData.length, safeTotalElements);
+
+    if (showingEl) {
+      showingEl.textContent = urgency === 'ALL'
+        ? `Showing ${start}-${end} of ${safeTotalElements}`
+        : `Showing ${filteredCount} filtered on page ${safePage} (${safeTotalElements} total)`;
+    }
+    if (pageLabelEl) pageLabelEl.textContent = `${safePage} / ${safeTotalPages}`;
+    if (prevEl) prevEl.disabled = safePage <= 1;
+    if (nextEl) nextEl.disabled = safePage >= safeTotalPages;
+  }
+
+  function reqApplyClientFilters() {
+    reqRender();
+  }
+
+  function reqHandleSearchInput() {
+    if (reqSearchDebounceTimer) clearTimeout(reqSearchDebounceTimer);
+    reqSearchDebounceTimer = setTimeout(() => {
+      reqCurrentPage = 1;
+      reqFetchPage(1);
+    }, 300);
+  }
+
+  async function reqPrevPage() {
+    if (reqCurrentPage <= 1) return;
+    reqCurrentPage -= 1;
+    await reqFetchPage(reqCurrentPage);
+  }
+
+  async function reqNextPage() {
+    if (reqCurrentPage >= reqTotalPages) return;
+    reqCurrentPage += 1;
+    await reqFetchPage(reqCurrentPage);
+  }
+
+  window.reqFilterBy = async function (status, btn) {
     reqCurrentFilter = status;
+    reqCurrentPage = 1;
     document.querySelectorAll('#req-filters .req-filter-chip').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    reqRender();
+    await reqFetchPage(1);
   };
  
   function reqUsesConfirmationFlow(req) {
@@ -7378,7 +7487,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     list.innerHTML = filtered.length
       ? filtered.map(reqRenderCard).join('')
       : `<div class="req-empty"><div style="font-size:32px;margin-bottom:10px;opacity:0.35">No match</div>No requests match the current filters.</div>`;
-    if (info) info.textContent = `Showing ${filtered.length} of ${reqData.length} request${reqData.length !== 1 ? 's' : ''}`;
+    if (info) info.textContent = `Page ${reqCurrentPage} of ${reqTotalPages} . ${reqTotalElements} total request${reqTotalElements !== 1 ? 's' : ''}`;
+    reqUpdatePaginationUi(filtered.length);
     reqUpdateCounts();
   }
  
@@ -7417,7 +7527,18 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     });
   }
  
-  window.reqToggle = id => { reqExpanded[id] = !reqExpanded[id]; reqRender(); };
+  window.reqToggle = async id => {
+    const willExpand = !reqExpanded[id];
+    reqExpanded[id] = willExpand;
+    if (willExpand) {
+      try {
+        await reqLoadDetail(id);
+      } catch (err) {
+        console.error('[BloodRequests] detail load failed', err);
+      }
+    }
+    reqRender();
+  };
   window.reqRender = reqRender;
   window.updateBloodRequestBadge = updateBloodRequestBadge;
   window.markBloodRequestsAsViewed = markBloodRequestsAsViewed;
@@ -7425,6 +7546,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
 
   window.reqFetchAll = reqFetchAll;
   window.reqFetchByStatus = reqFetchByStatus;
+  window.reqApplyClientFilters = reqApplyClientFilters;
+  window.reqHandleSearchInput = reqHandleSearchInput;
+  window.reqPrevPage = reqPrevPage;
+  window.reqNextPage = reqNextPage;
   window.reqFetchCompatibleBags = reqFetchCompatibleBags;
   window.reqInvalidateBagCache = function() {
     for (const key in reqBagCache) {
@@ -7462,12 +7587,20 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     backdrop.addEventListener('click', () => window.closeReqDetailsModal());
   };
 
-  window.openReqDetailsModal = function (reqId) {
+  window.openReqDetailsModal = async function (reqId) {
     window.initReqDetailsModal();
-    
-    const req = reqData.find(x => x.id === reqId);
+
+    let req = reqData.find(x => x.id === reqId);
     if (!req) {
       console.warn('[ReqDetailsModal] Request not found:', reqId);
+      return;
+    }
+
+    try {
+      req = await reqLoadDetail(reqId);
+    } catch (err) {
+      console.error('[ReqDetailsModal] Failed to load detail:', err);
+      alert('Failed to load complete request details.');
       return;
     }
     

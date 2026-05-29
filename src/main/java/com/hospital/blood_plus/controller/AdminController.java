@@ -22,6 +22,7 @@ import com.hospital.blood_plus.dto.request.StaffDTOs.CreateStaffRequest;
 import com.hospital.blood_plus.dto.request.StaffDTOs.StaffResponse;
 import com.hospital.blood_plus.dto.request.StaffDTOs.UpdateStaffRequest;
 import com.hospital.blood_plus.dto.response.AdminDashboardDTO;
+import com.hospital.blood_plus.dto.response.AdminBloodRequestListItemDTO;
 import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.dto.response.BloodBagResponse;
 import com.hospital.blood_plus.dto.response.InsideServedSummaryRow;
@@ -45,6 +46,7 @@ import com.hospital.blood_plus.service.StaffService;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +65,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+    private static final long MAX_SERVED_EXPORT_DAYS = 31;
 
     private final BloodBagService         bloodBagService;
     private final UserRepository          userRepository;
@@ -224,12 +227,26 @@ public class AdminController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/blood-requests")
-    public ResponseEntity<List<BloodBagRequest>> getAllRequests(
-            @RequestParam(required = false) BloodBagRequest.RequestStatus status) {
-        List<BloodBagRequest> requests = status != null
-                ? bloodBagRequestService.getByStatus(status)
-                : bloodBagRequestService.getAllRequests();
-        return ResponseEntity.ok(bloodBagRequestService.populateReservedBags(requests));
+    public ResponseEntity<PaginatedResponse<AdminBloodRequestListItemDTO>> getAllRequests(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) BloodBagRequest.RequestStatus status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
+        return ResponseEntity.ok(
+                bloodBagRequestService.getAdminRequestList(page, size, status, search, dateFrom, dateTo)
+        );
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/blood-requests/{id}")
+    public ResponseEntity<?> getRequestDetail(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(bloodBagRequestService.getRequestDetailForAdmin(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
     }
 
     // PENDING → APPROVED  (no body needed — bag selection happens at allocate)
@@ -1152,28 +1169,40 @@ public class AdminController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/export/served/details")
-    public ResponseEntity<List<ServedRequestSummaryResponse>> exportServedDetails(
+    public ResponseEntity<?> exportServedDetails(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue = "ALL") String requestGroup,
             @RequestParam(defaultValue = "date_desc") String sort) {
+        String validationError = validateServedExportRange(startDate, endDate);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
         return ResponseEntity.ok(requestLogsService.exportServedDetails(search, startDate, endDate, requestGroup, sort));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/export/served/inside-summary")
-    public ResponseEntity<List<InsideServedSummaryRow>> exportInsideServedSummary(
+    public ResponseEntity<?> exportInsideServedSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        String validationError = validateServedExportRange(startDate, endDate);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
         return ResponseEntity.ok(requestLogsService.exportInsideServedSummary(startDate, endDate));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @GetMapping("/logs/export/served/outside-summary")
-    public ResponseEntity<List<OutsideServedSummaryRow>> exportOutsideServedSummary(
+    public ResponseEntity<?> exportOutsideServedSummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        String validationError = validateServedExportRange(startDate, endDate);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
         return ResponseEntity.ok(requestLogsService.exportOutsideServedSummary(startDate, endDate));
     }
 
@@ -1214,6 +1243,20 @@ public class AdminController {
         dto.setChangedAt(log.getChangedAt());
         dto.setNotes(log.getNotes());
         return dto;
+    }
+
+    private String validateServedExportRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            return "startDate and endDate are required for served export endpoints.";
+        }
+        if (startDate.isAfter(endDate)) {
+            return "startDate must be on or before endDate.";
+        }
+        long daysInclusive = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        if (daysInclusive > MAX_SERVED_EXPORT_DAYS) {
+            return "Date range too large. Maximum allowed is " + MAX_SERVED_EXPORT_DAYS + " days.";
+        }
+        return null;
     }
 
     private BloodBag.BagStatus parseBagStatus(String status) {

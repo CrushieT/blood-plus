@@ -10,8 +10,10 @@ import com.hospital.blood_plus.model.BloodBagRequest.UrgencyLevel;
 import com.hospital.blood_plus.model.HospitalProfile;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,6 +42,91 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     List<BloodBagRequest> findAllByOrderByRequestedAtDesc();
 
     List<BloodBagRequest> findByStatus(BloodBagRequest.RequestStatus status);
+
+    @Query("""
+        SELECT r
+        FROM BloodBagRequest r
+        LEFT JOIN r.hospitalProfile hp
+        WHERE (:status IS NULL OR r.status = :status)
+          AND (:from IS NULL OR r.requestedAt >= :from)
+          AND (:to IS NULL OR r.requestedAt <= :to)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.requesterName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(hp.hospitalName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+    """)
+    Page<BloodBagRequest> findForAdminList(
+            @Param("status") BloodBagRequest.RequestStatus status,
+            @Param("search") String search,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT r
+        FROM BloodBagRequest r
+        LEFT JOIN r.hospitalProfile hp
+        WHERE (
+            EXISTS (SELECT 1 FROM RequestFulfillment f WHERE f.request = r)
+            OR r.status = :releasedStatus
+            OR (r.unservedReason IS NOT NULL AND TRIM(r.unservedReason) <> '')
+        )
+        AND (
+            :search IS NULL
+            OR TRIM(:search) = ''
+            OR (:searchId IS NOT NULL AND r.id = :searchId)
+            OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(COALESCE(r.requesterName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(COALESCE(hp.hospitalName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(COALESCE(r.wardRoom, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(COALESCE(CONCAT('', r.bloodType), '')) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(COALESCE(CONCAT('', r.bloodComponent), '')) LIKE LOWER(CONCAT('%', :search, '%'))
+        )
+        AND (
+            :requestGroup = 'ALL'
+            OR (:requestGroup = 'HOSPITAL_OUTPATIENT'
+                AND (r.requesterType = :hospitalRequesterType OR r.requestCategory = :outpatientCategory))
+            OR (:requestGroup = 'INHOUSE' AND r.requestCategory = :inpatientCategory)
+            OR (:requestGroup = 'OPD' AND r.requestCategory = :outpatientCategory)
+            OR (:requestGroup = 'HOSPITAL'
+                AND (r.requesterType = :hospitalRequesterType OR r.requestCategory = :hospitalCategory))
+        )
+        AND (
+            :basisFrom IS NULL
+            OR COALESCE(
+                (SELECT MAX(f2.fulfilledAt) FROM RequestFulfillment f2 WHERE f2.request = r),
+                r.reviewedAt,
+                r.requestedAt
+            ) >= :basisFrom
+        )
+        AND (
+            :basisTo IS NULL
+            OR COALESCE(
+                (SELECT MAX(f2.fulfilledAt) FROM RequestFulfillment f2 WHERE f2.request = r),
+                r.reviewedAt,
+                r.requestedAt
+            ) <= :basisTo
+        )
+    """)
+    Page<BloodBagRequest> findServedRequestsForLogs(
+            @Param("search") String search,
+            @Param("searchId") Long searchId,
+            @Param("requestGroup") String requestGroup,
+            @Param("hospitalRequesterType") RequesterType hospitalRequesterType,
+            @Param("outpatientCategory") RequestCategory outpatientCategory,
+            @Param("inpatientCategory") RequestCategory inpatientCategory,
+            @Param("hospitalCategory") RequestCategory hospitalCategory,
+            @Param("basisFrom") LocalDateTime basisFrom,
+            @Param("basisTo") LocalDateTime basisTo,
+            @Param("releasedStatus") RequestStatus releasedStatus,
+            Pageable pageable
+    );
 
     List<BloodBagRequest> findByRequesterEmail(String email);
     // NEW: Get all requests for a specific hospital

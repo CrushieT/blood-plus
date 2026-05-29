@@ -96,4 +96,14 @@ public interface RequestFulfillmentRepository extends JpaRepository<RequestFulfi
  
     @Query("SELECT rf FROM RequestFulfillment rf WHERE rf.request.id = :requestId")
     List<RequestFulfillment> findByRequestId(Long requestId);
+
+    @Query("""
+        SELECT f
+        FROM RequestFulfillment f
+        LEFT JOIN FETCH f.bloodBag
+        LEFT JOIN FETCH f.fulfilledBy
+        WHERE f.request.id IN :requestIds
+        ORDER BY f.request.id ASC, f.fulfilledAt DESC
+    """)
+    List<RequestFulfillment> findByRequestIdsForServedSummary(@Param("requestIds") List<Long> requestIds);
 }
