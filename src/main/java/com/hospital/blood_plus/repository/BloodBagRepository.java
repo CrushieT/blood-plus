@@ -36,6 +36,8 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
         SELECT b
         FROM BloodBag b
         WHERE (:status IS NULL OR b.status = :status)
+          AND (:bloodType IS NULL OR b.bloodType = :bloodType)
+          AND (:componentType IS NULL OR b.componentType = :componentType)
           AND (
                 :search IS NULL
                 OR TRIM(:search) = ''
@@ -45,7 +47,44 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
     """)
     Page<BloodBag> findForAdmin(
             @Param("status") BagStatus status,
+            @Param("bloodType") BloodType bloodType,
+            @Param("componentType") ComponentType componentType,
             @Param("search") String search,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT b
+        FROM BloodBag b
+        WHERE (:status IS NULL OR b.status = :status)
+          AND (:bloodType IS NULL OR b.bloodType = :bloodType)
+          AND (:componentType IS NULL OR b.componentType = :componentType)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(b.serialNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(b.transactionNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+        ORDER BY
+          CASE
+            WHEN b.status = 'AVAILABLE' AND b.expiresAt IS NOT NULL AND b.expiresAt >= :now AND b.expiresAt <= :soon THEN 1
+            WHEN b.status = 'AVAILABLE' AND (b.expiresAt IS NULL OR b.expiresAt > :soon) THEN 2
+            WHEN b.status = 'CROSSMATCHED' THEN 3
+            WHEN b.status = 'DISPENSED' THEN 4
+            WHEN b.status = 'EXPIRED' OR (b.status = 'AVAILABLE' AND b.expiresAt IS NOT NULL AND b.expiresAt < :now) THEN 5
+            WHEN b.status = 'DISCARDED' THEN 6
+            ELSE 7
+          END ASC,
+          b.expiresAt ASC,
+          b.createdAt DESC
+    """)
+    Page<BloodBag> findForAdminDefaultOrdering(
+            @Param("status") BagStatus status,
+            @Param("bloodType") BloodType bloodType,
+            @Param("componentType") ComponentType componentType,
+            @Param("search") String search,
+            @Param("now") LocalDateTime now,
+            @Param("soon") LocalDateTime soon,
             Pageable pageable
     );
 

@@ -20,6 +20,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest, Long> {
+    interface StatusCountRow {
+        RequestStatus getStatus();
+        long getTotal();
+    }
 
     // Fetch all requests made by a specific AppUser
     List<BloodBagRequest> findByRequestedByOrderByRequestedAtDesc(AppUser user);
@@ -65,6 +69,28 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             Pageable pageable
+    );
+
+    @Query("""
+        SELECT r.status AS status, COUNT(r) AS total
+        FROM BloodBagRequest r
+        LEFT JOIN r.hospitalProfile hp
+        WHERE (:from IS NULL OR r.requestedAt >= :from)
+          AND (:to IS NULL OR r.requestedAt <= :to)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.requesterName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(hp.hospitalName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+        GROUP BY r.status
+    """)
+    List<StatusCountRow> countForAdminStatusSummary(
+            @Param("search") String search,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
     );
 
     @Query("""
@@ -160,18 +186,36 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     List<BloodBagRequest> findByHospitalProfileAndStatusOrderByRequestedAtDesc(
             HospitalProfile hospital, BloodBagRequest.RequestStatus status);
     long countByStatus(BloodBagRequest.RequestStatus status);
+    long countByStatusAndRequestedAtBetween(BloodBagRequest.RequestStatus status, LocalDateTime start, LocalDateTime end);
     
  
     Long countByUrgencyLevel(UrgencyLevel urgencyLevel);
+    Long countByUrgencyLevelAndRequestedAtBetween(UrgencyLevel urgencyLevel, LocalDateTime start, LocalDateTime end);
  
     Long countByRequestCategory(RequestCategory requestCategory);
+    Long countByRequestCategoryAndRequestedAtBetween(RequestCategory requestCategory, LocalDateTime start, LocalDateTime end);
  
     Long countByRequesterType(RequesterType requesterType);
+    Long countByRequesterTypeAndRequestedAtBetween(RequesterType requesterType, LocalDateTime start, LocalDateTime end);
  
     Long countByBloodComponent(ComponentType bloodComponent);
+    Long countByBloodComponentAndRequestedAtBetween(ComponentType bloodComponent, LocalDateTime start, LocalDateTime end);
  
     @Query("SELECT r FROM BloodBagRequest r WHERE r.status = 'RELEASED' ORDER BY r.requestedAt")
     List<BloodBagRequest> findAllReleasedRequests();
+
+    @Query("""
+        SELECT r
+        FROM BloodBagRequest r
+        WHERE r.status = 'RELEASED'
+          AND r.requestedAt >= :startDate
+          AND r.requestedAt <= :endDate
+        ORDER BY r.requestedAt
+    """)
+    List<BloodBagRequest> findReleasedRequestsInRequestedAtRange(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
  
     @Query(value = """
         SELECT hp.hospital_name, COUNT(bbr.id) as total_requests,
@@ -183,6 +227,22 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         ORDER BY total_requests DESC
         """, nativeQuery = true)
     List<Object[]> getTopRequestingHospitals();
+
+    @Query(value = """
+        SELECT hp.hospital_name, COUNT(bbr.id) as total_requests,
+               SUM(CASE WHEN bbr.status = 'RELEASED' THEN 1 ELSE 0 END) as fulfilled
+        FROM blood_bag_requests bbr
+        LEFT JOIN hospital_profiles hp ON bbr.hospital_profile_id = hp.id
+        WHERE bbr.requester_type = 'HOSPITAL'
+          AND bbr.requested_at >= :startDate
+          AND bbr.requested_at <= :endDate
+        GROUP BY hp.id, hp.hospital_name
+        ORDER BY total_requests DESC
+        """, nativeQuery = true)
+    List<Object[]> getTopRequestingHospitalsInRange(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
  
     @Query(value = """
         SELECT requester_type, COUNT(*) as count

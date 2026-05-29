@@ -67,7 +67,7 @@ public class EmailService {
                 "Staff authorization code:\n" +
                 uniqueCode + "\n\n" +
                 "Dashboard access:\n" +
-                "Sign in at " + normalizedFrontendBaseUrl() + "/admin-login.html using your email and temporary password. " +
+                "Sign in at " + normalizedFrontendBaseUrl() + "/hospital-login.html using your email and temporary password. " +
                 "Please change your password after your first login.\n\n" +
                 "— BloodPlus Admin";
  

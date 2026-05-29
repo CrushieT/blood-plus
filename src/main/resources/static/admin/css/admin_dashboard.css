@@ -2970,6 +2970,42 @@ body {
   border-radius: 20px;
 }
 
+.req-bag-picker-search-wrap {
+  margin: 10px 18px 12px;
+}
+
+.req-bag-picker-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--charcoal);
+  background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.req-bag-picker-search-input::placeholder {
+  color: #9AA3B2;
+}
+
+.req-bag-picker-search-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12);
+}
+
+.req-bag-picker-search-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.req-bag-picker-search-empty {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
 .req-bag-picker-list {
   display: flex;
   flex-direction: column;
@@ -3943,6 +3979,7 @@ body {
   .req-confirm-body { padding: 14px 16px; }
 
   .req-bag-picker-hint { margin: 12px 16px 8px; }
+  .req-bag-picker-search-wrap { margin: 8px 16px 12px; }
   .req-bag-picker-list { padding: 0 16px 12px; }
 
   .req-bag-row { padding: 10px 12px; }

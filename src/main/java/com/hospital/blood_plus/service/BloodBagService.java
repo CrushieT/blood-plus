@@ -84,19 +84,45 @@ public class BloodBagService {
             int page,
             int size,
             BagStatus status,
+            BloodType bloodType,
+            ComponentType componentType,
+            String sort,
             String search
     ) {
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), 200);
         String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
+        String normalizedSort = sort == null ? "" : sort.trim().toLowerCase(Locale.ROOT);
+        boolean useDefaultAllStatusOrdering = status == null && (normalizedSort.isEmpty() || "expiry_asc".equals(normalizedSort));
 
-        Pageable pageable = PageRequest.of(
-                safePage - 1,
-                safeSize,
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
-
-        Page<BloodBag> bagsPage = bloodBagRepository.findForAdmin(status, normalizedSearch, pageable);
+        Page<BloodBag> bagsPage;
+        if (useDefaultAllStatusOrdering) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime soon = now.plusDays(10);
+            Pageable pageable = PageRequest.of(safePage - 1, safeSize);
+            bagsPage = bloodBagRepository.findForAdminDefaultOrdering(
+                    status,
+                    bloodType,
+                    componentType,
+                    normalizedSearch,
+                    now,
+                    soon,
+                    pageable
+            );
+        } else {
+            Pageable pageable = PageRequest.of(
+                    safePage - 1,
+                    safeSize,
+                    resolveBagSort(sort)
+            );
+            bagsPage = bloodBagRepository.findForAdmin(
+                    status,
+                    bloodType,
+                    componentType,
+                    normalizedSearch,
+                    pageable
+            );
+        }
         List<BloodBagResponse> rows = bagsPage.getContent()
                 .stream()
                 .map(this::mapToResponse)
@@ -110,6 +136,20 @@ public class BloodBagService {
                 bagsPage.getTotalElements(),
                 bagsPage.getSize()
         );
+    }
+
+    private Sort resolveBagSort(String sort) {
+        if (sort == null) {
+            return Sort.by(Sort.Direction.DESC, "expiresAt");
+        }
+
+        return switch (sort.trim().toLowerCase(Locale.ROOT)) {
+            case "expiry_asc" -> Sort.by(Sort.Direction.ASC, "expiresAt");
+            case "expiry_desc" -> Sort.by(Sort.Direction.DESC, "expiresAt");
+            case "collected_asc" -> Sort.by(Sort.Direction.ASC, "collectedAt");
+            case "collected_desc" -> Sort.by(Sort.Direction.DESC, "collectedAt");
+            default -> Sort.by(Sort.Direction.DESC, "expiresAt");
+        };
     }
 
     // ── Inventory summary ─────────────────────────────────────────

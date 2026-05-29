@@ -479,6 +479,10 @@ let INVENTORY       = [];
 const BAGS_PER_PAGE = 10;
 let bagsCurrentPage = 1;
 let bagsCurrent     = [];
+let bagsTotalPages  = 1;
+let bagsTotalItems  = 0;
+let bagsHasLocalPostFilter = false;
+let bagsRequestToken = 0;
 
 const COMPONENT_LABELS = {
   WHOLE_BLOOD:          'Whole Blood',
@@ -528,16 +532,112 @@ async function loadInventory() {
   }
 }
 
-async function loadBloodBags() {
-  try {
-    const params = new URLSearchParams({
-      page: '1',
-      size: '200',
-      status: 'ALL'
+function mapBagSortToApi(sortValue) {
+  const allowed = new Set(['expiry_asc', 'expiry_desc', 'collected_desc', 'collected_asc']);
+  return allowed.has(sortValue) ? sortValue : 'expiry_asc';
+}
+
+function normalizeBloodTypeFilterForApi(value) {
+  if (!value || value === 'ALL') return value;
+  return value.replace(/_(POSITIVE|NEGATIVE)$/i, '');
+}
+
+function collectBagsFilterState() {
+  return {
+    query: (document.getElementById('bags-search')?.value || '').trim(),
+    bloodTypeFilter: document.getElementById('bags-filter-bt')?.value || 'ALL',
+    componentFilter: document.getElementById('bags-filter-comp')?.value || 'ALL',
+    statusFilter: document.getElementById('bags-filter-status')?.value || 'ALL',
+    sort: document.getElementById('bags-sort')?.value || 'expiry_asc',
+    fromDate: document.getElementById('bags-print-from-date')?.value || '',
+    toDate: document.getElementById('bags-print-to-date')?.value || '',
+  };
+}
+
+function applyLocalBagFilters(rows, filters) {
+  const {
+    query,
+    bloodTypeFilter,
+    componentFilter,
+    statusFilter,
+    fromDate,
+    toDate,
+  } = filters;
+
+  const q = query.toLowerCase();
+  const rangeStart = fromDate ? new Date(`${fromDate}T00:00:00`) : null;
+  const rangeEnd = toDate ? new Date(`${toDate}T23:59:59.999`) : null;
+
+  let list = rows.map((bag) => ({ ...bag, computedStatus: computeBagStatus(bag) }));
+
+  // blood type/component are now filtered server-side
+  if (statusFilter !== 'ALL') {
+    list = list.filter((b) => b.computedStatus === statusFilter);
+  }
+  if (rangeStart || rangeEnd) {
+    list = list.filter((b) => {
+      const collected = parseBloodBagDateValue(b.collectedAt);
+      if (!collected) return false;
+      const ts = collected.getTime();
+      if (rangeStart && ts < rangeStart.getTime()) return false;
+      if (rangeEnd && ts > rangeEnd.getTime()) return false;
+      return true;
     });
+  }
+  if (q) {
+    list = list.filter((b) =>
+      (b.serialNumber || '').toLowerCase().includes(q) ||
+      (b.transactionNumber || '').toLowerCase().includes(q) ||
+      fullBloodLabel(b.bloodType, b.rhType).toLowerCase().includes(q)
+    );
+  }
+
+  return list;
+}
+
+function updateBagsStatTiles() {
+  document.getElementById('bags-available-count').textContent =
+    BLOOD_BAGS.filter(b => computeBagStatus(b) === 'AVAILABLE').length;
+  document.getElementById('bags-expiring-count').textContent =
+    BLOOD_BAGS.filter(b => computeBagStatus(b) === 'EXPIRING').length;
+  document.getElementById('bags-dispensed-count').textContent =
+    BLOOD_BAGS.filter(b => b.status === 'DISPENSED').length;
+  document.getElementById('bags-expired-count').textContent =
+    BLOOD_BAGS.filter(b => computeBagStatus(b) === 'EXPIRED').length;
+  document.getElementById('bags-discarded-count').textContent =
+    BLOOD_BAGS.filter(b => b.status === 'DISCARDED').length;
+
+  const crossEl = document.getElementById('bags-crossmatched-count');
+  if (crossEl) {
+    crossEl.textContent = BLOOD_BAGS.filter(b => b.status === 'CROSSMATCHED').length;
+  }
+}
+
+async function loadBloodBags(page = bagsCurrentPage) {
+  const requestToken = ++bagsRequestToken;
+  try {
+    const filters = collectBagsFilterState();
+    const apiStatus = filters.statusFilter === 'EXPIRING' ? 'AVAILABLE' : filters.statusFilter;
+    const params = new URLSearchParams({
+      page: String(Math.max(page, 1)),
+      size: String(BAGS_PER_PAGE),
+      status: apiStatus,
+      sort: mapBagSortToApi(filters.sort),
+    });
+    if (filters.bloodTypeFilter !== 'ALL') {
+      params.append('bloodType', normalizeBloodTypeFilterForApi(filters.bloodTypeFilter));
+    }
+    if (filters.componentFilter !== 'ALL') {
+      params.append('component', filters.componentFilter);
+    }
+    if (filters.query) {
+      params.append('search', filters.query);
+    }
+
     const res = await fetch(`/api/admin/blood-bank/bags?${params.toString()}`, { credentials: 'include' });
     if (!res.ok) return;
     const payload = await res.json();
+    if (requestToken !== bagsRequestToken) return;
     const data = Array.isArray(payload) ? payload : (payload.data ?? []);
 
     BLOOD_BAGS = data.map(b => ({
@@ -562,7 +662,24 @@ async function loadBloodBags() {
       dispensedAt:       b.dispensedAt       ?? null,
     }));
 
-    renderBagsTable();
+    if (Array.isArray(payload)) {
+      bagsCurrentPage = Math.max(page, 1);
+      bagsTotalPages = 1;
+      bagsTotalItems = BLOOD_BAGS.length;
+    } else {
+      bagsCurrentPage = Math.max(Number(payload.page) || page, 1);
+      bagsTotalPages = Math.max(Number(payload.totalPages) || 1, 1);
+      bagsTotalItems = Math.max(Number(payload.totalElements) || 0, 0);
+    }
+
+    bagsCurrent = applyLocalBagFilters(BLOOD_BAGS, filters);
+    bagsHasLocalPostFilter =
+      filters.statusFilter === 'EXPIRING' ||
+      !!filters.fromDate ||
+      !!filters.toDate;
+
+    updateBagsStatTiles();
+    renderBagsPage();
     
     // Trigger blood request compatible bags cache invalidation
     invalidateBagCache();
@@ -633,7 +750,7 @@ function switchBBTab(tab, btn) {
   });
   document.querySelectorAll('.bb-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (tab === 'bags')      renderBagsTable();
+  if (tab === 'bags')      loadBloodBags(bagsCurrentPage);
   if (tab === 'inventory') renderInventoryGrid();
   if (tab === 'analytics' && window.AnalyticsDashboard && typeof window.AnalyticsDashboard.renderWhenVisible === 'function') {
     window.AnalyticsDashboard.renderWhenVisible();
@@ -731,62 +848,11 @@ function renderInventoryGrid(apiData) {
 }
 
 // -- Bags Table -----------------------------------------------------------------
-function renderBagsTable() {
-  const q      = (document.getElementById('bags-search')?.value       || '').toLowerCase();
-  const bt     = document.getElementById('bags-filter-bt')?.value     || 'ALL';
-  const comp   = document.getElementById('bags-filter-comp')?.value   || 'ALL';
-  const status = document.getElementById('bags-filter-status')?.value || 'ALL';
-  const sort   = document.getElementById('bags-sort')?.value          || 'expiry_asc';
-
-  let list = BLOOD_BAGS.map(bag => ({ ...bag, computedStatus: computeBagStatus(bag) }));
-
-  if (bt !== 'ALL') {
-    list = list.filter(b => {
-      const key = b.bloodType + '_' + b.rhType;
-      return key === bt;
-    });
+async function renderBagsTable(resetPage = true) {
+  if (resetPage) {
+    bagsCurrentPage = 1;
   }
-  if (comp   !== 'ALL') list = list.filter(b => b.componentType === comp);
-  if (status !== 'ALL') list = list.filter(b => b.computedStatus === status);
-  if (q) list = list.filter(b =>
-    (b.serialNumber      || '').toLowerCase().includes(q) ||
-    (b.transactionNumber || '').toLowerCase().includes(q) ||
-    fullBloodLabel(b.bloodType, b.rhType).toLowerCase().includes(q)
-  );
-
-  list.sort((a, b) => {
-    const aExpiry = parseBloodBagDateValue(a.expiresAt)?.getTime() ?? Number.POSITIVE_INFINITY;
-    const bExpiry = parseBloodBagDateValue(b.expiresAt)?.getTime() ?? Number.POSITIVE_INFINITY;
-    const aCollected = parseBloodBagDateValue(a.collectedAt)?.getTime() ?? Number.POSITIVE_INFINITY;
-    const bCollected = parseBloodBagDateValue(b.collectedAt)?.getTime() ?? Number.POSITIVE_INFINITY;
-
-    if (sort === 'expiry_asc')     return aExpiry - bExpiry;
-    if (sort === 'expiry_desc')    return bExpiry - aExpiry;
-    if (sort === 'collected_desc') return bCollected - aCollected;
-    if (sort === 'collected_asc')  return aCollected - bCollected;
-    return 0;
-  });
-
-  bagsCurrent = list;
-
-  document.getElementById('bags-available-count').textContent =
-    BLOOD_BAGS.filter(b => computeBagStatus(b) === 'AVAILABLE').length;
-  document.getElementById('bags-expiring-count').textContent =
-    BLOOD_BAGS.filter(b => computeBagStatus(b) === 'EXPIRING').length;
-  document.getElementById('bags-dispensed-count').textContent =
-    BLOOD_BAGS.filter(b => b.status === 'DISPENSED').length;
-  document.getElementById('bags-expired-count').textContent =
-    BLOOD_BAGS.filter(b => computeBagStatus(b) === 'EXPIRED').length;
-  document.getElementById('bags-discarded-count').textContent =
-    BLOOD_BAGS.filter(b => b.status === 'DISCARDED').length;
-
-  const crossEl = document.getElementById('bags-crossmatched-count');
-  if (crossEl) {
-    crossEl.textContent = BLOOD_BAGS.filter(b => b.status === 'CROSSMATCHED').length;
-  }
-
-  bagsCurrentPage = 1;
-  renderBagsPage();
+  await loadBloodBags(bagsCurrentPage);
 }
 
 function renderBagsPage() {
@@ -795,47 +861,27 @@ function renderBagsPage() {
   const footer = document.getElementById('bags-footer');
   const total  = bagsCurrent.length;
 
-  const sortedBags = [...bagsCurrent].sort((a, b) => {
-    const statusPriority = {
-      EXPIRING: 1,
-      AVAILABLE: 2,
-      CROSSMATCHED: 3,
-      DISPENSED: 4,
-      EXPIRED: 5,
-      DISCARDED: 6
-    };
-
-    const aPriority = statusPriority[a.computedStatus] || 99;
-    const bPriority = statusPriority[b.computedStatus] || 99;
-
-    if (aPriority !== bPriority) {
-      return aPriority - bPriority;
-    }
-
-    const aExpiry = new Date(a.expiresAt || '9999-12-31').getTime();
-    const bExpiry = new Date(b.expiresAt || '9999-12-31').getTime();
-
-    return aExpiry - bExpiry;
-  });
-
   if (!total) {
     tbody.innerHTML      = '';
     empty.style.display  = 'block';
-    footer.style.display = 'none';
+    footer.style.display = bagsTotalItems > 0 ? 'flex' : 'none';
+    document.getElementById('bags-showing').textContent =
+      bagsTotalItems > 0
+        ? `No matching rows on page ${bagsCurrentPage} (Total rows: ${bagsTotalItems})`
+        : 'No blood bags found';
+    document.getElementById('bags-page-label').textContent = `${bagsCurrentPage} / ${bagsTotalPages}`;
+    document.getElementById('bags-prev').disabled = bagsCurrentPage <= 1;
+    document.getElementById('bags-next').disabled = bagsCurrentPage >= bagsTotalPages;
     return;
   }
 
   empty.style.display  = 'none';
   footer.style.display = 'flex';
-
-  const start   = (bagsCurrentPage - 1) * BAGS_PER_PAGE;
-  const page    = sortedBags.slice(start, start + BAGS_PER_PAGE);
-  const pages   = Math.ceil(total / BAGS_PER_PAGE);
   const now     = new Date();
   const twoDays = new Date(); twoDays.setDate(twoDays.getDate() + 2);
   const soon    = new Date(); soon.setDate(soon.getDate() + 7);
 
-  tbody.innerHTML = page.map(bag => {
+  tbody.innerHTML = bagsCurrent.map(bag => {
     const exp      = parseBloodBagDateValue(bag.expiresAt);
     const daysLeft = calculateBloodBagDaysLeft(bag.expiresAt, now);
     const btLabel  = fullBloodLabel(bag.bloodType, bag.rhType);
@@ -922,20 +968,24 @@ function renderBagsPage() {
       </tr>`;
   }).join('');
 
-  document.getElementById('bags-showing').textContent =
-    `Showing ${start + 1}–${Math.min(start + BAGS_PER_PAGE, total)} of ${total} bags`;
-  document.getElementById('bags-page-label').textContent = `${bagsCurrentPage} / ${pages}`;
+  const pageStart = bagsTotalItems === 0 ? 0 : ((bagsCurrentPage - 1) * BAGS_PER_PAGE) + 1;
+  const pageEnd = bagsTotalItems === 0 ? 0 : Math.min(bagsCurrentPage * BAGS_PER_PAGE, bagsTotalItems);
+  document.getElementById('bags-showing').textContent = bagsHasLocalPostFilter
+    ? `Showing ${total} filtered row(s) on page ${bagsCurrentPage} of ${bagsTotalPages} (${bagsTotalItems} total)`
+    : `Showing ${pageStart}–${pageEnd} of ${bagsTotalItems} bags`;
+  document.getElementById('bags-page-label').textContent = `${bagsCurrentPage} / ${bagsTotalPages}`;
   document.getElementById('bags-prev').disabled = bagsCurrentPage <= 1;
-  document.getElementById('bags-next').disabled = bagsCurrentPage >= pages;
+  document.getElementById('bags-next').disabled = bagsCurrentPage >= bagsTotalPages;
 }
 
 function bagsPrevPage() {
-  if (bagsCurrentPage > 1) { bagsCurrentPage--; renderBagsPage(); }
+  if (bagsCurrentPage > 1) {
+    loadBloodBags(bagsCurrentPage - 1);
+  }
 }
 function bagsNextPage() {
-  if (bagsCurrentPage < Math.ceil(bagsCurrent.length / BAGS_PER_PAGE)) {
-    bagsCurrentPage++;
-    renderBagsPage();
+  if (bagsCurrentPage < bagsTotalPages) {
+    loadBloodBags(bagsCurrentPage + 1);
   }
 }
 
@@ -1036,7 +1086,7 @@ async function confirmOpenSystem(id, bagLabel) {
       bag.componentType = 'PRBC';
       bag.expiresAt     = updated.expiresAt;
     }
-    renderBagsTable();
+    await loadBloodBags(bagsCurrentPage);
     await loadInventory();
     invalidateBagCache();
   } catch (err) {
@@ -1086,7 +1136,7 @@ async function confirmDiscard() {
     const bag = BLOOD_BAGS.find(b => b.id == id);
     if (bag) { bag.status = 'DISCARDED'; bag.discardReason = reason; }
     closeModal('discardBagModal');
-    renderBagsTable();
+    await loadBloodBags(bagsCurrentPage);
     await loadInventory();
     invalidateBagCache();
   } catch (err) {
@@ -3952,11 +4002,59 @@ const AnalyticsDashboard = {
     });
   },
 
-  loadMetrics: function() {
-    if (this.isLoading) return;
+  getSelectedDateRange: function() {
+    const startEl = document.getElementById('analytics-export-from-date');
+    const endEl = document.getElementById('analytics-export-to-date');
+    return {
+      startDate: startEl ? startEl.value : '',
+      endDate: endEl ? endEl.value : ''
+    };
+  },
+
+  buildMetricsUrl: function() {
+    const { startDate, endDate } = this.getSelectedDateRange();
+    const hasStart = Boolean(startDate);
+    const hasEnd = Boolean(endDate);
+
+    if (!hasStart && !hasEnd) {
+      return `${this.apiConfig.baseUrl}${this.apiConfig.endpoint}`;
+    }
+    if (hasStart !== hasEnd) {
+      return null;
+    }
+    if (startDate > endDate) {
+      throw new Error('Start date must be on or before end date.');
+    }
+
+    const query = new URLSearchParams({ startDate, endDate });
+    return `${this.apiConfig.baseUrl}${this.apiConfig.endpoint}?${query.toString()}`;
+  },
+
+  onDateRangeChanged: function() {
+    this.loadMetrics(true);
+  },
+
+  loadMetrics: function(force = false) {
+    if (this.isLoading) {
+      if (force) this._refreshAfterLoad = true;
+      return;
+    }
     this.isLoading = true;
 
-    fetch(`${this.apiConfig.baseUrl}${this.apiConfig.endpoint}`)
+    let url = '';
+    try {
+      url = this.buildMetricsUrl();
+      if (!url) {
+        this.isLoading = false;
+        return;
+      }
+    } catch (error) {
+      console.error('Invalid analytics date range:', error);
+      this.isLoading = false;
+      return;
+    }
+
+    fetch(url)
       .then(response => {
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
@@ -3971,8 +4069,14 @@ const AnalyticsDashboard = {
       })
       .catch(error => {
         console.error('Error fetching analytics data:', error);
-        this.isLoading = false;
         this.showErrorState();
+      })
+      .finally(() => {
+        this.isLoading = false;
+        if (this._refreshAfterLoad) {
+          this._refreshAfterLoad = false;
+          this.loadMetrics(true);
+        }
       });
   },
 
@@ -4886,6 +4990,63 @@ window.AnalyticsDashboard = AnalyticsDashboard;
 // -------------------------------------------------------------------------------
 // PRINTING FUNCTIONS - PDF & EXCEL EXPORTS (UPDATED)
 // -------------------------------------------------------------------------------
+window.printAnalyticsWithRange = async function() {
+  const fromInput = document.getElementById('analytics-export-from-date');
+  const toInput = document.getElementById('analytics-export-to-date');
+  const startDate = fromInput ? fromInput.value : '';
+  const endDate = toInput ? toInput.value : '';
+
+  if (!startDate || !endDate) {
+    alert('Please select both start and end dates before exporting analytics.');
+    return;
+  }
+  if (startDate > endDate) {
+    alert('Start date must be on or before end date.');
+    return;
+  }
+
+  let exportData = null;
+  try {
+    const query = new URLSearchParams({ startDate, endDate });
+    const response = await fetch(`${window.location.origin}/api/admin/analytics/export?${query.toString()}`);
+    if (!response.ok) {
+      let message = 'Failed to export analytics for the selected date range.';
+      try {
+        const errorBody = await response.json();
+        if (errorBody && errorBody.error) {
+          message = errorBody.error;
+        }
+      } catch (_) {}
+      alert(message);
+      return;
+    }
+    exportData = await response.json();
+  } catch (error) {
+    console.error('Error exporting analytics with range:', error);
+    alert('Unable to export analytics right now. Please try again.');
+    return;
+  }
+
+  const previousData = window.AnalyticsDashboard ? window.AnalyticsDashboard.data : null;
+  const previousRange = window.__analyticsExportRangeLabel;
+  const exportRangeLabel = `${startDate} to ${endDate}`;
+
+  try {
+    if (window.AnalyticsDashboard) {
+      window.AnalyticsDashboard.data = exportData;
+      window.AnalyticsDashboard.render();
+    }
+    window.__analyticsExportRangeLabel = exportRangeLabel;
+    window.printAnalytics();
+  } finally {
+    window.__analyticsExportRangeLabel = previousRange;
+    if (window.AnalyticsDashboard) {
+      window.AnalyticsDashboard.data = previousData;
+      window.AnalyticsDashboard.render();
+    }
+  }
+};
+
 /**
  * Print Analytics Report (PDF) - Compact Professional Design
  */
@@ -4961,6 +5122,10 @@ window.printAnalytics = function() {
     hour: '2-digit',
     minute: '2-digit'
   });
+  const rangeFrom = document.getElementById('analytics-export-from-date')?.value || '';
+  const rangeTo = document.getElementById('analytics-export-to-date')?.value || '';
+  const liveRangeLabel = (rangeFrom && rangeTo) ? `${rangeFrom} to ${rangeTo}` : '';
+  const analyticsRangeLabel = window.__analyticsExportRangeLabel || liveRangeLabel || 'Current dashboard snapshot';
 
   const styleNodes = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
     .map((node) => {
@@ -5074,6 +5239,7 @@ window.printAnalytics = function() {
           <div class="analytics-print-head">
             <h1 class="analytics-print-title">BloodPlus - Blood Bank Analytics Report</h1>
             <div class="analytics-print-sub">Generated from current analytics dashboard</div>
+            <div class="analytics-print-meta">Range: ${analyticsRangeLabel}</div>
             <div class="analytics-print-meta">Generated: ${generatedAt}</div>
           </div>
           <div id="bb-tab-analytics">
@@ -5871,6 +6037,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let reqCurrentPage = 1;
   let reqTotalPages = 1;
   let reqTotalElements = 0;
+  let reqStatusCounts = null;
   let reqSearchDebounceTimer = null;
   const REQ_STATUS_PRIORITY = {
     PENDING: 0,
@@ -5889,6 +6056,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   let bagPickerSelected = null;
   let bagPickerData     = [];
   let bagPickerIsChange = false;
+  let bagPickerSearchQuery = '';
   let reqDocZoom        = 1;
   let reqDocIsPdf       = false;
 
@@ -6162,13 +6330,42 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     return params;
   }
 
+  function reqBuildStatusCountsQuery() {
+    const params = new URLSearchParams();
+    const searchQuery = reqGetSearchQuery();
+    if (searchQuery) {
+      params.append('search', searchQuery);
+    }
+    return params;
+  }
+
+  function reqGetLocalStatusCounts() {
+    return {
+      ALL: reqTotalElements > 0 ? reqTotalElements : reqData.length,
+      PENDING: reqData.filter(r => r.status === 'PENDING').length,
+      NEEDS_CONFIRMATION: reqData.filter(r => r.status === 'NEEDS_CONFIRMATION').length,
+      APPROVED: reqData.filter(r => r.status === 'APPROVED').length,
+      ALLOCATED: reqData.filter(r => r.status === 'ALLOCATED').length,
+      READY_FOR_RELEASE: reqData.filter(r => r.status === 'READY_FOR_RELEASE').length,
+      RELEASED: reqData.filter(r => r.status === 'RELEASED').length,
+      REJECTED: reqData.filter(r => r.status === 'REJECTED').length,
+      CANCELLED: reqData.filter(r => r.status === 'CANCELLED').length,
+    };
+  }
+
   async function reqFetchPage(page = 1) {
     reqShowLoading();
     try {
       const params = reqBuildListQuery(page);
-      const res = await fetch(`${API_BASE}/admin/blood-requests?${params.toString()}`, {
-        headers: { Accept: 'application/json' }
-      });
+      const countParams = reqBuildStatusCountsQuery();
+      const [res, countRes] = await Promise.all([
+        fetch(`${API_BASE}/admin/blood-requests?${params.toString()}`, {
+          headers: { Accept: 'application/json' }
+        }),
+        fetch(`${API_BASE}/admin/blood-requests/status-counts?${countParams.toString()}`, {
+          headers: { Accept: 'application/json' }
+        }).catch(() => null)
+      ]);
       if (!res.ok) throw new Error(`Server error: ${res.status} ${res.statusText}`);
       const json = await res.json();
 
@@ -6190,6 +6387,13 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         reqCurrentPage = Math.max(Number(json.page) || page, 1);
         reqTotalPages = Math.max(Number(json.totalPages) || 1, 1);
         reqTotalElements = Math.max(Number(json.totalElements) || mapped.length, 0);
+      }
+
+      if (countRes?.ok) {
+        const countJson = await countRes.json();
+        reqStatusCounts = countJson && typeof countJson === 'object' ? countJson : null;
+      } else {
+        reqStatusCounts = null;
       }
 
       if (reqCurrentPage > reqTotalPages) {
@@ -6316,19 +6520,29 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       </div>`;
     }
  
+    const PREVIEW_COMPATIBLE_LIMIT = 8;
+    const PREVIEW_OTHERS_LIMIT = 3;
+    const compatiblePreview = compatible.slice(0, PREVIEW_COMPATIBLE_LIMIT);
+    const hiddenCompatibleCount = Math.max(compatible.length - compatiblePreview.length, 0);
+
     return `<div id="${id}" class="req-bag-preview-wrap">
       <div class="req-section-label" style="display:flex;align-items:center;gap:8px">
         Available blood bags
         <span class="req-bag-preview-count">${compatible.length} - compatible . ${cache.bags.length} - total available</span>
       </div>
       <div class="req-bag-preview-list">
-        ${compatible.map(bagRow).join('')}
+        ${compatiblePreview.map(bagRow).join('')}
+        ${hiddenCompatibleCount > 0 ? `
+          <div style="font-size:11px;color:var(--muted);padding:3px 0">
+            +${hiddenCompatibleCount} more compatible not shown
+          </div>
+        ` : ''}
         ${others.length ? `
           <div style="font-size:11px;color:var(--muted);padding:4px 0 2px;margin-top:2px;border-top:1px solid var(--border)">
             Other available types (not an exact match)
           </div>
-          ${others.slice(0, 3).map(bagRow).join('')}
-          ${others.length > 3 ? `<div style="font-size:11px;color:var(--muted);padding:3px 0">+${others.length - 3} more not shown</div>` : ''}
+          ${others.slice(0, PREVIEW_OTHERS_LIMIT).map(bagRow).join('')}
+          ${others.length > PREVIEW_OTHERS_LIMIT ? `<div style="font-size:11px;color:var(--muted);padding:3px 0">+${others.length - PREVIEW_OTHERS_LIMIT} more not shown</div>` : ''}
         ` : ''}
       </div>
     </div>`;
@@ -6339,6 +6553,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     bagPickerSelected = null;
     bagPickerData     = [];
     bagPickerIsChange = isChange;
+    bagPickerSearchQuery = '';
  
     const req = reqData.find(x => x.id === reqId);
     if (!req) return;
@@ -6385,7 +6600,11 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     renderBagPicker(req);
   }
  
-  function renderBagPicker(req) {
+  function renderBagPicker(req, options = {}) {
+    const {
+      preserveSearchFocus = false,
+      searchCaret = null,
+    } = options;
     const inner   = document.getElementById('req-bag-picker-inner');
     const confirm = document.getElementById('req-bag-picker-confirm');
  
@@ -6397,6 +6616,14 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
  
     const needed   = req.units;
     const selected = bagPickerSelected ? bagPickerSelected.split(',').filter(Boolean) : [];
+    const serialSearch = (bagPickerSearchQuery || '').trim().toLowerCase();
+    const filteredBags = !serialSearch
+      ? bagPickerData
+      : bagPickerData.filter((b) => {
+          const serial = String(b.serialNumber || '').toLowerCase();
+          const fallbackId = String(b.id || '').toLowerCase();
+          return serial.includes(serialSearch) || fallbackId.includes(serialSearch);
+        });
     confirm.disabled = selected.length !== needed;
  
     inner.innerHTML = `
@@ -6404,8 +6631,23 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         Select exactly <strong>${needed}</strong> bag${needed > 1 ? 's' : ''}.
         ${needed > 1 ? `<span class="req-bag-picker-count">${selected.length}/${needed} selected</span>` : ''}
       </div>
+      <div class="req-bag-picker-search-wrap">
+        <input
+          id="req-bag-picker-search"
+          class="req-bag-picker-search-input"
+          type="text"
+          value="${escapeHtml(bagPickerSearchQuery)}"
+          oninput="reqBagPickerSetSearch(this.value, this.selectionStart)"
+          placeholder="Search serial no. (e.g. V457679)"
+        >
+        <div class="req-bag-picker-search-meta">
+          Showing ${filteredBags.length} of ${bagPickerData.length} available bag(s)
+        </div>
+      </div>
       <div class="req-bag-picker-list">
-        ${bagPickerData.map(b => {
+        ${filteredBags.length === 0 ? `
+          <div class="req-bag-picker-loading req-bag-picker-search-empty">No blood bags match "${escapeHtml(bagPickerSearchQuery)}".</div>
+        ` : filteredBags.map(b => {
           const isSelected   = selected.includes(String(b.id));
           const isCompatible = b.compatible !== false;
           const expDate  = formatBloodBagShortDate(b.expiresAt);
@@ -6432,7 +6674,28 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
             </div>`;
         }).join('')}
       </div>`;
+
+    if (preserveSearchFocus) {
+      requestAnimationFrame(() => {
+        const searchInput = document.getElementById('req-bag-picker-search');
+        if (!searchInput) return;
+        searchInput.focus();
+        const maxPos = searchInput.value.length;
+        const nextPos = Number.isInteger(searchCaret) ? Math.min(Math.max(searchCaret, 0), maxPos) : maxPos;
+        searchInput.setSelectionRange(nextPos, nextPos);
+      });
+    }
   }
+
+  window.reqBagPickerSetSearch = function (value, caretPos) {
+    bagPickerSearchQuery = value || '';
+    const req = reqData.find((x) => x.id === bagPickerReqId);
+    if (!req) return;
+    renderBagPicker(req, {
+      preserveSearchFocus: true,
+      searchCaret: Number.isInteger(caretPos) ? caretPos : null,
+    });
+  };
  
   window.reqBagPickerToggle = function (bagId) {
     const req    = reqData.find(x => x.id === bagPickerReqId);
@@ -6460,6 +6723,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     bagPickerSelected = null;
     bagPickerData     = [];
     bagPickerIsChange = false;
+    bagPickerSearchQuery = '';
   };
  
   window.reqConfirmBagSelection = async function () {
@@ -7493,24 +7757,13 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   }
  
   function reqUpdateCounts() {
-    // Count each status separately
-    const counts = {
-      'ALL': reqData.length,
-      'PENDING': reqData.filter(r => r.status === 'PENDING').length,
-      'APPROVED': reqData.filter(r => r.status === 'APPROVED').length,
-      'NEEDS_CONFIRMATION': reqData.filter(r => r.status === 'NEEDS_CONFIRMATION').length,
-      'ALLOCATED': reqData.filter(r => r.status === 'ALLOCATED').length,
-      'READY_FOR_RELEASE': reqData.filter(r => r.status === 'READY_FOR_RELEASE').length,
-      'RELEASED': reqData.filter(r => r.status === 'RELEASED').length,
-      'REJECTED': reqData.filter(r => r.status === 'REJECTED').length,
-      'CANCELLED': reqData.filter(r => r.status === 'CANCELLED').length,
-    };
+    const counts = reqStatusCounts ?? reqGetLocalStatusCounts();
 
     // Update the ALL and PENDING with IDs (they exist in HTML)
     const allEl = document.getElementById('req-cnt-all');
     const pendEl = document.getElementById('req-cnt-pending');
-    if (allEl) allEl.textContent = counts['ALL'];
-    if (pendEl) pendEl.textContent = counts['PENDING'];
+    if (allEl) allEl.textContent = String(counts['ALL'] ?? 0);
+    if (pendEl) pendEl.textContent = String(counts['PENDING'] ?? 0);
 
     // Update all other filter chips by looking for their onclick attribute
     ['APPROVED', 'NEEDS_CONFIRMATION', 'ALLOCATED', 'READY_FOR_RELEASE', 'RELEASED', 'REJECTED', 'CANCELLED'].forEach(status => {
@@ -7520,7 +7773,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         if (btn.getAttribute('onclick')?.includes(`reqFilterBy('${status}'`)) {
           const badge = btn.querySelector('.chip-cnt');
           if (badge) {
-            badge.textContent = counts[status];
+            badge.textContent = String(counts[status] ?? 0);
           }
         }
       });
@@ -11362,7 +11615,7 @@ function initializeLoggingPanel() {
   const statusStartEl = document.getElementById('logging-status-date-from');
   const statusEndEl = document.getElementById('logging-status-date-to');
   if (statusStartEl && statusEndEl && !statusStartEl.value && !statusEndEl.value) {
-    setStatusRange('thisMonth');
+    setStatusRange('thisMonth', false);
   }
 
   loadLoggingData();
@@ -11451,20 +11704,26 @@ function loggingStatusRender(resetPage = false) {
 
     const searchEl = document.getElementById('logging-status-search');
     const statusFilterEl = document.getElementById('logging-status-filter-status');
+    const dateFromEl = document.getElementById('logging-status-date-from');
+    const dateToEl = document.getElementById('logging-status-date-to');
     const sortEl = document.getElementById('logging-status-sort');
 
     const search = searchEl ? searchEl.value.trim() : '';
     const statusFilter = statusFilterEl ? statusFilterEl.value : 'ALL';
+    const dateFrom = dateFromEl ? dateFromEl.value : '';
+    const dateTo = dateToEl ? dateToEl.value : '';
     const sort = sortEl ? sortEl.value : 'date_desc';
 
     const queryParams = new URLSearchParams();
     if (search) queryParams.append('search', search);
     if (statusFilter !== 'ALL') queryParams.append('status', statusFilter);
+    if (dateFrom) queryParams.append('dateFrom', dateFrom);
+    if (dateTo) queryParams.append('dateTo', dateTo);
     queryParams.append('sort', sort);
     queryParams.append('page', String(loggingState.statusLogsPage));
     queryParams.append('size', String(loggingState.itemsPerPage));
 
-    showLoadingInTable('logging-status-tbody', 8);
+    showLoadingInTable('logging-status-tbody', 7);
 
     fetch(`${API_BASE_URL}/status-logs?${queryParams.toString()}`)
       .then((response) => {
@@ -11478,7 +11737,7 @@ function loggingStatusRender(resetPage = false) {
       })
       .catch((error) => {
         console.error('Error fetching status logs:', error);
-        showErrorInTable('logging-status-tbody', 'Failed to load status logs', 8);
+        showErrorInTable('logging-status-tbody', 'Failed to load status logs', 7);
       });
   } catch (error) {
     console.error('Error in loggingStatusRender:', error);
@@ -11507,7 +11766,6 @@ function renderStatusLogsTable(response) {
     response.data.forEach((log) => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>#${log.request?.id || 'N/A'}</td>
         <td>${log.request?.referenceNumber || 'N/A'}</td>
         <td><span class="status-badge" style="background:#F8FAFC;color:#475569">${log.oldStatus || 'N/A'}</span></td>
         <td><span class="status-badge" style="background:#E8F5E9;color:#22863A">${log.newStatus || 'N/A'}</span></td>
@@ -11826,10 +12084,14 @@ function setServedRange(range, shouldRender = true) {
   }
 }
 
-function setStatusRange(range) {
+function setStatusRange(range, shouldRender = true) {
   const startEl = document.getElementById('logging-status-date-from');
   const endEl = document.getElementById('logging-status-date-to');
   applyQuickDateRange(startEl, endEl, range);
+  if (shouldRender) {
+    loggingState.statusLogsPage = 1;
+    loggingStatusRender();
+  }
 }
 
 function exportStatusLogsExcel() {
@@ -11869,8 +12131,7 @@ function exportStatusLogsExcel() {
       }
 
       const rows = data.map((log) => ({
-        'Reference No.': log.requestId || '',
-        'Reference #': log.referenceNumber || '',
+        'Serial no.': log.referenceNumber || '',
         'Old Status': log.oldStatus || '',
         'New Status': log.newStatus || '',
         'Changed By': log.changedByUsername || 'System',
@@ -11880,7 +12141,6 @@ function exportStatusLogsExcel() {
 
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [
-        { wch: 14 },
         { wch: 20 },
         { wch: 18 },
         { wch: 18 },
@@ -11918,7 +12178,7 @@ function exportDetailedServedLogs() {
       }
 
       const rows = rowsData.map((row) => ({
-        'Reference No.': row.referenceNumber || '',
+        'Serial no.': row.referenceNumber || '',
         Patient: row.patientName || '',
         'Request Category': toDisplayEnum(row.requestCategory) || '',
         'Hospital / Ward': resolveHospitalWard(row),

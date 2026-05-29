@@ -243,6 +243,41 @@ public class BloodBagRequestService {
                 pageData.getSize()
         );
     }
+
+    public Map<String, Long> getAdminRequestStatusCounts(
+            String search,
+            LocalDateTime dateFrom,
+            LocalDateTime dateTo
+    ) {
+        String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
+        EnumMap<RequestStatus, Long> statusCounts = new EnumMap<>(RequestStatus.class);
+        for (RequestStatus status : RequestStatus.values()) {
+            statusCounts.put(status, 0L);
+        }
+
+        long allCount = 0L;
+        List<BloodBagRequestRepository.StatusCountRow> rows =
+                repository.countForAdminStatusSummary(normalizedSearch, dateFrom, dateTo);
+        for (BloodBagRequestRepository.StatusCountRow row : rows) {
+            if (row == null || row.getStatus() == null) continue;
+            long count = row.getTotal();
+            statusCounts.put(row.getStatus(), count);
+            allCount += count;
+        }
+
+        Map<String, Long> response = new LinkedHashMap<>();
+        response.put("ALL", allCount);
+        response.put("PENDING", statusCounts.getOrDefault(RequestStatus.PENDING, 0L));
+        response.put("NEEDS_CONFIRMATION", statusCounts.getOrDefault(RequestStatus.NEEDS_CONFIRMATION, 0L));
+        response.put("APPROVED", statusCounts.getOrDefault(RequestStatus.APPROVED, 0L));
+        response.put("ALLOCATED", statusCounts.getOrDefault(RequestStatus.ALLOCATED, 0L));
+        response.put("READY_FOR_RELEASE", statusCounts.getOrDefault(RequestStatus.READY_FOR_RELEASE, 0L));
+        response.put("RELEASED", statusCounts.getOrDefault(RequestStatus.RELEASED, 0L));
+        response.put("REJECTED", statusCounts.getOrDefault(RequestStatus.REJECTED, 0L));
+        response.put("CANCELLED", statusCounts.getOrDefault(RequestStatus.CANCELLED, 0L));
+        return response;
+    }
+
     public List<BloodBagRequest> getByStatus(BloodBagRequest.RequestStatus status) {
         return repository.findByStatus(status);
     }

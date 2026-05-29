@@ -3,10 +3,15 @@ package com.hospital.blood_plus.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hospital.blood_plus.dto.response.ExportJobStatusDTO;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -17,44 +22,64 @@ import java.util.function.Supplier;
 
 @Service
 public class ExportJobService {
-    private static final Duration JOB_TTL = Duration.ofHours(24);
     private final Map<String, ExportJobRecord> jobs = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newFixedThreadPool(2);
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Object jobLock = new Object();
+
+    @Value("${export.jobs.max-jobs:50}")
+    private int maxJobs;
+
+    @Value("${export.jobs.max-cache-age:PT1H}")
+    private Duration jobTtl;
+
+    @Value("${export.jobs.max-payload-bytes:5242880}")
+    private long maxPayloadBytes;
 
     public ExportJobStatusDTO submitJsonJob(String type, String fileName, Supplier<Object> payloadSupplier) {
-        cleanupExpiredJobs();
+        synchronized (jobLock) {
+            cleanupExpiredJobsLocked();
+            trimToMaxJobsLocked();
 
-        String jobId = UUID.randomUUID().toString();
-        ExportJobRecord record = new ExportJobRecord();
-        record.jobId = jobId;
-        record.type = type;
-        record.status = JobStatus.QUEUED;
-        record.createdAt = LocalDateTime.now();
-        record.fileName = fileName;
-        jobs.put(jobId, record);
+            if (jobs.size() >= maxJobs) {
+                throw new IllegalStateException("Too many export jobs in memory. Please retry after a few minutes.");
+            }
 
-        CompletableFuture.runAsync(() -> runJob(record, payloadSupplier), executor);
-        return toStatusDto(record);
+            String jobId = UUID.randomUUID().toString();
+            ExportJobRecord record = new ExportJobRecord();
+            record.jobId = jobId;
+            record.type = type;
+            record.status = JobStatus.QUEUED;
+            record.createdAt = LocalDateTime.now();
+            record.fileName = fileName;
+            jobs.put(jobId, record);
+
+            CompletableFuture.runAsync(() -> runJob(record, payloadSupplier), executor);
+            return toStatusDto(record);
+        }
     }
 
     public ExportJobStatusDTO getJobStatus(String jobId) {
-        cleanupExpiredJobs();
-        ExportJobRecord record = jobs.get(jobId);
-        return record == null ? null : toStatusDto(record);
+        synchronized (jobLock) {
+            cleanupExpiredJobsLocked();
+            ExportJobRecord record = jobs.get(jobId);
+            return record == null ? null : toStatusDto(record);
+        }
     }
 
     public ExportJobDownload getDownload(String jobId) {
-        cleanupExpiredJobs();
-        ExportJobRecord record = jobs.get(jobId);
-        if (record == null) return null;
-        if (record.status != JobStatus.COMPLETED || record.data == null) return null;
+        synchronized (jobLock) {
+            cleanupExpiredJobsLocked();
+            ExportJobRecord record = jobs.get(jobId);
+            if (record == null) return null;
+            if (record.status != JobStatus.COMPLETED || record.data == null) return null;
 
-        ExportJobDownload download = new ExportJobDownload();
-        download.fileName = record.fileName;
-        download.contentType = "application/json";
-        download.data = record.data;
-        return download;
+            ExportJobDownload download = new ExportJobDownload();
+            download.fileName = record.fileName;
+            download.contentType = "application/json";
+            download.data = record.data;
+            return download;
+        }
     }
 
     private void runJob(ExportJobRecord record, Supplier<Object> payloadSupplier) {
@@ -62,6 +87,13 @@ public class ExportJobService {
         try {
             Object payload = payloadSupplier.get();
             byte[] jsonBytes = objectMapper.writeValueAsBytes(payload);
+
+            if (jsonBytes.length > maxPayloadBytes) {
+                throw new IllegalStateException(
+                        "Export payload exceeds configured size limit of " + maxPayloadBytes + " bytes."
+                );
+            }
+
             record.data = jsonBytes;
             record.status = JobStatus.COMPLETED;
             record.completedAt = LocalDateTime.now();
@@ -71,6 +103,14 @@ public class ExportJobService {
             record.completedAt = LocalDateTime.now();
             record.error = ex.getMessage();
             record.data = null;
+        }
+    }
+
+    @Scheduled(fixedDelayString = "${export.jobs.cleanup-interval:PT10M}")
+    public void scheduledCleanup() {
+        synchronized (jobLock) {
+            cleanupExpiredJobsLocked();
+            trimToMaxJobsLocked();
         }
     }
 
@@ -93,13 +133,39 @@ public class ExportJobService {
         return dto;
     }
 
-    private void cleanupExpiredJobs() {
+    private void cleanupExpiredJobsLocked() {
         LocalDateTime now = LocalDateTime.now();
         jobs.entrySet().removeIf(entry -> {
             ExportJobRecord r = entry.getValue();
             LocalDateTime basis = r.completedAt != null ? r.completedAt : r.createdAt;
-            return basis != null && basis.plus(JOB_TTL).isBefore(now);
+            return basis != null && basis.plus(jobTtl).isBefore(now);
         });
+    }
+
+    private void trimToMaxJobsLocked() {
+        if (jobs.size() <= maxJobs) {
+            return;
+        }
+
+        List<Map.Entry<String, ExportJobRecord>> terminalJobs = new ArrayList<>();
+        for (Map.Entry<String, ExportJobRecord> entry : jobs.entrySet()) {
+            JobStatus status = entry.getValue().status;
+            if (status == JobStatus.COMPLETED || status == JobStatus.FAILED) {
+                terminalJobs.add(entry);
+            }
+        }
+
+        terminalJobs.sort(Comparator.comparing(entry -> {
+            ExportJobRecord record = entry.getValue();
+            LocalDateTime basis = record.completedAt != null ? record.completedAt : record.createdAt;
+            return basis != null ? basis : LocalDateTime.MIN;
+        }));
+
+        int idx = 0;
+        while (jobs.size() > maxJobs && idx < terminalJobs.size()) {
+            jobs.remove(terminalJobs.get(idx).getKey());
+            idx++;
+        }
     }
 
     @PreDestroy
@@ -128,12 +194,12 @@ public class ExportJobService {
     private static class ExportJobRecord {
         private String jobId;
         private String type;
-        private JobStatus status;
+        private volatile JobStatus status;
         private LocalDateTime createdAt;
-        private LocalDateTime completedAt;
-        private String error;
+        private volatile LocalDateTime completedAt;
+        private volatile String error;
         private String fileName;
-        private byte[] data;
+        private volatile byte[] data;
     }
 
     private enum JobStatus {

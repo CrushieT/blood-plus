@@ -39,16 +39,23 @@ public class AnalyticsService {
      * Main method to calculate all dashboard metrics
      */
     public AnalyticsDTO getDashboardMetrics() {
-        RequestMetrics requests = calculateRequestMetrics();
-        Map<String, Long> urgency = calculateUrgencyBreakdown();
-        Map<String, Long> category = calculateCategoryBreakdown();
+        return getDashboardMetrics(null, null);
+    }
+
+    public AnalyticsDTO getDashboardMetrics(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = endDate != null ? endDate.plusDays(1).atStartOfDay().minusNanos(1) : null;
+
+        RequestMetrics requests = calculateRequestMetrics(startDateTime, endDateTime);
+        Map<String, Long> urgency = calculateUrgencyBreakdown(startDateTime, endDateTime);
+        Map<String, Long> category = calculateCategoryBreakdown(startDateTime, endDateTime);
         Map<String, Long> bloodTypes = calculateBloodTypeInventory();
-        Map<String, Long> dispatch = calculateDispatchMetrics();
+        Map<String, Long> dispatch = calculateDispatchMetrics(startDateTime, endDateTime);
         AlertMetrics alerts = calculateAlerts();
-        Map<String, Long> requesterType = calculateRequesterTypeBreakdown();
-        Map<String, Long> bloodComponent = calculateBloodComponentBreakdown();
-        List<HospitalMetric> hospitals = calculateTopHospitals();
-        FulfillmentMetrics fulfillmentMetrics = calculateFulfillmentMetrics();
+        Map<String, Long> requesterType = calculateRequesterTypeBreakdown(startDateTime, endDateTime);
+        Map<String, Long> bloodComponent = calculateBloodComponentBreakdown(startDateTime, endDateTime);
+        List<HospitalMetric> hospitals = calculateTopHospitals(startDateTime, endDateTime);
+        FulfillmentMetrics fulfillmentMetrics = calculateFulfillmentMetrics(startDateTime, endDateTime);
 
         return new AnalyticsDTO(
             requests,
@@ -68,13 +75,13 @@ public class AnalyticsService {
      * Calculate request status breakdown
      * Gets counts for: PENDING, APPROVED, ALLOCATED, RELEASED, REJECTED, CANCELLED
      */
-    private RequestMetrics calculateRequestMetrics() {
-        Long pending = bloodBagRequestRepository.countByStatus(RequestStatus.PENDING);
-        Long approved = bloodBagRequestRepository.countByStatus(RequestStatus.APPROVED);
-        Long allocated = bloodBagRequestRepository.countByStatus(RequestStatus.ALLOCATED);
-        Long released = bloodBagRequestRepository.countByStatus(RequestStatus.RELEASED);
-        Long rejected = bloodBagRequestRepository.countByStatus(RequestStatus.REJECTED);
-        Long cancelled = bloodBagRequestRepository.countByStatus(RequestStatus.CANCELLED);
+    private RequestMetrics calculateRequestMetrics(LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        Long pending = countByStatus(RequestStatus.PENDING, startDateTime, endDateTime);
+        Long approved = countByStatus(RequestStatus.APPROVED, startDateTime, endDateTime);
+        Long allocated = countByStatus(RequestStatus.ALLOCATED, startDateTime, endDateTime);
+        Long released = countByStatus(RequestStatus.RELEASED, startDateTime, endDateTime);
+        Long rejected = countByStatus(RequestStatus.REJECTED, startDateTime, endDateTime);
+        Long cancelled = countByStatus(RequestStatus.CANCELLED, startDateTime, endDateTime);
 
         return new RequestMetrics(pending, approved, allocated, released, rejected, cancelled);
     }
@@ -82,11 +89,13 @@ public class AnalyticsService {
     // /**
     //  * Calculate urgency level breakdown
     //  */
-    private Map<String, Long> calculateUrgencyBreakdown() {
+    private Map<String, Long> calculateUrgencyBreakdown(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         Map<String, Long> urgencyMap = new LinkedHashMap<>();
 
         for (UrgencyLevel level : UrgencyLevel.values()) {
-            Long count = bloodBagRequestRepository.countByUrgencyLevel(level);
+            Long count = hasDateRange(startDateTime, endDateTime)
+                    ? bloodBagRequestRepository.countByUrgencyLevelAndRequestedAtBetween(level, startDateTime, endDateTime)
+                    : bloodBagRequestRepository.countByUrgencyLevel(level);
             urgencyMap.put(level.name(), count);
         }
 
@@ -96,11 +105,13 @@ public class AnalyticsService {
     /**
      * Calculate request category breakdown
      */
-    private Map<String, Long> calculateCategoryBreakdown() {
+    private Map<String, Long> calculateCategoryBreakdown(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         Map<String, Long> categoryMap = new LinkedHashMap<>();
 
         for (RequestCategory category : RequestCategory.values()) {
-            Long count = bloodBagRequestRepository.countByRequestCategory(category);
+            Long count = hasDateRange(startDateTime, endDateTime)
+                    ? bloodBagRequestRepository.countByRequestCategoryAndRequestedAtBetween(category, startDateTime, endDateTime)
+                    : bloodBagRequestRepository.countByRequestCategory(category);
             categoryMap.put(category.name(), count);
         }
 
@@ -133,11 +144,13 @@ public class AnalyticsService {
     /**
      * Calculate dispatch type metrics
      */
-    private Map<String, Long> calculateDispatchMetrics() {
+    private Map<String, Long> calculateDispatchMetrics(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         Map<String, Long> dispatchMap = new LinkedHashMap<>();
 
         for (DispatchType type : DispatchType.values()) {
-            Long count = bloodBagDispatchRepository.countByDispatchType(type);
+            Long count = hasDateRange(startDateTime, endDateTime)
+                    ? bloodBagDispatchRepository.countByDispatchTypeAndDispatchedAtBetween(type, startDateTime, endDateTime)
+                    : bloodBagDispatchRepository.countByDispatchType(type);
             dispatchMap.put(type.name(), count);
         }
 
@@ -168,15 +181,29 @@ public class AnalyticsService {
     /**
      * Calculate requester type breakdown
      */
-    private Map<String, Long> calculateRequesterTypeBreakdown() {
+    private Map<String, Long> calculateRequesterTypeBreakdown(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         Map<String, Long> requesterMap = new LinkedHashMap<>();
 
-        List<Object[]> results = bloodBagRequestRepository.countByRequesterTypeGrouped();
-
-        for (Object[] row : results) {
-            String type = (String) row[0];
-            Long count = ((Number) row[1]).longValue();
-            requesterMap.put(type, count);
+        if (hasDateRange(startDateTime, endDateTime)) {
+            requesterMap.put(
+                    RequesterType.HOSPITAL.name(),
+                    bloodBagRequestRepository.countByRequesterTypeAndRequestedAtBetween(
+                            RequesterType.HOSPITAL, startDateTime, endDateTime
+                    )
+            );
+            requesterMap.put(
+                    RequesterType.ANONYMOUS.name(),
+                    bloodBagRequestRepository.countByRequesterTypeAndRequestedAtBetween(
+                            RequesterType.ANONYMOUS, startDateTime, endDateTime
+                    )
+            );
+        } else {
+            List<Object[]> results = bloodBagRequestRepository.countByRequesterTypeGrouped();
+            for (Object[] row : results) {
+                String type = (String) row[0];
+                Long count = ((Number) row[1]).longValue();
+                requesterMap.put(type, count);
+            }
         }
 
         // Ensure both types are in map (even if 0)
@@ -193,11 +220,13 @@ public class AnalyticsService {
     /**
      * Calculate blood component breakdown
      */
-    private Map<String, Long> calculateBloodComponentBreakdown() {
+    private Map<String, Long> calculateBloodComponentBreakdown(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         Map<String, Long> componentMap = new LinkedHashMap<>();
 
         for (BloodBag.ComponentType component : BloodBag.ComponentType.values()) {
-            Long count = bloodBagRequestRepository.countByBloodComponent(component);
+            Long count = hasDateRange(startDateTime, endDateTime)
+                    ? bloodBagRequestRepository.countByBloodComponentAndRequestedAtBetween(component, startDateTime, endDateTime)
+                    : bloodBagRequestRepository.countByBloodComponent(component);
             componentMap.put(component.name(), count);
         }
 
@@ -207,9 +236,11 @@ public class AnalyticsService {
     /**
      * Calculate top 5 requesting hospitals with fulfillment rates
      */
-    private List<HospitalMetric> calculateTopHospitals() {
+    private List<HospitalMetric> calculateTopHospitals(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         List<HospitalMetric> hospitals = new ArrayList<>();
-        List<Object[]> results = bloodBagRequestRepository.getTopRequestingHospitals();
+        List<Object[]> results = hasDateRange(startDateTime, endDateTime)
+                ? bloodBagRequestRepository.getTopRequestingHospitalsInRange(startDateTime, endDateTime)
+                : bloodBagRequestRepository.getTopRequestingHospitals();
 
         for (Object[] row : results) {
             String name = (String) row[0];
@@ -226,14 +257,14 @@ public class AnalyticsService {
      * Calculate fulfillment metrics
      * Including fulfillment rate and average days to release
      */
-    private FulfillmentMetrics calculateFulfillmentMetrics() {
+    private FulfillmentMetrics calculateFulfillmentMetrics(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         // Get all requests to calculate total and released
-        Long pendingCount = bloodBagRequestRepository.countByStatus(RequestStatus.PENDING);
-        Long approvedCount = bloodBagRequestRepository.countByStatus(RequestStatus.APPROVED);
-        Long allocatedCount = bloodBagRequestRepository.countByStatus(RequestStatus.ALLOCATED);
-        Long releasedCount = bloodBagRequestRepository.countByStatus(RequestStatus.RELEASED);
-        Long rejectedCount = bloodBagRequestRepository.countByStatus(RequestStatus.REJECTED);
-        Long cancelledCount = bloodBagRequestRepository.countByStatus(RequestStatus.CANCELLED);
+        Long pendingCount = countByStatus(RequestStatus.PENDING, startDateTime, endDateTime);
+        Long approvedCount = countByStatus(RequestStatus.APPROVED, startDateTime, endDateTime);
+        Long allocatedCount = countByStatus(RequestStatus.ALLOCATED, startDateTime, endDateTime);
+        Long releasedCount = countByStatus(RequestStatus.RELEASED, startDateTime, endDateTime);
+        Long rejectedCount = countByStatus(RequestStatus.REJECTED, startDateTime, endDateTime);
+        Long cancelledCount = countByStatus(RequestStatus.CANCELLED, startDateTime, endDateTime);
 
         Long totalRequests = pendingCount + approvedCount + allocatedCount + releasedCount + rejectedCount + cancelledCount;
 
@@ -243,7 +274,7 @@ public class AnalyticsService {
             : 0.0;
 
         // Calculate average days to release
-        Double avgDaysToRelease = calculateAverageDaysToRelease();
+        Double avgDaysToRelease = calculateAverageDaysToRelease(startDateTime, endDateTime);
 
         return new FulfillmentMetrics(fulfillmentRate, releasedCount, avgDaysToRelease);
     }
@@ -251,8 +282,10 @@ public class AnalyticsService {
     /**
      * Calculate average days between request and release
      */
-    private Double calculateAverageDaysToRelease() {
-        List<BloodBagRequest> releasedRequests = bloodBagRequestRepository.findAllReleasedRequests();
+    private Double calculateAverageDaysToRelease(LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        List<BloodBagRequest> releasedRequests = hasDateRange(startDateTime, endDateTime)
+                ? bloodBagRequestRepository.findReleasedRequestsInRequestedAtRange(startDateTime, endDateTime)
+                : bloodBagRequestRepository.findAllReleasedRequests();
 
         if (releasedRequests.isEmpty()) {
             return 0.0;
@@ -273,5 +306,16 @@ public class AnalyticsService {
         }
 
         return totalDays / releasedRequests.size();
+    }
+
+    private Long countByStatus(RequestStatus status, LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        if (hasDateRange(startDateTime, endDateTime)) {
+            return bloodBagRequestRepository.countByStatusAndRequestedAtBetween(status, startDateTime, endDateTime);
+        }
+        return bloodBagRequestRepository.countByStatus(status);
+    }
+
+    private boolean hasDateRange(LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        return startDateTime != null && endDateTime != null;
     }
 }

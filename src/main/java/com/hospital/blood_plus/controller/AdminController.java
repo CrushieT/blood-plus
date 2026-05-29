@@ -73,6 +73,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin")
 public class AdminController {
     private static final long MAX_SERVED_EXPORT_DAYS = 31;
+    private static final long MAX_ANALYTICS_EXPORT_DAYS = 366;
 
     private final BloodBagService         bloodBagService;
     private final UserRepository          userRepository;
@@ -138,19 +139,27 @@ public class AdminController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "expiry_asc") String sort,
+            @RequestParam(defaultValue = "ALL") String bloodType,
+            @RequestParam(defaultValue = "ALL") String component,
             @RequestParam(required = false) String search) {
         try {
             BloodBag.BagStatus statusFilter = parseBagStatus(status);
+            BloodBag.BloodType bloodTypeFilter = parseBloodTypeFilter(bloodType);
+            BloodBag.ComponentType componentFilter = parseComponentFilter(component);
             PaginatedResponse<BloodBagResponse> response = bloodBagService.getBagsPage(
                     page,
                     size,
                     statusFilter,
+                    bloodTypeFilter,
+                    componentFilter,
+                    sort,
                     search
             );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "error", "Invalid status value. Use ALL or a valid BagStatus enum."
+                    "error", "Invalid filter value. Use ALL or a valid enum value."
             ));
         }
     }
@@ -246,6 +255,17 @@ public class AdminController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
         return ResponseEntity.ok(
                 bloodBagRequestService.getAdminRequestList(page, size, status, search, dateFrom, dateTo)
+        );
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/blood-requests/status-counts")
+    public ResponseEntity<Map<String, Long>> getRequestStatusCounts(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
+        return ResponseEntity.ok(
+                bloodBagRequestService.getAdminRequestStatusCounts(search, dateFrom, dateTo)
         );
     }
 
@@ -614,14 +634,47 @@ public class AdminController {
      */
     @GetMapping("/analytics")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-    public ResponseEntity<AnalyticsDTO> getDashboardMetrics() {
+    public ResponseEntity<?> getDashboardMetrics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        if ((startDate == null) != (endDate == null)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Both startDate and endDate are required when filtering analytics."
+            ));
+        }
+
+        String validationError = validateAnalyticsRange(startDate, endDate, false);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
+
         try {
-            AnalyticsDTO metrics = analyticsService.getDashboardMetrics();
+            AnalyticsDTO metrics = analyticsService.getDashboardMetrics(startDate, endDate);
             return ResponseEntity.ok(metrics);
         } catch (Exception e) {
             return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(null);
+        }
+    }
+
+    @GetMapping("/analytics/export")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<?> exportDashboardMetrics(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        String validationError = validateAnalyticsRange(startDate, endDate, true);
+        if (validationError != null) {
+            return ResponseEntity.badRequest().body(Map.of("error", validationError));
+        }
+
+        try {
+            AnalyticsDTO metrics = analyticsService.getDashboardMetrics(startDate, endDate);
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to export analytics metrics."));
         }
     }
  
@@ -1011,6 +1064,8 @@ public class AdminController {
     public ResponseEntity<PaginatedResponse<RequestStatusLog>> getStatusLogs(
             @RequestParam(required = false) String search,
             @RequestParam(name = "status", defaultValue = "ALL") String statusFilter,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(defaultValue = "date_desc") String sort,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -1018,6 +1073,8 @@ public class AdminController {
         Page<RequestStatusLog> logsPage = requestLogsService.getStatusLogs(
                 search,
                 statusFilter,
+                dateFrom,
+                dateTo,
                 sort,
                 page,
                 size
@@ -1255,39 +1312,46 @@ public class AdminController {
         }
 
         String filename = buildExportFileName(type);
-        ExportJobStatusDTO job = switch (type) {
-            case "STATUS_LOGS" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportStatusLogs(
-                            request.getSearch(),
-                            request.getStatus() != null ? request.getStatus() : "ALL",
-                            request.getStartDate(),
-                            request.getEndDate()
-                    )
-            );
-            case "FULFILLMENTS" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportFulfillments(
-                            request.getSearch(),
-                            request.getStartDate(),
-                            request.getEndDate()
-                    )
-            );
-            case "SERVED_DETAILS" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportServedDetails(
-                            request.getSearch(),
-                            request.getStartDate(),
-                            request.getEndDate(),
-                            request.getRequestGroup() != null ? request.getRequestGroup() : "ALL",
-                            request.getSort() != null ? request.getSort() : "date_desc"
-                    )
-            );
-            case "SERVED_INSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportInsideServedSummary(request.getStartDate(), request.getEndDate())
-            );
-            case "SERVED_OUTSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
-                    requestLogsService.exportOutsideServedSummary(request.getStartDate(), request.getEndDate())
-            );
-            default -> null;
-        };
+        ExportJobStatusDTO job;
+        try {
+            job = switch (type) {
+                case "STATUS_LOGS" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportStatusLogs(
+                                request.getSearch(),
+                                request.getStatus() != null ? request.getStatus() : "ALL",
+                                request.getStartDate(),
+                                request.getEndDate()
+                        )
+                );
+                case "FULFILLMENTS" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportFulfillments(
+                                request.getSearch(),
+                                request.getStartDate(),
+                                request.getEndDate()
+                        )
+                );
+                case "SERVED_DETAILS" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportServedDetails(
+                                request.getSearch(),
+                                request.getStartDate(),
+                                request.getEndDate(),
+                                request.getRequestGroup() != null ? request.getRequestGroup() : "ALL",
+                                request.getSort() != null ? request.getSort() : "date_desc"
+                        )
+                );
+                case "SERVED_INSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportInsideServedSummary(request.getStartDate(), request.getEndDate())
+                );
+                case "SERVED_OUTSIDE_SUMMARY" -> exportJobService.submitJsonJob(type, filename, () ->
+                        requestLogsService.exportOutsideServedSummary(request.getStartDate(), request.getEndDate())
+                );
+                default -> null;
+            };
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                    "error", ex.getMessage()
+            ));
+        }
 
         if (job == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Unable to create export job."));
@@ -1386,6 +1450,28 @@ public class AdminController {
         return null;
     }
 
+    private String validateAnalyticsRange(LocalDate startDate, LocalDate endDate, boolean required) {
+        if (required && (startDate == null || endDate == null)) {
+            return "startDate and endDate are required for analytics export.";
+        }
+        if (startDate == null && endDate == null) {
+            return null;
+        }
+        if (startDate == null || endDate == null) {
+            return "Both startDate and endDate are required when filtering analytics.";
+        }
+        if (startDate.isAfter(endDate)) {
+            return "startDate must be on or before endDate.";
+        }
+        long daysInclusive = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        if (daysInclusive > MAX_ANALYTICS_EXPORT_DAYS) {
+            return "Analytics date range too large. Maximum allowed is "
+                    + MAX_ANALYTICS_EXPORT_DAYS
+                    + " days.";
+        }
+        return null;
+    }
+
     private String validateAsyncExportRange(LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null) {
             return "startDate and endDate are required.";
@@ -1426,5 +1512,25 @@ public class AdminController {
             return null;
         }
         return BloodBag.BagStatus.valueOf(status.trim().toUpperCase());
+    }
+
+    private BloodBag.BloodType parseBloodTypeFilter(String bloodType) {
+        if (bloodType == null || bloodType.isBlank() || "ALL".equalsIgnoreCase(bloodType)) {
+            return null;
+        }
+        String normalized = bloodType.trim().toUpperCase();
+        if (normalized.endsWith("_POSITIVE")) {
+            normalized = normalized.substring(0, normalized.length() - "_POSITIVE".length());
+        } else if (normalized.endsWith("_NEGATIVE")) {
+            normalized = normalized.substring(0, normalized.length() - "_NEGATIVE".length());
+        }
+        return BloodBag.BloodType.valueOf(normalized);
+    }
+
+    private BloodBag.ComponentType parseComponentFilter(String component) {
+        if (component == null || component.isBlank() || "ALL".equalsIgnoreCase(component)) {
+            return null;
+        }
+        return BloodBag.ComponentType.valueOf(component.trim().toUpperCase());
     }
 }
