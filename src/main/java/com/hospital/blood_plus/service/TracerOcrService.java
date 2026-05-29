@@ -49,9 +49,12 @@ import java.util.regex.Pattern;
 @Service
 public class TracerOcrService {
     private static final int MAX_ROWS = 10;
-    private static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
+    private static final long MAX_FILE_BYTES = 5L * 1024 * 1024;
     private static final long OCR_SPACE_SOFT_LIMIT_BYTES = 1400L * 1024L;
     private static final int OCR_MAX_IMAGE_WIDTH = 1800;
+    private static final int PRIMARY_OCR_ENGINE = 2;
+    private static final List<Integer> FALLBACK_OCR_ENGINES = List.of(1);
+    private static final int MIN_CONFIDENCE_BEFORE_FALLBACK = 60;
 
     private static final Pattern DATE_PATTERN = Pattern.compile(
             "\\b([0-3SO]?[0-9])\\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)\\s*([12][0-9]{3}|[0-9]{2})\\b");
@@ -85,21 +88,36 @@ public class TracerOcrService {
             throw new IllegalStateException("OCR service is not configured. Missing OCR_SPACE_API_KEY.");
         }
 
-        List<Integer> engines = Arrays.asList(2, 1, 3);
         OcrAttempt best = null;
         List<String> allWarnings = new ArrayList<>();
+        boolean runFallback = false;
 
-        for (Integer engine : engines) {
-            try {
-                OcrAttempt attempt = runOcrAttempt(file, engine);
-                allWarnings.addAll(attempt.warnings);
-                if (best == null || attempt.score > best.score) {
-                    best = attempt;
+        try {
+            OcrAttempt primaryAttempt = runOcrAttempt(file, PRIMARY_OCR_ENGINE);
+            allWarnings.addAll(primaryAttempt.warnings);
+            best = primaryAttempt;
+            runFallback = shouldTryFallback(primaryAttempt);
+        } catch (IllegalArgumentException ex) {
+            allWarnings.add("Engine " + PRIMARY_OCR_ENGINE + ": " + ex.getMessage());
+            runFallback = true;
+        } catch (RuntimeException ex) {
+            allWarnings.add("Engine " + PRIMARY_OCR_ENGINE + ": OCR request failed.");
+            runFallback = true;
+        }
+
+        if (runFallback) {
+            for (Integer engine : FALLBACK_OCR_ENGINES) {
+                try {
+                    OcrAttempt attempt = runOcrAttempt(file, engine);
+                    allWarnings.addAll(attempt.warnings);
+                    if (best == null || attempt.score > best.score) {
+                        best = attempt;
+                    }
+                } catch (IllegalArgumentException ex) {
+                    allWarnings.add("Engine " + engine + ": " + ex.getMessage());
+                } catch (RuntimeException ex) {
+                    allWarnings.add("Engine " + engine + ": OCR request failed.");
                 }
-            } catch (IllegalArgumentException ex) {
-                allWarnings.add("Engine " + engine + ": " + ex.getMessage());
-            } catch (RuntimeException ex) {
-                allWarnings.add("Engine " + engine + ": OCR request failed.");
             }
         }
 
@@ -701,6 +719,12 @@ public class TracerOcrService {
         return errorMessageNode.asText("");
     }
 
+    private boolean shouldTryFallback(OcrAttempt attempt) {
+        if (attempt == null) return true;
+        if (attempt.rows == null || attempt.rows.isEmpty()) return true;
+        return attempt.confidence < MIN_CONFIDENCE_BEFORE_FALLBACK;
+    }
+
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Please upload an image to scan.");
@@ -714,7 +738,7 @@ public class TracerOcrService {
             throw new IllegalArgumentException("Unsupported image type. Please upload JPG, PNG, WEBP, BMP, or TIFF.");
         }
         if (file.getSize() > MAX_FILE_BYTES) {
-            throw new IllegalArgumentException("Image is too large. Maximum upload size is 10MB.");
+            throw new IllegalArgumentException("Image is too large. Maximum upload size is 5MB.");
         }
     }
 

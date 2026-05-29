@@ -136,7 +136,7 @@ body {
   z-index: 1;
   flex: 1;
   padding: 20px 16px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .nav-label {
