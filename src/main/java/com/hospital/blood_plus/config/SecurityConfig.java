@@ -61,7 +61,7 @@ public class SecurityConfig {
                     "/favicon.ico", 
                     "/blood-request.html",
                     "/blood-request-confirmation.html",
-                    "/admin-login.html",
+                    "/hospital-login.html",
                     "/admin-setup.html",
                     "/css/**",
                     "/js/**",

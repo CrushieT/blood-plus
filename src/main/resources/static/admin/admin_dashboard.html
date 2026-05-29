@@ -348,7 +348,7 @@
               </select>
               <select id="bags-sort" onchange="renderBagsTable()" class="bb-select">
                 <option value="expiry_asc">Expiry ↑ (soonest first)</option>
-                <option value="expiry_desc">Expiry ↓</option>
+                <option value="expiry_desc">Expiry ↓ (latest first)</option>
                 <option value="collected_desc">Newest collected</option>
                 <option value="collected_asc">Oldest collected</option>
               </select>
@@ -997,7 +997,7 @@
         <div class="req-search-wrap">
           <span style="font-size:13px;color:#CCC;flex-shrink:0">Search</span>
           <input class="req-search-input" id="logging-status-search" type="text"
-            placeholder="Search request ID or reference number"
+            placeholder="Search request ID or serial no."
             oninput="loggingStatusRender(true)">
         </div>
         <select class="req-select" id="logging-status-filter-status" onchange="loggingStatusRender(true)">
@@ -1014,7 +1014,7 @@
         <select class="req-select" id="logging-status-sort" onchange="loggingStatusRender(true)">
           <option value="date_desc">Newest First</option>
           <option value="date_asc">Oldest First</option>
-          <option value="request_id">By Reference No.</option>
+          <option value="request_id">By Serial No.</option>
         </select>
       </div>
 
@@ -1026,8 +1026,7 @@
         <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
           <table class="data-table" style="min-width:980px">
             <thead><tr>
-              <th>Reference No.</th>
-              <th>Reference #</th>
+              <th>Serial no.</th>
               <th>Old Status</th>
               <th>New Status</th>
               <th>Changed By</th>
@@ -1080,13 +1079,13 @@
         <div class="req-search-wrap">
           <span style="font-size:13px;color:#CCC;flex-shrink:0">Search</span>
           <input class="req-search-input" id="logging-served-search" type="text"
-            placeholder="Search reference number, patient, hospital, ward, blood"
+            placeholder="Search serial no., patient, hospital, ward, blood"
             oninput="loggingServedRender(true)">
         </div>
         <select class="req-select" id="logging-served-sort" onchange="loggingServedRender(true)">
           <option value="date_desc">Newest First</option>
           <option value="date_asc">Oldest First</option>
-          <option value="request_id">By Reference No.</option>
+          <option value="request_id">By Serial No.</option>
         </select>
         <select class="req-select" id="logging-served-request-group" onchange="loggingServedRender(true)">
           <option value="ALL">All</option>
@@ -1103,7 +1102,7 @@
         <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
           <table class="data-table" style="min-width:1500px">
             <thead><tr>
-              <th>Reference No.</th>
+              <th>Serial No.</th>
               <th>Patient</th>
               <th>Request Category</th>
               <th>Hospital / Ward</th>

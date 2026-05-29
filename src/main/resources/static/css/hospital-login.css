@@ -213,7 +213,7 @@ nav {
 }
 
 .hero-left {
-  order: 2;
+  order: 1;
   max-width: 720px;
   animation: fadeUp 0.6s ease 0.1s both;
 }
@@ -361,14 +361,14 @@ nav {
 .hero-right {
   position: relative;
   z-index: 1;
-  order: 1;
+  order: 2;
   width: 100%;
   animation: fadeUp 0.6s ease 0.22s both;
 }
 
 .login-br {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 
 .cont {

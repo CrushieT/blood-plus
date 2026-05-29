@@ -20,6 +20,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest, Long> {
+    interface StatusCountRow {
+        RequestStatus getStatus();
+        long getTotal();
+    }
 
     // Fetch all requests made by a specific AppUser
     List<BloodBagRequest> findByRequestedByOrderByRequestedAtDesc(AppUser user);
@@ -65,6 +69,28 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             Pageable pageable
+    );
+
+    @Query("""
+        SELECT r.status AS status, COUNT(r) AS total
+        FROM BloodBagRequest r
+        LEFT JOIN r.hospitalProfile hp
+        WHERE (:from IS NULL OR r.requestedAt >= :from)
+          AND (:to IS NULL OR r.requestedAt <= :to)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.requesterName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(hp.hospitalName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+        GROUP BY r.status
+    """)
+    List<StatusCountRow> countForAdminStatusSummary(
+            @Param("search") String search,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
     );
 
     @Query("""

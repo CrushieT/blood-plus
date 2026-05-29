@@ -2,7 +2,7 @@
     try {
         const path        = window.location.pathname;
         const isSetupPage = path === "/admin-setup.html";
-        const isPublicPage = path === "/admin-login.html" ||
+        const isPublicPage = path === "/hospital-login.html" ||
                              path === "/" ||
                              path === "/blood-request.html";
 

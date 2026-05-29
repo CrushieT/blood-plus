@@ -139,19 +139,27 @@ public class AdminController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "expiry_asc") String sort,
+            @RequestParam(defaultValue = "ALL") String bloodType,
+            @RequestParam(defaultValue = "ALL") String component,
             @RequestParam(required = false) String search) {
         try {
             BloodBag.BagStatus statusFilter = parseBagStatus(status);
+            BloodBag.BloodType bloodTypeFilter = parseBloodTypeFilter(bloodType);
+            BloodBag.ComponentType componentFilter = parseComponentFilter(component);
             PaginatedResponse<BloodBagResponse> response = bloodBagService.getBagsPage(
                     page,
                     size,
                     statusFilter,
+                    bloodTypeFilter,
+                    componentFilter,
+                    sort,
                     search
             );
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "error", "Invalid status value. Use ALL or a valid BagStatus enum."
+                    "error", "Invalid filter value. Use ALL or a valid enum value."
             ));
         }
     }
@@ -247,6 +255,17 @@ public class AdminController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
         return ResponseEntity.ok(
                 bloodBagRequestService.getAdminRequestList(page, size, status, search, dateFrom, dateTo)
+        );
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @GetMapping("/blood-requests/status-counts")
+    public ResponseEntity<Map<String, Long>> getRequestStatusCounts(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
+        return ResponseEntity.ok(
+                bloodBagRequestService.getAdminRequestStatusCounts(search, dateFrom, dateTo)
         );
     }
 
@@ -1493,5 +1512,25 @@ public class AdminController {
             return null;
         }
         return BloodBag.BagStatus.valueOf(status.trim().toUpperCase());
+    }
+
+    private BloodBag.BloodType parseBloodTypeFilter(String bloodType) {
+        if (bloodType == null || bloodType.isBlank() || "ALL".equalsIgnoreCase(bloodType)) {
+            return null;
+        }
+        String normalized = bloodType.trim().toUpperCase();
+        if (normalized.endsWith("_POSITIVE")) {
+            normalized = normalized.substring(0, normalized.length() - "_POSITIVE".length());
+        } else if (normalized.endsWith("_NEGATIVE")) {
+            normalized = normalized.substring(0, normalized.length() - "_NEGATIVE".length());
+        }
+        return BloodBag.BloodType.valueOf(normalized);
+    }
+
+    private BloodBag.ComponentType parseComponentFilter(String component) {
+        if (component == null || component.isBlank() || "ALL".equalsIgnoreCase(component)) {
+            return null;
+        }
+        return BloodBag.ComponentType.valueOf(component.trim().toUpperCase());
     }
 }
