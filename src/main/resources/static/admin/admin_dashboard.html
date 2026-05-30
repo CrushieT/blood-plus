@@ -583,7 +583,6 @@
         </div>
         <select class="req-select" id="req-filter-urgency" onchange="reqApplyClientFilters()">
           <option value="ALL">All Urgency</option>
-          <option value="CRITICAL"> Critical</option>
           <option value="HIGH"> High</option>
           <option value="MEDIUM"> Medium</option> 
           <option value="LOW"> Low</option>
@@ -591,7 +590,6 @@
         <select class="req-select" id="req-sort" onchange="reqApplyClientFilters()">
           <option value="date_desc">Newest first</option>
           <option value="date_asc">Oldest first</option>
-          <option value="urgency">By urgency</option>
           <option value="units_desc">Most units</option>
         </select>
       </div>
@@ -1617,14 +1615,14 @@
             <label>Component Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-component-type" onchange="updateAddExpiry()" required>
               <option value="">Select...</option>
-              <option value="WHOLE_BLOOD">WB</option>
+              <option value="WHOLE_BLOOD">WHOLE BLOOD</option>
               <option value="PRBC">PRBC</option>
-              <option value="LEUKOREDUCED_PRBC">L-PRBC</option>
-              <option value="ALIQUOTED_PRBC">A-PRBC</option>
-              <option value="PLATELET_CONCENTRATE">PC</option>
-              <option value="FRESH_FROZEN_PLASMA">FFP</option>
-              <option value="CRYOPRECIPITATE">CRYO</option>
-              <option value="CRYOSUPERNATANT">CRYOSUP</option>
+              <option value="LEUKOREDUCED_PRBC">LEUKOREDUCED PRBC</option>
+              <option value="ALIQUOTED_PRBC">ALIQUOTED PRBC</option>
+              <option value="PLATELET_CONCENTRATE">PLATELET CONCENTRATE</option>
+              <option value="FRESH_FROZEN_PLASMA">FRESH FROZEN PLASMA</option>
+              <option value="CRYOPRECIPITATE">CRYOPRECIPITATE</option>
+              <option value="CRYOSUPERNATANT">CRYOSUPERNATANT</option>
             </select>
           </div>
 

@@ -786,9 +786,6 @@ function renderInventoryGrid(apiData) {
       <div class="blood-unit ${isCritical ? 'critical' : ''}">
         <div class="bu-type">${item.label}</div>
         <div class="bu-units">${item.units} units</div>
-        <div class="bu-vol" style="font-size:11px;color:var(--muted);margin-top:1px">
-          ${item.volumeMl ? (item.volumeMl / 1000).toFixed(1) + ' L total' : ''}
-        </div>
         <div class="bu-level ${lm.cls}">${lm.label}</div>
         <div class="bu-bar-wrap">
           <div class="bu-bar ${bc}" style="width:${pct[item.level]}%"></div>
@@ -6081,7 +6078,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   -------------------------------------------------------------------------------- */
   let reqData          = [];
   let reqExpanded      = {};
-  let reqCurrentFilter = 'ALL';
+  let reqCurrentFilter = 'PENDING';
   let reqPendingRejectId = null;
   let reqPendingResolutionMode = 'reject';
   let reqPendingRemarksId = null;
@@ -7469,38 +7466,12 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         return a.id - b.id;
       });
     }
-    else if (sort === 'urgency') {
-      list.sort((a, b) => {
-        const statusDiff =
-          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
-          (REQ_STATUS_PRIORITY[b.status] ?? 99);
-
-        if (statusDiff !== 0) return statusDiff;
-
-        const urgencyDiff =
-          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
-          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
-
-        if (urgencyDiff !== 0) return urgencyDiff;
-
-        return b.id - a.id;
-      });
-    }
     else if (sort === 'units_desc') {
       list.sort((a, b) => {
-        const statusDiff =
-          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
-          (REQ_STATUS_PRIORITY[b.status] ?? 99);
-
-        if (statusDiff !== 0) return statusDiff;
-
-        const urgencyDiff =
-          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
-          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
-
-        if (urgencyDiff !== 0) return urgencyDiff;
-
-        return b.units - a.units;
+        const aUnits = Number(a?.units ?? 0);
+        const bUnits = Number(b?.units ?? 0);
+        if (bUnits !== aUnits) return bUnits - aUnits;
+        return (Number(b?.id) || 0) - (Number(a?.id) || 0);
       });
     }
     return list;
