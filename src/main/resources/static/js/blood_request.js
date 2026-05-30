@@ -1,3 +1,549 @@
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CNPH BLOOD BANK — REQUEST PORTAL
+// Enhanced JS: EKG Animation + UI/UX Improvements
+// All existing functionality preserved. Animation added cleanly on top.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 1: EKG / ECG LOADING SCREEN ANIMATION
+// ══════════════════════════════════════════════════════════════════════
+
+(function initEKGLoader() {
+  // Run as soon as script is parsed — no DOMContentLoaded needed for canvas init
+  // Canvas draw starts after DOM is ready
+
+  // ── ECG waveform definition ─────────────────────────────────────────
+  // A medically-accurate ECG: P-Q-R-S-T complex, flat baseline, repeat
+  function buildECGPath() {
+    // Each segment is [dx, dy] relative — normalized 0-1 horizontally
+    // We build one full beat cycle, then tile it
+    return [
+      // Flat baseline
+      { t: 0.000, y: 0 },
+      { t: 0.080, y: 0 },
+      // P wave (atrial depolarization) — gentle bump
+      { t: 0.100, y: -0.08 },
+      { t: 0.130, y: -0.18 },
+      { t: 0.160, y: -0.08 },
+      // P-R segment (flat)
+      { t: 0.200, y: 0 },
+      { t: 0.240, y: 0 },
+      // Q dip
+      { t: 0.255, y: 0.08 },
+      // R spike — the dramatic peak
+      { t: 0.270, y: -1.0 },
+      // S dip
+      { t: 0.285, y: 0.14 },
+      // S-T segment (flat, slightly elevated)
+      { t: 0.330, y: -0.04 },
+      // T wave (ventricular repolarization) — broad hump
+      { t: 0.380, y: -0.08 },
+      { t: 0.430, y: -0.26 },
+      { t: 0.480, y: -0.28 },
+      { t: 0.530, y: -0.12 },
+      { t: 0.580, y: 0 },
+      // Flat baseline to next beat
+      { t: 1.000, y: 0 },
+    ];
+  }
+
+  // ── Interpolate Y at any t position ─────────────────────────────────
+  function getY(path, t) {
+    t = ((t % 1) + 1) % 1;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1];
+      if (t >= a.t && t <= b.t) {
+        const pct = (t - a.t) / (b.t - a.t);
+        // Cubic ease for smooth curves
+        const ease = pct < 0.5 ? 2 * pct * pct : -1 + (4 - 2 * pct) * pct;
+        return a.y + (b.y - a.y) * ease;
+      }
+    }
+    return 0;
+  }
+
+  // ── Spawn floating particles ─────────────────────────────────────────
+  function spawnParticles() {
+    const container = document.getElementById('ekg-particles');
+    if (!container) return;
+
+    const colors = ['#1F5FBF', '#2D3FA3', '#E5B325', '#2E8B57', '#4A90D9'];
+    const count = 28;
+
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'ekg-particle';
+      const size = Math.random() * 4 + 2;
+      p.style.cssText = `
+        width: ${size}px;
+        height: ${size}px;
+        left: ${Math.random() * 100}%;
+        top: ${Math.random() * 100}%;
+        background: ${colors[Math.floor(Math.random() * colors.length)]};
+        --dur: ${(Math.random() * 4 + 3).toFixed(1)}s;
+        --del: ${(Math.random() * 3).toFixed(1)}s;
+        opacity: 0;
+      `;
+      container.appendChild(p);
+    }
+  }
+
+  // ── Main canvas animation ────────────────────────────────────────────
+  function runEKGCanvas() {
+    const canvas = document.getElementById('ekg-canvas');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const wrap = canvas.parentElement;
+
+    function resize() {
+      canvas.width  = wrap.offsetWidth;
+      canvas.height = wrap.offsetHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const path   = buildECGPath();
+    const W      = () => canvas.width;
+    const H      = () => canvas.height;
+    const MID    = () => H() * 0.55;   // vertical baseline position
+    const AMP    = () => H() * 0.42;   // amplitude
+
+    // Animation state
+    let phase        = 0;          // 0–1, progress through waveform loop
+    const SPEED      = 0.0028;     // phase units per frame (controls scroll speed)
+    const TRAIL      = 0.72;       // fraction of canvas covered by drawn trail
+    let startTime    = null;
+    let raf          = null;
+    let done         = false;
+
+    // Color palette
+    const COL_LINE   = '#4A90D9';   // main trace
+    const COL_GLOW   = 'rgba(31,95,191,0.18)';
+    const COL_PEAK   = '#E5B325';   // peak highlight
+    const COL_HEAD   = '#FFFFFF';   // head dot
+    const COL_GRID   = 'rgba(255,255,255,0.04)';
+
+    function drawGrid() {
+      const w = W(), h = H();
+      ctx.strokeStyle = COL_GRID;
+      ctx.lineWidth = 1;
+      // Horizontal lines
+      const hLines = 6;
+      for (let i = 0; i <= hLines; i++) {
+        const y = (h / hLines) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      // Vertical lines
+      const vLines = 12;
+      for (let i = 0; i <= vLines; i++) {
+        const x = (w / vLines) * i;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+    }
+
+    function drawFrame(ts) {
+      if (done) return;
+      if (!startTime) startTime = ts;
+
+      const w = W(), h = H();
+      const mid = MID(), amp = AMP();
+
+      // Advance phase
+      phase += SPEED;
+
+      // Clear
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid
+      drawGrid();
+
+      // How many points to sample
+      const pts = w * 2;
+      const trailW = w * TRAIL;
+
+      // ── Main trace with gradient glow ──────────────────────────
+      // Shadow / glow pass (thick, blurred)
+      ctx.save();
+      ctx.shadowColor = COL_LINE;
+      ctx.shadowBlur  = 12;
+      ctx.strokeStyle = COL_GLOW;
+      ctx.lineWidth   = 6;
+      ctx.lineJoin    = 'round';
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= pts; i++) {
+        const x   = (i / pts) * trailW;
+        const tVal = phase - (trailW - x) / w * 0.45;
+        const y   = mid + getY(path, tVal) * amp;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Main line (crisp, gradient)
+      const grad = ctx.createLinearGradient(0, 0, trailW, 0);
+      grad.addColorStop(0,    'rgba(31,95,191,0)');
+      grad.addColorStop(0.25, 'rgba(31,95,191,0.4)');
+      grad.addColorStop(0.7,  COL_LINE);
+      grad.addColorStop(1,    '#FFFFFF');
+
+      ctx.save();
+      ctx.shadowColor = '#1F5FBF';
+      ctx.shadowBlur  = 8;
+      ctx.strokeStyle = grad;
+      ctx.lineWidth   = 2.2;
+      ctx.lineJoin    = 'round';
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      for (let i = 0; i <= pts; i++) {
+        const x   = (i / pts) * trailW;
+        const tVal = phase - (trailW - x) / w * 0.45;
+        const y   = mid + getY(path, tVal) * amp;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // ── Peak highlight marker (R-spike glow) ───────────────────
+      // Find the approximate peak position in current frame
+      let peakX = -1, peakY = mid;
+      for (let i = 0; i <= pts; i++) {
+        const x   = (i / pts) * trailW;
+        const tVal = phase - (trailW - x) / w * 0.45;
+        const yRaw = getY(path, tVal);
+        if (yRaw < -0.85) { // near R-peak
+          const y = mid + yRaw * amp;
+          if (y < peakY) { peakY = y; peakX = x; }
+        }
+      }
+      if (peakX > 0) {
+        // Vertical line at peak
+        ctx.save();
+        ctx.strokeStyle = 'rgba(229,179,37,0.2)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.moveTo(peakX, 0);
+        ctx.lineTo(peakX, h);
+        ctx.stroke();
+        ctx.restore();
+
+        // Glow dot at peak
+        ctx.save();
+        ctx.shadowColor = COL_PEAK;
+        ctx.shadowBlur  = 20;
+        ctx.fillStyle   = COL_PEAK;
+        ctx.beginPath();
+        ctx.arc(peakX, peakY, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // ── Animated head dot ───────────────────────────────────────
+      const headX = trailW;
+      const headT = phase;
+      const headY = mid + getY(path, headT) * amp;
+
+      // Ripple rings
+      const rTime = (ts - startTime) / 1000;
+      for (let r = 0; r < 3; r++) {
+        const rPhase = (rTime * 2.5 + r * 0.33) % 1;
+        const rRadius = 6 + rPhase * 18;
+        const rAlpha  = (1 - rPhase) * 0.5;
+        ctx.save();
+        ctx.strokeStyle = `rgba(255,255,255,${rAlpha})`;
+        ctx.lineWidth   = 1;
+        ctx.beginPath();
+        ctx.arc(headX, headY, rRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Core dot
+      ctx.save();
+      ctx.shadowColor = COL_HEAD;
+      ctx.shadowBlur  = 16;
+      ctx.fillStyle   = COL_HEAD;
+      ctx.beginPath();
+      ctx.arc(headX, headY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // ── Baseline reference line ─────────────────────────────────
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth   = 1;
+      ctx.setLineDash([6, 8]);
+      ctx.beginPath();
+      ctx.moveTo(0, mid);
+      ctx.lineTo(w, mid);
+      ctx.stroke();
+      ctx.restore();
+
+      raf = requestAnimationFrame(drawFrame);
+    }
+
+    raf = requestAnimationFrame(drawFrame);
+
+    // Return cancel function
+    return function cancel() {
+      done = true;
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }
+
+  // ── Loader dismiss sequence ──────────────────────────────────────────
+  function dismissLoader(cancelCanvas) {
+    const loader = document.getElementById('ekg-loader');
+    if (!loader) return;
+
+    loader.classList.add('fade-out');
+
+    setTimeout(function() {
+      loader.style.display     = 'none';
+      loader.style.pointerEvents = 'none';
+      document.body.style.overflow = '';
+      if (cancelCanvas) cancelCanvas();
+    }, 900);
+  }
+
+  // ── Bootstrap sequence ────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // Lock body scroll during loader
+    document.body.style.overflow = 'hidden';
+
+    spawnParticles();
+
+    // Small delay to let CSS animations kick in, then start canvas
+    const cancelCanvas = runEKGCanvas();
+
+    // Dismiss after 3.2 s (matches CSS progress bar + scanline animations)
+    setTimeout(function() {
+      dismissLoader(cancelCanvas);
+    }, 3200);
+  });
+
+})();
+
+
+// ══════════════════════════════════════════════════════════════════════
+// SECTION 2: ENTRANCE + SCROLL ANIMATIONS (UI/UX Layer)
+// ══════════════════════════════════════════════════════════════════════
+
+(function initEntranceAnimations() {
+  // Inject animation helper styles
+  const style = document.createElement('style');
+  style.textContent = `
+    .reveal-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1),
+                  transform 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .reveal-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-fade {
+      opacity: 0;
+      transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1);
+    }
+    .reveal-fade.visible {
+      opacity: 1;
+    }
+    .step:nth-child(1) { transition-delay: 0ms !important; }
+    .step:nth-child(2) { transition-delay: 100ms !important; }
+    .step:nth-child(3) { transition-delay: 200ms !important; }
+    .step:nth-child(4) { transition-delay: 300ms !important; }
+
+    /* Stat counter animation */
+    @keyframes countUp {
+      from { opacity: 0; transform: translateY(8px) scale(0.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .stat.animated .stat-num {
+      animation: countUp 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+
+    /* Page transition for form pages */
+    .req-page {
+      animation: none;
+    }
+    .req-page.active {
+      animation: pageSlideIn 0.35s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    @keyframes pageSlideIn {
+      from { opacity: 0; transform: translateX(12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Stepper done checkmark pop */
+    .step-circle.done {
+      animation: stepDone 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes stepDone {
+      0%   { transform: scale(0.8); }
+      60%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    /* Track card entrance */
+    .track-card {
+      animation: trackCardIn 0.45s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    @keyframes trackCardIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Timeline item stagger */
+    .tl-item {
+      opacity: 0;
+      animation: tlItemIn 0.4s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    .tl-item:nth-child(1) { animation-delay: 0.05s; }
+    .tl-item:nth-child(2) { animation-delay: 0.12s; }
+    .tl-item:nth-child(3) { animation-delay: 0.19s; }
+    .tl-item:nth-child(4) { animation-delay: 0.26s; }
+    .tl-item:nth-child(5) { animation-delay: 0.33s; }
+    @keyframes tlItemIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Submit button pulse on idle */
+    @keyframes subtlePulse {
+      0%, 100% { box-shadow: 0 4px 24px rgba(196,30,58,0.3); }
+      50%       { box-shadow: 0 4px 40px rgba(196,30,58,0.55), 0 0 0 4px rgba(196,30,58,0.08); }
+    }
+    .btn-submit:not(:disabled):hover {
+      animation: subtlePulse 2s ease infinite;
+    }
+
+    /* Error shake */
+    @keyframes shakeX {
+      0%, 100% { transform: translateX(0); }
+      20%       { transform: translateX(-6px); }
+      40%       { transform: translateX(6px); }
+      60%       { transform: translateX(-4px); }
+      80%       { transform: translateX(4px); }
+    }
+    #form-error.shake {
+      animation: shakeX 0.4s cubic-bezier(0.36,0.07,0.19,0.97) both;
+    }
+
+    /* Upload zone hover spark */
+    #upload-zone:hover,
+    #scanner-upload-zone:not(.has-file):hover {
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      transform: translateY(-2px);
+    }
+
+    /* Tab active indicator slide */
+    .tab-btn {
+      position: relative;
+      overflow: hidden;
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 50%;
+      width: 0; height: 2px;
+      background: var(--crimson, #C41E3A);
+      border-radius: 2px;
+      transition: width 0.3s cubic-bezier(0.34,1.56,0.64,1), left 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .tab-btn.active::after {
+      width: 80%; left: 10%;
+    }
+
+    /* Form field focus glow */
+    .form-input:focus,
+    .form-select:focus,
+    .tracker-input:focus {
+      transition: border-color 0.2s, box-shadow 0.25s;
+    }
+
+    /* Review block reveal stagger */
+    .review-block {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .review-block.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // ── IntersectionObserver for scroll reveals ──────────────────
+    const revealEls = document.querySelectorAll('.step, .how-inner, .stats-bar, .scanner-container');
+    revealEls.forEach(el => el.classList.add('reveal-up'));
+
+    const io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    revealEls.forEach(el => io.observe(el));
+
+    // ── Stat counter animation when stats bar is visible ──────────
+    const statItems = document.querySelectorAll('.stat');
+    const statObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          setTimeout(function() {
+            statItems.forEach(function(stat, i) {
+              setTimeout(function() { stat.classList.add('animated'); }, i * 120);
+            });
+          }, 200);
+          statObs.disconnect();
+        }
+      });
+    }, { threshold: 0.5 });
+
+    const statsBar = document.querySelector('.stats-bar');
+    if (statsBar) statObs.observe(statsBar);
+
+    // ── Hero content staggered entrance ──────────────────────────
+    // (Delayed to run after loader dismisses at 3.2s)
+    const heroContent = document.querySelector('.hero-content');
+    const heroEyebrow = document.querySelector('.hero-eyebrow');
+    const heroTitle   = document.querySelector('.hero-title');
+    const heroSub     = document.querySelector('.hero-sub');
+    const heroActions = document.querySelector('.hero-actions');
+
+    [heroEyebrow, heroTitle, heroSub, heroActions].forEach(el => {
+      if (el) { el.style.opacity = '0'; el.style.transform = 'translateY(20px)'; }
+    });
+
+    function revealHero() {
+      var els = [heroEyebrow, heroTitle, heroSub, heroActions];
+      els.forEach(function(el, i) {
+        if (!el) return;
+        setTimeout(function() {
+          el.style.transition = 'opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1)';
+          el.style.opacity    = '1';
+          el.style.transform  = 'translateY(0)';
+        }, 3400 + i * 130);
+      });
+    }
+    revealHero();
+  });
+})();
+
+
+
+
 // ── Tab switching ──────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
