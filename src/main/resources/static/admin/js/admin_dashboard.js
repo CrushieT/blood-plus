@@ -786,9 +786,6 @@ function renderInventoryGrid(apiData) {
       <div class="blood-unit ${isCritical ? 'critical' : ''}">
         <div class="bu-type">${item.label}</div>
         <div class="bu-units">${item.units} units</div>
-        <div class="bu-vol" style="font-size:11px;color:var(--muted);margin-top:1px">
-          ${item.volumeMl ? (item.volumeMl / 1000).toFixed(1) + ' L total' : ''}
-        </div>
         <div class="bu-level ${lm.cls}">${lm.label}</div>
         <div class="bu-bar-wrap">
           <div class="bu-bar ${bc}" style="width:${pct[item.level]}%"></div>

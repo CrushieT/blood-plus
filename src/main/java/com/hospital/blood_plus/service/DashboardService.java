@@ -91,11 +91,8 @@ public class DashboardService {
      * Count total units (only AVAILABLE status)
      */
     private int countTotalAvailableUnits() {
-        List<BloodBag> bags = bloodBagRepository.findByStatusOrderByExpiresAtAsc(BloodBag.BagStatus.AVAILABLE);
-        return bags.stream()
-                .map(BloodBag::getVolumeMl)
-                .mapToInt(Integer::intValue)
-                .sum() / 450; // Approximate: 450mL = 1 unit
+        long totalAvailableBags = bloodBagRepository.countTotalAvailableUnits();
+        return Math.toIntExact(totalAvailableBags);
     }
 
     /**
