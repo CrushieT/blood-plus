@@ -137,7 +137,17 @@ body {
   z-index: 1;
   flex: 1;
   padding: 20px 16px;
-  overflow: hidden;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.nav-section::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .nav-label {
@@ -3839,9 +3849,16 @@ body {
     z-index: 150;
     width: 280px;
     overflow-y: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
+  .sidebar::-webkit-scrollbar { width: 0; height: 0; }
   .sidebar.open { transform: translateX(0); }
-  .nav-section { flex: 1; overflow-y: visible; }
+  .nav-section {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
   .logout-btn  { flex-shrink: 0; margin: 8px 16px 16px; }
 
   .main { margin-left: 0; padding: 72px 16px 24px; }
