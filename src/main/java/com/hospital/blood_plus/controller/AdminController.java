@@ -667,9 +667,9 @@ public class AdminController {
     @GetMapping("/analytics/export")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<?> exportDashboardMetrics(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        String validationError = validateAnalyticsRange(startDate, endDate, true);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        String validationError = validateAnalyticsRange(startDate, endDate, false);
         if (validationError != null) {
             return ResponseEntity.badRequest().body(Map.of("error", validationError));
         }

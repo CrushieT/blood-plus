@@ -1579,23 +1579,23 @@ function openTracerOcrReviewModal(rows, scanResult, sourceName) {
       <tr class="${rowClass}">
         <td>${index + 1}</td>
         <td><input type="checkbox" class="tracer-ocr-row-check" data-row-index="${index}" ${checked}></td>
-        <td>
+        <td class="tracer-ocr-edit-cell">
           <select class="tracer-ocr-edit tracer-ocr-edit-blood-group" data-row-index="${index}">
             ${bloodGroupOptions}
           </select>
         </td>
-        <td>
+        <td class="tracer-ocr-edit-cell">
           <select class="tracer-ocr-edit tracer-ocr-edit-component" data-row-index="${index}">
             ${componentOptions}
           </select>
         </td>
-        <td>
+        <td class="tracer-ocr-edit-cell">
           <input type="text" class="tracer-ocr-edit tracer-ocr-edit-serial" data-row-index="${index}" value="${escapeHtml(row.serialNumber || '')}" placeholder="e.g. V457679" maxlength="10" oninput="enforceSerialNumberFormat(this)">
         </td>
-        <td>
+        <td class="tracer-ocr-edit-cell">
           <input type="date" class="tracer-ocr-edit tracer-ocr-edit-collected" data-row-index="${index}" value="${escapeHtml(row.collectedAt || '')}">
         </td>
-        <td>
+        <td class="tracer-ocr-edit-cell">
           <input type="date" class="tracer-ocr-edit tracer-ocr-edit-expires" data-row-index="${index}" value="${escapeHtml(row.expiresAt || '')}">
         </td>
         <td>
@@ -1606,7 +1606,44 @@ function openTracerOcrReviewModal(rows, scanResult, sourceName) {
     `;
   }).join('');
 
+  bindTracerReviewEditHitArea();
   openModal('tracerOcrReviewModal');
+}
+
+function bindTracerReviewEditHitArea() {
+  const tbody = document.getElementById('tracer-ocr-review-rows');
+  if (!tbody || tbody.dataset.hitAreaBound === 'true') return;
+  tbody.dataset.hitAreaBound = 'true';
+
+  tbody.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    if (target.closest('.tracer-ocr-edit, .tracer-ocr-row-check')) return;
+
+    const editableCell = target.closest('td.tracer-ocr-edit-cell');
+    if (!editableCell) return;
+
+    const field = editableCell.querySelector('.tracer-ocr-edit');
+    if (!(field instanceof HTMLElement)) return;
+
+    field.focus();
+
+    if (field instanceof HTMLInputElement) {
+      if (field.type === 'date' && typeof field.showPicker === 'function') {
+        field.showPicker();
+        return;
+      }
+      if (field.type === 'text') {
+        const len = field.value.length;
+        try { field.setSelectionRange(len, len); } catch (_) {}
+      }
+    }
+
+    if (field instanceof HTMLSelectElement) {
+      field.click();
+    }
+  });
 }
 
 function openTracerDuplicateErrorModal(duplicateSerials) {
@@ -5044,22 +5081,32 @@ window.printAnalyticsWithRange = async function() {
   const toInput = document.getElementById('analytics-export-to-date');
   const startDate = fromInput ? fromInput.value : '';
   const endDate = toInput ? toInput.value : '';
+  const hasDateFilter = Boolean(startDate || endDate);
 
-  if (!startDate || !endDate) {
-    alert('Please select both start and end dates before exporting analytics.');
+  if (hasDateFilter && (!startDate || !endDate)) {
+    alert('Please select both start and end dates, or leave both empty to export all analytics data.');
     return;
   }
-  if (startDate > endDate) {
+  if (hasDateFilter && startDate > endDate) {
     alert('Start date must be on or before end date.');
     return;
   }
 
   let exportData = null;
   try {
-    const query = new URLSearchParams({ startDate, endDate });
-    const response = await fetch(`${window.location.origin}/api/admin/analytics/export?${query.toString()}`);
+    const query = new URLSearchParams();
+    if (hasDateFilter) {
+      query.set('startDate', startDate);
+      query.set('endDate', endDate);
+    }
+    const exportUrl = query.toString()
+      ? `${window.location.origin}/api/admin/analytics/export?${query.toString()}`
+      : `${window.location.origin}/api/admin/analytics/export`;
+    const response = await fetch(exportUrl);
     if (!response.ok) {
-      let message = 'Failed to export analytics for the selected date range.';
+      let message = hasDateFilter
+        ? 'Failed to export analytics for the selected date range.'
+        : 'Failed to export analytics data.';
       try {
         const errorBody = await response.json();
         if (errorBody && errorBody.error) {
@@ -5078,7 +5125,7 @@ window.printAnalyticsWithRange = async function() {
 
   const previousData = window.AnalyticsDashboard ? window.AnalyticsDashboard.data : null;
   const previousRange = window.__analyticsExportRangeLabel;
-  const exportRangeLabel = `${startDate} to ${endDate}`;
+  const exportRangeLabel = hasDateFilter ? `${startDate} to ${endDate}` : 'All Time';
 
   try {
     if (window.AnalyticsDashboard) {

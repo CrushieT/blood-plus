@@ -3623,7 +3623,7 @@ function startAutoRefresh() {
     if (document.hidden) return;
     loadHospitalRequests();
     loadBloodBankAvailability();
-  }, 30000); // 30 seconds
+  }, 5000); // 30 seconds
 }
 
 /**
