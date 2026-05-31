@@ -12670,6 +12670,12 @@ let dataSnapshots = {
   requests: null,
   logging: null,  
 };
+const autoRefreshInFlight = {
+  dashboard: false,
+  bloodBank: false,
+  requests: false,
+  logging: false,
+};
 /**
  * Creates a snapshot of data for change detection
  */
@@ -12690,6 +12696,8 @@ function hasDataChanged(oldSnapshot, newSnapshot) {
  * Fetches and compares dashboard data
  */
 async function checkDashboardUpdates() {
+  if (autoRefreshInFlight.dashboard) return;
+  autoRefreshInFlight.dashboard = true;
   try {
     const res = await fetch('/api/admin/dashboard', { headers: { Accept: 'application/json' } });
     if (!res.ok) return;
@@ -12703,6 +12711,8 @@ async function checkDashboardUpdates() {
     }
   } catch (err) {
     console.error('[Auto-Refresh] Dashboard check failed:', err);
+  } finally {
+    autoRefreshInFlight.dashboard = false;
   }
 }
 
@@ -12710,6 +12720,8 @@ async function checkDashboardUpdates() {
  * Fetches and compares blood bank data
  */
 async function checkBloodBankUpdates() {
+  if (autoRefreshInFlight.bloodBank) return;
+  autoRefreshInFlight.bloodBank = true;
   try {
     const res = await fetch('/api/admin/blood-bank/bags', { headers: { Accept: 'application/json' } });
     if (!res.ok) return;
@@ -12723,6 +12735,8 @@ async function checkBloodBankUpdates() {
     }
   } catch (err) {
     console.error('[Auto-Refresh] Blood Bank check failed:', err);
+  } finally {
+    autoRefreshInFlight.bloodBank = false;
   }
 }
 
@@ -12730,6 +12744,8 @@ async function checkBloodBankUpdates() {
  * Fetches and compares blood requests data
  */
 async function checkBloodRequestsUpdates() {
+  if (autoRefreshInFlight.requests) return;
+  autoRefreshInFlight.requests = true;
   try {
     const res = await fetch('/api/admin/blood-requests', { headers: { Accept: 'application/json' } });
     if (!res.ok) return;
@@ -12743,6 +12759,8 @@ async function checkBloodRequestsUpdates() {
     }
   } catch (err) {
     console.error('[Auto-Refresh] Blood Requests check failed:', err);
+  } finally {
+    autoRefreshInFlight.requests = false;
   }
 }
 
@@ -12823,6 +12841,8 @@ function changeRefreshInterval(seconds) {
 }
 
 async function checkLoggingUpdates() {
+  if (autoRefreshInFlight.logging) return;
+  autoRefreshInFlight.logging = true;
   try {
     const res = await fetch('/api/admin/logs/summary', { headers: { Accept: 'application/json' } });
     if (!res.ok) return;
@@ -12841,6 +12861,8 @@ async function checkLoggingUpdates() {
     }
   } catch (err) {
     console.error('[Auto-Refresh] Logging check failed:', err);
+  } finally {
+    autoRefreshInFlight.logging = false;
   }
 }
 
