@@ -232,13 +232,28 @@
     @media screen {
       [data-field][contenteditable="true"] {
         outline: 1px dashed transparent;
-        padding: 0 2px;
+        border-radius: 4px;
+        padding: 1px 3px;
+        transition: outline-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        cursor: text;
       }
 
       [data-field][contenteditable="true"]:hover,
       [data-field][contenteditable="true"]:focus {
-        outline-color: #2f7a45;
-        background: #f3faf5;
+        outline-color: #0b7a36;
+        background: #eefaf1;
+        box-shadow: 0 0 0 2px rgba(11, 122, 54, 0.18);
+      }
+
+      .line.editing-line {
+        background: #f3fff6;
+        border-bottom-color: #0b7a36;
+        box-shadow: inset 0 -2px 0 rgba(11, 122, 54, 0.35);
+      }
+
+      .form-table td.editing-cell {
+        background: #f3fff6;
+        box-shadow: inset 0 0 0 2px rgba(11, 122, 54, 0.35);
       }
     }
 
@@ -636,8 +651,7 @@
         <div class="field-row">
           <span class="field-label">Transport Box Temp.:</span>
           <span class="line w-temp"><span data-field="transportBoxTemp"></span></span>
-          <span style="padding-left: 0.07in;">°C</span>
-        </div>
+                  </div>
 
         <div class="field-row">
           <span class="field-label">Transaction Number:</span>
@@ -816,7 +830,7 @@
           sex: "M",
           ward: "ER",
           rmNo: "101",
-          indicationCode: "001",
+          indicationCode: "",
           transfusionDate: "2026-05-13",
           comp: "PRBC",
           rxn: "None",
@@ -988,7 +1002,7 @@
         const src = source[i] || {};
         const normalized = {};
         TABLE_COLUMNS.forEach(function (column) {
-          normalized[column] = toText(src?.[column]);
+          normalized[column] = column === "indicationCode" ? "" : toText(src?.[column]);
         });
         normalizedRows.push(normalized);
       }
@@ -1016,14 +1030,14 @@
         qualityManager: "Mary Ann C. Mejia, RMT",
         receivingOfficer: "",
         pathologist: "MONINA CACAWA-MONTENEGRO, MD",
-        checkSignHemolysis: false,
-        checkBloodClots: false,
-        checkLeakageOnBag: false,
-        checkBacterialContamination: false,
-        checkGreenishDiscoloration: false,
-        checkIndirectCoolantContact: false,
-        checkPlasmaNotFrozen: false,
-        checkCoolantsSufficientFrozen: false,
+        checkSignHemolysis: true,
+        checkBloodClots: true,
+        checkLeakageOnBag: true,
+        checkBacterialContamination: true,
+        checkGreenishDiscoloration: true,
+        checkIndirectCoolantContact: true,
+        checkPlasmaNotFrozen: true,
+        checkCoolantsSufficientFrozen: true,
         rows: [],
         ...payload
       };
@@ -1056,7 +1070,7 @@
       merged.transportBoxTemp = toText(payload.transportBoxTemp);
       merged.receivingOfficer = toText(payload.receivingOfficer);
       CHECKLIST_FIELDS.forEach(function (fieldName) {
-        merged[fieldName] = normalizeChecklistValue(merged[fieldName], false);
+        merged[fieldName] = normalizeChecklistValue(merged[fieldName], true);
       });
       merged.rows = normalizeRows(payload.rows);
 
@@ -1084,6 +1098,28 @@
     function enableEditing() {
       document.querySelectorAll("[data-field]").forEach(function (element) {
         element.setAttribute("contenteditable", "true");
+      });
+      bindEditingVisuals();
+    }
+
+    function bindEditingVisuals() {
+      document.querySelectorAll('[data-field][contenteditable="true"]').forEach(function (el) {
+        if (el.dataset.editVisualBound === "true") return;
+        el.dataset.editVisualBound = "true";
+
+        el.addEventListener("focus", function () {
+          const line = el.closest(".line");
+          const cell = el.closest("td");
+          if (line) line.classList.add("editing-line");
+          if (cell) cell.classList.add("editing-cell");
+        });
+
+        el.addEventListener("blur", function () {
+          const line = el.closest(".line");
+          const cell = el.closest("td");
+          if (line) line.classList.remove("editing-line");
+          if (cell) cell.classList.remove("editing-cell");
+        });
       });
     }
 
@@ -1399,3 +1435,4 @@
   </script>
 </body>
 </html>
+

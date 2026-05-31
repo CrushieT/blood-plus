@@ -138,6 +138,8 @@ async function login() {
             window.location.href = "../admin/admin_dashboard.html";
         } else if (text === "LOGIN_SUCCESS_STAFF") {
             window.location.href = "../admin/admin_dashboard.html";
+        } else if (text === "LOGIN_INACTIVE") {
+            showPopup("Your account is inactive. Please contact the blood bank staff for assistance.");
         } else if (text === "LOGIN_FAILED") {
             showPopup("Check your email or password!");
         } else {

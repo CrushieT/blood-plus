@@ -23,7 +23,7 @@
     <div class="logo-area">
       <div class="logo">CNPH Blood Bank</div>
       <div class="logo-sub">Camarines Norte Provincial Hospital</div>
-      <div class="admin-badge">Admin Panel</div>
+      <div class="admin-badge" id="admin-panel-badge">Admin Panel</div>
     </div>
 
     <nav class="nav-section">
@@ -347,10 +347,12 @@
                 <option value="DISCARDED">Discarded</option>
               </select>
               <select id="bags-sort" onchange="renderBagsTable()" class="bb-select">
+                <option value="collected_desc" selected>Newest collected</option>
+                <option value="collected_asc">Oldest collected</option>
                 <option value="expiry_asc">Expiry ↑ (soonest first)</option>
                 <option value="expiry_desc">Expiry ↓ (latest first)</option>
-                <option value="collected_desc">Newest collected</option>
-                <option value="collected_asc">Oldest collected</option>
+                <option value="registered_desc">Newest registered</option>
+                <option value="registered_asc">Oldest registered</option>
               </select>
             </div>
           </div>
@@ -586,6 +588,28 @@
           <option value="HIGH"> High</option>
           <option value="MEDIUM"> Medium</option> 
           <option value="LOW"> Low</option>
+        </select>
+        <select class="req-select" id="req-filter-blood-type" onchange="reqHandleServerFiltersChange()">
+          <option value="ALL">All Blood Types</option>
+          <option value="A_POS">A Pos</option>
+          <option value="A_NEG">A Neg</option>
+          <option value="B_POS">B Pos</option>
+          <option value="B_NEG">B Neg</option>
+          <option value="AB_POS">AB Pos</option>
+          <option value="AB_NEG">AB Neg</option>
+          <option value="O_POS">O Pos</option>
+          <option value="O_NEG">O Neg</option>
+        </select>
+        <select class="req-select" id="req-filter-component" onchange="reqHandleServerFiltersChange()">
+          <option value="ALL">All Components</option>
+          <option value="WHOLE_BLOOD">Whole Blood</option>
+          <option value="PRBC">PRBC</option>
+          <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
+          <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
+          <option value="PLATELET_CONCENTRATE">Platelet</option>
+          <option value="FRESH_FROZEN_PLASMA">FFP</option>
+          <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
+          <option value="CRYOSUPERNATANT">Cryosupernatant</option>
         </select>
         <select class="req-select" id="req-sort" onchange="reqApplyClientFilters()">
           <option value="date_desc">Newest first</option>

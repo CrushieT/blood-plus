@@ -139,18 +139,20 @@ public class AdminController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "ALL") String status,
-            @RequestParam(defaultValue = "expiry_asc") String sort,
+            @RequestParam(defaultValue = "collected_desc") String sort,
             @RequestParam(defaultValue = "ALL") String bloodType,
             @RequestParam(defaultValue = "ALL") String component,
             @RequestParam(required = false) String search) {
         try {
-            BloodBag.BagStatus statusFilter = parseBagStatus(status);
+            boolean expiringOnly = "EXPIRING".equalsIgnoreCase(status);
+            BloodBag.BagStatus statusFilter = expiringOnly ? BloodBag.BagStatus.AVAILABLE : parseBagStatus(status);
             BloodBag.BloodType bloodTypeFilter = parseBloodTypeFilter(bloodType);
             BloodBag.ComponentType componentFilter = parseComponentFilter(component);
             PaginatedResponse<BloodBagResponse> response = bloodBagService.getBagsPage(
                     page,
                     size,
                     statusFilter,
+                    expiringOnly,
                     bloodTypeFilter,
                     componentFilter,
                     sort,
@@ -250,11 +252,13 @@ public class AdminController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(required = false) BloodBagRequest.RequestStatus status,
+            @RequestParam(required = false) BloodBag.BloodType bloodType,
+            @RequestParam(required = false) BloodBag.ComponentType component,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
         return ResponseEntity.ok(
-                bloodBagRequestService.getAdminRequestList(page, size, status, search, dateFrom, dateTo)
+                bloodBagRequestService.getAdminRequestList(page, size, status, bloodType, component, search, dateFrom, dateTo)
         );
     }
 
@@ -262,10 +266,12 @@ public class AdminController {
     @GetMapping("/blood-requests/status-counts")
     public ResponseEntity<Map<String, Long>> getRequestStatusCounts(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) BloodBag.BloodType bloodType,
+            @RequestParam(required = false) BloodBag.ComponentType component,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
         return ResponseEntity.ok(
-                bloodBagRequestService.getAdminRequestStatusCounts(search, dateFrom, dateTo)
+                bloodBagRequestService.getAdminRequestStatusCounts(search, bloodType, component, dateFrom, dateTo)
         );
     }
 
@@ -661,9 +667,9 @@ public class AdminController {
     @GetMapping("/analytics/export")
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<?> exportDashboardMetrics(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        String validationError = validateAnalyticsRange(startDate, endDate, true);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        String validationError = validateAnalyticsRange(startDate, endDate, false);
         if (validationError != null) {
             return ResponseEntity.badRequest().body(Map.of("error", validationError));
         }

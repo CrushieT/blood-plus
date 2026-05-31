@@ -176,6 +176,14 @@ public class HospitalService {
             user.setPassword(passwordEncoder.encode(newPassword));
         }
 
+        if (req.getStatus() != null && !req.getStatus().isBlank()) {
+            String normalizedStatus = req.getStatus().trim().toLowerCase();
+            if (!"active".equals(normalizedStatus) && !"inactive".equals(normalizedStatus)) {
+                throw new IllegalArgumentException("Invalid status value. Use active or inactive.");
+            }
+            user.setEmailVerified("active".equals(normalizedStatus));
+        }
+
         userRepository.save(user);
         hosp = hospitalRepository.save(hosp);
         return toResponse(hosp);
@@ -210,6 +218,7 @@ public class HospitalService {
                 hosp.getContactPersonName(),
                 hosp.getContactPersonPhone(),
                 hosp.getUser().getEmail(),
+                hosp.getUser().isEmailVerified() ? "active" : "inactive",
                 hosp.getRequests().size(),
                 hosp.getCreatedAt().format(fmt)
         );

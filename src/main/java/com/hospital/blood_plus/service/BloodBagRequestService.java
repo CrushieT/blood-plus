@@ -209,6 +209,8 @@ public class BloodBagRequestService {
             int page,
             int size,
             BloodBagRequest.RequestStatus status,
+            BloodBag.BloodType bloodType,
+            BloodBag.ComponentType componentType,
             String search,
             LocalDateTime dateFrom,
             LocalDateTime dateTo
@@ -225,6 +227,8 @@ public class BloodBagRequestService {
 
         Page<BloodBagRequest> pageData = repository.findForAdminList(
                 status,
+                bloodType,
+                componentType,
                 normalizedSearch,
                 dateFrom,
                 dateTo,
@@ -246,6 +250,8 @@ public class BloodBagRequestService {
 
     public Map<String, Long> getAdminRequestStatusCounts(
             String search,
+            BloodBag.BloodType bloodType,
+            BloodBag.ComponentType componentType,
             LocalDateTime dateFrom,
             LocalDateTime dateTo
     ) {
@@ -257,7 +263,7 @@ public class BloodBagRequestService {
 
         long allCount = 0L;
         List<BloodBagRequestRepository.StatusCountRow> rows =
-                repository.countForAdminStatusSummary(normalizedSearch, dateFrom, dateTo);
+                repository.countForAdminStatusSummary(normalizedSearch, bloodType, componentType, dateFrom, dateTo);
         for (BloodBagRequestRepository.StatusCountRow row : rows) {
             if (row == null || row.getStatus() == null) continue;
             long count = row.getTotal();

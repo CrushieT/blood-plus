@@ -2,6 +2,7 @@ package com.hospital.blood_plus.repository;
 
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.model.BloodBag.ComponentType;
+import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.model.BloodBagRequest.RequestCategory;
 import com.hospital.blood_plus.model.BloodBagRequest.RequestStatus;
@@ -52,6 +53,8 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         FROM BloodBagRequest r
         LEFT JOIN r.hospitalProfile hp
         WHERE (:status IS NULL OR r.status = :status)
+          AND (:bloodType IS NULL OR r.bloodType = :bloodType)
+          AND (:componentType IS NULL OR r.bloodComponent = :componentType)
           AND (:from IS NULL OR r.requestedAt >= :from)
           AND (:to IS NULL OR r.requestedAt <= :to)
           AND (
@@ -65,6 +68,8 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     """)
     Page<BloodBagRequest> findForAdminList(
             @Param("status") BloodBagRequest.RequestStatus status,
+            @Param("bloodType") BloodBag.BloodType bloodType,
+            @Param("componentType") ComponentType componentType,
             @Param("search") String search,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
@@ -75,7 +80,9 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         SELECT r.status AS status, COUNT(r) AS total
         FROM BloodBagRequest r
         LEFT JOIN r.hospitalProfile hp
-        WHERE (:from IS NULL OR r.requestedAt >= :from)
+        WHERE (:bloodType IS NULL OR r.bloodType = :bloodType)
+          AND (:componentType IS NULL OR r.bloodComponent = :componentType)
+          AND (:from IS NULL OR r.requestedAt >= :from)
           AND (:to IS NULL OR r.requestedAt <= :to)
           AND (
                 :search IS NULL
@@ -89,6 +96,8 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     """)
     List<StatusCountRow> countForAdminStatusSummary(
             @Param("search") String search,
+            @Param("bloodType") BloodBag.BloodType bloodType,
+            @Param("componentType") ComponentType componentType,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to
     );
