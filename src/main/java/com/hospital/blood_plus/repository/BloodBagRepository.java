@@ -56,6 +56,31 @@ public interface BloodBagRepository extends JpaRepository<BloodBag, Long> {
     @Query("""
         SELECT b
         FROM BloodBag b
+        WHERE b.status = 'AVAILABLE'
+          AND b.expiresAt IS NOT NULL
+          AND b.expiresAt >= :now
+          AND b.expiresAt <= :soon
+          AND (:bloodType IS NULL OR b.bloodType = :bloodType)
+          AND (:componentType IS NULL OR b.componentType = :componentType)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(b.serialNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(b.transactionNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+    """)
+    Page<BloodBag> findExpiringForAdmin(
+            @Param("bloodType") BloodType bloodType,
+            @Param("componentType") ComponentType componentType,
+            @Param("search") String search,
+            @Param("now") LocalDateTime now,
+            @Param("soon") LocalDateTime soon,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT b
+        FROM BloodBag b
         WHERE (:status IS NULL OR b.status = :status)
           AND (:bloodType IS NULL OR b.bloodType = :bloodType)
           AND (:componentType IS NULL OR b.componentType = :componentType)

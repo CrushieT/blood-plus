@@ -1277,6 +1277,15 @@ function buildReview() {
   document.getElementById('review-doc').innerHTML =
     '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Document</div>' +
     reviewRow('File', selectedFile ? selectedFile.name : '— (no file)');
+
+  // Reveal review blocks with a small stagger so Step 4 content is visible.
+  const reviewBlocks = document.querySelectorAll('#page-4 .review-block');
+  reviewBlocks.forEach(block => block.classList.remove('revealed'));
+  window.requestAnimationFrame(() => {
+    reviewBlocks.forEach((block, index) => {
+      setTimeout(() => block.classList.add('revealed'), index * 60);
+    });
+  });
 }
 
 // ── File upload ────────────────────────────────────────────────

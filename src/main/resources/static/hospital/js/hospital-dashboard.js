@@ -3066,6 +3066,24 @@ function loadProfileDataWhenShown() {
     }
 }
 
+function updateSidebarUserCard(profile) {
+    const hospitalName = (profile?.hospitalName || '').trim() || 'Hospital';
+    const initials = hospitalName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part.charAt(0).toUpperCase())
+        .join('') || 'HP';
+
+    const avatarEl = document.getElementById('sidebar-user-avatar');
+    const nameEl = document.getElementById('sidebar-user-name');
+    const typeEl = document.getElementById('sidebar-user-type');
+
+    if (avatarEl) avatarEl.textContent = initials;
+    if (nameEl) nameEl.textContent = hospitalName;
+    if (typeEl) typeEl.textContent = 'Hospital Account';
+}
+
 // Override showPanel to load profile when needed
 const originalShowPanel = window.showPanel;
 window.showPanel = function(id, navEl) {
@@ -3106,6 +3124,8 @@ async function loadHospitalProfile() {
 
 
 function populateProfileForm(data) {
+    updateSidebarUserCard(data);
+
     // Hospital name
     document.getElementById('profile-hospital-name').textContent = data.hospitalName || 'Hospital';
     document.getElementById('profile-hospital-name-input').value = data.hospitalName || '';
@@ -3566,6 +3586,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load requests from backend
   loadHospitalRequests();
+  loadHospitalProfile();
 
   
 

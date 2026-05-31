@@ -47,11 +47,11 @@
             </div>
         </nav>
 
-        <div class="user-card">
-            <div class="user-avatar">PG</div>
+        <div class="user-card" id="sidebar-user-card">
+            <div class="user-avatar" id="sidebar-user-avatar">PG</div>
             <div style="flex:1;min-width:0">
-            <div class="user-name">Philippine General Hospital</div>
-            <div class="user-type">Hospital Account</div>
+            <div class="user-name" id="sidebar-user-name">Philippine General Hospital</div>
+            <div class="user-type" id="sidebar-user-type">Hospital Account</div>
             </div>
         </div>
 
@@ -2039,7 +2039,6 @@
                 <div class="profile-hero-name" id="profile-hospital-name">Philippine General Hospital</div>
                 <div class="profile-hero-sub"><span id="profile-email">pgh@doh.gov.ph</span>  ·  <span id="profile-account-type">Registered Hospital Account</span></div>
                 <div class="profile-hero-tags">
-                <span class="profile-hero-tag" id="profile-type-tag">🏥 Government Hospital</span>
                 <span class="profile-hero-tag" id="profile-verified-tag">✓ Verified</span>
                 <span class="profile-hero-tag" id="profile-location-tag">📍 Taft Ave, Manila</span>
                 </div>
@@ -2058,16 +2057,6 @@
                         <label>Hospital Name <span class="req">*</span></label>
                         <input type="text" id="profile-hospital-name-input" placeholder="Hospital Name" maxlength="25" aria-describedby="profile-hospital-name-input-error">
                         <div class="form-inline-error" id="profile-hospital-name-input-error"></div>
-                    </div>
-                    <div class="fg">
-                        <label>Hospital Type</label>
-                        <select id="profile-hospital-type-input">
-                        <option value="Government">Government</option>
-                        <option value="Private">Private</option>
-                        <option value="District">District</option>
-                        <option value="Provincial">Provincial</option>
-                        <option value="Municipal">Municipal</option>
-                        </select>
                     </div>
                     <div class="fg form-full">
                         <label>Complete Address <span class="req">*</span></label>

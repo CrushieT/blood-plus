@@ -49,6 +49,7 @@ public class HospitalDTOs {
         private String contactPersonPhone;
         private String email;
         private String newPassword;
+        private String status; // "active" | "inactive"
 
         public String getHospitalName() { return hospitalName; }
         public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
@@ -76,6 +77,9 @@ public class HospitalDTOs {
 
         public String getNewPassword() { return newPassword; }
         public void setNewPassword(String newPassword) { this.newPassword = newPassword; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
     }
 
     // ── Hospital Response ──
@@ -90,12 +94,13 @@ public class HospitalDTOs {
         private String contactPersonName;
         private String contactPersonPhone;
         private String email;
+        private String status;
         private Integer requestCount;
         private String createdAt;
 
         public HospitalResponse(Long id, Long userId, String hospitalName, String address, String city,
                                 String province, String phoneNumber, String contactPersonName,
-                                String contactPersonPhone, String email, Integer requestCount, String createdAt) {
+                                String contactPersonPhone, String email, String status, Integer requestCount, String createdAt) {
             this.id = id;
             this.userId = userId;
             this.hospitalName = hospitalName;
@@ -106,6 +111,7 @@ public class HospitalDTOs {
             this.contactPersonName = contactPersonName;
             this.contactPersonPhone = contactPersonPhone;
             this.email = email;
+            this.status = status;
             this.requestCount = requestCount;
             this.createdAt = createdAt;
         }
@@ -120,6 +126,7 @@ public class HospitalDTOs {
         public String getContactPersonName() { return contactPersonName; }
         public String getContactPersonPhone() { return contactPersonPhone; }
         public String getEmail() { return email; }
+        public String getStatus() { return status; }
         public Integer getRequestCount() { return requestCount; }
         public String getCreatedAt() { return createdAt; }
     }

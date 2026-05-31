@@ -1,6 +1,13 @@
 ﻿// -------------------------------------------------------------------------------
 // INIT
 // -------------------------------------------------------------------------------
+function updateAdminPanelBadge(role) {
+  const badgeEl = document.getElementById('admin-panel-badge');
+  if (!badgeEl) return;
+  const normalizedRole = String(role || '').trim().toUpperCase();
+  badgeEl.textContent = normalizedRole === 'ADMIN' ? 'Admin Panel' : 'Staff Panel';
+}
+
 async function initializeNav() {
   try {
     const res = await fetch('/api/auth/me', {
@@ -13,6 +20,7 @@ async function initializeNav() {
     }
     
     const user = await res.json();
+    updateAdminPanelBadge(user.role);
     const staffNavItem = document.querySelector('[onclick="showPanel(\'staff\', this)"]');
     
     // Hide staff management if user is not ADMIN
@@ -533,8 +541,8 @@ async function loadInventory() {
 }
 
 function mapBagSortToApi(sortValue) {
-  const allowed = new Set(['expiry_asc', 'expiry_desc', 'collected_desc', 'collected_asc']);
-  return allowed.has(sortValue) ? sortValue : 'expiry_asc';
+  const allowed = new Set(['collected_desc', 'collected_asc', 'expiry_asc', 'expiry_desc', 'registered_desc', 'registered_asc']);
+  return allowed.has(sortValue) ? sortValue : 'collected_desc';
 }
 
 function normalizeBloodTypeFilterForApi(value) {
@@ -548,7 +556,7 @@ function collectBagsFilterState() {
     bloodTypeFilter: document.getElementById('bags-filter-bt')?.value || 'ALL',
     componentFilter: document.getElementById('bags-filter-comp')?.value || 'ALL',
     statusFilter: document.getElementById('bags-filter-status')?.value || 'ALL',
-    sort: document.getElementById('bags-sort')?.value || 'expiry_asc',
+    sort: document.getElementById('bags-sort')?.value || 'collected_desc',
     fromDate: document.getElementById('bags-print-from-date')?.value || '',
     toDate: document.getElementById('bags-print-to-date')?.value || '',
   };
@@ -557,9 +565,6 @@ function collectBagsFilterState() {
 function applyLocalBagFilters(rows, filters) {
   const {
     query,
-    bloodTypeFilter,
-    componentFilter,
-    statusFilter,
     fromDate,
     toDate,
   } = filters;
@@ -570,10 +575,7 @@ function applyLocalBagFilters(rows, filters) {
 
   let list = rows.map((bag) => ({ ...bag, computedStatus: computeBagStatus(bag) }));
 
-  // blood type/component are now filtered server-side
-  if (statusFilter !== 'ALL') {
-    list = list.filter((b) => b.computedStatus === statusFilter);
-  }
+  // status, blood type, and component are filtered server-side
   if (rangeStart || rangeEnd) {
     list = list.filter((b) => {
       const collected = parseBloodBagDateValue(b.collectedAt);
@@ -617,11 +619,10 @@ async function loadBloodBags(page = bagsCurrentPage) {
   const requestToken = ++bagsRequestToken;
   try {
     const filters = collectBagsFilterState();
-    const apiStatus = filters.statusFilter === 'EXPIRING' ? 'AVAILABLE' : filters.statusFilter;
     const params = new URLSearchParams({
       page: String(Math.max(page, 1)),
       size: String(BAGS_PER_PAGE),
-      status: apiStatus,
+      status: filters.statusFilter,
       sort: mapBagSortToApi(filters.sort),
     });
     if (filters.bloodTypeFilter !== 'ALL') {
@@ -650,6 +651,7 @@ async function loadBloodBags(page = bagsCurrentPage) {
       transactionNumber: b.transactionNumber ?? null,
       remarks:           b.remarks           ?? null,
       collectedAt:       b.collectedAt,
+      createdAt:         b.createdAt,
       expiresAt:         b.expiresAt,
       status:            b.status,
       source:            b.source,
@@ -674,7 +676,6 @@ async function loadBloodBags(page = bagsCurrentPage) {
 
     bagsCurrent = applyLocalBagFilters(BLOOD_BAGS, filters);
     bagsHasLocalPostFilter =
-      filters.statusFilter === 'EXPIRING' ||
       !!filters.fromDate ||
       !!filters.toDate;
 
@@ -5399,11 +5400,15 @@ function sortBloodBagListBySelection(list, sortValue) {
     const bExpiry = parseBloodBagDateValue(b.expiresAt)?.getTime() || 0;
     const aCollected = parseBloodBagDateValue(a.collectedAt)?.getTime() || 0;
     const bCollected = parseBloodBagDateValue(b.collectedAt)?.getTime() || 0;
+    const aRegistered = parseBloodBagDateValue(a.createdAt)?.getTime() || 0;
+    const bRegistered = parseBloodBagDateValue(b.createdAt)?.getTime() || 0;
 
-    if (sortValue === 'expiry_asc') return aExpiry - bExpiry;
-    if (sortValue === 'expiry_desc') return bExpiry - aExpiry;
     if (sortValue === 'collected_desc') return bCollected - aCollected;
     if (sortValue === 'collected_asc') return aCollected - bCollected;
+    if (sortValue === 'expiry_asc') return aExpiry - bExpiry;
+    if (sortValue === 'expiry_desc') return bExpiry - aExpiry;
+    if (sortValue === 'registered_desc') return bRegistered - aRegistered;
+    if (sortValue === 'registered_asc') return aRegistered - bRegistered;
     return 0;
   });
 }
@@ -5419,7 +5424,7 @@ function escapeBloodBagReportHtml(value) {
 
 window.getBloodBagsForPrint = function(mode = 'current') {
   const effectiveMode = mode === 'range' ? 'range' : 'current';
-  const selectedSort = document.getElementById('bags-sort')?.value || 'expiry_asc';
+  const selectedSort = document.getElementById('bags-sort')?.value || 'collected_desc';
 
   if (effectiveMode === 'range') {
     const fromDate = document.getElementById('bags-print-from-date')?.value || '';
@@ -6281,6 +6286,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       urgencyLevel:   r.urgencyLevel     ?? 'LOW',
       requiredBy:     r.requiredBy       ?? null,
       reviewedAt:     r.reviewedAt       ?? null,
+      requestedAt:    r.requestedAt      ?? null,
       date:           r.requestedAt
         ? new Date(r.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '–',
@@ -6360,6 +6366,14 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     return (document.getElementById('req-search')?.value || '').trim();
   }
 
+  function reqGetBloodTypeFilter() {
+    return document.getElementById('req-filter-blood-type')?.value || 'ALL';
+  }
+
+  function reqGetComponentFilter() {
+    return document.getElementById('req-filter-component')?.value || 'ALL';
+  }
+
   function reqBuildListQuery(page) {
     const params = new URLSearchParams({
       page: String(Math.max(page, 1)),
@@ -6374,6 +6388,14 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     if (searchQuery) {
       params.append('search', searchQuery);
     }
+    const bloodType = reqGetBloodTypeFilter();
+    if (bloodType !== 'ALL') {
+      params.append('bloodType', bloodType);
+    }
+    const component = reqGetComponentFilter();
+    if (component !== 'ALL') {
+      params.append('component', component);
+    }
 
     return params;
   }
@@ -6383,6 +6405,14 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     const searchQuery = reqGetSearchQuery();
     if (searchQuery) {
       params.append('search', searchQuery);
+    }
+    const bloodType = reqGetBloodTypeFilter();
+    if (bloodType !== 'ALL') {
+      params.append('bloodType', bloodType);
+    }
+    const component = reqGetComponentFilter();
+    if (component !== 'ALL') {
+      params.append('component', component);
     }
     return params;
   }
@@ -7432,38 +7462,24 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     const sort    = document.getElementById('req-sort')?.value || 'date_desc';
     let list = reqData.slice();
     if (urgency !== 'ALL')          list = list.filter(r => r.urgency === urgency);
+
+    const requestTs = (r) => {
+      const ts = new Date(r?.requestedAt || 0).getTime();
+      return Number.isFinite(ts) ? ts : 0;
+    };
+
     if (sort === 'date_desc') {
       list.sort((a, b) => {
-        const statusDiff =
-          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
-          (REQ_STATUS_PRIORITY[b.status] ?? 99);
-
-        if (statusDiff !== 0) return statusDiff;
-
-        const urgencyDiff =
-          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
-          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
-
-        if (urgencyDiff !== 0) return urgencyDiff;
-
-        return b.id - a.id;
+        const tsDiff = requestTs(b) - requestTs(a);
+        if (tsDiff !== 0) return tsDiff;
+        return (Number(b?.id) || 0) - (Number(a?.id) || 0);
       });
     }
     else if (sort === 'date_asc') {
       list.sort((a, b) => {
-        const statusDiff =
-          (REQ_STATUS_PRIORITY[a.status] ?? 99) -
-          (REQ_STATUS_PRIORITY[b.status] ?? 99);
-
-        if (statusDiff !== 0) return statusDiff;
-
-        const urgencyDiff =
-          (REQ_URGENCY_ORDER[a.urgency] ?? 99) -
-          (REQ_URGENCY_ORDER[b.urgency] ?? 99);
-
-        if (urgencyDiff !== 0) return urgencyDiff;
-
-        return a.id - b.id;
+        const tsDiff = requestTs(a) - requestTs(b);
+        if (tsDiff !== 0) return tsDiff;
+        return (Number(a?.id) || 0) - (Number(b?.id) || 0);
       });
     }
     else if (sort === 'units_desc') {
@@ -7471,6 +7487,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
         const aUnits = Number(a?.units ?? 0);
         const bUnits = Number(b?.units ?? 0);
         if (bUnits !== aUnits) return bUnits - aUnits;
+        const tsDiff = requestTs(b) - requestTs(a);
+        if (tsDiff !== 0) return tsDiff;
         return (Number(b?.id) || 0) - (Number(a?.id) || 0);
       });
     }
@@ -7510,6 +7528,11 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       reqCurrentPage = 1;
       reqFetchPage(1);
     }, 300);
+  }
+
+  async function reqHandleServerFiltersChange() {
+    reqCurrentPage = 1;
+    await reqFetchPage(1);
   }
 
   async function reqPrevPage() {
@@ -7823,6 +7846,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   window.reqFetchByStatus = reqFetchByStatus;
   window.reqApplyClientFilters = reqApplyClientFilters;
   window.reqHandleSearchInput = reqHandleSearchInput;
+  window.reqHandleServerFiltersChange = reqHandleServerFiltersChange;
   window.reqPrevPage = reqPrevPage;
   window.reqNextPage = reqNextPage;
   window.reqFetchCompatibleBags = reqFetchCompatibleBags;
@@ -9271,14 +9295,17 @@ async function hospLoadAll() {
 // FILTER & SORT
 function hospFiltered() {
     const q = document.getElementById('hosp-search')?.value.toLowerCase() || '';
+    const statusFilter = (document.getElementById('hosp-filter-status')?.value || 'ALL').toLowerCase();
     const sort = document.getElementById('hosp-sort')?.value || 'name_asc';
     
     let list = hospData.filter(h => {
+        const status = String(h.status || 'active').toLowerCase();
         const matchQ = !q || 
             h.hospitalName.toLowerCase().includes(q) || 
             h.city.toLowerCase().includes(q) || 
             h.email.toLowerCase().includes(q);
-        return matchQ;
+        const matchStatus = statusFilter === 'ALL'.toLowerCase() || status === statusFilter;
+        return matchQ && matchStatus;
     });
     
     if (sort === 'name_asc') list.sort((a, b) => a.hospitalName.localeCompare(b.hospitalName));
@@ -9307,13 +9334,17 @@ function hospRender() {
     if (emptyEl) emptyEl.style.display = slice.length ? 'none' : 'block';
     
     slice.forEach((h) => {
+        const status = String(h.status || 'active').toLowerCase();
+        const statusBadge = status === 'inactive'
+            ? '<span class="tag tag-inactive">Inactive</span>'
+            : '<span class="tag tag-active">Active</span>';
         const row = `<tr>
             <td><strong>${h.hospitalName}</strong></td>
             <td style="font-size:12px;color:var(--muted)">${h.city}<br>${h.province}</td>
             <td style="font-size:12px;color:var(--muted)">${h.email}</td>
             <td style="font-size:12px;color:var(--muted)">${h.phoneNumber || '-'}</td>
             <td style="font-weight:700">${h.requestCount || 0}</td>
-            <td><span class="tag tag-active">Active</span></td>
+            <td>${statusBadge}</td>
             <td>
                 <div style="display:flex;gap:6px">
                     <button class="btn-ghost" style="font-size:12px" onclick="openHospitalViewModal(${h.id})">View</button>
@@ -9355,12 +9386,14 @@ function hospRender() {
 function hospUpdateStats() {
     const total = hospData.length;
     const totalReqs = hospData.reduce((s, h) => s + (h.requestCount || 0), 0);
+    const activeCount = hospData.filter(h => String(h.status || 'active').toLowerCase() !== 'inactive').length;
+    const inactiveCount = total - activeCount;
     
     const activeEl = document.getElementById('hosp-active-count');
-    if (activeEl) activeEl.textContent = total;
+    if (activeEl) activeEl.textContent = activeCount;
     
     const inactiveEl = document.getElementById('hosp-inactive-count');
-    if (inactiveEl) inactiveEl.textContent = '0';
+    if (inactiveEl) inactiveEl.textContent = inactiveCount;
     
     const totalEl = document.getElementById('hosp-total-count');
     if (totalEl) totalEl.textContent = total;
@@ -10554,7 +10587,7 @@ function hospOpenEdit(id) {
     document.getElementById('hosp-edit-contact-phone').value = h.contactPersonPhone || '';
     document.getElementById('hosp-edit-email').value = h.email || '';
     document.getElementById('hosp-edit-pass').value = '';
-    document.getElementById('hosp-edit-status').value = 'active';
+    document.getElementById('hosp-edit-status').value = (h.status || 'active').toLowerCase();
 
     ['hosp-edit-name', 'hosp-edit-city', 'hosp-edit-province', 'hosp-edit-address',
      'hosp-edit-email', 'hosp-edit-phone', 'hosp-edit-contact-name', 'hosp-edit-contact-phone'].forEach(id => {
@@ -10579,6 +10612,7 @@ async function hospSaveEdit() {
     const province = document.getElementById('hosp-edit-province')?.value.trim();
     const email = document.getElementById('hosp-edit-email')?.value.trim().toLowerCase();
     const newPassword = document.getElementById('hosp-edit-pass')?.value?.trim() || '';
+    const status = (document.getElementById('hosp-edit-status')?.value || 'active').toLowerCase();
     const phone = lockPhilippinePhoneInput('hosp-edit-phone').trim();
     const contactName = document.getElementById('hosp-edit-contact-name')?.value.trim() || null;
     const contactPhone = lockPhilippinePhoneInput('hosp-edit-contact-phone').trim();
@@ -10603,6 +10637,7 @@ async function hospSaveEdit() {
             body: JSON.stringify({
                 hospitalName: name, address, city, province,
                 email,
+                status,
                 newPassword: newPassword || null,
                 phoneNumber: phone, contactPersonName: contactName,
                 contactPersonPhone: contactPhone
@@ -10726,6 +10761,7 @@ async function loadCurrentUserProfile() {
     const userData = await response.json();
     currentUserRole = userData.role;
     currentUserId = userData.id;
+    updateAdminPanelBadge(userData.role);
 
     if (currentUserRole === 'ADMIN') {
       loadAdminProfile();
@@ -10958,7 +10994,10 @@ function populateStaffProfileForm(data) {
   
   if (staffIdEl) staffIdEl.textContent = data.staffId || '-';
   if (deptEl) deptEl.textContent = data.department || '-';
-  if (hiredEl) hiredEl.textContent = data.hireDate ? formatDate(data.hireDate) : '-';
+  if (hiredEl) {
+    const createdValue = data.createdAt || data.user?.createdAt || data.hireDate;
+    hiredEl.textContent = createdValue ? formatDate(createdValue) : '-';
+  }
   
   // Populate form fields
   const firstNameField = document.getElementById('staff-profile-firstname');
@@ -12681,7 +12720,7 @@ function initializeAutoRefresh() {
 
   console.log('[Auto-Refresh] Initialized - checking for changes every 30 seconds');
 
-  const REFRESH_INTERVAL = 30000; // 30 seconds for checking
+  const REFRESH_INTERVAL = 5000; // 5 seconds for checking
 
   autoRefreshIntervals.combined = setInterval(() => {
     if (document.hidden) return;

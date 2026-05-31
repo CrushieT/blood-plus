@@ -84,6 +84,7 @@ public class BloodBagService {
             int page,
             int size,
             BagStatus status,
+            boolean expiringOnly,
             BloodType bloodType,
             ComponentType componentType,
             String sort,
@@ -93,10 +94,26 @@ public class BloodBagService {
         int safeSize = Math.min(Math.max(size, 1), 200);
         String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
         String normalizedSort = sort == null ? "" : sort.trim().toLowerCase(Locale.ROOT);
-        boolean useDefaultAllStatusOrdering = status == null && (normalizedSort.isEmpty() || "expiry_asc".equals(normalizedSort));
+        boolean useDefaultAllStatusOrdering = !expiringOnly && status == null && (normalizedSort.isEmpty() || "expiry_asc".equals(normalizedSort));
 
         Page<BloodBag> bagsPage;
-        if (useDefaultAllStatusOrdering) {
+        if (expiringOnly) {
+            Pageable pageable = PageRequest.of(
+                    safePage - 1,
+                    safeSize,
+                    resolveBagSort(sort)
+            );
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime soon = now.plusDays(10);
+            bagsPage = bloodBagRepository.findExpiringForAdmin(
+                    bloodType,
+                    componentType,
+                    normalizedSearch,
+                    now,
+                    soon,
+                    pageable
+            );
+        } else if (useDefaultAllStatusOrdering) {
             LocalDateTime now = LocalDateTime.now();
             LocalDateTime soon = now.plusDays(10);
             Pageable pageable = PageRequest.of(safePage - 1, safeSize);
@@ -140,15 +157,17 @@ public class BloodBagService {
 
     private Sort resolveBagSort(String sort) {
         if (sort == null) {
-            return Sort.by(Sort.Direction.DESC, "expiresAt");
+            return Sort.by(Sort.Direction.DESC, "collectedAt");
         }
 
         return switch (sort.trim().toLowerCase(Locale.ROOT)) {
             case "expiry_asc" -> Sort.by(Sort.Direction.ASC, "expiresAt");
             case "expiry_desc" -> Sort.by(Sort.Direction.DESC, "expiresAt");
+            case "registered_asc" -> Sort.by(Sort.Direction.ASC, "createdAt");
+            case "registered_desc" -> Sort.by(Sort.Direction.DESC, "createdAt");
             case "collected_asc" -> Sort.by(Sort.Direction.ASC, "collectedAt");
             case "collected_desc" -> Sort.by(Sort.Direction.DESC, "collectedAt");
-            default -> Sort.by(Sort.Direction.DESC, "expiresAt");
+            default -> Sort.by(Sort.Direction.DESC, "collectedAt");
         };
     }
 
@@ -362,6 +381,7 @@ public class BloodBagService {
         res.setVolumeMl(bag.getVolumeMl());
         res.setRemarks(bag.getRemarks());
         res.setCollectedAt(bag.getCollectedAt());
+        res.setCreatedAt(bag.getCreatedAt());
         res.setExpiresAt(bag.getExpiresAt());
         res.setStatus(bag.getStatus());
         res.setSource(bag.getSource());
