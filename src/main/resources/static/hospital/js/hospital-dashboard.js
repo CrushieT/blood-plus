@@ -3,11 +3,11 @@
 // Updated with Blood Bank Availability
 //====================================
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ GLOBAL CONFIG & STATE ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- GLOBAL CONFIG & STATE ---
+// ---------------------------------------------------------------
 
-const BT_LABELS = { O_NEG:'O−',O_POS:'O+',A_NEG:'A−',A_POS:'A+',B_NEG:'B−',B_POS:'B+',AB_NEG:'AB−',AB_POS:'AB+' };
+const BT_LABELS = { O_NEG:'O-',O_POS:'O+',A_NEG:'A-',A_POS:'A+',B_NEG:'B-',B_POS:'B+',AB_NEG:'AB-',AB_POS:'AB+' };
 const COMP_LABELS = { 
   WHOLE_BLOOD:'Whole Blood',
   PRBC:'Packed RBC',
@@ -19,10 +19,10 @@ const COMP_LABELS = {
   CRYOSUPERNATANT:'Cryosupernatant'
 };
 const URGENCY_LABELS = {
-  LOW: 'Low — Scheduled / Within a week',
-  MEDIUM: 'Medium — 2-3 days',
-  HIGH: 'High — 24hrs',
-  CRITICAL: 'Critical — Immediately'
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+  CRITICAL: 'Critical'
 };
 const CAT_LABELS = {
   INPATIENT: 'OPD/ INHOUSE',
@@ -44,17 +44,17 @@ const INDICATION_REQUIRED_COMPONENTS_HOSP = [
 ];
 
 const STATUS_CFG = {
-  PENDING:          { label:'Pending Review',    icon:'⏳', bg:'var(--amber-soft)',  color:'var(--amber)',  sub:'Waiting for blood bank review' },
-  APPROVED:         { label:'Approved',          icon:'✓',  bg:'var(--blue-soft)',   color:'var(--blue)',   sub:'Request has been approved' },
-  NEEDS_CONFIRMATION:{ label:'Waiting for requester confirmation', icon:'✉', bg:'var(--amber-soft)',  color:'var(--amber)',  sub:'Waiting for requester email confirmation' },
-  ALLOCATED:        { label:'Allocated',         icon:'🩸', bg:'var(--purple-soft)', color:'var(--purple)', sub:'Blood bag has been allocated' },
-  READY_FOR_RELEASE:{ label:'Ready for Release', icon:'📦', bg:'var(--gold-soft)',   color:'var(--gold)',   sub:'Ready for pickup / transport' },
-  RELEASED:         { label:'Released',          icon:'✅', bg:'var(--green-soft)',  color:'var(--green)',  sub:'Blood has been released' },
-  REJECTED:         { label:'Rejected',          icon:'✕',  bg:'var(--red-soft)',    color:'var(--red)',    sub:'Request was not approved' },
-  CANCELLED:        { label:'Cancelled',         icon:'—',  bg:'#F0F0F0',            color:'#888',          sub:'Cancelled by hospital' },
+  PENDING:          { label:'Pending Review',    icon:'', bg:'#FFF8E0', color:'#B35C00', sub:'Waiting for blood bank review' },
+  APPROVED:         { label:'Approved',          icon:'', bg:'#E8F7EE', color:'#2E7D4F', sub:'Request has been approved' },
+  NEEDS_CONFIRMATION:{ label:'Waiting for requester confirmation', icon:'?', bg:'#FFF4E5', color:'#9A5B13', sub:'Waiting for requester email confirmation' },
+  ALLOCATED:        { label:'Allocated',         icon:'', bg:'#EEF3FF', color:'#2244AA', sub:'Blood bag has been allocated' },
+  READY_FOR_RELEASE:{ label:'Ready for Release', icon:'', bg:'#EEEDFE', color:'#3C3489', sub:'Ready for pickup / transport' },
+  RELEASED:         { label:'Released',          icon:'', bg:'#E8F7EE', color:'#2E7D4F', sub:'Blood has been released' },
+  REJECTED:         { label:'Rejected',          icon:'', bg:'#FFF0F1', color:'#C41E3A', sub:'Request was not approved' },
+  CANCELLED:        { label:'Cancelled',         icon:'',  bg:'#F0F0F0',            color:'#888',          sub:'Cancelled by hospital' },
 };
 
-const URGENCY_BADGE = { LOW:'badge-low', MEDIUM:'badge-medium', HIGH:'badge-high', CRITICAL:'badge-critical' };
+const URGENCY_BADGE = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical' };
 
 // Global State
 let REQUESTS = [];
@@ -62,11 +62,17 @@ let currentFilter = 'ALL';
 let cancelTargetId = null;
 
 function formatCategoryLabelHosp(category) {
-  return CAT_LABELS[category] || category || '—';
+  return CAT_LABELS[category] || category || '-';
 }
 
 function formatUrgencyLabelHosp(urgency) {
-  return URGENCY_LABELS[urgency] || urgency || '—';
+  return URGENCY_LABELS[urgency] || urgency || '-';
+}
+
+function getFieldValueHosp(selectId, radioName) {
+  const select = document.getElementById(selectId);
+  if (select) return select.value || null;
+  return document.querySelector(`input[name="${radioName}"]:checked`)?.value || null;
 }
 
 function getSpecifyOnlyIndicationValueHosp(component) {
@@ -95,12 +101,12 @@ let bloodBankAvailability = {
 };
 
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ UTILITY FUNCTIONS ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- UTILITY FUNCTIONS ---
+// ---------------------------------------------------------------
 
 function formatDate(d) {
-  if (!d) return '—';
+  if (!d) return '-';
   const dateStr = d.includes('T') ? d : d + 'T00:00:00';
   return new Date(dateStr)
     .toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' });
@@ -120,6 +126,20 @@ function formatUnitsDisplayHosp(request) {
     return `${effectiveUnits} of ${requestedUnits}`;
   }
   return `${effectiveUnits}`;
+}
+
+function formatBloodTypeDisplayHosp(bloodType) {
+  const map = {
+    A_POS: 'A Pos',
+    A_NEG: 'A Neg',
+    B_POS: 'B Pos',
+    B_NEG: 'B Neg',
+    AB_POS: 'AB Pos',
+    AB_NEG: 'AB Neg',
+    O_POS: 'O Pos',
+    O_NEG: 'O Neg'
+  };
+  return map[bloodType] || bloodType || '-';
 }
 
 // Modal helpers
@@ -178,9 +198,9 @@ function showPanel(id, navEl) {
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ 1️⃣ DASHBOARD TAB ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- 1?? DASHBOARD TAB ---
+// ---------------------------------------------------------------
 
 /**
  * Render dashboard with statistics and recent requests
@@ -203,7 +223,7 @@ function renderDashboard() {
   tbody.innerHTML = recent.map(r => {
     const sc = STATUS_CFG[r.status];
     return `<tr>
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.referenceNumber}</td>
+      <td style="font-size:14px;font-weight:600;color:var(--charcoal)">${r.referenceNumber}</td>
       <td style="font-weight:600">${r.patientName}</td>
       <td>${COMP_LABELS[r.bloodComponent]}</td>
       <td><span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span></td>
@@ -255,13 +275,13 @@ async function loadBloodBankAvailability() {
 function updateBloodTypeDisplay() {
   const btMap = {
     'O+': 'blood-o-pos-status',
-    'O−': 'blood-o-neg-status',
+    'O-': 'blood-o-neg-status',
     'A+': 'blood-a-pos-status',
-    'A−': 'blood-a-neg-status',
+    'A-': 'blood-a-neg-status',
     'B+': 'blood-b-pos-status',
-    'B−': 'blood-b-neg-status',
+    'B-': 'blood-b-neg-status',
     'AB+': 'blood-ab-pos-status',
-    'AB−': 'blood-ab-neg-status'
+    'AB-': 'blood-ab-neg-status'
   };
 
   for (const [displayLabel, elementId] of Object.entries(btMap)) {
@@ -390,9 +410,9 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ NEW BLOOD REQUEST FORM (4 STEPS) - FIXED JS ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- NEW BLOOD REQUEST FORM (4 STEPS) - FIXED JS ---
+// ---------------------------------------------------------------
 
 const TOTAL_STEPS_HOSP = 4;
 const HOSPITAL_FORM_STEP_IDS = {
@@ -406,9 +426,9 @@ let currentStepHosp = 1;
 let docFileHosp = null;
 let lastIndicationGroupKeyHosp = '';
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // STEP NAVIGATION
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Navigate to a specific step
@@ -490,9 +510,9 @@ function updateStepUI() {
   hideErrorHosp();
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // ERROR HANDLING
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Show error message
@@ -515,9 +535,9 @@ function hideErrorHosp() {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // VALIDATION
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 let firstInvalidFieldHosp = null;
 
@@ -743,7 +763,11 @@ function validatePrevTransfusionUnitsFieldHosp() {
   clearFieldError('prev-transfusion-units-hosp');
   input.value = String(input.value || '').replace(/\D/g, '').slice(0, 2);
   const isYes = document.querySelector('input[name="prev-transfusion-hosp"][value="yes"]')?.checked;
-  if (!isYes || !input.value) return true;
+  if (!isYes) return true;
+  if (!input.value) {
+    setFieldError('prev-transfusion-units-hosp', 'Please enter number of units.');
+    return false;
+  }
 
   const numeric = Number(input.value);
   if (!Number.isFinite(numeric) || numeric < 0 || numeric > 99) {
@@ -753,12 +777,59 @@ function validatePrevTransfusionUnitsFieldHosp() {
   return true;
 }
 
+function validatePrevTransfusionDateFieldHosp() {
+  const input = document.getElementById('prev-transfusion-date-hosp');
+  if (!input) return true;
+
+  clearFieldError('prev-transfusion-date-hosp');
+  const isYes = document.querySelector('input[name="prev-transfusion-hosp"][value="yes"]')?.checked;
+  if (!isYes) return true;
+  if (!input.value) {
+    setFieldError('prev-transfusion-date-hosp', 'Please select date of previous transfusion.');
+    return false;
+  }
+  return true;
+}
+
+function validatePrevReactionDateFieldHosp() {
+  const input = document.getElementById('prev-reaction-date-hosp');
+  if (!input) return true;
+
+  clearFieldError('prev-reaction-date-hosp');
+  const isYes = document.querySelector('input[name="prev-reaction-hosp"][value="yes"]')?.checked;
+  if (!isYes) return true;
+  if (!input.value) {
+    setFieldError('prev-reaction-date-hosp', 'Please select date of previous reaction.');
+    return false;
+  }
+  return true;
+}
+
+function validatePrevReactionDetailsRequiredFieldHosp() {
+  const isYes = document.querySelector('input[name="prev-reaction-hosp"][value="yes"]')?.checked;
+  if (!isYes) {
+    clearFieldError('prev-reaction-details-hosp');
+    return true;
+  }
+  return validateSimpleTextField(
+    'prev-reaction-details-hosp',
+    'Reaction details',
+    250,
+    true,
+    /^[A-Za-z0-9 .,'#()\-/:]*$/,
+    'Reaction details must not exceed 250 characters.'
+  );
+}
+
 function validateDateNeededFieldHosp() {
   const input = document.getElementById('req-date-needed-hosp');
   if (!input) return true;
 
   clearFieldError('req-date-needed-hosp');
-  if (!input.value) return true;
+  if (!input.value) {
+    setFieldError('req-date-needed-hosp', 'Please select required by date.');
+    return false;
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -772,6 +843,19 @@ function validateDateNeededFieldHosp() {
   return true;
 }
 
+function validateNotesFieldHosp() {
+  const input = document.getElementById('notes-input-hosp');
+  if (!input) return true;
+
+  input.value = normalizeWhitespaceHosp(input.value);
+  clearFieldError('notes-input-hosp');
+  if (!input.value.trim()) {
+    setFieldError('notes-input-hosp', 'Additional notes is required. If none, type N/A.');
+    return false;
+  }
+  return true;
+}
+
 function validateHospitalFieldGroupsHosp(step) {
   let valid = true;
 
@@ -780,10 +864,10 @@ function validateHospitalFieldGroupsHosp(step) {
     valid = validatePersonNameField('pat-middlename-hosp', 'middle name', false) && valid;
     valid = validatePersonNameField('pat-lastname-hosp', 'last name', true) && valid;
     valid = validateSuffixFieldHosp() && valid;
-    valid = validateSimpleTextField('pat-purok-hosp', 'Purok', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
-    valid = validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
-    valid = validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
-    valid = validateSimpleTextField('pat-province-hosp', 'Province', 25, false, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-purok-hosp', 'Purok', 25, true, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, true, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, true, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
+    valid = validateSimpleTextField('pat-province-hosp', 'Province', 25, true, /^[A-Za-z0-9 .,'#()-]*$/) && valid;
     valid = validateSimpleTextField('pat-ward-hosp', 'Ward', 25, false, /^[A-Za-z0-9()\- ]*$/, 'Ward must not exceed 25 characters.') && valid;
     valid = validateSimpleTextField('pat-room-hosp', 'Room number', 25, false, /^[A-Za-z0-9,\- ]*$/, 'Room number must not exceed 25 characters.') && valid;
     const physicianValid = validatePersonNameField('pat-physician-hosp', 'requesting physician', true);
@@ -794,11 +878,13 @@ function validateHospitalFieldGroupsHosp(step) {
   if (step === 2) {
     valid = validateUnitsFieldHosp() && valid;
     valid = validatePlateletCountFieldHosp() && valid;
-    valid = validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.') && valid;
+    valid = validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, true, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.') && valid;
     valid = validateHemoglobinFieldHosp() && valid;
     valid = validateHematocritFieldHosp() && valid;
+    valid = validatePrevTransfusionDateFieldHosp() && valid;
     valid = validatePrevTransfusionUnitsFieldHosp() && valid;
-    valid = validateSimpleTextField('prev-reaction-details-hosp', 'Reaction details', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Reaction details must not exceed 250 characters.') && valid;
+    valid = validatePrevReactionDateFieldHosp() && valid;
+    valid = validatePrevReactionDetailsRequiredFieldHosp() && valid;
     valid = validateDateNeededFieldHosp() && valid;
   }
 
@@ -831,7 +917,7 @@ function validateStepHosp(step) {
 
   if (step === 1) {
     const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
-    const sex = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
+    const sex = getFieldValueHosp('pat-sex-hosp', 'pat-sex-hosp');
     const category = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
 
     if (!category) {
@@ -852,10 +938,15 @@ function validateStepHosp(step) {
   }
 
   if (step === 2) {
-    const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
-    const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
-    const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+    const bloodType = getFieldValueHosp('req-bt-hosp', 'req-bt-hosp');
+    const component = getFieldValueHosp('req-comp-hosp', 'req-comp-hosp');
+    const requestType = getFieldValueHosp('req-type-hosp', 'req-type-hosp');
+    const prevTransfusion = document.querySelector('input[name="prev-transfusion-hosp"]:checked')?.value;
+    const prevReaction = document.querySelector('input[name="prev-reaction-hosp"]:checked')?.value;
     const plateletCount = document.getElementById('req-platelet-count-hosp')?.value;
+    const hemoglobin = (document.getElementById('pat-hemoglobin-hosp')?.value || '').trim();
+    const hematocrit = (document.getElementById('pat-hematocrit-hosp')?.value || '').trim();
+    const dateNeeded = (document.getElementById('req-date-needed-hosp')?.value || '').trim();
 
     if (!bloodType) {
       showErrorHosp('Please select blood type.');
@@ -869,13 +960,39 @@ function validateStepHosp(step) {
       showErrorHosp('Please select request type (STAT or ROUTINE).');
       return false;
     }
+    if (!prevTransfusion) {
+      showErrorHosp('Please select Yes or No for previous transfusion history.');
+      return false;
+    }
+    if (!prevReaction) {
+      showErrorHosp('Please select Yes or No for previous reaction to transfusion.');
+      return false;
+    }
+    if (!hemoglobin) {
+      setFieldError('pat-hemoglobin-hosp', 'Please enter hemoglobin.');
+      showErrorHosp('Please enter hemoglobin.');
+      focusFirstInvalidField();
+      return false;
+    }
+    if (!hematocrit || hematocrit === '.') {
+      setFieldError('pat-hematocrit-hosp', 'Please enter hematocrit.');
+      showErrorHosp('Please enter hematocrit.');
+      focusFirstInvalidField();
+      return false;
+    }
+    if (!dateNeeded) {
+      setFieldError('req-date-needed-hosp', 'Please select required by date.');
+      showErrorHosp('Please select required by date.');
+      focusFirstInvalidField();
+      return false;
+    }
     if (component === 'PLATELET_CONCENTRATE' && plateletCount && parseInt(plateletCount, 10) < 0) {
       showErrorHosp('Platelet count must be a valid number.');
       return false;
     }
 
     if (requestType === 'ROUTINE') {
-      const urgency = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value;
+      const urgency = getFieldValueHosp('req-urgency-hosp', 'req-urgency-hosp');
       if (!urgency) {
         showErrorHosp('For ROUTINE requests, please select an urgency level.');
         return false;
@@ -896,6 +1013,11 @@ function validateStepHosp(step) {
   }
 
   if (step === 3) {
+    if (!validateNotesFieldHosp()) {
+      showErrorHosp('Please enter additional notes. If none, type N/A.');
+      focusFirstInvalidField();
+      return false;
+    }
     if (!docFileHosp) {
       showErrorHosp('Please upload Doctor\'s Blood Request Form.');
       return false;
@@ -906,9 +1028,9 @@ function validateStepHosp(step) {
   return true;
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // PATIENT INFORMATION
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Calculate patient age from date of birth
@@ -977,9 +1099,9 @@ function getPatientAgeHosp() {
   return age;
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // BLOOD REQUEST DETAILS
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Update urgency display based on request type
@@ -987,7 +1109,7 @@ function getPatientAgeHosp() {
  * ROUTINE = Selectable urgency (Low, Medium, High)
  */
 function updateUrgencyLevelHosp() {
-  const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  const requestType = getFieldValueHosp('req-type-hosp', 'req-type-hosp');
   const autoStatDisplay = document.getElementById('urgency-auto-stat-hosp');
   const routineOptions = document.getElementById('urgency-routine-options-hosp');
 
@@ -1023,9 +1145,9 @@ function clearIndicationSelectionsHosp() {
   if (indicationError) indicationError.style.display = 'none';
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // CLINICAL DATA & INDICATION GROUPS
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Update visible indication groups based on selected component and patient type
@@ -1033,7 +1155,7 @@ function clearIndicationSelectionsHosp() {
  * FIXED: Leukoreduced PRBC and Aliquoted PRBC have separate indication mappings
  */
 function updateIndicationGroupsHosp() {
-  const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+  const component = getFieldValueHosp('req-comp-hosp', 'req-comp-hosp');
   const birthdate = document.getElementById('pat-birthdate-hosp')?.value;
   const patientType = getPatientTypeHosp();
   const container = document.getElementById('indication-container-hosp');
@@ -1172,9 +1294,9 @@ function toggleIndicationSubgroupHosp(parentId) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // TOGGLE "OTHERS (SPECIFY)" INPUT FIELD
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Toggle visibility of "Others (specify)" input field when checkbox is changed
@@ -1200,9 +1322,9 @@ function toggleOthersFieldHosp(checkbox) {
   syncForm(); // Call sync to update form state
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // CLINICAL DATA TOGGLES
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Toggle previous transfusion history fields
@@ -1218,9 +1340,11 @@ function togglePrevTransfusionFieldsHosp() {
       fieldsDiv.style.display = 'none';
       document.getElementById('prev-transfusion-date-hosp').value = '';
       document.getElementById('prev-transfusion-units-hosp').value = '';
+      clearFieldError('prev-transfusion-date-hosp');
       clearFieldError('prev-transfusion-units-hosp');
     }
   }
+  syncForm();
 }
 
 /**
@@ -1237,14 +1361,16 @@ function togglePrevReactionFieldsHosp() {
       fieldsDiv.style.display = 'none';
       document.getElementById('prev-reaction-date-hosp').value = '';
       document.getElementById('prev-reaction-details-hosp').value = '';
+      clearFieldError('prev-reaction-date-hosp');
       clearFieldError('prev-reaction-details-hosp');
     }
   }
+  syncForm();
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // FILE UPLOAD HANDLING
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Handle file drop on upload zone
@@ -1326,9 +1452,9 @@ function clearFile(type) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // REVIEW PAGE
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Populate review page with current form data
@@ -1337,11 +1463,11 @@ function populateReviewHosp() {
   const firstName = document.getElementById('pat-firstname-hosp').value;
   const lastName = document.getElementById('pat-lastname-hosp').value;
   const selectedCategory = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
-  const selectedBloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
-  const selectedComponent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
-  const selectedUrgency = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value;
+  const selectedBloodType = getFieldValueHosp('req-bt-hosp', 'req-bt-hosp');
+  const selectedComponent = getFieldValueHosp('req-comp-hosp', 'req-comp-hosp');
+  const selectedUrgency = getFieldValueHosp('req-urgency-hosp', 'req-urgency-hosp');
   const plateletCount = document.getElementById('req-platelet-count-hosp').value;
-  const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  const reqType = getFieldValueHosp('req-type-hosp', 'req-type-hosp');
   const indicationSubmission = buildIndicationSubmissionHosp(selectedComponent);
   const fullName = `${firstName} ${lastName}`.trim();
   const addressParts = [
@@ -1351,18 +1477,18 @@ function populateReviewHosp() {
     document.getElementById('pat-province-hosp').value.trim()
   ].filter(Boolean);
 
-  document.getElementById('review-pat-name').textContent = fullName || '—';
-  document.getElementById('review-pat-dob').textContent = document.getElementById('pat-birthdate-hosp').value || '—';
-  document.getElementById('review-pat-type').textContent = document.getElementById('patient-type-display-hosp').textContent || '—';
-  document.getElementById('review-pat-sex').textContent = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value || '—';
-  document.getElementById('review-pat-address').textContent = addressParts.length ? addressParts.join(' / ') : '—';
-  document.getElementById('review-pat-physician').textContent = document.getElementById('pat-physician-hosp').value || '—';
+  document.getElementById('review-pat-name').textContent = fullName || '-';
+  document.getElementById('review-pat-dob').textContent = document.getElementById('pat-birthdate-hosp').value || '-';
+  document.getElementById('review-pat-type').textContent = document.getElementById('patient-type-display-hosp').textContent || '-';
+  document.getElementById('review-pat-sex').textContent = getFieldValueHosp('pat-sex-hosp', 'pat-sex-hosp') || '-';
+  document.getElementById('review-pat-address').textContent = addressParts.length ? addressParts.join(' / ') : '-';
+  document.getElementById('review-pat-physician').textContent = document.getElementById('pat-physician-hosp').value || '-';
   document.getElementById('review-req-category').textContent = formatCategoryLabelHosp(selectedCategory);
   
-  document.getElementById('review-blood-type').textContent = BT_LABELS[selectedBloodType] || selectedBloodType || '—';
-  document.getElementById('review-blood-comp').textContent = COMP_LABELS[selectedComponent] || selectedComponent || '—';
-  document.getElementById('review-blood-units').textContent = document.getElementById('req-units-hosp').value || '—';
-  document.getElementById('review-req-type').textContent = reqType || '—';
+  document.getElementById('review-blood-type').textContent = BT_LABELS[selectedBloodType] || selectedBloodType || '-';
+  document.getElementById('review-blood-comp').textContent = COMP_LABELS[selectedComponent] || selectedComponent || '-';
+  document.getElementById('review-blood-units').textContent = document.getElementById('req-units-hosp').value || '-';
+  document.getElementById('review-req-type').textContent = reqType || '-';
   
   if (reqType === 'STAT') {
     document.getElementById('review-urgency').textContent = `${formatUrgencyLabelHosp('HIGH')} (Auto)`;
@@ -1370,7 +1496,7 @@ function populateReviewHosp() {
     document.getElementById('review-urgency').textContent = formatUrgencyLabelHosp(selectedUrgency);
   }
   
-  document.getElementById('review-date-needed').textContent = document.getElementById('req-date-needed-hosp').value || '—';
+  document.getElementById('review-date-needed').textContent = document.getElementById('req-date-needed-hosp').value || '-';
 
   const reviewPlateletCountBox = document.getElementById('review-platelet-count-box');
   const reviewPlateletCount = document.getElementById('review-platelet-count');
@@ -1379,14 +1505,14 @@ function populateReviewHosp() {
     reviewPlateletCount.textContent = plateletCount;
   } else {
     reviewPlateletCountBox.style.display = 'none';
-    reviewPlateletCount.textContent = '—';
+    reviewPlateletCount.textContent = '-';
   }
   
-  document.getElementById('review-hemoglobin').textContent = document.getElementById('pat-hemoglobin-hosp').value || '—';
+  document.getElementById('review-hemoglobin').textContent = document.getElementById('pat-hemoglobin-hosp').value || '-';
   const hematocrit = document.getElementById('pat-hematocrit-hosp').value;
   const hematocritNumeric = /^\.\d{1,4}$/.test(String(hematocrit || '').trim()) ? Number(`0${hematocrit}`) : null;
-  document.getElementById('review-hematocrit').textContent = Number.isFinite(hematocritNumeric) ? (hematocritNumeric * 100).toFixed(1) + '%' : '—';
-  document.getElementById('review-diagnosis').textContent = document.getElementById('pat-diagnosis-hosp').value || '—';
+  document.getElementById('review-hematocrit').textContent = Number.isFinite(hematocritNumeric) ? (hematocritNumeric * 100).toFixed(1) + '%' : '-';
+  document.getElementById('review-diagnosis').textContent = document.getElementById('pat-diagnosis-hosp').value || '-';
   
   if (indicationSubmission.reviewItems.length > 0) {
     const indicationLabels = indicationSubmission.reviewItems.map(ind => {
@@ -1394,13 +1520,13 @@ function populateReviewHosp() {
         ? `<div style="margin-bottom:4px"><strong>${ind.code}:</strong> ${ind.additional}</div>`
         : `<div style="margin-bottom:4px"><strong>${ind.code}</strong></div>`;
     }).join('');
-    document.getElementById('review-indications').innerHTML = indicationLabels || '—';
+    document.getElementById('review-indications').innerHTML = indicationLabels || '-';
   } else {
-    document.getElementById('review-indications').innerHTML = '<div style="color:var(--muted)">—</div>';
+    document.getElementById('review-indications').innerHTML = '<div style="color:var(--muted)">-</div>';
   }
   
   const docFile = docFileHosp || document.getElementById('doc-file-hosp').files.length > 0;
-  document.getElementById('review-doc-status').textContent = docFile ? '✓ ' + (docFileHosp?.name || document.getElementById('doc-name-hosp').textContent) : '⚠ Not uploaded';
+  document.getElementById('review-doc-status').textContent = docFile ? '? ' + (docFileHosp?.name || document.getElementById('doc-name-hosp').textContent) : '? Not uploaded';
   
   // Populate Additional Notes
   populateReviewNotes();
@@ -1421,7 +1547,7 @@ function populateReviewNotes() {
     reviewNotesDiv.textContent = notesText;
     reviewNotesDiv.style.color = 'var(--charcoal)';
   } else {
-    reviewNotesDiv.innerHTML = '<div style="color:var(--muted)">—</div>';
+    reviewNotesDiv.innerHTML = '<div style="color:var(--muted)">-</div>';
   }
   
   // Update character count
@@ -1454,9 +1580,9 @@ function setupNotesListener() {
 }
 
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // FORM SUBMISSION
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 function getSelectedIndicationItemsHosp() {
   const selected = [];
@@ -1519,20 +1645,20 @@ function getSelectedIndicationsHosp() {
  * Get urgency level based on request type
  */
 function getUrgencyLevelHosp() {
-  const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  const requestType = getFieldValueHosp('req-type-hosp', 'req-type-hosp');
   
   if (requestType === 'STAT') {
     return 'HIGH';
   } else if (requestType === 'ROUTINE') {
-    return document.querySelector('input[name="req-urgency-hosp"]:checked')?.value || null;
+    return getFieldValueHosp('req-urgency-hosp', 'req-urgency-hosp');
   }
   
   return null;
 }
 
-// ════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------
 // SUCCESS MODAL FUNCTIONS
-// ════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------
 
 function showSuccessModal(referenceNumber, userEmail) {
   document.getElementById('success-ref').textContent = referenceNumber;
@@ -1564,7 +1690,7 @@ function copyRef() {
   
   navigator.clipboard.writeText(refNumber).then(() => {
     const originalText = btn.textContent;
-    btn.textContent = '✓ Copied!';
+    btn.textContent = '? Copied!';
     
     setTimeout(() => {
       btn.textContent = originalText;
@@ -1578,7 +1704,7 @@ function copyRef() {
     document.execCommand('copy');
     document.body.removeChild(textarea);
     
-    btn.textContent = '✓ Copied!';
+    btn.textContent = '? Copied!';
     setTimeout(() => {
       btn.textContent = 'Copy';
     }, 2000);
@@ -1590,9 +1716,9 @@ function newAnotherRequest() {
   resetFormHosp();
 }
 
-// ════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------
 // UPDATED SUBMIT FUNCTION WITH MODAL
-// ════════════════════════════════════════════════════════════════
+// ----------------------------------------------------------------
 
 async function submitRequestHosp() {
   hideErrorHosp();
@@ -1622,7 +1748,7 @@ async function submitRequestHosp() {
   const patientSuffix = document.getElementById('pat-suffix-hosp').value.trim();
   const patientBirthdate = document.getElementById('pat-birthdate-hosp').value;
   const patientAge = getPatientAgeHosp();
-  const patientSex = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
+  const patientSex = getFieldValueHosp('pat-sex-hosp', 'pat-sex-hosp');
   const patientType = getPatientTypeHosp();
 
   const ward = document.getElementById('pat-ward-hosp').value.trim();
@@ -1635,11 +1761,11 @@ async function submitRequestHosp() {
   const diagnosis = document.getElementById('pat-diagnosis-hosp').value.trim();
 
   const requestCategory = document.querySelector('input[name="req-category-hosp"]:checked')?.value;
-  const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
-  const bloodComponent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+  const bloodType = getFieldValueHosp('req-bt-hosp', 'req-bt-hosp');
+  const bloodComponent = getFieldValueHosp('req-comp-hosp', 'req-comp-hosp');
   const numberOfUnits = document.getElementById('req-units-hosp').value;
   const plateletCount = document.getElementById('req-platelet-count-hosp').value;
-  const requestType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
+  const requestType = getFieldValueHosp('req-type-hosp', 'req-type-hosp');
   const urgencyLevel = getUrgencyLevelHosp();
   const requiredBy = document.getElementById('req-date-needed-hosp').value;
 
@@ -1751,6 +1877,9 @@ async function submitRequestHosp() {
 
     // Show success modal
     showSuccessModal(referenceNumber, userEmail);
+    resetFormHosp();
+    btn.disabled = false;
+    btn.textContent = originalText;
 
     console.log('Request submitted successfully with reference:', referenceNumber);
 
@@ -1762,9 +1891,9 @@ async function submitRequestHosp() {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // FORM RESET
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Reset hospital form
@@ -1772,12 +1901,13 @@ async function submitRequestHosp() {
 function resetFormHosp() {
   [
     'pat-firstname-hosp', 'pat-middlename-hosp', 'pat-lastname-hosp', 'pat-suffix-hosp',
-    'pat-birthdate-hosp', 'pat-ward-hosp', 'pat-room-hosp', 'pat-purok-hosp', 'pat-barangay-hosp',
+    'pat-birthdate-hosp', 'pat-sex-hosp', 'pat-ward-hosp', 'pat-room-hosp', 'pat-purok-hosp', 'pat-barangay-hosp',
     'pat-municipality-hosp', 'pat-province-hosp', 'pat-physician-hosp', 'pat-diagnosis-hosp',
     'pat-hemoglobin-hosp', 'pat-hematocrit-hosp', 'prev-transfusion-date-hosp', 'prev-transfusion-units-hosp',
-    'prev-reaction-date-hosp', 'prev-reaction-details-hosp', 'req-date-needed-hosp',
+    'prev-reaction-date-hosp', 'prev-reaction-details-hosp', 'req-bt-hosp', 'req-comp-hosp', 'req-date-needed-hosp',
     'req-platelet-count-hosp', 'req-indication-specify-LEUKOREDUCED_PRBC-hosp',
-    'req-indication-specify-ALIQUOTED_PRBC-hosp', 'req-indication-specify-CRYOSUPERNATANT-hosp'
+    'req-indication-specify-ALIQUOTED_PRBC-hosp', 'req-indication-specify-CRYOSUPERNATANT-hosp',
+    'notes-input-hosp'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -1802,6 +1932,15 @@ function resetFormHosp() {
   document.getElementById('indication-container-hosp').style.display = 'none';
   document.getElementById('platelet-count-field-hosp').style.display = 'none';
   document.getElementById('err-indication-hosp').style.display = 'none';
+
+  const notesCount = document.getElementById('notes-char-count');
+  if (notesCount) notesCount.textContent = '0';
+
+  const submitBtn = document.getElementById('submit-btn-hosp');
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Blood Request';
+  }
 
   clearAllFieldErrorsHosp();
   hideErrorHosp();
@@ -1828,17 +1967,17 @@ function attachHospitalRequestValidationListeners() {
   bindHospitalValidationInput('pat-birthdate-hosp', () => clearFieldError('pat-birthdate-hosp'));
   bindHospitalValidationInput('pat-suffix-hosp', validateSuffixFieldHosp, validateSuffixFieldHosp);
 
-  bindHospitalValidationInput('pat-purok-hosp', () => validateSimpleTextField('pat-purok-hosp', 'Purok', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-purok-hosp', 'Purok', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
-  bindHospitalValidationInput('pat-barangay-hosp', () => validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
-  bindHospitalValidationInput('pat-municipality-hosp', () => validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
-  bindHospitalValidationInput('pat-province-hosp', () => validateSimpleTextField('pat-province-hosp', 'Province', 25, false, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-province-hosp', 'Province', 25, false, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-purok-hosp', () => validateSimpleTextField('pat-purok-hosp', 'Purok', 25, true, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-purok-hosp', 'Purok', 25, true, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-barangay-hosp', () => validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, true, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-barangay-hosp', 'Barangay', 25, true, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-municipality-hosp', () => validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, true, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-municipality-hosp', 'Municipality', 25, true, /^[A-Za-z0-9 .,'#()-]*$/));
+  bindHospitalValidationInput('pat-province-hosp', () => validateSimpleTextField('pat-province-hosp', 'Province', 25, true, /^[A-Za-z0-9 .,'#()-]*$/), () => validateSimpleTextField('pat-province-hosp', 'Province', 25, true, /^[A-Za-z0-9 .,'#()-]*$/));
   bindHospitalValidationInput('pat-ward-hosp', () => validateSimpleTextField('pat-ward-hosp', 'Ward', 25, false, /^[A-Za-z0-9()\- ]*$/, 'Ward must not exceed 25 characters.'), () => validateSimpleTextField('pat-ward-hosp', 'Ward', 25, false, /^[A-Za-z0-9()\- ]*$/, 'Ward must not exceed 25 characters.'));
   bindHospitalValidationInput('pat-room-hosp', () => validateSimpleTextField('pat-room-hosp', 'Room number', 25, false, /^[A-Za-z0-9,\- ]*$/, 'Room number must not exceed 25 characters.'), () => validateSimpleTextField('pat-room-hosp', 'Room number', 25, false, /^[A-Za-z0-9,\- ]*$/, 'Room number must not exceed 25 characters.'));
   bindHospitalValidationInput('pat-physician-hosp', () => validatePersonNameField('pat-physician-hosp', 'requesting physician', true), () => validatePersonNameField('pat-physician-hosp', 'requesting physician', true));
 
   bindHospitalValidationInput('req-units-hosp', validateUnitsFieldHosp, validateUnitsFieldHosp);
   bindHospitalValidationInput('req-platelet-count-hosp', validatePlateletCountFieldHosp, validatePlateletCountFieldHosp);
-  bindHospitalValidationInput('pat-diagnosis-hosp', () => validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.'), () => validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.'));
+  bindHospitalValidationInput('pat-diagnosis-hosp', () => validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, true, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.'), () => validateSimpleTextField('pat-diagnosis-hosp', 'Clinical impression', 250, true, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Clinical impression must not exceed 250 characters.'));
 
   bindHospitalValidationInput('pat-hemoglobin-hosp', () => {
     enforceHemoglobinFormatHosp();
@@ -1854,8 +1993,29 @@ function attachHospitalRequestValidationListeners() {
   });
 
   bindHospitalValidationInput('prev-transfusion-units-hosp', validatePrevTransfusionUnitsFieldHosp, validatePrevTransfusionUnitsFieldHosp);
-  bindHospitalValidationInput('prev-reaction-details-hosp', () => validateSimpleTextField('prev-reaction-details-hosp', 'Reaction details', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Reaction details must not exceed 250 characters.'), () => validateSimpleTextField('prev-reaction-details-hosp', 'Reaction details', 250, false, /^[A-Za-z0-9 .,'#()\-/:]*$/, 'Reaction details must not exceed 250 characters.'));
+  bindHospitalValidationInput('prev-transfusion-date-hosp', validatePrevTransfusionDateFieldHosp, validatePrevTransfusionDateFieldHosp);
+  bindHospitalValidationInput('prev-reaction-date-hosp', validatePrevReactionDateFieldHosp, validatePrevReactionDateFieldHosp);
+  bindHospitalValidationInput('prev-reaction-details-hosp', validatePrevReactionDetailsRequiredFieldHosp, validatePrevReactionDetailsRequiredFieldHosp);
   bindHospitalValidationInput('req-date-needed-hosp', validateDateNeededFieldHosp, validateDateNeededFieldHosp);
+  bindHospitalValidationInput('notes-input-hosp', validateNotesFieldHosp, validateNotesFieldHosp);
+
+  document.querySelectorAll('input[name="prev-transfusion-hosp"]').forEach((radio) => {
+    if (radio.dataset.validationBoundHosp === '1') return;
+    radio.dataset.validationBoundHosp = '1';
+    radio.addEventListener('change', () => {
+      validatePrevTransfusionDateFieldHosp();
+      validatePrevTransfusionUnitsFieldHosp();
+    });
+  });
+
+  document.querySelectorAll('input[name="prev-reaction-hosp"]').forEach((radio) => {
+    if (radio.dataset.validationBoundHosp === '1') return;
+    radio.dataset.validationBoundHosp = '1';
+    radio.addEventListener('change', () => {
+      validatePrevReactionDateFieldHosp();
+      validatePrevReactionDetailsRequiredFieldHosp();
+    });
+  });
 
   const ack = document.getElementById('ack-confirm-hosp');
   if (ack && ack.dataset.validationBoundHosp !== '1') {
@@ -1876,9 +2036,9 @@ function syncForm() {
   // Placeholder for form state sync logic
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // INITIALIZATION
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 function initializeFormHosp() {
   attachHospitalRequestValidationListeners();
@@ -1912,17 +2072,106 @@ if (document.readyState === 'loading') {
   initializeFormHosp();
 }
  
-// ═══════════════════════════════════════════════════════════════
-// ░░░ 3️⃣ MY REQUESTS TAB - ENHANCED WITH BACKEND & INDICATIONS ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- 3?? MY REQUESTS TAB - ENHANCED WITH BACKEND & INDICATIONS ---
+// ---------------------------------------------------------------
 
 // Global state for sorting
-let currentSort = 'recent';
+let currentSort = 'date_desc';
 let columnSort = {}; // Track column sort states
+let reqCurrentPage = 1;
+const REQ_PER_PAGE = 10;
+let reqTotalPages = 1;
+let reqTotalElements = 0;
+let reqStatusCounts = {
+    ALL: 0,
+    PENDING: 0,
+    NEEDS_CONFIRMATION: 0,
+    APPROVED: 0,
+    ALLOCATED: 0,
+    READY_FOR_RELEASE: 0,
+    RELEASED: 0,
+    REJECTED: 0,
+    CANCELLED: 0
+};
+let knownRequestIdsHosp = new Set();
+let newRequestIdsHosp = new Set();
+let hasInitializedRequestTrackerHosp = false;
 
-// ──────────────────────────────────────────────────────────────
-// INDICATION MAP — Reference for all transfusion indications
-// ──────────────────────────────────────────────────────────────
+function updateMyRequestsNavAlert() {
+    const navItem = document.getElementById('nav-myrequests-item');
+    const badge = document.getElementById('nav-myrequests-badge');
+    if (!navItem || !badge) return;
+
+    const count = newRequestIdsHosp.size;
+    if (count > 0) {
+        badge.style.display = 'inline-flex';
+        badge.textContent = String(count);
+        navItem.classList.add('has-new-requests');
+    } else {
+        badge.style.display = 'none';
+        badge.textContent = '0';
+        navItem.classList.remove('has-new-requests');
+    }
+}
+
+function markRequestAsSeen(id) {
+    const normalizedId = Number(id);
+    if (!Number.isFinite(normalizedId)) return;
+    if (!newRequestIdsHosp.has(normalizedId)) return;
+
+    newRequestIdsHosp.delete(normalizedId);
+    updateMyRequestsNavAlert();
+    renderRequestTable();
+}
+
+async function trackNewHospitalRequests() {
+    try {
+        const params = new URLSearchParams();
+        params.set('page', '1');
+        params.set('size', '20');
+        params.set('sort', 'date_desc');
+
+        const response = await fetch(`/api/hospital/blood-requests?${params.toString()}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        const latestRows = Array.isArray(payload?.data) ? payload.data : [];
+        const latestIds = latestRows
+            .map((row) => Number(row?.id))
+            .filter((id) => Number.isFinite(id));
+
+        if (!hasInitializedRequestTrackerHosp) {
+            latestIds.forEach((id) => knownRequestIdsHosp.add(id));
+            hasInitializedRequestTrackerHosp = true;
+            updateMyRequestsNavAlert();
+            return;
+        }
+
+        const newlyDetected = [];
+        latestIds.forEach((id) => {
+            if (!knownRequestIdsHosp.has(id)) {
+                knownRequestIdsHosp.add(id);
+                newRequestIdsHosp.add(id);
+                newlyDetected.push(id);
+            }
+        });
+
+        if (newlyDetected.length > 0) {
+            updateMyRequestsNavAlert();
+        }
+    } catch (error) {
+        console.error('Error tracking new hospital requests:', error);
+    }
+}
+
+// --------------------------------------------------------------
+// INDICATION MAP - Reference for all transfusion indications
+// --------------------------------------------------------------
 
 const INDICATION_MAP = {
     // WHOLE BLOOD (Adult)
@@ -1973,7 +2222,7 @@ const INDICATION_MAP = {
     'F-6': 'Other FFP indications (requires review)',
 
     // WHOLE BLOOD (Pediatric)
-    'PW-1': 'Exchange transfusion in infant with indirect bilirubin ≥20 mg/dL in first week',
+    'PW-1': 'Exchange transfusion in infant with indirect bilirubin =20 mg/dL in first week',
     'PW-2': 'Hyperbilirubinemia with prematurity/illness (asphyxia, acidosis, sepsis, hemolysis)',
     'PW-3': 'Other whole blood indications (requires review)',
 
@@ -1982,7 +2231,7 @@ const INDICATION_MAP = {
     'PR-2': 'Hypovolemia from acute blood loss with shock signs or >10% loss',
     'PR-3': 'Major surgery candidate with Hematocrit < 0.30 or <0.35 (nocturnal)',
     'PR-4': 'Hypertransfusion for chronic hemolytic anemia (Thalassemia)',
-    'PR-5': 'Hemoglobin ≥130 g/L and on assisted ventilation',
+    'PR-5': 'Hemoglobin =130 g/L and on assisted ventilation',
     'PR-6': 'Anemia with Hb < 80 g/L or Hct < 0.25',
     'PR-7': 'Blood volume reduction 10 mL/kg with Hct < 0.45 in newborn <4 months',
     'PR-8': 'Pulmonary disease or CHD with Hct 0.40-0.45',
@@ -2013,9 +2262,9 @@ const INDICATION_MAP = {
     'PC-5': 'Other cryoprecipitate indications (requires review)',
 };
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // INDICATION UTILITY FUNCTIONS
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Format indications string into array of descriptions
@@ -2207,17 +2456,37 @@ function renderIndicationDetails(indicationString, indicationOtherSpecify) {
     return html;
 }
 
-// ──────────────────────────────────────────────────────────────
-// BACKEND INTEGRATION — Load requests from API
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
+// BACKEND INTEGRATION - Load requests from API
+// --------------------------------------------------------------
 
 /**
  * Load hospital blood requests from backend
  * Transforms API response to match local REQUESTS format
  */
-async function loadHospitalRequests() {
+async function loadHospitalRequests(options = {}) {
+    const {
+        resetPage = false
+    } = options;
+    if (resetPage) reqCurrentPage = 1;
+
     try {
-        const response = await fetch('/api/hospital/blood-requests', {
+        const search = (document.getElementById('req-search')?.value || '').trim();
+        const bloodType = document.getElementById('req-filter-blood-type')?.value || 'ALL';
+        const component = document.getElementById('req-filter-component')?.value || 'ALL';
+        const urgency = document.getElementById('req-filter-urgency')?.value || 'ALL';
+
+        const params = new URLSearchParams();
+        params.set('page', String(reqCurrentPage));
+        params.set('size', String(REQ_PER_PAGE));
+        params.set('sort', currentSort || 'date_desc');
+        if (currentFilter && currentFilter !== 'ALL') params.set('status', currentFilter);
+        if (search) params.set('search', search);
+        if (bloodType !== 'ALL') params.set('bloodType', bloodType);
+        if (component !== 'ALL') params.set('component', component);
+        if (urgency !== 'ALL') params.set('urgency', urgency);
+
+        const response = await fetch(`/api/hospital/blood-requests?${params.toString()}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -2230,10 +2499,15 @@ async function loadHospitalRequests() {
             return;
         }
 
-        const requests = await response.json();
+        const payload = await response.json();
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+
+        reqCurrentPage = Number(payload?.currentPage || reqCurrentPage || 1);
+        reqTotalPages = Math.max(Number(payload?.totalPages || 1), 1);
+        reqTotalElements = Number(payload?.totalElements || 0);
 
         // Transform backend response to match local REQUESTS format
-        REQUESTS = requests.map(req => ({
+        REQUESTS = rows.map(req => ({
             id: req.id,
             referenceNumber: req.referenceNumber,
             patientName: req.patientName,
@@ -2307,25 +2581,57 @@ async function loadHospitalRequests() {
                 ? req.reservedBags
                 : (req.fulfilledByBag ? [req.fulfilledByBag] : [])
         }));
-        // console.log(requests);
-        // Re-render with fetched data
+
+        REQUESTS.forEach((req) => {
+            const id = Number(req?.id);
+            if (Number.isFinite(id)) knownRequestIdsHosp.add(id);
+        });
+
+        await trackNewHospitalRequests();
+
+        await loadHospitalRequestStatusCounts({
+            search,
+            bloodType,
+            component,
+            urgency
+        });
+
         renderDashboard();
-        filterRequests(currentFilter, document.querySelector('.active-filter'));
+        renderRequestTable();
 
     } catch (error) {
         console.error('Error loading hospital requests:', error);
     }
 }
 
-// Call on page load
-document.addEventListener('DOMContentLoaded', () => {
-    loadHospitalRequests();
-    setupNotesListener();
-});
+async function loadHospitalRequestStatusCounts({ search, bloodType, component, urgency }) {
+    try {
+        const params = new URLSearchParams();
+        if (search) params.set('search', search);
+        if (bloodType && bloodType !== 'ALL') params.set('bloodType', bloodType);
+        if (component && component !== 'ALL') params.set('component', component);
+        if (urgency && urgency !== 'ALL') params.set('urgency', urgency);
 
-// ──────────────────────────────────────────────────────────────
+        const response = await fetch(`/api/hospital/blood-requests/status-counts?${params.toString()}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (!response.ok) return;
+
+        const counts = await response.json();
+        reqStatusCounts = {
+            ...reqStatusCounts,
+            ...(counts || {})
+        };
+    } catch (error) {
+        console.error('Error loading request status counts:', error);
+    }
+}
+
+// --------------------------------------------------------------
 // Filter & Sort UI Management
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Toggle advanced filters section visibility
@@ -2349,28 +2655,29 @@ function toggleAdvancedFilters() {
  * Clear all filters and reset to defaults
  */
 function clearAllFilters() {
-    // Reset filter dropdowns
-    document.getElementById('filter-blood-type').value = '';
-    document.getElementById('filter-component').value = '';
-    document.getElementById('filter-urgency').value = '';
-    document.getElementById('filter-category').value = '';
-    document.getElementById('filter-units').value = '';
-    document.getElementById('filter-date-range').value = '';
-    document.getElementById('req-search').value = '';
-    
-    // Reset sort to default
-    document.getElementById('req-sort').value = 'recent';
-    currentSort = 'recent';
-    
-    // Reapply filters
-    applyFiltersAndSort();
+    const ids = ['req-filter-blood-type', 'req-filter-component', 'req-filter-urgency', 'req-sort', 'req-search'];
+    ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === 'req-search') el.value = '';
+        else if (id === 'req-sort') el.value = 'date_desc';
+        else el.value = 'ALL';
+    });
+
+    currentSort = 'date_desc';
+    reqCurrentPage = 1;
+    const allChip = document.querySelector('#req-filters .req-filter');
+    filterRequests('ALL', allChip || null);
 }
 
 /**
  * Apply all filters and sorting together
  */
 function applyFiltersAndSort() {
-    filterRequests(currentFilter, document.querySelector('.active-filter'));
+    const sortEl = document.getElementById('req-sort');
+    currentSort = sortEl ? sortEl.value : currentSort;
+    reqCurrentPage = 1;
+    loadHospitalRequests({ resetPage: true });
 }
 
 /**
@@ -2389,7 +2696,7 @@ function toggleSortColumn(column) {
         'ref': 'ref',
         'patient': 'patient',
         'units': 'units',
-        'date': 'recent'
+        'date': 'date'
     };
     
     currentSort = sortMap[column] + (columnSort[column] === 'desc' ? '-desc' : '');
@@ -2397,7 +2704,7 @@ function toggleSortColumn(column) {
     // Update visual indicators
     updateSortIndicators(column);
     
-    applyFiltersAndSort();
+    loadHospitalRequests({ resetPage: true });
 }
 
 /**
@@ -2410,7 +2717,7 @@ function updateSortIndicators(activeColumn) {
         const indicator = document.getElementById(`sort-indicator-${col}`);
         if (indicator) {
             if (col === activeColumn) {
-                indicator.textContent = columnSort[col] === 'asc' ? ' ↑' : ' ↓';
+                indicator.textContent = columnSort[col] === 'asc' ? ' ?' : ' ?';
                 indicator.style.color = 'var(--blue)';
             } else {
                 indicator.textContent = '';
@@ -2419,151 +2726,69 @@ function updateSortIndicators(activeColumn) {
     });
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // Advanced Filtering & Sorting Logic
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Enhanced filter and display blood requests with multiple filter options
  */
 function filterRequests(filter, btn) {
+    const prevFilter = currentFilter;
     currentFilter = filter;
-    
-    // Get search query
-    const q = (document.getElementById('req-search')?.value || '').toLowerCase();
-    
-    // Get advanced filter values
-    const bloodType = document.getElementById('filter-blood-type')?.value || '';
-    const component = document.getElementById('filter-component')?.value || '';
-    const urgency = document.getElementById('filter-urgency')?.value || '';
-    const category = document.getElementById('filter-category')?.value || '';
-    const unitsRange = document.getElementById('filter-units')?.value || '';
-    const dateRange = document.getElementById('filter-date-range')?.value || '';
-    
-    // Update button styles
-    document.querySelectorAll('.req-filter').forEach(b => {
-        b.style.color = 'var(--muted)';
-        b.style.borderBottom = '2px solid transparent';
-        b.style.fontWeight = '600';
-        b.classList.remove('active-filter');
-    });
-    
+    document.querySelectorAll('#req-filters .req-filter').forEach((b) => b.classList.remove('active-filter'));
     if (btn) {
-        btn.style.color = 'var(--red)';
-        btn.style.borderBottom = '2px solid var(--red)';
-        btn.style.fontWeight = '700';
         btn.classList.add('active-filter');
     }
-    
-    // Apply status filter
-    let list = REQUESTS.filter(r => {
-        if (filter === 'ACTIVE') return ['PENDING','APPROVED','NEEDS_CONFIRMATION','ALLOCATED','READY_FOR_RELEASE'].includes(r.status);
-        if (filter === 'RELEASED') return r.status === 'RELEASED';
-        if (filter === 'REJECTED') return ['REJECTED','CANCELLED'].includes(r.status);
-        return true;
-    });
-    
-    // Apply search filter
-    if (q) {
-        list = list.filter(r =>
-            r.patientName.toLowerCase().includes(q) ||
-            r.referenceNumber.toLowerCase().includes(q)
-        );
+    if (prevFilter !== filter) {
+        reqCurrentPage = 1;
     }
-    
-    // Apply blood type filter
-    if (bloodType) {
-        list = list.filter(r => r.bloodType === bloodType);
+
+    loadHospitalRequests({ resetPage: prevFilter !== filter });
+}
+
+function renderRequestTable() {
+    updateRequestFilterCounts();
+
+    const list = REQUESTS;
+    document.getElementById('req-count').textContent = `${reqTotalElements} total`;
+    const resultsInfo = document.getElementById('req-results-info');
+    if (resultsInfo) {
+        const scope = currentFilter === 'ALL'
+            ? `${reqTotalElements} total requests`
+            : `${reqTotalElements} request(s) in ${currentFilter.replaceAll('_', ' ').toLowerCase()}`;
+        resultsInfo.textContent = scope;
     }
-    
-    // Apply component filter
-    if (component) {
-        list = list.filter(r => r.bloodComponent === component);
-    }
-    
-    // Apply urgency filter
-    if (urgency) {
-        list = list.filter(r => r.urgencyLevel === urgency);
-    }
-    
-    // Apply category filter
-    if (category) {
-        list = list.filter(r => r.requestCategory === category);
-    }
-    
-    // Apply units range filter
-    if (unitsRange) {
-        list = list.filter(r => {
-            const units = r.numberOfUnits;
-            switch(unitsRange) {
-                case '1-2': return units >= 1 && units <= 2;
-                case '3-5': return units >= 3 && units <= 5;
-                case '6-10': return units >= 6 && units <= 10;
-                case '11+': return units >= 11;
-                default: return true;
-            }
-        });
-    }
-    
-    // Apply date range filter
-    if (dateRange) {
-        const now = new Date();
-        let filterDate;
-        
-        switch(dateRange) {
-            case 'today':
-                filterDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                break;
-            case 'week':
-                filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                break;
-            case 'month':
-                filterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                break;
-            case '3months':
-                filterDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-                break;
-        }
-        
-        if (filterDate) {
-            list = list.filter(r => {
-                const rDate = new Date(r.requestedAt);
-                return rDate >= filterDate;
-            });
-        }
-    }
-    
-    // Apply sorting
-    list = sortRequests(list, currentSort);
-    
-    // Update count
-    document.getElementById('req-count').textContent = list.length + ' total';
-    
-    // Update statistics
+
     updateRequestStats(list);
-    
-    // Render table
+
     const tbody = document.getElementById('requests-tbody');
     const empty = document.getElementById('req-empty');
-    
-    if (!list.length) {
-        tbody.innerHTML = '';
-        empty.style.display = 'block';
+    const total = reqTotalElements;
+    const totalPages = reqTotalPages;
+
+    if (!total || !list.length) {
+        if (tbody) tbody.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        reqUpdatePaginationUi(0, 0, 0, 0);
         return;
     }
-    
-    empty.style.display = 'none';
+
+    if (empty) empty.style.display = 'none';
+    if (!tbody) return;
+
     tbody.innerHTML = list.map(r => {
         const sc = STATUS_CFG[r.status];
         const urg = URGENCY_BADGE[r.urgencyLevel];
-        return `<tr>
-            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.referenceNumber}</td>
+        const isNew = newRequestIdsHosp.has(Number(r.id));
+        return `<tr class="${isNew ? 'req-row-new' : ''}">
+            <td style="font-size:14px;font-weight:600;color:var(--charcoal)">${r.referenceNumber}${isNew ? '<span class="new-request-pill">New</span>' : ''}</td>
             <td>
                 <div style="font-weight:600">${r.patientName}</div>
-                <div style="font-size:11px;color:var(--muted)">${CAT_LABELS[r.requestCategory]} · ${r.ageGroup}</div>
+                <div style="font-size:11px;color:var(--muted)">${CAT_LABELS[r.requestCategory]} - ${r.ageGroup}</div>
             </td>
             <td>${COMP_LABELS[r.bloodComponent]}</td>
-            <td><span style="font-family:'Playfair Display',serif;font-size:14px;font-weight:900">${BT_LABELS[r.bloodType]}</span></td>
+            <td><span style="font-size:13px;font-weight:600;color:var(--charcoal)">${formatBloodTypeDisplayHosp(r.bloodType)}</span></td>
             <td style="font-weight:700">${formatUnitsDisplayHosp(r)}</td>
             <td><span class="badge ${urg}">${URGENCY_LABELS[r.urgencyLevel]}</span></td>
             <td><span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span></td>
@@ -2571,68 +2796,62 @@ function filterRequests(filter, btn) {
             <td>
                 <div style="display:flex;gap:6px">
                     <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="openRequestDetail(${r.id})">View</button>
-                    ${r.doctorsNoteUrl ? `<button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="window.reqViewDoc('${r.doctorsNoteUrl}', 'Doctor\\'s Note - ${r.referenceNumber}')">📄 Doc</button>` : ''}
+                    ${r.doctorsNoteUrl ? `<button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="window.reqViewDoc('${r.doctorsNoteUrl}', 'Doctor\\'s Note - ${r.referenceNumber}')">?? Doc</button>` : ''}
                 </div>
             </td>
         </tr>`;
     }).join('');
+
+    const start = ((reqCurrentPage - 1) * REQ_PER_PAGE) + 1;
+    const end = start + list.length - 1;
+    reqUpdatePaginationUi(start, end, total, totalPages);
 }
 
-/**
- * Sort requests based on selected sort criteria
- */
-function sortRequests(list, sortType) {
-    const sorted = [...list];
-    
-    switch(sortType) {
-        case 'recent':
-            return sorted.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
-        
-        case 'oldest':
-            return sorted.sort((a, b) => new Date(a.requestedAt) - new Date(b.requestedAt));
-        
-        case 'urgent':
-            const urgencyOrder = { 'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3 };
-            return sorted.sort((a, b) => 
-                (urgencyOrder[a.urgencyLevel] || 4) - (urgencyOrder[b.urgencyLevel] || 4)
-            );
-        
-        case 'patient':
-        case 'patient-asc':
-            return sorted.sort((a, b) => a.patientName.localeCompare(b.patientName));
-        
-        case 'patient-desc':
-            return sorted.sort((a, b) => b.patientName.localeCompare(a.patientName));
-        
-        case 'status-pending':
-            const statusOrder = {
-                'PENDING': 0,
-                'APPROVED': 1,
-                'NEEDS_CONFIRMATION': 2,
-                'ALLOCATED': 3,
-                'READY_FOR_RELEASE': 4,
-                'RELEASED': 5,
-                'REJECTED': 6,
-                'CANCELLED': 7
-            };
-            return sorted.sort((a, b) => 
-                (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
-            );
-        
-        case 'units':
-        case 'units-asc':
-            return sorted.sort((a, b) => getEffectiveUnitsHosp(a) - getEffectiveUnitsHosp(b));
-        
-        case 'units-desc':
-            return sorted.sort((a, b) => getEffectiveUnitsHosp(b) - getEffectiveUnitsHosp(a));
-        
-        case 'recent-desc':
-        case 'date-desc':
-            return sorted.sort((a, b) => new Date(a.requestedAt) - new Date(b.requestedAt));
-        
-        default:
-            return sorted;
+function updateRequestFilterCounts() {
+    const counters = {
+        all: Number(reqStatusCounts.ALL || 0),
+        pending: Number(reqStatusCounts.PENDING || 0),
+        needs_confirmation: Number(reqStatusCounts.NEEDS_CONFIRMATION || 0),
+        approved: Number(reqStatusCounts.APPROVED || 0),
+        allocated: Number(reqStatusCounts.ALLOCATED || 0),
+        ready_for_release: Number(reqStatusCounts.READY_FOR_RELEASE || 0),
+        released: Number(reqStatusCounts.RELEASED || 0),
+        rejected: Number(reqStatusCounts.REJECTED || 0),
+        cancelled: Number(reqStatusCounts.CANCELLED || 0)
+    };
+
+    Object.entries(counters).forEach(([key, value]) => {
+        const el = document.getElementById(`req-cnt-${key}`);
+        if (el) el.textContent = String(value);
+    });
+}
+
+function reqUpdatePaginationUi(start, end, total, totalPages) {
+    const showingEl = document.getElementById('req-showing');
+    const pageLabelEl = document.getElementById('req-page-label');
+    const prevBtn = document.getElementById('req-prev');
+    const nextBtn = document.getElementById('req-next');
+
+    if (showingEl) {
+        showingEl.textContent = total
+            ? `Showing ${start}-${end} of ${total}`
+            : 'No matching requests';
     }
+    if (pageLabelEl) pageLabelEl.textContent = `${reqCurrentPage} / ${Math.max(totalPages, 1)}`;
+    if (prevBtn) prevBtn.disabled = reqCurrentPage <= 1 || total === 0;
+    if (nextBtn) nextBtn.disabled = reqCurrentPage >= totalPages || total === 0;
+}
+
+function reqPrevPage() {
+    if (reqCurrentPage <= 1) return;
+    reqCurrentPage -= 1;
+    loadHospitalRequests();
+}
+
+function reqNextPage() {
+    if (reqCurrentPage >= reqTotalPages) return;
+    reqCurrentPage += 1;
+    loadHospitalRequests();
 }
 
 /**
@@ -2661,9 +2880,9 @@ function updateRequestStats(list) {
     }
 }
 
-// ══════════════════════════════════════════════════════════════
-// REQUEST DETAIL MODAL — ENHANCED WITH ALL SECTIONS
-// ══════════════════════════════════════════════════════════════
+// --------------------------------------------------------------
+// REQUEST DETAIL MODAL - ENHANCED WITH ALL SECTIONS
+// --------------------------------------------------------------
 
 /**
  * Open request detail modal with comprehensive data population
@@ -2678,15 +2897,16 @@ function updateRequestStats(list) {
  * - Requester Information
  */
 function openRequestDetail(id) {
+    markRequestAsSeen(id);
     const r = REQUESTS.find(x => x.id === id);
     if (!r) return;
     
     const sc = STATUS_CFG[r.status];
     const urg = URGENCY_LABELS[r.urgencyLevel];
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // HEADER & STATUS STRIP
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     document.getElementById('rd-ref').textContent = r.referenceNumber;
     
     const strip = document.getElementById('rd-status-strip');
@@ -2701,57 +2921,57 @@ function openRequestDetail(id) {
     document.getElementById('rd-blood-ghost').textContent = BT_LABELS[r.bloodType];
     document.getElementById('rd-blood-ghost').style.color = sc.color;
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: REQUEST STATUS
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     document.getElementById('rd-blood').textContent = BT_LABELS[r.bloodType];
     document.getElementById('rd-urgency').innerHTML = `<span class="badge ${URGENCY_BADGE[r.urgencyLevel]}">${urg}</span>`;
     document.getElementById('rd-status-badge').innerHTML = `<span class="badge badge-${r.status.toLowerCase().replace(/_/g, '-')}">${sc.icon} ${sc.label}</span>`;
-    document.getElementById('rd-request-type').textContent = r.requestType || '—';
-    document.getElementById('rd-submitted-date').textContent = formatDate(r.requestedAt) || '—';
+    document.getElementById('rd-request-type').textContent = r.requestType || '-';
+    document.getElementById('rd-submitted-date').textContent = formatDate(r.requestedAt) || '-';
     document.getElementById('rd-required').textContent = r.requiredBy ? formatDate(r.requiredBy) : 'As soon as possible';
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: PATIENT INFORMATION
-    // ─────────────────────────────────────────────
-    document.getElementById('rd-patient').textContent = r.patientName || '—';
+    // ---------------------------------------------
+    document.getElementById('rd-patient').textContent = r.patientName || '-';
     document.getElementById('rd-patient-age').textContent = 
-        (r.patientAge || '—') + (r.ageGroup ? ` (${r.ageGroup})` : '');
-    document.getElementById('rd-patient-sex').textContent = r.patientSex || '—';
+        (r.patientAge || '-') + (r.ageGroup ? ` (${r.ageGroup})` : '');
+    document.getElementById('rd-patient-sex').textContent = r.patientSex || '-';
     const wardRoomLabel = [r.wardRoom, r.roomNo].filter(Boolean).join(' / ');
-    document.getElementById('rd-ward-room').textContent = wardRoomLabel || '—';
+    document.getElementById('rd-ward-room').textContent = wardRoomLabel || '-';
     const addressLabel = [r.patientPurok, r.patientBarangay, r.patientMunicipality, r.patientProvince]
         .filter(Boolean)
         .join(' / ');
-    document.getElementById('rd-patient-address').textContent = addressLabel || '—';
+    document.getElementById('rd-patient-address').textContent = addressLabel || '-';
     document.getElementById('rd-cat').textContent = formatCategoryLabelHosp(r.requestCategory);
-    document.getElementById('rd-physician').textContent = r.requestingPhysician || '—';
+    document.getElementById('rd-physician').textContent = r.requestingPhysician || '-';
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: BLOOD REQUIREMENTS
-    // ─────────────────────────────────────────────
-    document.getElementById('rd-comp').textContent = COMP_LABELS[r.bloodComponent] || r.bloodComponent || '—';
+    // ---------------------------------------------
+    document.getElementById('rd-comp').textContent = COMP_LABELS[r.bloodComponent] || r.bloodComponent || '-';
     if (Number.isInteger(r.approvedUnits) && r.approvedUnits > 0 && r.approvedUnits !== r.numberOfUnits) {
         document.getElementById('rd-units').textContent = `${r.approvedUnits} unit(s) approved of ${r.numberOfUnits} requested`;
     } else {
-        document.getElementById('rd-units').textContent = getEffectiveUnitsHosp(r) ? `${getEffectiveUnitsHosp(r)} unit(s)` : '—';
+        document.getElementById('rd-units').textContent = getEffectiveUnitsHosp(r) ? `${getEffectiveUnitsHosp(r)} unit(s)` : '-';
     }
     
        
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const plateletCountBox = document.getElementById('rd-platelet-count-box');
     if (r.bloodComponent === 'PLATELET_CONCENTRATE') {
         plateletCountBox.style.display = 'block';
         document.getElementById('rd-platelet-count').textContent =
             r.plateletCount !== null && r.plateletCount !== undefined && r.plateletCount !== ''
                 ? r.plateletCount
-                : '—';
+                : '-';
     } else {
         plateletCountBox.style.display = 'none';
     }
 
     // SECTION: ADDITIONAL NOTES
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const notesDisplay = document.getElementById('rd-notes-display');
     const noteSections = [];
     if (r.notes && r.notes.trim() !== '') {
@@ -2773,8 +2993,8 @@ function openRequestDetail(id) {
             <div style="border:1px solid var(--border);border-radius:10px;background:white;padding:12px 14px">
                 <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Approval Update</div>
                 <div style="color:var(--charcoal);line-height:1.6">
-                    <div><strong>Requested Units:</strong> ${r.numberOfUnits ?? '—'}</div>
-                    <div><strong>Approved Units:</strong> ${r.approvedUnits ?? r.numberOfUnits ?? '—'}</div>
+                    <div><strong>Requested Units:</strong> ${r.numberOfUnits ?? '-'}</div>
+                    <div><strong>Approved Units:</strong> ${r.approvedUnits ?? r.numberOfUnits ?? '-'}</div>
                     <div><strong>Remarks:</strong> ${escapeIndicationTextHosp(r.approvalRemarks)}</div>
                     <div><strong>Units:</strong> ${formatUnitsDisplayHosp(r)} unit(s)</div>
                     ${r.alternativeComponentSuggestion ? `<div><strong>Alternative Component:</strong> ${escapeIndicationTextHosp(r.alternativeComponentSuggestion)}</div>` : ''}
@@ -2787,12 +3007,12 @@ function openRequestDetail(id) {
     if (noteSections.length > 0) {
         notesDisplay.innerHTML = noteSections.join('');
     } else {
-        notesDisplay.innerHTML = '<div style="color:var(--muted)">—</div>';
+        notesDisplay.innerHTML = '<div style="color:var(--muted)">-</div>';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: TRANSFUSION INDICATIONS
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const indicationsSection = document.getElementById('rd-indications-section');
     if (r.indication) {
         const indCodes = r.indication.split(',').map(c => c.trim()).filter(c => c);
@@ -2809,18 +3029,18 @@ function openRequestDetail(id) {
         indicationsSection.style.display = 'none';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: CLINICAL INFORMATION
-    // ─────────────────────────────────────────────
-    document.getElementById('rd-clinical-impression').textContent = r.clinicalImpression || '—';
-    document.getElementById('rd-hemoglobin').textContent = r.hemoglobin ? `${r.hemoglobin} g/L` : '—';
+    // ---------------------------------------------
+    document.getElementById('rd-clinical-impression').textContent = r.clinicalImpression || '-';
+    document.getElementById('rd-hemoglobin').textContent = r.hemoglobin ? `${r.hemoglobin} g/L` : '-';
     document.getElementById('rd-hematocrit').textContent = r.hematocrit 
         ? `${(r.hematocrit * 100).toFixed(1)}%` 
-        : '—';
+        : '-';
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: TRANSFUSION HISTORY
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const hasPrevTransfusion = r.hadPreviousTransfusion === true;
     document.getElementById('rd-previous-transfusion').textContent = hasPrevTransfusion ? 'Yes' : 'No';
     
@@ -2831,17 +3051,17 @@ function openRequestDetail(id) {
         transfusionDateBox.style.display = 'block';
         transfusionUnitsBox.style.display = 'block';
         document.getElementById('rd-transfusion-date').textContent = 
-            r.previousTransfusionDate ? formatDate(r.previousTransfusionDate) : '—';
+            r.previousTransfusionDate ? formatDate(r.previousTransfusionDate) : '-';
         document.getElementById('rd-transfusion-units').textContent = 
-            r.previousTransfusionUnits ? `${r.previousTransfusionUnits} unit(s)` : '—';
+            r.previousTransfusionUnits ? `${r.previousTransfusionUnits} unit(s)` : '-';
     } else {
         transfusionDateBox.style.display = 'none';
         transfusionUnitsBox.style.display = 'none';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: REACTION HISTORY
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const hasPrevReaction = r.hadPreviousReaction === true;
     document.getElementById('rd-previous-reaction').textContent = hasPrevReaction ? 'Yes' : 'No';
     
@@ -2852,17 +3072,17 @@ function openRequestDetail(id) {
         reactionDateBox.style.display = 'block';
         reactionDetailsBox.style.display = 'block';
         document.getElementById('rd-reaction-date').textContent = 
-            r.previousReactionDate ? formatDate(r.previousReactionDate) : '—';
+            r.previousReactionDate ? formatDate(r.previousReactionDate) : '-';
         document.getElementById('rd-reaction-details').textContent = 
-            r.previousReactionDetails || '—';
+            r.previousReactionDetails || '-';
     } else {
         reactionDateBox.style.display = 'none';
         reactionDetailsBox.style.display = 'none';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: INDICATION OTHER (SPECIFY) DETAILS
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const indicationOtherSection = document.getElementById('rd-indication-other-section');
     if (false && r.indicationOtherSpecify) {
         indicationOtherSection.style.display = 'block';
@@ -2884,7 +3104,7 @@ function openRequestDetail(id) {
         });
         
         if (otherSpecifyHTML === '') {
-            otherSpecifyHTML = '<div style="color:var(--muted)">—</div>';
+            otherSpecifyHTML = '<div style="color:var(--muted)">-</div>';
         }
         
         document.getElementById('rd-indication-other-details').innerHTML = otherSpecifyHTML;
@@ -2892,9 +3112,9 @@ function openRequestDetail(id) {
         indicationOtherSection.style.display = 'none';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // SECTION: REQUESTER INFORMATION
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     if (false && r.indicationOtherSpecify) {
         const noteMap = parseIndicationOtherSpecifyHosp(r.indicationOtherSpecify);
         const otherSpecifyItems = Object.entries(noteMap).filter(([code]) => !isSpecifyOnlyIndicationCodeHosp(code));
@@ -2907,21 +3127,20 @@ function openRequestDetail(id) {
                         ${escapeIndicationTextHosp(text)}
                     </div>
                 `)
-                .join('') || '<div style="color:var(--muted)">—</div>';
+                .join('') || '<div style="color:var(--muted)">-</div>';
         } else {
             indicationOtherSection.style.display = 'none';
         }
     }
 
-    document.getElementById('rd-requester-name').textContent = r.requesterName || '—';
-    document.getElementById('rd-requester-relationship').textContent = r.requesterRelationship || '—';
-    document.getElementById('rd-requester-contact').textContent = r.requesterContact || '—';
-    document.getElementById('rd-requester-email').textContent = r.requesterEmail || '—';
-    document.getElementById('rd-requester-type').textContent = r.requesterType || '—';
+    document.getElementById('rd-requester-name').textContent = r.requesterName || '-';
+    document.getElementById('rd-requester-contact').textContent = r.requesterContact || '-';
+    document.getElementById('rd-requester-email').textContent = r.requesterEmail || '-';
+    document.getElementById('rd-requester-type').textContent = r.requesterType || '-';
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // REJECTION REASON (if applicable)
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const rejBox = document.getElementById('rd-rejection-box');
     if (r.rejectionReason && ['REJECTED', 'CANCELLED'].includes(r.status)) {
         rejBox.style.display = 'block';
@@ -2932,9 +3151,9 @@ function openRequestDetail(id) {
         rejBox.style.display = 'none';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // FULFILLED BY BAG (if applicable)
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const fulBox = document.getElementById('rd-fulfilled-box');
     const reservedBags = Array.isArray(r.reservedBags)
         ? r.reservedBags
@@ -2944,10 +3163,10 @@ function openRequestDetail(id) {
         if (!r.fulfilledByBag) {
             r.fulfilledByBag = reservedBags[0];
         }
-        document.getElementById('rd-bag-id').textContent = r.fulfilledByBag.id || '—';
+        document.getElementById('rd-bag-id').textContent = r.fulfilledByBag.id || '-';
         document.getElementById('rd-released-at').textContent = 
-            r.fulfilledByBag.dispensedAt ? formatDate(r.fulfilledByBag.dispensedAt) : '—';
-        const bagLabel = reservedBags.map(b => b.serialNumber || b.id || 'â€”').join(', ');
+            r.fulfilledByBag.dispensedAt ? formatDate(r.fulfilledByBag.dispensedAt) : '-';
+        const bagLabel = reservedBags.map(b => b.serialNumber || b.id || '—').join(', ');
         const firstDispensedAt = reservedBags.find(b => b.dispensedAt)?.dispensedAt;
         const statusTimestamp = firstDispensedAt || r.reviewedAt || null;
         document.getElementById('rd-fulfilled-title').textContent =
@@ -2958,14 +3177,14 @@ function openRequestDetail(id) {
             r.status === 'RELEASED' ? 'Released' : 'Updated';
         document.getElementById('rd-bag-id').textContent = bagLabel;
         document.getElementById('rd-released-at').textContent =
-            statusTimestamp ? formatDate(statusTimestamp) : 'â€”';
+            statusTimestamp ? formatDate(statusTimestamp) : '—';
     } else {
         fulBox.style.display = 'none';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // DOCTOR'S NOTE / REQUEST DOCUMENT
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     const docBox = document.getElementById('rd-doc-box');
     const docBtn = document.getElementById('rd-view-doc-btn');
     if (r.doctorsNoteUrl) {
@@ -2977,9 +3196,9 @@ function openRequestDetail(id) {
         docBox.style.display = 'none';
     }
     
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // CANCEL BUTTON (only for PENDING status)
-    // ─────────────────────────────────────────────
+    // ---------------------------------------------
     // const cancelRow = document.getElementById('rd-cancel-row');
     // if (r.status === 'PENDING') {
     //     cancelRow.style.display = 'block';
@@ -3007,9 +3226,9 @@ function confirmCancel() {
     renderDashboard();
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // Document Viewer
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * View request document (PDF or image) in modal
@@ -3036,24 +3255,24 @@ window.reqViewDoc = function (url, label) {
         docFrame.innerHTML = `<img src="${url}" 
             style="width:100%;border-radius:10px;display:block;max-height:520px;object-fit:contain" 
             alt="${label}"
-            onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:var(--muted);font-size:13px\\'>Preview unavailable — <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ↗</a></div>'" />`;
+            onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:var(--muted);font-size:13px\\'>Preview unavailable - <a href=\\'${url}\\' target=\\'_blank\\' style=\\'color:var(--blue)\\'>open directly ?</a></div>'" />`;
     }
     
     openModal('req-doc-modal');
 };
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // HELPER: Format dates
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 /**
  * Format date for display
  * Expected format: "Mar 15, 2026" or similar
  */
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ 4️⃣ HOSPITAL PROFILE TAB ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- 4?? HOSPITAL PROFILE TAB ---
+// ---------------------------------------------------------------
 
 let currentProfileData = null;
 
@@ -3143,7 +3362,7 @@ function populateProfileForm(data) {
     
     // City
     document.getElementById('profile-city-input').value = data.city || '';
-    document.getElementById('profile-location-tag').textContent = `📍 ${data.city || 'City'}, ${data.province || 'Province'}`;
+    document.getElementById('profile-location-tag').textContent = `?? ${data.city || 'City'}, ${data.province || 'Province'}`;
     
     // Province
     document.getElementById('profile-province-input').value = data.province || '';
@@ -3159,11 +3378,11 @@ function populateProfileForm(data) {
     
     // // Verified status
     // if (data.emailVerified) {
-    //     document.getElementById('profile-verified-display').textContent = '✓ Verified';
-    //     document.getElementById('profile-verified-tag').textContent = '✓ Verified';
+    //     document.getElementById('profile-verified-display').textContent = '? Verified';
+    //     document.getElementById('profile-verified-tag').textContent = '? Verified';
     // } else {
-    //     document.getElementById('profile-verified-display').textContent = '⚠ Pending';
-    //     document.getElementById('profile-verified-tag').textContent = '⚠ Pending';
+    //     document.getElementById('profile-verified-display').textContent = '? Pending';
+    //     document.getElementById('profile-verified-tag').textContent = '? Pending';
     // }
     
     // Member since
@@ -3184,9 +3403,9 @@ function resetProfileForm() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // Save Profile Modal & Confirmation
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 const profileTextLimits = {
     'profile-hospital-name-input': { label: 'Hospital name', max: 25, required: true },
@@ -3423,9 +3642,9 @@ async function confirmSaveProfile() {
     }
 }
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // Password Change Modal & Confirmation
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 function openPasswordConfirmModal() {
     // Validate password fields
@@ -3521,9 +3740,9 @@ function showProfileError(message) {
 
 
 
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 // Initialize on DOM Ready
-// ──────────────────────────────────────────────────────────────
+// --------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
     // Setup modal close on backdrop click - EXCEPT for requestDetailModal
@@ -3559,9 +3778,9 @@ async function logout() {
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ INITIALIZATION ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- INITIALIZATION ---
+// ---------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
   // Set dashboard date
@@ -3587,6 +3806,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load requests from backend
   loadHospitalRequests();
   loadHospitalProfile();
+  setupNotesListener();
 
   
 
@@ -3608,9 +3828,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', stopAutoRefresh);
 });
 
-// ═══════════════════════════════════════════════════════════════
-// ░░░ AUTO-REFRESH ░░░
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// --- AUTO-REFRESH ---
+// ---------------------------------------------------------------
 
 let autoRefreshInterval = null;
 
@@ -3658,3 +3878,5 @@ function refreshDashboard() {
     }
   });
 }
+
+

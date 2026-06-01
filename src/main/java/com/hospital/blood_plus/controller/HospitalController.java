@@ -5,6 +5,7 @@ import com.hospital.blood_plus.dto.request.ChangePasswordRequestDTO;
 import com.hospital.blood_plus.dto.request.UpdateHospitalProfileDTO;
 import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.model.AppUser;
+import com.hospital.blood_plus.model.BloodBag;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.model.HospitalProfile;
 import com.hospital.blood_plus.model.RequestFulfillment;
@@ -105,9 +106,13 @@ public class HospitalController {
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) BloodBagRequest.RequestStatus status,
+            @RequestParam(required = false) BloodBag.BloodType bloodType,
+            @RequestParam(required = false) BloodBag.ComponentType component,
+            @RequestParam(required = false) BloodBagRequest.UrgencyLevel urgency,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo,
+            @RequestParam(defaultValue = "date_desc") String sort) {
         try {
             AppUser currentUser = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
@@ -124,9 +129,13 @@ public class HospitalController {
                         resolvedPage,
                         resolvedSize,
                         status,
+                        bloodType,
+                        component,
+                        urgency,
                         search,
                         dateFrom,
-                        dateTo
+                        dateTo,
+                        sort
                 );
 
                 List<Map<String, Object>> rows = requestsPage.getData().stream()
@@ -150,6 +159,38 @@ public class HospitalController {
                     .map(this::buildHospitalRequestResponse)
                     .toList());
  
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/blood-requests/status-counts")
+    @PreAuthorize("hasRole('HOSPITAL')")
+    public ResponseEntity<?> getHospitalRequestStatusCounts(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) BloodBag.BloodType bloodType,
+            @RequestParam(required = false) BloodBag.ComponentType component,
+            @RequestParam(required = false) BloodBagRequest.UrgencyLevel urgency,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
+        try {
+            AppUser currentUser = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            HospitalProfile hospital = hospitalProfileRepository.findByUser(currentUser)
+                    .orElseThrow(() -> new IllegalArgumentException("No hospital profile found."));
+
+            return ResponseEntity.ok(
+                    bloodBagRequestService.getHospitalRequestStatusCounts(
+                            hospital,
+                            search,
+                            bloodType,
+                            component,
+                            urgency,
+                            dateFrom,
+                            dateTo
+                    )
+            );
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

@@ -877,9 +877,13 @@ public class BloodBagRequestService {
             int page,
             int size,
             BloodBagRequest.RequestStatus status,
+            BloodBag.BloodType bloodType,
+            BloodBag.ComponentType componentType,
+            BloodBagRequest.UrgencyLevel urgencyLevel,
             String search,
             LocalDateTime dateFrom,
-            LocalDateTime dateTo) {
+            LocalDateTime dateTo,
+            String sort) {
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), 200);
         String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
@@ -887,12 +891,15 @@ public class BloodBagRequestService {
         Pageable pageable = PageRequest.of(
                 safePage - 1,
                 safeSize,
-                Sort.by(Sort.Direction.DESC, "requestedAt")
+                resolveHospitalRequestSort(sort)
         );
 
         Page<BloodBagRequest> pageData = repository.findForHospitalList(
                 hospital,
                 status,
+                bloodType,
+                componentType,
+                urgencyLevel,
                 normalizedSearch,
                 dateFrom,
                 dateTo,
@@ -907,6 +914,69 @@ public class BloodBagRequestService {
                 pageData.getTotalElements(),
                 pageData.getSize()
         );
+    }
+
+    public Map<String, Long> getHospitalRequestStatusCounts(
+            HospitalProfile hospital,
+            String search,
+            BloodBag.BloodType bloodType,
+            BloodBag.ComponentType componentType,
+            BloodBagRequest.UrgencyLevel urgencyLevel,
+            LocalDateTime dateFrom,
+            LocalDateTime dateTo
+    ) {
+        String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
+        EnumMap<RequestStatus, Long> statusCounts = new EnumMap<>(RequestStatus.class);
+        for (RequestStatus requestStatus : RequestStatus.values()) {
+            statusCounts.put(requestStatus, 0L);
+        }
+
+        long allCount = 0L;
+        List<BloodBagRequestRepository.StatusCountRow> rows =
+                repository.countForHospitalStatusSummary(
+                        hospital,
+                        normalizedSearch,
+                        bloodType,
+                        componentType,
+                        urgencyLevel,
+                        dateFrom,
+                        dateTo
+                );
+        for (BloodBagRequestRepository.StatusCountRow row : rows) {
+            if (row == null || row.getStatus() == null) continue;
+            long count = row.getTotal();
+            statusCounts.put(row.getStatus(), count);
+            allCount += count;
+        }
+
+        Map<String, Long> response = new LinkedHashMap<>();
+        response.put("ALL", allCount);
+        response.put("PENDING", statusCounts.getOrDefault(RequestStatus.PENDING, 0L));
+        response.put("NEEDS_CONFIRMATION", statusCounts.getOrDefault(RequestStatus.NEEDS_CONFIRMATION, 0L));
+        response.put("APPROVED", statusCounts.getOrDefault(RequestStatus.APPROVED, 0L));
+        response.put("ALLOCATED", statusCounts.getOrDefault(RequestStatus.ALLOCATED, 0L));
+        response.put("READY_FOR_RELEASE", statusCounts.getOrDefault(RequestStatus.READY_FOR_RELEASE, 0L));
+        response.put("RELEASED", statusCounts.getOrDefault(RequestStatus.RELEASED, 0L));
+        response.put("REJECTED", statusCounts.getOrDefault(RequestStatus.REJECTED, 0L));
+        response.put("CANCELLED", statusCounts.getOrDefault(RequestStatus.CANCELLED, 0L));
+        return response;
+    }
+
+    private Sort resolveHospitalRequestSort(String sort) {
+        if (sort == null) {
+            return Sort.by(Sort.Direction.DESC, "requestedAt");
+        }
+        return switch (sort.trim().toLowerCase(Locale.ROOT)) {
+            case "date_asc", "oldest", "date" -> Sort.by(Sort.Direction.ASC, "requestedAt");
+            case "date_desc", "recent", "newest", "date-desc" -> Sort.by(Sort.Direction.DESC, "requestedAt");
+            case "ref", "ref-asc" -> Sort.by(Sort.Direction.ASC, "referenceNumber");
+            case "ref-desc" -> Sort.by(Sort.Direction.DESC, "referenceNumber");
+            case "patient", "patient-asc" -> Sort.by(Sort.Direction.ASC, "patientName");
+            case "patient-desc" -> Sort.by(Sort.Direction.DESC, "patientName");
+            case "units", "units-asc" -> Sort.by(Sort.Direction.ASC, "numberOfUnits");
+            case "units_desc", "units-desc" -> Sort.by(Sort.Direction.DESC, "numberOfUnits");
+            default -> Sort.by(Sort.Direction.DESC, "requestedAt");
+        };
     }
 
     // ─────────────────────────────────────────────

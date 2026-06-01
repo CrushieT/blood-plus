@@ -6165,7 +6165,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   const REQ_DOC_ZOOM_STEP = 0.2;
 
   const reqBagCache = {};
-  const REQ_NEW_BADGE_STATUSES = new Set(['PENDING', 'NEEDS_CONFIRMATION']);
+  const REQ_NEW_BADGE_STATUSES = new Set(['PENDING']);
   const reqSeenIds = new Set();
   const reqUnseenIds = new Set();
   let reqBadgePrimed = false;
@@ -6222,6 +6222,16 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     updateBloodRequestBadge(false);
   }
 
+  function markBloodRequestAsViewedById(reqId) {
+    const target = reqData.find(r => Number(r?.id) === Number(reqId));
+    if (!target) return;
+    const key = reqGetIdentity(target);
+    if (!key) return;
+    if (!reqUnseenIds.has(key)) return;
+    reqUnseenIds.delete(key);
+    updateBloodRequestBadge(false);
+  }
+
   function detectNewBloodRequests(nextReqData) {
     const rows = Array.isArray(nextReqData) ? nextReqData : [];
     const currentRelevant = new Set();
@@ -6240,21 +6250,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       }
     });
 
-    reqUnseenIds.forEach(key => {
-      if (!currentRelevant.has(key)) {
-        reqUnseenIds.delete(key);
-      }
-    });
-
     if (!reqBadgePrimed) {
       reqBadgePrimed = true;
       reqUnseenIds.clear();
       updateBloodRequestBadge(false);
-      return;
-    }
-
-    if (isBloodRequestsPanelActive()) {
-      markBloodRequestsAsViewed();
       return;
     }
 
@@ -7729,6 +7728,8 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
  
   function reqRenderCard(req) {
     const isExp    = !!reqExpanded[req.id];
+    const reqKey   = reqGetIdentity(req);
+    const isNewReq = !!(reqKey && reqUnseenIds.has(reqKey));
     const urgColor = REQ_URGENCY_COLOR[req.urgency];
     const requestCategoryRaw = String(req.requestCategory ?? '').trim().toUpperCase();
     const requesterTypeDisplay =
@@ -7752,14 +7753,14 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
       setTimeout(() => reqFetchCompatibleBags(req), 0);
     }
  
-    return `<div class="req-card${isExp ? ' expanded' : ''}" id="req-card-${req.id}">
+    return `<div class="req-card${isExp ? ' expanded' : ''}${isNewReq ? ' req-card-new' : ''}" id="req-card-${req.id}">
       <div class="req-head" onclick="reqToggle(${req.id})"
            style="display:flex;gap:0;padding:0;align-items:stretch">
         <div class="req-urgency-bar"
              style="background:${urgColor};margin-right:0;flex-shrink:0;border-radius:12px 0 0 ${isExp ? '0' : '12px'}"></div>
         <div style="flex:1;display:grid;grid-template-columns:1fr auto auto auto auto;align-items:center;gap:12px;padding:15px 18px">
           <div>
-            <div class="req-name">${req.referenceNumber} ${typeLabel}</div>
+            <div class="req-name">${req.referenceNumber} ${typeLabel}${isNewReq ? '<span class="req-new-pill">New</span>' : ''}</div>
             <div class="req-meta">
               <span>${req.referenceNumber ? `Ref: ${req.name}` : 'N/A'}</span><span class="req-meta-dot"></span>
               <span>${req.patient}</span><span class="req-meta-dot"></span>
@@ -7873,6 +7874,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   }
  
   window.reqToggle = async id => {
+    markBloodRequestAsViewedById(id);
     const willExpand = !reqExpanded[id];
     reqExpanded[id] = willExpand;
     if (willExpand) {
@@ -7934,6 +7936,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
   };
 
   window.openReqDetailsModal = async function (reqId) {
+    markBloodRequestAsViewedById(reqId);
     window.initReqDetailsModal();
 
     let req = reqData.find(x => x.id === reqId);
@@ -11509,10 +11512,6 @@ function showPanel(panelName, element) {
 
   if (element) {
     element.classList.add('active');
-  }
-
-  if (panelName === 'bloodrequests' && typeof window.markBloodRequestsAsViewed === 'function') {
-    window.markBloodRequestsAsViewed();
   }
 
   window.scrollTo(0, 0);

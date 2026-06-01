@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
@@ -37,8 +37,9 @@
             <div class="nav-item" onclick="showPanel('newrequest', this)">
             <span class="nav-icon">RQ</span> New Request
             </div>
-            <div class="nav-item" onclick="showPanel('myrequests', this)">
+            <div class="nav-item" id="nav-myrequests-item" onclick="showPanel('myrequests', this)">
             <span class="nav-icon">LOG</span> My Requests
+            <span class="nav-badge nav-badge-new" id="nav-myrequests-badge" style="display:none">0</span>
             </div>
 
             <div class="nav-label">Account</div>
@@ -116,7 +117,7 @@
                 <div class="card-body" style="padding:0;overflow-x:auto">
                 <table class="data-table" style="min-width:440px">
                     <thead><tr>
-                    <th>Ref #</th><th>Patient</th><th>Component</th><th>Status</th>
+                    <th>Serial No.</th><th>Patient</th><th>Component</th><th>Status</th>
                     </tr></thead>
                     <tbody id="dash-recent-tbody"></tbody>
                 </table>
@@ -290,8 +291,8 @@
         <!-- HOSPITAL BLOOD REQUEST FORM (4 STEPS FORMAT)
             Updated to include:
             - 4-step flow aligned to the public request format
-            - Patient Info â†’ Blood Details â†’ Documents â†’ Review & Submit
-            - Patient Info → Blood Details → Clinical Data → Documents → Review & Submit
+            - Patient Info -> Blood Details -> Documents -> Review & Submit
+            - Patient Info -> Blood Details -> Clinical Data -> Documents -> Review & Submit
         ==================================================================== -->
 
         <div class="panel" id="panel-newrequest">
@@ -302,10 +303,10 @@
                 </div>
             </div>
 
-            <div style="max-width:720px; margin:0 auto">
+            <div class="request-form-shell">
 
                 <!-- Step Indicator (4 dots style) -->
-                <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:32px;padding:0 20px">
+                <div class="request-stepper">
                     <div style="display:flex;align-items:center;gap:10px">
                         <div class="step-dot active" id="step-dot-hosp-1">1</div>
                         <div style="width:40px;height:2px;background:#E8E8E8" id="step-line-hosp-1"></div>
@@ -320,7 +321,7 @@
                     </div>
                 </div>
 
-                <div class="notice notice-warning" style="margin-bottom:20px">
+                <div class="notice notice-warning request-top-notice" style="margin-bottom:20px">
                     <span>📋</span>
                     <span>Per CNPH blood bank procedure, ensure the <strong>Blood Request Form</strong> is completely filled out and the requesting physician has signed.</span>
                 </div>
@@ -348,19 +349,9 @@
 
                 <!-- STEP 1: Patient Information -->
                 <div class="form-step active" id="form-step-hosp-1">
-                    <div class="card" style="margin-bottom:16px">
+                    <div class="card request-form-card">
                         <div class="card-header"><div class="card-title">Patient Information</div></div>
                         <div class="card-body">
-
-                            <!-- Request Category -->
-                            <div class="form-section" style="margin-bottom:16px">
-                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Request Category <span class="req">*</span></div>
-                                <div class="fg">
-                                    <div class="chip-group">
-                                        <label class="chip-opt"><input type="radio" name="req-category-hosp" value="OUTPATIENT" checked onchange="syncForm()"><span class="chip">OPD</span></label>
-                                    </div>
-                                </div>
-                            </div>
 
                             <!-- Patient Name Fields -->
                             <div class="form-grid-2">
@@ -397,34 +388,11 @@
                                 </div>
                                 <div class="fg">
                                     <label>Sex <span class="req">*</span></label>
-                                    <div class="chip-group" style="margin-top:4px">
-                                        <label class="chip-opt"><input type="radio" name="pat-sex-hosp" value="MALE" onchange="syncForm()"><span class="chip">Male</span></label>
-                                        <label class="chip-opt"><input type="radio" name="pat-sex-hosp" value="FEMALE" onchange="syncForm()"><span class="chip">Female</span></label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Patient Type Display -->
-                            <div class="form-grid-2">
-                                <div class="fg">
-                                    <label>Patient Type</label>
-                                    <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
-                                        <span id="patient-type-display-hosp">Select date of birth</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Ward and Room -->
-                            <div class="form-grid-2">
-                                <div class="fg">
-                                    <label>Ward</label>
-                                    <input type="text" id="pat-ward-hosp" placeholder="e.g. Medical Ward" maxlength="25" autocomplete="off" oninput="syncForm()">
-                                    <div class="form-inline-error" id="pat-ward-hosp-error"></div>
-                                </div>
-                                <div class="fg">
-                                    <label>Room No.</label>
-                                    <input type="text" id="pat-room-hosp" placeholder="e.g. 101, A-5" maxlength="25" autocomplete="off" oninput="syncForm()">
-                                    <div class="form-inline-error" id="pat-room-hosp-error"></div>
+                                    <select id="pat-sex-hosp" onchange="syncForm()">
+                                        <option value="">Select...</option>
+                                        <option value="MALE">Male</option>
+                                        <option value="FEMALE">Female</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -454,12 +422,46 @@
                                 </div>
                             </div>
 
-                            <!-- Requesting Physician -->
+                            <!-- Requesting Physician / Room -->
                             <div class="form-grid-2">
-                                <div class="fg form-full">
+                                <div class="fg">
                                     <label>Requesting Physician <span class="req">*</span></label>
                                     <input type="text" id="pat-physician-hosp" placeholder="e.g. Dr. Reyes" maxlength="25" autocomplete="off" oninput="syncForm()">
                                     <div class="form-inline-error" id="pat-physician-hosp-error"></div>
+                                </div>
+                                <div class="fg">
+                                    <label>Room No.</label>
+                                    <input type="text" id="pat-room-hosp" placeholder="e.g. 101, A-5" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-room-hosp-error"></div>
+                                </div>
+                            </div>
+
+                            <!-- Ward -->
+                            <div class="form-grid-2">
+                                <div class="fg">
+                                    <label>Ward</label>
+                                    <input type="text" id="pat-ward-hosp" placeholder="e.g. Medical Ward" maxlength="25" autocomplete="off" oninput="syncForm()">
+                                    <div class="form-inline-error" id="pat-ward-hosp-error"></div>
+                                </div>
+                            </div>
+
+                            <!-- Patient Type Display -->
+                            <div class="form-section">
+                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Patient Type</div>
+                                <div class="fg">
+                                    <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
+                                        <span id="patient-type-display-hosp">Select date of birth</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Request Category -->
+                            <div class="form-section" style="margin-bottom:0">
+                                <div class="form-section-title" style="font-size:12px;margin-bottom:10px">Request Category <span class="req">*</span></div>
+                                <div class="fg">
+                                    <div class="chip-group">
+                                        <label class="chip-opt"><input type="radio" name="req-category-hosp" value="OUTPATIENT" checked onchange="syncForm()"><span class="chip">OPD</span></label>
+                                    </div>
                                 </div>
                             </div>
 
@@ -469,107 +471,43 @@
 
                 <!-- STEP 2: Blood Request Details (with Indications) -->
                 <div class="form-step" id="form-step-hosp-2">
-                    <div class="card" style="margin-bottom:16px">
+                    <div class="card request-form-card">
                         <div class="card-header"><div class="card-title">Blood Request Details</div></div>
                         <div class="card-body">
-
-                            <!-- Blood Type -->
-                            <div class="fg" style="margin-bottom:16px">
-                                <label>Blood Type Needed <span class="req">*</span></label>
-                                <div class="blood-picker">
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="O_NEG" onchange="syncForm()"><div class="bt-chip">O−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="O_POS" onchange="syncForm()"><div class="bt-chip">O+</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="A_NEG" onchange="syncForm()"><div class="bt-chip">A−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="A_POS" onchange="syncForm()"><div class="bt-chip">A+</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="B_NEG" onchange="syncForm()"><div class="bt-chip">B−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="B_POS" onchange="syncForm()"><div class="bt-chip">B+</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="AB_NEG" onchange="syncForm()"><div class="bt-chip">AB−</div></label>
-                                    <label class="bt-opt"><input type="radio" name="req-bt-hosp" value="AB_POS" onchange="syncForm()"><div class="bt-chip">AB+</div></label>
+                            <!-- Blood Type / Component / Units -->
+                            <div class="form-grid-3">
+                                <div class="fg">
+                                    <label>Blood Type Needed <span class="req">*</span></label>
+                                    <select id="req-bt-hosp" onchange="syncForm()">
+                                        <option value="">Select...</option>
+                                        <option value="O_NEG">O-</option>
+                                        <option value="O_POS">O+</option>
+                                        <option value="A_NEG">A-</option>
+                                        <option value="A_POS">A+</option>
+                                        <option value="B_NEG">B-</option>
+                                        <option value="B_POS">B+</option>
+                                        <option value="AB_NEG">AB-</option>
+                                        <option value="AB_POS">AB+</option>
+                                    </select>
                                 </div>
-                            </div>
-
-                            <!-- Blood Component -->
-                            <div class="fg" style="margin-bottom:16px">
-                            <label>Blood Component <span class="req">*</span></label>
-                            <div class="comp-grid">
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="WHOLE_BLOOD" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Whole Blood</div>
-                                    <div class="comp-abbr">WB</div>
+                                <div class="fg">
+                                    <label>Blood Component <span class="req">*</span></label>
+                                    <select id="req-comp-hosp" onchange="syncForm();updateIndicationGroupsHosp()">
+                                        <option value="">Select...</option>
+                                        <option value="WHOLE_BLOOD">Whole Blood</option>
+                                        <option value="PRBC">Packed RBC</option>
+                                        <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
+                                        <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
+                                        <option value="PLATELET_CONCENTRATE">Platelet Concentrate</option>
+                                        <option value="FRESH_FROZEN_PLASMA">Fresh Frozen Plasma</option>
+                                        <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
+                                        <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+                                    </select>
                                 </div>
-                                </label>
-
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="PRBC" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Packed RBC</div>
-                                    <div class="comp-abbr">PRBC</div>
-                                </div>
-                                </label>
-
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="LEUKOREDUCED_PRBC" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Leukoreduced PRBC</div>
-                                    <div class="comp-abbr">LR-PRBC</div>
-                                </div>
-                                </label>
-
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="ALIQUOTED_PRBC" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Aliquoted PRBC</div>
-                                    <div class="comp-abbr">ALQ-PRBC</div>
-                                </div>
-                                </label>
-
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="PLATELET_CONCENTRATE" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Platelet Concentrate</div>
-                                    <div class="comp-abbr">PC</div>
-                                </div>
-                                </label>
-
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="FRESH_FROZEN_PLASMA" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Fresh Frozen Plasma</div>
-                                    <div class="comp-abbr">FFP</div>
-                                </div>
-                                </label>
-
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="CRYOPRECIPITATE" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Cryoprecipitate</div>
-                                    <div class="comp-abbr">CRYO</div>
-                                </div>
-                                </label>
-
-                                <label class="comp-opt">
-                                <input type="radio" name="req-comp-hosp" value="CRYOSUPERNATANT" onchange="syncForm();updateIndicationGroupsHosp()">
-                                <div class="comp-chip">
-                                    <div class="comp-name">Cryosupernatant</div>
-                                    <div class="comp-abbr">CRYO-SN</div>
-                                </div>
-                                </label>
-                            </div>
-                            </div>
-
-                            <!-- Units & Date -->
-                            <div class="form-grid-2">
                                 <div class="fg">
                                     <label>Number of Units <span class="req">*</span></label>
                                     <input type="number" id="req-units-hosp" placeholder="e.g. 2" min="1" max="99" inputmode="numeric" oninput="syncForm()">
                                     <div class="form-inline-error" id="req-units-hosp-error"></div>
-                                    <div class="hint">1 unit ≈ 450–500 mL</div>
-                                </div>
-                                <div class="fg">
-                                    <label>Date Needed</label>
-                                    <input type="date" id="req-date-needed-hosp" oninput="syncForm()">
-                                    <div class="form-inline-error" id="req-date-needed-hosp-error"></div>
                                 </div>
                             </div>
 
@@ -1256,16 +1194,13 @@
                                     <span>⚠</span><span>Please select at least one indication.</span>
                                 </div>
                             </div>
-                            
-                            <!-- Important Reminders -->
-                            <div style="background:#FFF8DC;border:1.5px solid #FFE4B5;border-radius:8px;padding:14px;margin-top:20px;margin-bottom:0">
-                                <div style="font-size:11px;font-weight:700;color:#8B7500;margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase">
-                                    📋 Important Reminder (CNPH Blood Bank):
-                                </div>
-                                <div style="font-size:12px;color:#333;line-height:1.5">
-                                    • One (1) unit of WB or PRBC will increase HCT by 0.03 (3%)<br>
-                                    • One (1) unit of Platelet Concentrate will increase Platelet Count by 5-12 x 10³/L<br>
-                                    • Codes marked with <strong>*Will trigger review*</strong> require physician justification
+
+                            <!-- Required By Date -->
+                            <div class="form-grid-2" style="margin-top:20px">
+                                <div class="fg">
+                                    <label>Required By Date</label>
+                                    <input type="date" id="req-date-needed-hosp" oninput="syncForm()">
+                                    <div class="form-inline-error" id="req-date-needed-hosp-error"></div>
                                 </div>
                             </div>
 
@@ -1275,7 +1210,7 @@
 
                 <!-- STEP 3: Supporting Documents -->
                 <div class="form-step" id="form-step-hosp-4">
-                    <div class="card" style="margin-bottom:16px">
+                    <div class="card request-form-card">
                         <div class="card-header">
                             <div class="card-title">Supporting Documents</div>
                             <span style="font-size:12px;color:var(--muted)">Doctor's note required</span>
@@ -1338,6 +1273,7 @@
                                 style="width:100%;min-height:100px;padding:12px;font-size:13px;border:1.5px solid #E4E4E7;border-radius:6px;font-family:inherit;resize:vertical;box-sizing:border-box"
                                 maxlength="1000"
                             ></textarea>
+                            <div class="form-inline-error" id="notes-input-hosp-error" style="margin-top:6px"></div>
                             <div style="font-size:11px;color:var(--muted);margin-top:6px">
                                 <span id="notes-char-count">0</span>/1000 characters
                             </div>
@@ -1349,7 +1285,7 @@
 
                 <!-- STEP 5: Review & Submit (NEW) -->
                 <div class="form-step" id="form-step-hosp-5">
-                    <div class="card" style="margin-bottom:16px">
+                    <div class="card request-form-card">
                         <div class="card-header">
                             <div class="card-title">Review Your Request</div>
                             <span style="font-size:12px;color:var(--muted)">Please verify all information before submitting</span>
@@ -1496,11 +1432,9 @@
 
                 <!-- Action Buttons -->
                 <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
-                    <button class="btn-secondary" style="flex:1;max-width:120px;display:none" onclick="prevStepHosp()" id="btn-prev-hosp">← Back</button>
-                    <button class="btn-secondary" style="flex:1;max-width:120px;display:none" onclick="nextStepHosp()" id="btn-next-hosp">Next →</button>
-                    <button class="btn-primary" style="flex:1;max-width:240px;display:none" onclick="submitRequestHosp()" id="submit-btn-hosp">
-                        🩸 Submit Blood Request
-                    </button>
+                    <button class="btn-secondary" style="flex:1;max-width:120px;display:none" onclick="prevStepHosp()" id="btn-prev-hosp"><- Back</button>
+                    <button class="btn-secondary" style="flex:1;max-width:120px;display:none" onclick="nextStepHosp()" id="btn-next-hosp">Next -></button>
+                    <button class="btn-primary" style="flex:1;max-width:240px;display:none" onclick="submitRequestHosp()" id="submit-btn-hosp">Submit Blood Request</button>
                     <button class="btn-secondary" onclick="resetFormHosp()" id="btn-reset-hosp">Reset</button>
                 </div>
 
@@ -1564,7 +1498,7 @@
                 const firstName = document.getElementById('pat-firstname-hosp').value.trim();
                 const lastName = document.getElementById('pat-lastname-hosp').value.trim();
                 const birthdate = document.getElementById('pat-birthdate-hosp').value;
-                const sex = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
+                const sex = document.getElementById('pat-sex-hosp')?.value || document.querySelector('input[name="pat-sex-hosp"]:checked')?.value;
                 const physician = document.getElementById('pat-physician-hosp').value.trim();
                 
                 if (!category || !firstName || !lastName || !birthdate || !sex || !physician) {
@@ -1573,8 +1507,8 @@
                 }
             } else if (step === 2) {
                 // Blood details validation
-                const bloodType = document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
-                const component = document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
+                const bloodType = document.getElementById('req-bt-hosp')?.value || document.querySelector('input[name="req-bt-hosp"]:checked')?.value;
+                const component = document.getElementById('req-comp-hosp')?.value || document.querySelector('input[name="req-comp-hosp"]:checked')?.value;
                 const units = document.getElementById('req-units-hosp').value;
                 const reqType = document.querySelector('input[name="req-type-hosp"]:checked')?.value;
                 const urgency = document.querySelector('input[name="req-urgency-hosp"]:checked')?.value;
@@ -1615,13 +1549,13 @@
             document.getElementById('review-pat-name').textContent = fullName || '—';
             document.getElementById('review-pat-dob').textContent = document.getElementById('pat-birthdate-hosp').value || '—';
             document.getElementById('review-pat-type').textContent = document.getElementById('patient-type-display-hosp').textContent || '—';
-            document.getElementById('review-pat-sex').textContent = document.querySelector('input[name="pat-sex-hosp"]:checked')?.value || '—';
+            document.getElementById('review-pat-sex').textContent = document.getElementById('pat-sex-hosp')?.value || document.querySelector('input[name="pat-sex-hosp"]:checked')?.value || '—';
             document.getElementById('review-pat-physician').textContent = document.getElementById('pat-physician-hosp').value || '—';
             document.getElementById('review-req-category').textContent = document.querySelector('input[name="req-category-hosp"]:checked')?.value || '—';
             
             // Blood details
-            document.getElementById('review-blood-type').textContent = document.querySelector('input[name="req-bt-hosp"]:checked')?.value || '—';
-            document.getElementById('review-blood-comp').textContent = document.querySelector('input[name="req-comp-hosp"]:checked')?.value || '—';
+            document.getElementById('review-blood-type').textContent = document.getElementById('req-bt-hosp')?.value || document.querySelector('input[name="req-bt-hosp"]:checked')?.value || '—';
+            document.getElementById('review-blood-comp').textContent = document.getElementById('req-comp-hosp')?.value || document.querySelector('input[name="req-comp-hosp"]:checked')?.value || '—';
             document.getElementById('review-blood-units').textContent = document.getElementById('req-units-hosp').value || '—';
             document.getElementById('review-req-type').textContent = document.querySelector('input[name="req-type-hosp"]:checked')?.value || '—';
             
@@ -1779,8 +1713,8 @@
                 requestCategory: document.querySelector('input[name="req-category-hosp"]:checked')?.value,
                 patientName: `${document.getElementById('pat-firstname-hosp').value} ${document.getElementById('pat-lastname-hosp').value}`,
                 birthdate: document.getElementById('pat-birthdate-hosp').value,
-                bloodType: document.querySelector('input[name="req-bt-hosp"]:checked')?.value,
-                component: document.querySelector('input[name="req-comp-hosp"]:checked')?.value,
+                bloodType: document.getElementById('req-bt-hosp')?.value || document.querySelector('input[name="req-bt-hosp"]:checked')?.value,
+                component: document.getElementById('req-comp-hosp')?.value || document.querySelector('input[name="req-comp-hosp"]:checked')?.value,
                 units: document.getElementById('req-units-hosp').value,
                 requestType: document.querySelector('input[name="req-type-hosp"]:checked')?.value,
                 urgency: document.querySelector('input[name="req-urgency-hosp"]:checked')?.value,
@@ -1831,173 +1765,77 @@
                 </div>
             </div>
  
-            <!-- Filter tabs -->
-            <div style="display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto">
-            <button class="req-filter active-filter" data-filter="ALL"
-                onclick="filterRequests('ALL',this)"
-                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
-                    font-size:13px;font-weight:700;cursor:pointer;color:var(--red);
-                    border-bottom:2px solid var(--red);margin-bottom:-2px;
-                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
-                All
-            </button>
-            <button class="req-filter" data-filter="ACTIVE"
-                onclick="filterRequests('ACTIVE',this)"
-                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
-                    font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);
-                    border-bottom:2px solid transparent;margin-bottom:-2px;
-                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
-                Active
-            </button>
-            <button class="req-filter" data-filter="RELEASED"
-                onclick="filterRequests('RELEASED',this)"
-                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
-                    font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);
-                    border-bottom:2px solid transparent;margin-bottom:-2px;
-                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
-                Released
-            </button>
-            <button class="req-filter" data-filter="REJECTED"
-                onclick="filterRequests('REJECTED',this)"
-                style="padding:10px 18px;border:none;background:none;font-family:'DM Sans',sans-serif;
-                    font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);
-                    border-bottom:2px solid transparent;margin-bottom:-2px;
-                    transition:all 0.15s;white-space:nowrap;flex-shrink:0">
-                Rejected
-            </button>
+            <div class="req-filter-bar">
+                <div class="req-search-wrap">
+                    <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+                    <input class="req-search-input" id="req-search" type="text"
+                        placeholder="Search patient, ref #, blood type…"
+                        oninput="applyFiltersAndSort()">
+                </div>
+                <select class="req-select" id="req-filter-urgency" onchange="applyFiltersAndSort()">
+                    <option value="ALL">All Urgency</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+                <select class="req-select" id="req-filter-blood-type" onchange="applyFiltersAndSort()">
+                    <option value="ALL">All Blood Types</option>
+                    <option value="A_POS">A Pos</option>
+                    <option value="A_NEG">A Neg</option>
+                    <option value="B_POS">B Pos</option>
+                    <option value="B_NEG">B Neg</option>
+                    <option value="AB_POS">AB Pos</option>
+                    <option value="AB_NEG">AB Neg</option>
+                    <option value="O_POS">O Pos</option>
+                    <option value="O_NEG">O Neg</option>
+                </select>
+                <select class="req-select" id="req-filter-component" onchange="applyFiltersAndSort()">
+                    <option value="ALL">All Components</option>
+                    <option value="WHOLE_BLOOD">Whole Blood</option>
+                    <option value="PRBC">PRBC</option>
+                    <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
+                    <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
+                    <option value="PLATELET_CONCENTRATE">Platelet</option>
+                    <option value="FRESH_FROZEN_PLASMA">FFP</option>
+                    <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
+                    <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+                </select>
+                <select class="req-select" id="req-sort" onchange="applyFiltersAndSort()">
+                    <option value="date_desc">Newest first</option>
+                    <option value="date_asc">Oldest first</option>
+                    <option value="units_desc">Most units</option>
+                </select>
             </div>
- 
+
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="req-filters">
+                <button class="req-filter-chip req-filter active-filter" onclick="filterRequests('ALL',this)">All <span class="chip-cnt" id="req-cnt-all">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('PENDING',this)">Pending <span class="chip-cnt" id="req-cnt-pending">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('NEEDS_CONFIRMATION',this)">Waiting for confirmation <span class="chip-cnt" id="req-cnt-needs_confirmation">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('APPROVED',this)">Approved <span class="chip-cnt" id="req-cnt-approved">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('ALLOCATED',this)">Allocated <span class="chip-cnt" id="req-cnt-allocated">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('READY_FOR_RELEASE',this)">Ready for Release <span class="chip-cnt" id="req-cnt-ready_for_release">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('RELEASED',this)">Released <span class="chip-cnt" id="req-cnt-released">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('REJECTED',this)">Rejected <span class="chip-cnt" id="req-cnt-rejected">0</span></button>
+                <button class="req-filter-chip req-filter" onclick="filterRequests('CANCELLED',this)">Cancelled <span class="chip-cnt" id="req-cnt-cancelled">0</span></button>
+            </div>
+
+            <div class="req-results-info" id="req-results-info"></div>
+
             <div class="card">
             <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-                <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:250px">
-                    <div class="card-title">
+                <div class="card-title">
                     Request History
                     <span id="req-count" style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px"></span>
-                    </div>
                 </div>
-                
-                <!-- Search Bar -->
-                <div style="display:flex;align-items:center;gap:7px;background:var(--bg);
-                            border:1.5px solid var(--border);border-radius:9px;padding:7px 12px;flex:1;min-width:200px">
-                <span style="color:#CBD5E0;font-size:13px">🔍</span>
-                <input type="text" id="req-search" placeholder="Search patient or ref #..."
-                    oninput="filterRequests(currentFilter, document.querySelector('.active-filter'))"
-                    style="border:none;outline:none;background:transparent;font-family:'DM Sans',sans-serif;
-                        font-size:13px;color:var(--navy);width:100%;min-width:150px">
-                </div>
- 
-                <!-- Advanced Filters Toggle -->
-                <button class="btn-secondary" id="toggle-filters-btn" 
-                    style="padding:7px 14px;font-size:12px;white-space:nowrap"
-                    onclick="toggleAdvancedFilters()">
-                    🔽 Filters
+                <button class="btn-ghost" style="font-size:12px;padding:8px 16px" onclick="clearAllFilters()">
+                    ✕ Clear Filters
                 </button>
- 
-                
-            </div>
- 
-            <!-- Advanced Filters Section (Hidden by default) -->
-            <div id="advanced-filters-section" style="display:none;padding:16px;background:var(--surface-secondary);border-radius:10px;margin-bottom:16px;border:1px solid var(--border)">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-                    
-                    <!-- Blood Type Filter -->
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <label style="font-size:12px;font-weight:600;color:var(--navy)">Blood Type</label>
-                        <select id="filter-blood-type" onchange="applyFiltersAndSort()" 
-                            style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg)">
-                            <option value="">All Types</option>
-                            <option value="O_POS">O+</option>
-                            <option value="O_NEG">O−</option>
-                            <option value="A_POS">A+</option>
-                            <option value="A_NEG">A−</option>
-                            <option value="B_POS">B+</option>
-                            <option value="B_NEG">B−</option>
-                            <option value="AB_POS">AB+</option>
-                            <option value="AB_NEG">AB−</option>
-                        </select>
-                    </div>
- 
-                    <!-- Component Filter -->
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <label style="font-size:12px;font-weight:600;color:var(--navy)">Component</label>
-                        <select id="filter-component" onchange="applyFiltersAndSort()" 
-                            style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg)">
-                            <option value="">All Components</option>
-                            <option value="WHOLE_BLOOD">Whole Blood</option>
-                            <option value="PRBC">Packed RBC</option>
-                            <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
-                            <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
-                            <option value="PLATELET_CONCENTRATE">Platelets</option>
-                            <option value="FRESH_FROZEN_PLASMA">Fresh Frozen Plasma</option>
-                            <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
-                            <option value="CRYOSUPERNATANT">Cryosupernatant</option>
-                        </select>
-                    </div>
- 
-                    <!-- Urgency Filter -->
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <label style="font-size:12px;font-weight:600;color:var(--navy)">Urgency</label>
-                        <select id="filter-urgency" onchange="applyFiltersAndSort()" 
-                            style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg)">
-                            <option value="">All Levels</option>
-                            <option value="CRITICAL">🔴 Critical</option>
-                            <option value="HIGH">🟠 High</option>
-                            <option value="MEDIUM">🟡 Medium</option>
-                            <option value="LOW">🟢 Low</option>
-                        </select>
-                    </div>
- 
-                    <!-- Category Filter -->
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <label style="font-size:12px;font-weight:600;color:var(--navy)">Category</label>
-                        <select id="filter-category" onchange="applyFiltersAndSort()" 
-                            style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg)">
-                            <option value="">All Categories</option>
-                            <option value="INPATIENT">OPD/ INHOUSE</option>
-                            <option value="OUTPATIENT">OPD</option>
-                            <option value="HOSPITAL">Inter-hospital</option>
-                        </select>
-                    </div>
- 
-                    <!-- Units Range Filter -->
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <label style="font-size:12px;font-weight:600;color:var(--navy)">Units Range</label>
-                        <select id="filter-units" onchange="applyFiltersAndSort()" 
-                            style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg)">
-                            <option value="">All Amounts</option>
-                            <option value="1-2">1-2 units</option>
-                            <option value="3-5">3-5 units</option>
-                            <option value="6-10">6-10 units</option>
-                            <option value="11+">11+ units</option>
-                        </select>
-                    </div>
- 
-                    <!-- Date Range Filter -->
-                    <div style="display:flex;flex-direction:column;gap:6px">
-                        <label style="font-size:12px;font-weight:600;color:var(--navy)">Date Range</label>
-                        <select id="filter-date-range" onchange="applyFiltersAndSort()" 
-                            style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg)">
-                            <option value="">All Time</option>
-                            <option value="today">Today</option>
-                            <option value="week">This Week</option>
-                            <option value="month">This Month</option>
-                            <option value="3months">Last 3 Months</option>
-                        </select>
-                    </div>
-                </div>
- 
-                <!-- Clear Filters Button -->
-                <div style="margin-top:12px;display:flex;gap:8px">
-                    <button class="btn-ghost" style="font-size:12px;padding:8px 16px" onclick="clearAllFilters()">
-                        ✕ Clear All Filters
-                    </button>
-                </div>
             </div>
  
             <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
                 <table class="data-table" style="min-width:700px">
                 <thead><tr>
-                    <th style="cursor:pointer" onclick="toggleSortColumn('ref')" title="Click to sort">Ref # <span id="sort-indicator-ref"></span></th>
+                    <th style="cursor:pointer" onclick="toggleSortColumn('ref')" title="Click to sort">Serial No. <span id="sort-indicator-ref"></span></th>
                     <th style="cursor:pointer" onclick="toggleSortColumn('patient')" title="Click to sort">Patient <span id="sort-indicator-patient"></span></th>
                     <th>Component</th>
                     <th>Blood Type</th>
@@ -2015,8 +1853,15 @@
                 <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:6px">No requests found</div>
                 <div style="font-size:13px;color:var(--muted)">No blood requests match the current filter.</div>
             </div>
- 
-            
+
+            <div id="req-footer" style="display:flex;align-items:center;justify-content:space-between;padding:14px 2px 0 2px;font-size:13px;color:var(--muted)">
+                <span id="req-showing"></span>
+                <div style="display:flex;gap:6px">
+                    <button class="btn-ghost" id="req-prev" onclick="reqPrevPage()" style="padding:5px 12px;font-size:12px"><- Prev</button>
+                    <span id="req-page-label" style="padding:5px 12px;font-weight:700;color:var(--navy)"></span>
+                    <button class="btn-ghost" id="req-next" onclick="reqNextPage()" style="padding:5px 12px;font-size:12px">Next -></button>
+                </div>
+            </div>
             </div>
         </div>
  
@@ -2402,10 +2247,6 @@
                                     <div class="detail-val" id="rd-requester-name"></div>
                                 </div>
                                 <div class="detail-box">
-                                    <div class="detail-label">Relationship</div>
-                                    <div class="detail-val" id="rd-requester-relationship"></div>
-                                </div>
-                                <div class="detail-box">
                                     <div class="detail-label">Contact</div>
                                     <div class="detail-val" id="rd-requester-contact"></div>
                                 </div>
@@ -2463,47 +2304,58 @@
  
         <!-- CSS FOR DETAIL SECTIONS -->
         <style>
-        .detail-section {
-            margin-bottom: 24px;
+        #requestDetailModal .modal-body {
+            background: linear-gradient(180deg, #FFFDFB 0%, #FFF9F4 100%);
         }
- 
+
+        .detail-section {
+            margin-bottom: 18px;
+            padding: 14px 14px 12px;
+            background: #ffffff;
+            border: 1px solid #E7DCD0;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(26, 26, 26, 0.04);
+        }
+
         .detail-section-title {
             font-size: 12px;
-            font-weight: 700;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 1.2px;
-            color: var(--muted);
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
+            color: #5C4A3A;
+            margin-bottom: 10px;
+            padding: 0 0 8px 10px;
+            border-bottom: 1px solid #EADFD4;
+            border-left: 3px solid #C41E3A;
         }
- 
+
         .detail-grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
         }
- 
+
         .detail-box {
-            padding: 10px;
-            background: var(--bg);
-            border-radius: 8px;
-            border: 1px solid var(--border);
+            padding: 11px 12px;
+            background: #FCFAF8;
+            border-radius: 9px;
+            border: 1px solid #E3D6C8;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
- 
+
         .detail-label {
             font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--muted);
-            margin-bottom: 4px;
+            letter-spacing: 0.7px;
+            color: #7A6857;
+            margin-bottom: 5px;
         }
- 
+
         .detail-val {
             font-size: 13px;
             color: var(--charcoal);
-            font-weight: 500;
+            font-weight: 600;
             word-break: break-word;
         }
  
@@ -2675,3 +2527,6 @@
     <script src="js/hospital-dashboard.js"></script>
     </body>
 </html>
+
+
+

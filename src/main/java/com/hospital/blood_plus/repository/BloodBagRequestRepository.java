@@ -107,6 +107,9 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         FROM BloodBagRequest r
         WHERE r.hospitalProfile = :hospital
           AND (:status IS NULL OR r.status = :status)
+          AND (:bloodType IS NULL OR r.bloodType = :bloodType)
+          AND (:componentType IS NULL OR r.bloodComponent = :componentType)
+          AND (:urgencyLevel IS NULL OR r.urgencyLevel = :urgencyLevel)
           AND (:from IS NULL OR r.requestedAt >= :from)
           AND (:to IS NULL OR r.requestedAt <= :to)
           AND (
@@ -120,10 +123,41 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
     Page<BloodBagRequest> findForHospitalList(
             @Param("hospital") HospitalProfile hospital,
             @Param("status") BloodBagRequest.RequestStatus status,
+            @Param("bloodType") BloodBag.BloodType bloodType,
+            @Param("componentType") ComponentType componentType,
+            @Param("urgencyLevel") UrgencyLevel urgencyLevel,
             @Param("search") String search,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             Pageable pageable
+    );
+
+    @Query("""
+        SELECT r.status AS status, COUNT(r) AS total
+        FROM BloodBagRequest r
+        WHERE r.hospitalProfile = :hospital
+          AND (:bloodType IS NULL OR r.bloodType = :bloodType)
+          AND (:componentType IS NULL OR r.bloodComponent = :componentType)
+          AND (:urgencyLevel IS NULL OR r.urgencyLevel = :urgencyLevel)
+          AND (:from IS NULL OR r.requestedAt >= :from)
+          AND (:to IS NULL OR r.requestedAt <= :to)
+          AND (
+                :search IS NULL
+                OR TRIM(:search) = ''
+                OR LOWER(COALESCE(r.referenceNumber, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.patientName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(r.requesterName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+        GROUP BY r.status
+    """)
+    List<StatusCountRow> countForHospitalStatusSummary(
+            @Param("hospital") HospitalProfile hospital,
+            @Param("search") String search,
+            @Param("bloodType") BloodBag.BloodType bloodType,
+            @Param("componentType") ComponentType componentType,
+            @Param("urgencyLevel") UrgencyLevel urgencyLevel,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
     );
 
     @Query("""
