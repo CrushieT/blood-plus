@@ -40,8 +40,8 @@
             if (response.ok) {
                 const data = await response.json();
                 if (data.role === "HOSPITAL") {
-                    window.location.href = "/hospital/hospital_dashboard.html";
-                } else if (data.role === "ADMIN") {
+                    window.location.href = "/hospital/hospital-dashboard.html";
+                } else if (data.role === "ADMIN" || data.role === "STAFF") {
                     window.location.href = "/admin/admin_dashboard.html";
                 }
             }
@@ -63,12 +63,20 @@
         }
 
               if (path.startsWith("/hospital/") && data.role !== "HOSPITAL") {
-            window.location.href = "/blood-request.html";
+            if (data.role === "ADMIN" || data.role === "STAFF") {
+                window.location.href = "/admin/admin_dashboard.html";
+            } else {
+                window.location.href = "/blood-request.html";
+            }
             return;
         }
 
-        if (path.startsWith("/admin/") && data.role !== "ADMIN") {
-            window.location.href = "/blood-request.html";
+        if (path.startsWith("/admin/") && data.role !== "ADMIN" && data.role !== "STAFF") {
+            if (data.role === "HOSPITAL") {
+                window.location.href = "/hospital/hospital-dashboard.html";
+            } else {
+                window.location.href = "/blood-request.html";
+            }
             return;
         }
 

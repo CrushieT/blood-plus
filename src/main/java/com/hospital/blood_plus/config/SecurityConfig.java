@@ -8,9 +8,12 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -107,7 +110,19 @@ public class SecurityConfig {
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
                     String acceptHeader = request.getHeader("Accept");
                     if (acceptHeader != null && acceptHeader.contains("text/html")) {
-                        response.sendRedirect("/blood-request.html");
+                        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+                            if (auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN")) ||
+                                auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_STAFF"))) {
+                                response.sendRedirect("/admin/admin_dashboard.html");
+                            } else if (auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_HOSPITAL"))) {
+                                response.sendRedirect("/hospital/hospital-dashboard.html");
+                            } else {
+                                response.sendRedirect("/blood-request.html");
+                            }
+                        } else {
+                            response.sendRedirect("/blood-request.html");
+                        }
                     } else {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json");
