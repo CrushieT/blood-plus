@@ -19,11 +19,33 @@ public class CloudinaryService {
         @Value("${cloudinary.api-key}")    String apiKey,
         @Value("${cloudinary.api-secret}") String apiSecret
     ) {
+        String normalizedCloudName = normalizeConfigValue("cloudinary.cloud-name", cloudName);
+        String normalizedApiKey = normalizeConfigValue("cloudinary.api-key", apiKey);
+        String normalizedApiSecret = normalizeConfigValue("cloudinary.api-secret", apiSecret);
+
         this.cloudinary = new Cloudinary(ObjectUtils.asMap(
-            "cloud_name", cloudName,
-            "api_key",    apiKey,
-            "api_secret", apiSecret
+            "cloud_name", normalizedCloudName,
+            "api_key",    normalizedApiKey,
+            "api_secret", normalizedApiSecret
         ));
+    }
+
+    private String normalizeConfigValue(String propertyName, String value) {
+        if (value == null) {
+            throw new IllegalStateException("Missing required Cloudinary config: " + propertyName);
+        }
+
+        String normalized = value.trim();
+        if ((normalized.startsWith("\"") && normalized.endsWith("\""))
+            || (normalized.startsWith("'") && normalized.endsWith("'"))) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+        }
+
+        if (normalized.isEmpty()) {
+            throw new IllegalStateException("Blank Cloudinary config: " + propertyName);
+        }
+
+        return normalized;
     }
 
     /**
