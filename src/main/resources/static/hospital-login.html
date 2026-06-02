@@ -133,29 +133,30 @@
         </div>
       </div>
 
-      <div id="login-popup" class="login-popup">
-        <div class="login-popup-content">
-          <p id="login-popupMessage"></p>
-          <button onclick="closePopup()">OK</button>
-        </div>
-      </div>
-
-      <div id="verify-popup" class="verify-popup">
-        <div class="verify-popup-content verify-otp-box">
-          <h3>Email Verification</h3>
-          <p>Enter the 4-digit code sent to your email</p>
-          <div class="verify-otp-inputs">
-            <input type="text" maxlength="1" class="verify-otp-field">
-            <input type="text" maxlength="1" class="verify-otp-field">
-            <input type="text" maxlength="1" class="verify-otp-field">
-            <input type="text" maxlength="1" class="verify-otp-field">
-          </div>
-          <button class="verify-btn" onclick="verifyOtpCode()">Verify</button>
-          <p class="verify-resend" onclick="resendVerifyOtp()">Resend Code</p>
-        </div>
-      </div>
     </div>
   </section>
+
+  <div id="login-popup" class="login-popup">
+    <div class="login-popup-content">
+      <p id="login-popupMessage"></p>
+      <button onclick="closePopup()">OK</button>
+    </div>
+  </div>
+
+  <div id="verify-popup" class="verify-popup">
+    <div class="verify-popup-content verify-otp-box">
+      <h3>Email Verification</h3>
+      <p>Enter the 4-digit code sent to your email</p>
+      <div class="verify-otp-inputs">
+        <input type="text" maxlength="1" class="verify-otp-field">
+        <input type="text" maxlength="1" class="verify-otp-field">
+        <input type="text" maxlength="1" class="verify-otp-field">
+        <input type="text" maxlength="1" class="verify-otp-field">
+      </div>
+      <button class="verify-btn" onclick="verifyOtpCode()">Verify</button>
+      <p class="verify-resend" onclick="resendVerifyOtp()">Resend Code</p>
+    </div>
+  </div>
 
   <section class="features">
     <div class="features-header">
