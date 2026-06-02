@@ -40,9 +40,9 @@ async function initializeNav() {
 // Update your DOMContentLoaded to call this
 document.addEventListener('DOMContentLoaded', () => {
   initializeNav();
-  initializeAutoRefresh();  // ? This replaces the loadBloodBank() and loadDashboard() calls
   initStaffPanel();
   initializeLoggingPanel();
+  initializeAutoRefresh();  // Start polling after panels have initialized their default filters
   initAddStockScanner();
 });
 
@@ -11687,6 +11687,8 @@ const loggingState = {
   itemsPerPage: 10,
   currentTab: 'status-logs',
   loading: false,
+  restoreScrollAfterRefresh: false,
+  pendingScrollY: 0,
   servedFilters: {
     search: '',
     startDate: '',
@@ -11717,15 +11719,33 @@ function initializeLoggingPanel() {
   const startEl = document.getElementById('logging-served-date-from');
   const endEl = document.getElementById('logging-served-date-to');
   if (startEl && endEl && !startEl.value && !endEl.value) {
-    setServedRange('thisMonth', false);
+    setServedRange('thisYear', false);
   }
   const statusStartEl = document.getElementById('logging-status-date-from');
   const statusEndEl = document.getElementById('logging-status-date-to');
   if (statusStartEl && statusEndEl && !statusStartEl.value && !statusEndEl.value) {
-    setStatusRange('thisMonth', false);
+    setStatusRange('thisYear', false);
   }
 
   loadLoggingData();
+}
+
+function queueLoggingScrollRestore() {
+  loggingState.restoreScrollAfterRefresh = true;
+  loggingState.pendingScrollY = window.scrollY || window.pageYOffset || 0;
+}
+
+function restoreLoggingScrollIfNeeded() {
+  if (!loggingState.restoreScrollAfterRefresh) {
+    return;
+  }
+
+  const targetY = loggingState.pendingScrollY || 0;
+  loggingState.restoreScrollAfterRefresh = false;
+
+  requestAnimationFrame(() => {
+    window.scrollTo(0, targetY);
+  });
 }
 
 function loadLoggingData() {
@@ -11803,7 +11823,7 @@ function switchLoggingTab(tabName, element) {
   loggingServedRender();
 }
 
-function loggingStatusRender(resetPage = false) {
+function loggingStatusRender(resetPage = false, silent = false) {
   try {
     if (resetPage) {
       loggingState.statusLogsPage = 1;
@@ -11830,7 +11850,9 @@ function loggingStatusRender(resetPage = false) {
     queryParams.append('page', String(loggingState.statusLogsPage));
     queryParams.append('size', String(loggingState.itemsPerPage));
 
-    showLoadingInTable('logging-status-tbody', 7);
+    if (!silent) {
+      showLoadingInTable('logging-status-tbody', 7);
+    }
 
     fetch(`${API_BASE_URL}/status-logs?${queryParams.toString()}`)
       .then((response) => {
@@ -11844,7 +11866,9 @@ function loggingStatusRender(resetPage = false) {
       })
       .catch((error) => {
         console.error('Error fetching status logs:', error);
-        showErrorInTable('logging-status-tbody', 'Failed to load status logs', 7);
+        if (!silent) {
+          showErrorInTable('logging-status-tbody', 'Failed to load status logs', 7);
+        }
       });
   } catch (error) {
     console.error('Error in loggingStatusRender:', error);
@@ -11865,6 +11889,7 @@ function renderStatusLogsTable(response) {
     if (!response.data || response.data.length === 0) {
       if (empty) empty.style.display = 'block';
       updatePaginationControls('status', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
+      restoreLoggingScrollIfNeeded();
       return;
     }
 
@@ -11887,6 +11912,7 @@ function renderStatusLogsTable(response) {
     });
 
     updatePaginationControls('status', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
+    restoreLoggingScrollIfNeeded();
   } catch (error) {
     console.error('Error rendering status logs table:', error);
   }
@@ -11894,14 +11920,16 @@ function renderStatusLogsTable(response) {
 
 function loggingStatusPrevPage() {
   if (loggingState.statusLogsPage > 1) {
+    queueLoggingScrollRestore();
     loggingState.statusLogsPage -= 1;
-    loggingStatusRender();
+    loggingStatusRender(false, true);
   }
 }
 
 function loggingStatusNextPage() {
+  queueLoggingScrollRestore();
   loggingState.statusLogsPage += 1;
-  loggingStatusRender();
+  loggingStatusRender(false, true);
 }
 
 function getServedFilterState() {
@@ -11942,7 +11970,7 @@ function buildServedQueryParams(filters, options = {}) {
   return queryParams;
 }
 
-function loggingServedRender(resetPage = false) {
+function loggingServedRender(resetPage = false, silent = false) {
   try {
     if (resetPage) {
       loggingState.servedPage = 1;
@@ -11956,7 +11984,9 @@ function loggingServedRender(resetPage = false) {
       size: loggingState.itemsPerPage,
     });
 
-    showLoadingInTable('logging-served-tbody', 12);
+    if (!silent) {
+      showLoadingInTable('logging-served-tbody', 12);
+    }
 
     fetch(`${API_BASE_URL}/served?${queryParams.toString()}`)
       .then((response) => {
@@ -11970,7 +12000,9 @@ function loggingServedRender(resetPage = false) {
       })
       .catch((error) => {
         console.error('Error fetching served logs:', error);
-        showErrorInTable('logging-served-tbody', 'Failed to load served logs', 12);
+        if (!silent) {
+          showErrorInTable('logging-served-tbody', 'Failed to load served logs', 12);
+        }
       });
   } catch (error) {
     console.error('Error in loggingServedRender:', error);
@@ -11995,6 +12027,7 @@ function renderServedTable(response) {
     if (rows.length === 0) {
       if (empty) empty.style.display = 'block';
       updatePaginationControls('served', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
+      restoreLoggingScrollIfNeeded();
       return;
     }
 
@@ -12022,6 +12055,7 @@ function renderServedTable(response) {
     });
 
     updatePaginationControls('served', response.currentPage || 1, response.totalPages || 1, response.totalElements || 0);
+    restoreLoggingScrollIfNeeded();
   } catch (error) {
     console.error('Error rendering served table:', error);
   }
@@ -12029,14 +12063,16 @@ function renderServedTable(response) {
 
 function loggingServedPrevPage() {
   if (loggingState.servedPage > 1) {
+    queueLoggingScrollRestore();
     loggingState.servedPage -= 1;
-    loggingServedRender();
+    loggingServedRender(false, true);
   }
 }
 
 function loggingServedNextPage() {
+  queueLoggingScrollRestore();
   loggingState.servedPage += 1;
-  loggingServedRender();
+  loggingServedRender(false, true);
 }
 
 function viewStatusLogDetail(logId) {
@@ -12772,8 +12808,6 @@ function initializeAutoRefresh() {
   loadDashboard();
   loadBloodBank();
   reqFetchAll();
-  loggingStatusRender()
-  loggingServedRender()
 
   // Small delay to ensure initial data is loaded
   setTimeout(() => {
@@ -12833,6 +12867,7 @@ function changeRefreshInterval(seconds) {
     checkDashboardUpdates();
     checkBloodBankUpdates();
     checkBloodRequestsUpdates();
+    checkLoggingUpdates();
 
   }, REFRESH_INTERVAL);
 
@@ -12846,18 +12881,30 @@ async function checkLoggingUpdates() {
     const res = await fetch('/api/admin/logs/summary', { headers: { Accept: 'application/json' } });
     if (!res.ok) return;
     const json = await res.json();
-    
+
     const newSnapshot = createSnapshot(json);
-    
-    if (hasDataChanged(dataSnapshots.logging, newSnapshot)) {
+    const summaryChanged = hasDataChanged(dataSnapshots.logging, newSnapshot);
+    const loggingPanelActive = activePanel === 'logging';
+
+    if (summaryChanged) {
       dataSnapshots.logging = newSnapshot;
-      loadSummary();
-      if (loggingState.currentTab === 'status-logs') {
-        loggingStatusRender();
-      } else {
-        loggingServedRender();
-      }
     }
+
+    // Keep summary cards accurate from the poll response itself.
+    loggingUpdateSummary(json);
+
+    // While the logs panel is open, always refresh the active table.
+    // Summary counters are too coarse to detect every row-level change.
+    if (loggingPanelActive) {
+      queueLoggingScrollRestore();
+      if (loggingState.currentTab === 'status-logs') {
+        loggingStatusRender(false, true);
+      } else {
+        loggingServedRender(false, true);
+      }
+      return;
+    }
+
   } catch (err) {
     console.error('[Auto-Refresh] Logging check failed:', err);
   } finally {
