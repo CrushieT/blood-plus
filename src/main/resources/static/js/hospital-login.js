@@ -129,8 +129,12 @@ async function login() {
             body: JSON.stringify({ email, password }),
         });
 
-        const text = await response.text();
-        console.log("Server response:", text);
+        const contentType = response.headers.get("content-type") || "";
+        const isJson = contentType.includes("application/json");
+        const payload = isJson ? await response.json() : await response.text();
+        const text = typeof payload === "string" ? payload : payload?.message || "";
+
+        console.log("Server response:", payload);
 
         if (text === "LOGIN_SUCCESS_HOSPITAL") {
             window.location.href = "../hospital/hospital-dashboard.html";
@@ -138,6 +142,8 @@ async function login() {
             window.location.href = "../admin/admin_dashboard.html";
         } else if (text === "LOGIN_SUCCESS_STAFF") {
             window.location.href = "../admin/admin_dashboard.html";
+        } else if (response.status === 429) {
+            showPopup(text || "Too many login attempts. Please try again later.");
         } else if (text === "LOGIN_INACTIVE") {
             showPopup("Your account is inactive. Please contact the blood bank staff for assistance.");
         } else if (text === "LOGIN_FAILED") {
