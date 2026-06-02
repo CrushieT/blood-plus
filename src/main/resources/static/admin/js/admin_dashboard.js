@@ -542,7 +542,7 @@ async function loadInventory() {
 
 function mapBagSortToApi(sortValue) {
   const allowed = new Set(['collected_desc', 'collected_asc', 'expiry_asc', 'expiry_desc', 'registered_desc', 'registered_asc']);
-  return allowed.has(sortValue) ? sortValue : 'collected_desc';
+  return allowed.has(sortValue) ? sortValue : 'registered_desc';
 }
 
 function normalizeBloodTypeFilterForApi(value) {
@@ -556,7 +556,7 @@ function collectBagsFilterState() {
     bloodTypeFilter: document.getElementById('bags-filter-bt')?.value || 'ALL',
     componentFilter: document.getElementById('bags-filter-comp')?.value || 'ALL',
     statusFilter: document.getElementById('bags-filter-status')?.value || 'ALL',
-    sort: document.getElementById('bags-sort')?.value || 'collected_desc',
+    sort: document.getElementById('bags-sort')?.value || 'registered_desc',
     fromDate: document.getElementById('bags-print-from-date')?.value || '',
     toDate: document.getElementById('bags-print-to-date')?.value || '',
   };
@@ -2196,18 +2196,18 @@ function logTracerScanResult(scanResult, file, sourceName) {
       console.groupCollapsed(`[Tracer OCR] ${fileName} (${sourceName})`);
     }
 
-    console.log('Source:', sourceName);
-    console.log('File:', { name: fileName, sizeKb: fileSizeKb, type: file?.type || 'unknown' });
-    console.log('Selected OCR candidate:', attempt, '| score:', scanResult?.score || 0);
-    console.log('OCR confidence:', confidence);
-    console.log('Raw OCR text:\n', rawText);
-    console.log('Parsed tracer rows:', rows);
+    // console.log('Source:', sourceName);
+    // console.log('File:', { name: fileName, sizeKb: fileSizeKb, type: file?.type || 'unknown' });
+    // console.log('Selected OCR candidate:', attempt, '| score:', scanResult?.score || 0);
+    // console.log('OCR confidence:', confidence);
+    // console.log('Raw OCR text:\n', rawText);
+    // console.log('Parsed tracer rows:', rows);
 
     if (typeof console.groupEnd === 'function') {
       console.groupEnd();
     }
   } catch (error) {
-    console.log('[Tracer OCR] Logging failed:', error);
+    // console.log('[Tracer OCR] Logging failed:', error);
   }
 }
 
@@ -4755,7 +4755,7 @@ const AnalyticsDashboard = {
             <span class="an-vbar-label">${this.escapeHtml(item.label)}</span>
           </button>`;
       }
-      console.log({ item, metricAttr, pctAttr, rowClass, color, relative });
+      // console.log({ item, metricAttr, pctAttr, rowClass, color, relative });
       return `
         <button type="button" class="${rowClass}"
           data-chart-key="${chartKey}"
@@ -5471,7 +5471,7 @@ function escapeBloodBagReportHtml(value) {
 
 window.getBloodBagsForPrint = function(mode = 'current') {
   const effectiveMode = mode === 'range' ? 'range' : 'current';
-  const selectedSort = document.getElementById('bags-sort')?.value || 'collected_desc';
+  const selectedSort = document.getElementById('bags-sort')?.value || 'registered_desc';
 
   if (effectiveMode === 'range') {
     const fromDate = document.getElementById('bags-print-from-date')?.value || '';
@@ -12816,7 +12816,7 @@ function initializeAutoRefresh() {
     dataSnapshots.requests = createSnapshot(reqData || []);
   }, 500);
 
-  console.log('[Auto-Refresh] Initialized - checking for changes every 30 seconds');
+  // console.log('[Auto-Refresh] Initialized - checking for changes every 30 seconds');
 
   const REFRESH_INTERVAL = 5000; // 5 seconds for checking
 
@@ -12834,7 +12834,7 @@ function initializeAutoRefresh() {
  */
 function stopAutoRefresh() {
   if (autoRefreshIntervals.combined) clearInterval(autoRefreshIntervals.combined);
-  console.log('[Auto-Refresh] Stopped');
+  // console.log('[Auto-Refresh] Stopped');
 }
 
 /**
@@ -12842,7 +12842,7 @@ function stopAutoRefresh() {
  */
 function pauseAutoRefresh() {
   stopAutoRefresh();
-  console.log('[Auto-Refresh] Paused');
+  // console.log('[Auto-Refresh] Paused');
 }
 
 /**
@@ -12850,7 +12850,7 @@ function pauseAutoRefresh() {
  */
 function resumeAutoRefresh() {
   initializeAutoRefresh();
-  console.log('[Auto-Refresh] Resumed');
+  // console.log('[Auto-Refresh] Resumed');
 }
 
 /**
@@ -12862,7 +12862,7 @@ function changeRefreshInterval(seconds) {
 
   autoRefreshIntervals.combined = setInterval(() => {
     if (document.hidden) return;
-    console.log(`[Auto-Refresh] Checking for changes (${seconds}s interval)...`);
+    // console.log(`[Auto-Refresh] Checking for changes (${seconds}s interval)...`);
     
     checkDashboardUpdates();
     checkBloodBankUpdates();
@@ -12871,7 +12871,7 @@ function changeRefreshInterval(seconds) {
 
   }, REFRESH_INTERVAL);
 
-  console.log(`[Auto-Refresh] Check interval changed to ${seconds} seconds`);
+  // console.log(`[Auto-Refresh] Check interval changed to ${seconds} seconds`);
 }
 
 async function checkLoggingUpdates() {
@@ -12930,7 +12930,7 @@ function forceRefreshAll() {
   } else {
     loggingServedRender();
   }
-  console.log('[Auto-Refresh] Forced refresh - all data reloaded');
+  // console.log('[Auto-Refresh] Forced refresh - all data reloaded');
 }
 
 

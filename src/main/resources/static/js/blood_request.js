@@ -1835,10 +1835,10 @@ async function submitRequest() {
   
 
   // Log to console for development
-  console.log('=== BLOOD BAG REQUEST DATA (STRUCTURED) ===');
-  console.log(JSON.stringify(requestData, null, 2));
-  console.log('=== FILE ATTACHED ===');
-  console.log(selectedFile ? `${selectedFile.name} (${selectedFile.size} bytes)` : 'No file');
+  // console.log('=== BLOOD BAG REQUEST DATA (STRUCTURED) ===');
+  // console.log(JSON.stringify(requestData, null, 2));
+  // console.log('=== FILE ATTACHED ===');
+  // console.log(selectedFile ? `${selectedFile.name} (${selectedFile.size} bytes)` : 'No file');
 
   // Disable button during submission
   const btn = document.getElementById('submit-btn');
@@ -2570,12 +2570,12 @@ async function extractFormData(base64, fileType) {
     }
 
     // Try OCR recognition
-    console.log('Starting OCR extraction...');
+    // console.log('Starting OCR extraction...');
     const result = await Tesseract.recognize(base64, 'eng');
 
     const text = result.data.text;
-    console.log('OCR completed, text length:', text.length);
-    console.log('Raw OCR text:', text.substring(0, 500));
+    // console.log('OCR completed, text length:', text.length);
+    // console.log('Raw OCR text:', text.substring(0, 500));
 
     if (!text || text.length < 10) {
       console.warn('OCR returned very little text');
@@ -2677,7 +2677,7 @@ async function extractFormData(base64, fileType) {
       }
     }
 
-    console.log('✓ Extraction complete. Fields found:', Object.keys(detected).filter(k => detected[k]).length);
+    // console.log('✓ Extraction complete. Fields found:', Object.keys(detected).filter(k => detected[k]).length);
     return detected;
 
   } catch (err) {
@@ -2932,7 +2932,7 @@ async function initTesseractWorker() {
     // Initialize Tesseract worker
     const worker = await Tesseract.createWorker('eng');
     tesseractReady = true;
-    console.log('✓ Tesseract.js loaded successfully');
+    // console.log('✓ Tesseract.js loaded successfully');
     return true;
   } catch (err) {
     console.error('Tesseract initialization failed:', err);
@@ -3695,8 +3695,8 @@ async function handleScan(file) {
       }
     }
 
-    console.log('[Blood Request OCR] HTTP:', response.status, response.statusText);
-    console.log('[Blood Request OCR] Raw response payload:', payload);
+    // console.log('[Blood Request OCR] HTTP:', response.status, response.statusText);
+    // console.log('[Blood Request OCR] Raw response payload:', payload);
 
     if (!response.ok) {
       throw new Error(extractServerErrorMessage(response, payload, fallbackText));
@@ -3704,8 +3704,8 @@ async function handleScan(file) {
 
     bumpScanProgress('Processing OCR response...', 78);
     const normalized = normalizeScannerResponse(payload);
-    console.log('[Blood Request OCR] Normalized fields:', normalized.fields);
-    console.log('[Blood Request OCR] Confidence:', normalized.confidence, '| Warnings:', normalized.warnings);
+    // console.log('[Blood Request OCR] Normalized fields:', normalized.fields);
+    // console.log('[Blood Request OCR] Confidence:', normalized.confidence, '| Warnings:', normalized.warnings);
     scannedData = normalized.fields;
     scannedMeta = {
       confidence: normalized.confidence,

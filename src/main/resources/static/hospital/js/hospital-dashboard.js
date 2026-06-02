@@ -1414,7 +1414,7 @@ function handleFile(fileInput, type) {
     return;
   }
 
-  console.log(`File selected for ${type}:`, file.name, file.size, file.type);
+  // console.log(`File selected for ${type}:`, file.name, file.size, file.type);
   
   // Validate file size
   if (file.size > 5 * 1024 * 1024) {
@@ -1431,7 +1431,7 @@ function handleFile(fileInput, type) {
   // Store file and update UI
   if (type === 'doc') {
     docFileHosp = file;
-    console.log('Doc file stored:', docFileHosp.name);
+    // console.log('Doc file stored:', docFileHosp.name);
     document.getElementById('doc-placeholder-hosp').style.display = 'none';
     document.getElementById('doc-preview-hosp').style.display = 'block';
     document.getElementById('doc-name-hosp').textContent = file.name;
@@ -1836,8 +1836,8 @@ async function submitRequestHosp() {
     notes: notes
   };
 
-  console.log('=== HOSPITAL BLOOD REQUEST DATA ===');
-  console.log(JSON.stringify(requestData, null, 2));
+  // console.log('=== HOSPITAL BLOOD REQUEST DATA ===');
+  // console.log(JSON.stringify(requestData, null, 2));
 
   const btn = document.getElementById('submit-btn-hosp');
   const originalText = btn.textContent;
@@ -1881,7 +1881,7 @@ async function submitRequestHosp() {
     btn.disabled = false;
     btn.textContent = originalText;
 
-    console.log('Request submitted successfully with reference:', referenceNumber);
+    // console.log('Request submitted successfully with reference:', referenceNumber);
 
   } catch (err) {
     showErrorHosp('Error submitting request. Please try again.');

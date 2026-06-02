@@ -134,7 +134,7 @@ async function login() {
         const payload = isJson ? await response.json() : await response.text();
         const text = typeof payload === "string" ? payload : payload?.message || "";
 
-        console.log("Server response:", payload);
+        // console.log("Server response:", payload);
 
         if (text === "LOGIN_SUCCESS_HOSPITAL") {
             window.location.href = "../hospital/hospital-dashboard.html";
