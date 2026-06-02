@@ -69,6 +69,7 @@ function closeModal(id) {
 }
 
 let bloodPlusConfirmCallback = null;
+let bloodPlusModalOnHide = null;
 
 function getBloodPlusModalTypeConfig(type) {
   const typeMap = {
@@ -88,6 +89,14 @@ function hideBloodPlusModal() {
   if (confirmBtn) {
     confirmBtn.disabled = false;
     confirmBtn.textContent = 'Confirm';
+  }
+
+  if (typeof bloodPlusModalOnHide === 'function') {
+    const onHide = bloodPlusModalOnHide;
+    bloodPlusModalOnHide = null;
+    onHide();
+  } else {
+    bloodPlusModalOnHide = null;
   }
 }
 
@@ -152,8 +161,28 @@ async function runBloodPlusConfirm() {
   }
 
   const confirmFn = bloodPlusConfirmCallback;
+  bloodPlusModalOnHide = null;
   hideBloodPlusModal();
   await Promise.resolve(confirmFn());
+}
+
+let addStockSubmitLocked = false;
+
+function setAddStockSubmitState(disabled, label = 'Review / Receive Batch') {
+  const btn = document.getElementById('add-stock-submit-btn');
+  if (!btn) return;
+  btn.disabled = disabled;
+  btn.textContent = label;
+}
+
+function lockAddStockSubmit(label = 'Review / Receive Batch') {
+  addStockSubmitLocked = true;
+  setAddStockSubmitState(true, label);
+}
+
+function unlockAddStockSubmit() {
+  addStockSubmitLocked = false;
+  setAddStockSubmitState(false, 'Review / Receive Batch');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -3899,6 +3928,10 @@ function clearEmptyAddStockRows() {
 }
 
 async function submitAddBloodStock() {
+  if (addStockSubmitLocked) {
+    return;
+  }
+
   const transactionInput = document.getElementById('add-transaction-number');
   const transactionNumber = String(transactionInput?.value || '')
     .replace(/\D/g, '')
@@ -3945,11 +3978,15 @@ async function submitAddBloodStock() {
     return;
   }
 
+  lockAddStockSubmit('Waiting for confirmation...');
+  bloodPlusModalOnHide = unlockAddStockSubmit;
+
   showBloodPlusConfirm(
     'Receive Blood Bags',
     `Receive ${nonEmptyRows.length} blood bag(s) under transaction ${transactionNumber || 'N/A'}?`,
     async () => {
       try {
+        lockAddStockSubmit('Receiving batch...');
         for (const item of nonEmptyRows) {
           const data = item.data;
 
@@ -3974,6 +4011,7 @@ async function submitAddBloodStock() {
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             showBloodPlusMessage('Failed to Add Bag', err.message || `Failed to add bag ${data.serialNumber}.`, 'error');
+            unlockAddStockSubmit();
             return;
           }
         }
@@ -3981,9 +4019,11 @@ async function submitAddBloodStock() {
         closeModal('addBloodModal');
         await loadBloodBank();
         showBloodPlusMessage('Batch Received', `${nonEmptyRows.length} blood bag(s) received successfully.`, 'success');
+        unlockAddStockSubmit();
       } catch (err) {
         console.error('Add stock batch error:', err);
         showBloodPlusMessage('Network Error', 'Network error. Please try again.', 'error');
+        unlockAddStockSubmit();
       }
     },
     'info'

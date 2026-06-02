@@ -127,7 +127,7 @@ public class BloodBagRequestService {
         request.setRequesterName(dto.getRequesterName().trim());
         request.setRequesterRelationship(dto.getRequesterRelationship());
         request.setRequesterContact(dto.getRequesterContact().trim());
-        request.setRequesterEmail(normalizeOptionalEmail(authorizedStaff.getEmail()));
+        request.setRequesterEmail(normalizeOptionalEmail(dto.getRequesterEmail()));
  
         // ─────────────────────────────────────────────
         // NOTES (EXISTING)
@@ -829,8 +829,24 @@ public class BloodBagRequestService {
         request.setRequesterType(BloodBagRequest.RequesterType.HOSPITAL);
         request.setStatus(BloodBagRequest.RequestStatus.PENDING);
         request.setReferenceNumber(generateReferenceNumber(request.getRequestCategory()));
-    
-        return repository.save(request);
+
+        BloodBagRequest savedRequest = repository.save(request);
+
+        if (hasRequesterEmail(savedRequest)) {
+            try {
+                emailService.sendRequestConfirmationEmail(
+                    savedRequest.getRequesterEmail(),
+                    savedRequest.getRequesterName(),
+                    savedRequest.getReferenceNumber(),
+                    savedRequest.getBloodType().getDisplayName(),
+                    savedRequest.getNumberOfUnits()
+                );
+            } catch (Exception e) {
+                System.err.println("[BloodBagRequest] Failed to send hospital confirmation email: " + e.getMessage());
+            }
+        }
+
+        return savedRequest;
     }
     
     /**
@@ -863,6 +879,9 @@ public class BloodBagRequestService {
         // NEW: Validate doctors note is provided
         if (file == null || file.isEmpty())
             throw new IllegalArgumentException("Doctor's Blood Request Form is required.");
+        String contentType = file.getContentType();
+        if (!"image/jpeg".equalsIgnoreCase(contentType) && !"image/png".equalsIgnoreCase(contentType))
+            throw new IllegalArgumentException("Only JPG or PNG images are allowed for hospital request uploads.");
     }
     // ─────────────────────────────────────────────
     // GET REQUESTS BY HOSPITAL

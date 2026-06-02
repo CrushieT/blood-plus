@@ -1290,6 +1290,9 @@ function buildReview() {
 
 // ── File upload ────────────────────────────────────────────────
 let selectedFile = null;
+const UPLOAD_COMPRESSION_MAX_DIMENSION = 1600;
+const UPLOAD_COMPRESSION_QUALITY = 0.82;
+const UPLOAD_COMPRESSION_MIN_BYTES = 350 * 1024;
 
 function handleDrop(e) {
   e.preventDefault();
@@ -1322,6 +1325,78 @@ function clearFile() {
   document.getElementById('upload-placeholder').style.display = 'block';
   document.getElementById('upload-preview').style.display = 'none';
   document.getElementById('upload-zone').classList.remove('has-file');
+}
+
+function isCompressibleUpload(file) {
+  return !!file && ['image/jpeg', 'image/png'].includes(file.type);
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const imageUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(imageUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error('Unable to read the selected image.'));
+    };
+
+    image.src = imageUrl;
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+      reject(new Error('Unable to optimize the selected image.'));
+    }, type, quality);
+  });
+}
+
+async function optimizeUploadFile(file) {
+  if (!isCompressibleUpload(file) || file.size < UPLOAD_COMPRESSION_MIN_BYTES) {
+    return file;
+  }
+
+  const image = await loadImageFromFile(file);
+  const largestSide = Math.max(image.width, image.height);
+  const scale = largestSide > UPLOAD_COMPRESSION_MAX_DIMENSION
+    ? UPLOAD_COMPRESSION_MAX_DIMENSION / largestSide
+    : 1;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return file;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const outputType = 'image/jpeg';
+  const compressedBlob = await canvasToBlob(canvas, outputType, UPLOAD_COMPRESSION_QUALITY);
+  if (compressedBlob.size >= file.size) {
+    return file;
+  }
+
+  const optimizedName = file.name.replace(/\.(png|jpe?g)$/i, '') + '.jpg';
+  return new File([compressedBlob], optimizedName, {
+    type: outputType,
+    lastModified: Date.now()
+  });
 }
 
 // ── Error helpers ──────────────────────────────────────────────
@@ -1846,11 +1921,23 @@ async function submitRequest() {
   btn.textContent = 'Submitting...';
 
   try {
+    let uploadFile = selectedFile;
+    if (uploadFile && isCompressibleUpload(uploadFile)) {
+      btn.textContent = 'Optimizing image...';
+      try {
+        uploadFile = await optimizeUploadFile(uploadFile);
+      } catch (compressionError) {
+        console.warn('Image optimization skipped:', compressionError);
+        uploadFile = selectedFile;
+      }
+      btn.textContent = 'Submitting...';
+    }
+
     // Build FormData with JSON data and file
     const formData = new FormData();
     formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
-    if (selectedFile) {
-      formData.append('doctorsNote', selectedFile);
+    if (uploadFile) {
+      formData.append('doctorsNote', uploadFile, uploadFile.name);
     }
 
     // Send to backend

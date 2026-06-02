@@ -425,6 +425,9 @@ const HOSPITAL_ALL_FORM_STEP_IDS = [1, 2, 4, 5];
 let currentStepHosp = 1;
 let docFileHosp = null;
 let lastIndicationGroupKeyHosp = '';
+const HOSP_UPLOAD_COMPRESSION_MAX_DIMENSION = 1600;
+const HOSP_UPLOAD_COMPRESSION_QUALITY = 0.82;
+const HOSP_UPLOAD_COMPRESSION_MIN_BYTES = 350 * 1024;
 
 // --------------------------------------------------------------
 // STEP NAVIGATION
@@ -1423,8 +1426,8 @@ function handleFile(fileInput, type) {
   }
 
   // Validate file type
-  if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
-    showErrorHosp("Only PDF, JPG or PNG files are accepted.");
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    showErrorHosp("Only JPG or PNG images are accepted.");
     return;
   }
 
@@ -1450,6 +1453,78 @@ function clearFile(type) {
     document.getElementById('doc-placeholder-hosp').style.display = 'block';
     document.getElementById('doc-preview-hosp').style.display = 'none';
   }
+}
+
+function isCompressibleHospUpload(file) {
+  return !!file && ['image/jpeg', 'image/png'].includes(file.type);
+}
+
+function loadHospImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const imageUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(imageUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error('Unable to read the selected image.'));
+    };
+
+    image.src = imageUrl;
+  });
+}
+
+function canvasToHospBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+      reject(new Error('Unable to optimize the selected image.'));
+    }, type, quality);
+  });
+}
+
+async function optimizeHospUploadFile(file) {
+  if (!isCompressibleHospUpload(file) || file.size < HOSP_UPLOAD_COMPRESSION_MIN_BYTES) {
+    return file;
+  }
+
+  const image = await loadHospImageFromFile(file);
+  const largestSide = Math.max(image.width, image.height);
+  const scale = largestSide > HOSP_UPLOAD_COMPRESSION_MAX_DIMENSION
+    ? HOSP_UPLOAD_COMPRESSION_MAX_DIMENSION / largestSide
+    : 1;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return file;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const outputType = 'image/jpeg';
+  const compressedBlob = await canvasToHospBlob(canvas, outputType, HOSP_UPLOAD_COMPRESSION_QUALITY);
+  if (compressedBlob.size >= file.size) {
+    return file;
+  }
+
+  const optimizedName = file.name.replace(/\.(png|jpe?g)$/i, '') + '.jpg';
+  return new File([compressedBlob], optimizedName, {
+    type: outputType,
+    lastModified: Date.now()
+  });
 }
 
 // --------------------------------------------------------------
@@ -1845,12 +1920,23 @@ async function submitRequestHosp() {
   btn.textContent = 'Submitting...';
 
   try {
+    let uploadDocFile = docFileHosp;
+    if (uploadDocFile && isCompressibleHospUpload(uploadDocFile)) {
+      btn.textContent = 'Optimizing image...';
+      try {
+        uploadDocFile = await optimizeHospUploadFile(uploadDocFile);
+      } catch (compressionError) {
+        console.warn('Hospital request image optimization skipped:', compressionError);
+        uploadDocFile = docFileHosp;
+      }
+      btn.textContent = 'Submitting...';
+    }
+
     const formData = new FormData();
     formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
-    
-    const docFileHosp = document.getElementById('doc-file-hosp').files[0];
-    if (docFileHosp) {
-      formData.append('doctorsNote', docFileHosp);
+
+    if (uploadDocFile) {
+      formData.append('doctorsNote', uploadDocFile, uploadDocFile.name);
     }
 
     const res = await fetch('/api/hospital/blood-requests', {
