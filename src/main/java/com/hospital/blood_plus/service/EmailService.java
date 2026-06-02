@@ -3,6 +3,7 @@ package com.hospital.blood_plus.service;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -244,6 +245,7 @@ public class EmailService {
     }
 
     // Sending Email to Blood Request
+    @Async("applicationTaskExecutor")
     public void sendRequestConfirmationEmail(String to, String requesterName, String referenceNumber, 
                                             String bloodType, Integer units) {
         try {
