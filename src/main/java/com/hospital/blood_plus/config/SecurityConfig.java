@@ -12,20 +12,28 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.hospital.blood_plus.config.ratelimitter.LoginRateLimitFilter;
+import com.hospital.blood_plus.config.ratelimitter.RegisterRateLimitFilter;
 
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 
 
 @EnableMethodSecurity  
 @Configuration
-@RequiredArgsConstructor
 public class SecurityConfig {
 
-    
+    private final LoginRateLimitFilter loginRateLimitFilter;
+    private final RegisterRateLimitFilter registerRateLimitFilter;
+
+    public SecurityConfig(LoginRateLimitFilter loginRateLimitFilter,
+            RegisterRateLimitFilter registerRateLimitFilter) {
+        this.loginRateLimitFilter = loginRateLimitFilter;
+        this.registerRateLimitFilter = registerRateLimitFilter;
+    }
 
 
 
@@ -58,6 +66,8 @@ public class SecurityConfig {
                 .maximumSessions(1)
                 .maxSessionsPreventsLogin(false)
             )
+            .addFilterBefore(loginRateLimitFilter, AuthorizationFilter.class)
+            .addFilterBefore(registerRateLimitFilter, AuthorizationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/",
