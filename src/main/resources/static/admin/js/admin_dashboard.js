@@ -8030,7 +8030,7 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
             </div>
             <div class="req-details-field">
               <span class="req-details-label">Required By</span>
-              <span class="req-details-value">${req.requiredBy ?? '-'}</span>
+              <span class="req-details-value">${req.requiredBy ? formatDate(req.requiredBy) : '-'}</span>
             </div>
           </div>
         </div>
