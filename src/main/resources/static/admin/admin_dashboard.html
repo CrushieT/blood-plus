@@ -360,6 +360,7 @@
           <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
             <table class="data-table" style="min-width:900px">
               <thead><tr>
+                <th>Transaction Number</th>
                 <th>Serial Number</th>
                 <th>Blood Type</th>
                 <th>Component</th>
@@ -367,7 +368,6 @@
                 <th>Collected</th>
                 <th>Expires</th>
                 <th>Status</th>
-                <th>Source / Info</th>
                 <th>Actions</th>
               </tr></thead>
               <tbody id="bags-tbody"></tbody>
@@ -610,6 +610,11 @@
           <option value="FRESH_FROZEN_PLASMA">FFP</option>
           <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
           <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+        </select>
+        <select class="req-select" id="req-filter-request-category" onchange="reqHandleServerFiltersChange()">
+          <option value="ALL">All Request Groups</option>
+          <option value="INPATIENT">INHOUSE</option>
+          <option value="OUTPATIENT">OPD</option>
         </select>
         <select class="req-select" id="req-sort" onchange="reqApplyClientFilters()">
           <option value="date_desc">Newest first</option>
@@ -2389,6 +2394,24 @@
       </div>
     </div>
   </div>
+
+  <!-- Regenerate Staff Code Confirm Modal -->
+  <div class="modal-overlay" id="regenerateStaffCodeModal">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-body" style="padding:32px;text-align:center">
+        <div style="font-size:36px;margin-bottom:14px">🔐</div>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px">Regenerate Authorization Code?</div>
+        <div id="regenerate-staff-name-label" style="font-size:14px;color:var(--muted);margin-bottom:6px"></div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">
+          A new staff authorization code will be generated and the previous code will no longer be valid.
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeRegenerateStaffCodeModal()">Cancel</button>
+          <button class="btn-primary" style="flex:1;justify-content:center" id="regenerate-staff-confirm-btn" onclick="staffConfirmRegenerateCode()">Generate New Code</button>
+        </div>
+      </div>
+    </div>
+  </div>
  
   <!-- Doc Preview Modal -->
   <div class="req-reject-overlay" id="req-doc-modal">
@@ -2595,6 +2618,20 @@
           </div>
           <div id="sysDeleteConfirmDetails" style="font-size:13px;background:var(--cream);border-radius:8px;padding:10px;margin-bottom:24px;font-weight:600;word-break:break-word">
             Item details here
+          </div>
+          <div id="sysDeleteConfirmCodeWrap" style="display:none;text-align:left;margin-bottom:16px">
+            <label for="sysDeleteConfirmCodeInput" style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">
+              Staff Authorization Code
+            </label>
+            <input
+              id="sysDeleteConfirmCodeInput"
+              type="text"
+              maxlength="9"
+              placeholder="XXXX-XXXX"
+              autocomplete="off"
+              style="width:100%;padding:12px 14px;border:1px solid rgba(15,23,42,0.12);border-radius:12px;font-size:14px;letter-spacing:0.08em;text-transform:uppercase;box-sizing:border-box"
+            />
+            <div id="sysDeleteConfirmCodeError" style="display:none;font-size:12px;color:#c41e3a;margin-top:6px"></div>
           </div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:24px">
             This action cannot be undone.

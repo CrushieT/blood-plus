@@ -7,6 +7,7 @@ import com.hospital.blood_plus.dto.request.BloodTracerSaveDTO;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.request.ExportJobCreateRequestDTO;
+import com.hospital.blood_plus.dto.request.StaffAuthorizationCodeRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.CreateHospitalRequest;
 import com.hospital.blood_plus.dto.request.HospitalDTOs.UpdateHospitalRequest;
 import com.hospital.blood_plus.dto.request.ProfileDTO.AdminProfileDTO;
@@ -203,6 +204,22 @@ public class AdminController {
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    @DeleteMapping("/blood-bank/bags/{id}")
+    public ResponseEntity<?> deleteBag(
+            @PathVariable Long id,
+            @RequestBody StaffAuthorizationCodeRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            AppUser user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            bloodBagService.deleteBag(id, user, request != null ? request.getStaffUniqueCode() : null);
+            return ResponseEntity.ok(Map.of("message", "Blood bag deleted successfully."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     @PatchMapping("/blood-bank/bags/{id}/convert-open-system")
     public ResponseEntity<?> convertOpenSystem(@PathVariable Long id) {
         try {
@@ -254,11 +271,12 @@ public class AdminController {
             @RequestParam(required = false) BloodBagRequest.RequestStatus status,
             @RequestParam(required = false) BloodBag.BloodType bloodType,
             @RequestParam(required = false) BloodBag.ComponentType component,
+            @RequestParam(required = false) BloodBagRequest.RequestCategory requestCategory,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
         return ResponseEntity.ok(
-                bloodBagRequestService.getAdminRequestList(page, size, status, bloodType, component, search, dateFrom, dateTo)
+                bloodBagRequestService.getAdminRequestList(page, size, status, bloodType, component, requestCategory, search, dateFrom, dateTo)
         );
     }
 
@@ -268,10 +286,11 @@ public class AdminController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) BloodBag.BloodType bloodType,
             @RequestParam(required = false) BloodBag.ComponentType component,
+            @RequestParam(required = false) BloodBagRequest.RequestCategory requestCategory,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTo) {
         return ResponseEntity.ok(
-                bloodBagRequestService.getAdminRequestStatusCounts(search, bloodType, component, dateFrom, dateTo)
+                bloodBagRequestService.getAdminRequestStatusCounts(search, bloodType, component, requestCategory, dateFrom, dateTo)
         );
     }
 
