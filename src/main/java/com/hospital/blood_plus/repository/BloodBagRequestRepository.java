@@ -55,6 +55,7 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         WHERE (:status IS NULL OR r.status = :status)
           AND (:bloodType IS NULL OR r.bloodType = :bloodType)
           AND (:componentType IS NULL OR r.bloodComponent = :componentType)
+          AND (:requestCategory IS NULL OR r.requestCategory = :requestCategory)
           AND (:from IS NULL OR r.requestedAt >= :from)
           AND (:to IS NULL OR r.requestedAt <= :to)
           AND (
@@ -70,6 +71,7 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
             @Param("status") BloodBagRequest.RequestStatus status,
             @Param("bloodType") BloodBag.BloodType bloodType,
             @Param("componentType") ComponentType componentType,
+            @Param("requestCategory") RequestCategory requestCategory,
             @Param("search") String search,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
@@ -82,6 +84,7 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
         LEFT JOIN r.hospitalProfile hp
         WHERE (:bloodType IS NULL OR r.bloodType = :bloodType)
           AND (:componentType IS NULL OR r.bloodComponent = :componentType)
+          AND (:requestCategory IS NULL OR r.requestCategory = :requestCategory)
           AND (:from IS NULL OR r.requestedAt >= :from)
           AND (:to IS NULL OR r.requestedAt <= :to)
           AND (
@@ -98,6 +101,7 @@ public interface BloodBagRequestRepository extends JpaRepository<BloodBagRequest
             @Param("search") String search,
             @Param("bloodType") BloodBag.BloodType bloodType,
             @Param("componentType") ComponentType componentType,
+            @Param("requestCategory") RequestCategory requestCategory,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to
     );

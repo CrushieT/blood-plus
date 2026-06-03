@@ -583,6 +583,11 @@
             placeholder="Search hospital, patient, blood type…"
             oninput="reqHandleSearchInput()">
         </div>
+        <select class="req-select" id="req-filter-request-category" onchange="reqHandleServerFiltersChange()">
+          <option value="ALL">All Request Groups</option>
+          <option value="INPATIENT">INHOUSE</option>
+          <option value="OUTPATIENT">OPD</option>
+        </select>
         <select class="req-select" id="req-filter-urgency" onchange="reqApplyClientFilters()">
           <option value="ALL">All Urgency</option>
           <option value="HIGH"> High</option>
@@ -610,11 +615,6 @@
           <option value="FRESH_FROZEN_PLASMA">FFP</option>
           <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
           <option value="CRYOSUPERNATANT">Cryosupernatant</option>
-        </select>
-        <select class="req-select" id="req-filter-request-category" onchange="reqHandleServerFiltersChange()">
-          <option value="ALL">All Request Groups</option>
-          <option value="INPATIENT">INHOUSE</option>
-          <option value="OUTPATIENT">OPD</option>
         </select>
         <select class="req-select" id="req-sort" onchange="reqApplyClientFilters()">
           <option value="date_desc">Newest first</option>

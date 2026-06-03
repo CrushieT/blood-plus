@@ -942,6 +942,9 @@ function renderBagsPage() {
       DISCARDED:    `<span class="bag-status bag-status-discarded">Discarded</span>`,
     };
     const statusBadge = statusBadgeMap[bag.computedStatus] || '';
+    const bagCodeTextStyle = "font-family:monospace;font-size:15px;font-weight:600;color:var(--charcoal)";
+    const bagPrimaryTextStyle = "font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--charcoal)";
+    const bagMutedTextStyle = "font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted)";
 
     let actions = `
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px"
@@ -972,30 +975,30 @@ function renderBagsPage() {
 
     return `
       <tr style="${rowStyle}">
-        <td>
-          <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:900;color:var(--charcoal)">
+        <td style="padding-right:0">
+          <div style="${bagCodeTextStyle}">
             ${bag.transactionNumber || '-'}
           </div>
         </td>
-        <td>
-          <div style="font-family:monospace;font-size:12px;font-weight:600;color:var(--charcoal)">
+        <td style="padding-left:0">
+          <div style="${bagCodeTextStyle}">
             ${bag.serialNumber}${openTag}
           </div>
           ${bag.serialNumber
-            ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">S/N: ${bag.serialNumber}</div>`
+            ? `<div style="${bagMutedTextStyle};margin-top:1px">S/N: ${bag.serialNumber}</div>`
             : ''}
         </td>
         <td>
-          <span style="font-family:'Playfair Display',serif;font-size:15px;font-weight:900">
+          <span style="${bagPrimaryTextStyle}">
             ${btLabel}
           </span>
         </td>
-        <td><div style="font-size:12px;font-weight:600">${compLbl}</div></td>
-        <td style="font-weight:600">${bag.volumeMl} mL</td>
-        <td style="font-size:12px;color:var(--muted)">${formatBagDate(bag.collectedAt)}</td>
+        <td><div style="${bagPrimaryTextStyle}">${compLbl}</div></td>
+        <td style="${bagPrimaryTextStyle}">${bag.volumeMl} mL</td>
+        <td style="${bagMutedTextStyle}">${formatBagDate(bag.collectedAt)}</td>
         <td>
           ${expiryPill}
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${formatBagDate(bag.expiresAt)}</div>
+          <div style="${bagMutedTextStyle};margin-top:2px">${formatBagDate(bag.expiresAt)}</div>
         </td>
         <td>${statusBadge}</td>
         <td><div style="display:flex;gap:5px;flex-wrap:wrap">${actions}</div></td>
