@@ -1,122 +1,56 @@
 # BloodPlus
 
-BloodPlus is a full-stack blood bank workflow system built for hospital operations. It manages blood inventory, patient blood requests, hospital account workflows, and admin/staff review pipelines in a single application.
+BloodPlus is a full-stack blood bank operations system built for hospital and blood bank workflows. It centralizes blood request intake, blood bag inventory, request approval and release, hospital account management, staff administration, audit logging, and reporting in one Spring Boot application.
 
-The project is designed around a real operational use case rather than a toy CRUD demo. It combines backend API design, role-based security, persistence modeling, document handling, scheduled automation, and a multi-surface frontend experience.
+## Overview
 
-## Project Overview
+The system supports three main user groups:
 
-BloodPlus supports three primary user experiences:
-
-| User Type | Main Capabilities |
+| User Type | Capabilities |
 | --- | --- |
-| Public requester | Submit a blood request, upload doctor's note, track request by reference number |
-| Hospital account | View blood availability, submit requests, monitor request history, manage hospital profile |
-| Admin / staff | Manage inventory, process request lifecycle, review analytics, manage hospitals and staff, export logs |
+| Public requester | Submit a blood request, upload supporting documents, track request status by reference number |
+| Hospital account | View blood availability, submit and monitor hospital requests, manage hospital profile |
+| Admin / staff | Manage blood bags, process request workflows, review analytics, manage hospitals and staff, export logs |
 
-This makes the project a strong demonstration of:
+## Core Features
 
-- Full-stack application architecture
-- Domain-driven workflow design
-- Secure role-based access control
-- Real-world auditability and lifecycle tracking
-- External service integration for file storage and email notifications
+### Blood Request Workflows
+- Public blood request submission
+- Hospital blood request submission
+- Reference-based request tracking
+- Request approval, rejection, allocation, reallocation, and release
+- In-house and outpatient request categorization
 
-## Key Features
-
-### Blood Request Management
-
-- Multi-step public blood request form
-- Hospital-specific request submission flow
-- Reference-number-based request tracking
-- Support for anonymous and hospital-linked requests
-- Detailed clinical, transfusion, and indication data capture
-
-### Inventory and Fulfillment
-
+### Blood Bank Operations
 - Blood bag intake and inventory management
-- Availability views by blood type and component
-- Request approval, rejection, allocation, reallocation, and release workflow
-- Scheduled expiration handling for expired and open-system bags
+- Blood availability monitoring by type and component
+- Expiry monitoring and scheduled expiration updates
+- Crossmatch-aware workflow protection
+- Blood bag discard and protected deletion workflow
 
-### Operations and Oversight
-
-- Role-based dashboards for hospitals and admins
-- Audit trails through request status logs and fulfillment records
-- Analytics for urgency, category, component, inventory, and hospital activity
-- Exportable status and fulfillment logs
+### Administration and Audit
+- Role-based admin and hospital dashboards
+- Staff and hospital management
+- Request status logs and fulfillment tracking
+- Exportable operational records
+- Dashboard filtering, sorting, and reporting tools
 
 ### Integrations
-
-- Cloudinary for doctor's note uploads
-- Brevo email API for verification and request notifications
-- Tesseract.js OCR support for scanning request forms and auto-filling fields
-
-## Architecture
-
-The application follows a layered Spring Boot architecture:
-
-- `controller`
-  - REST endpoints for auth, public requests, hospital APIs, and admin APIs
-- `service`
-  - Business logic for requests, inventory, analytics, profiles, logging, and integrations
-- `repository`
-  - JPA repositories and custom queries for filtering, metrics, and exports
-- `model`
-  - Entities for users, blood bags, requests, logs, dispatches, and fulfillments
-- `static`
-  - Role-specific frontend pages built with vanilla HTML, CSS, and JavaScript
-
-### Core Domain Models
-
-- `AppUser`
-  - Roles: `ADMIN`, `STAFF`, `HOSPITAL`
-- `BloodBag`
-  - Tracks unit identity, component, blood type, status, source, volume, expiry, and dispatch history
-- `BloodBagRequest`
-  - Tracks patient information, urgency, request type, category, requester type, status, clinical context, and attached documents
-- `RequestStatusLog`
-  - Captures status transitions for auditability
-- `RequestFulfillment`
-  - Captures request-to-bag fulfillment records
-- `HospitalProfile` and `StaffProfile`
-  - Extend user accounts with operational profile data
-
-## Request Lifecycle
-
-The request lifecycle is modeled explicitly in the backend:
-
-`PENDING -> APPROVED -> ALLOCATED -> READY_FOR_RELEASE -> RELEASED`
-
-Alternative terminal states:
-
-- `REJECTED`
-- `CANCELLED`
-
-This lifecycle is handled primarily in `BloodBagRequestService`, with audit logging persisted through `RequestStatusLogService`.
-
-## Security
-
-BloodPlus uses Spring Security with session-based authentication.
-
-- Public routes are available for login, public request submission, and request tracking
-- Hospital routes are restricted to `ROLE_HOSPITAL`
-- Admin routes are restricted to `ROLE_ADMIN` and `ROLE_STAFF`
-- Logout invalidates session state and clears `JSESSIONID`
-- API routes are designed for authenticated cookie-backed frontend requests
+- Cloudinary for document uploads
+- Brevo for email delivery
+- OCR.Space and Tesseract-assisted OCR support for forms and blood bag intake
 
 ## Tech Stack
 
 | Layer | Technology |
 | --- | --- |
 | Backend | Java 21, Spring Boot 4.0.5, Spring MVC, Spring Data JPA, Spring Security |
-| Database | MySQL |
+| Database | MySQL 8+ |
 | Frontend | HTML, CSS, Vanilla JavaScript |
 | File Storage | Cloudinary |
-| Email | Brevo API |
-| OCR | Tesseract.js |
-| Build | Maven |
-| CI | GitHub Actions |
+| Email | Brevo |
+| OCR | OCR.Space API, Tesseract-based frontend OCR flow |
+| Build Tool | Maven |
 
 ## Project Structure
 
@@ -139,127 +73,176 @@ blood-plus/
 |       `-- forms/
 |-- src/test/java/com/hospital/blood_plus
 |-- .github/workflows/
+|-- .env
 |-- pom.xml
 `-- REPO_SUMMARY.md
 ```
 
-## Running Locally
+## Installation Guide
 
 ### Prerequisites
+
+Install the following first:
 
 - Java 21
 - Maven 3.9+
 - MySQL 8+
+- A Cloudinary account
+- A Brevo account
+- Optional: OCR.Space API key for OCR features
 
-### 1. Create the database
+### 1. Clone the Repository
 
-Create a MySQL database for the application, for example:
+```bash
+git clone <your-repository-url>
+cd blood-plus
+```
+
+### 2. Create the Database
+
+Create the MySQL database used by the system:
 
 ```sql
-CREATE DATABASE blood_plus;
+CREATE DATABASE bloodplus;
 ```
 
-### 2. Configure environment variables
+> The local environment in this project currently points to `bloodplus`.
 
-This project supports `.env` loading through `java-dotenv`.
+### 3. Configure Environment Variables
 
-Create a `.env` file in the project root:
+This project loads environment variables from a root `.env` file using `java-dotenv`.
+
+Create a `.env` file in the project root and provide the required values:
 
 ```env
+# --- Mail / Notifications ---
+EMAIL=your_sender_email@example.com
+BREVO_API=your_brevo_api_key
+
+# --- Database ---
 MYSQLHOST=localhost
 MYSQLPORT=3306
-MYSQL_DATABASE=blood_plus
+MYSQL_DATABASE=bloodplus
 MYSQLUSER=root
-MYSQLPASSWORD=your_password
+MYSQLPASSWORD=your_mysql_password
 
-BREVO_API=your_brevo_api_key
-EMAIL=your_sender_email
+# --- Cloudinary ---
+CLOUDINARY-CLOUD-NAME=your_cloudinary_cloud_name
+CLOUDINARY-API-KEY=your_cloudinary_api_key
+CLOUDINARY-API-SECRET=your_cloudinary_api_secret
 
-CLOUDINARY-CLOUD-NAME=your_cloud_name
-CLOUDINARY-API-KEY=your_api_key
-CLOUDINARY-API-SECRET=your_api_secret
+# --- OCR ---
+OCR_SPACE_API_KEY=your_ocr_space_api_key
 
+# --- Optional runtime settings ---
 PORT=8080
+FRONTEND_BASE_URL=http://localhost:8080
+
+# Optional timezone / JVM tuning examples
+# JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Manila
+# TZ=Asia/Manila
 ```
 
-### 3. Start the application
+### 4. Review Application Configuration
+
+The main runtime configuration is defined in `src/main/resources/application.properties:1`.
+
+Important defaults:
+
+- Database host defaults to `localhost`
+- Default server port is `8080`
+- Multipart upload limit is `10MB`
+- JPA uses `spring.jpa.hibernate.ddl-auto=update`
+- Login and register rate limiting are enabled through app properties
+
+### 5. Build the Project
+
+```bash
+mvn clean compile
+```
+
+### 6. Run the Application
 
 ```bash
 mvn spring-boot:run
 ```
 
-On Windows:
+If you only want to verify compilation:
 
-```powershell
-.\mvnw.cmd spring-boot:run
+```bash
+mvn -q -DskipTests compile
 ```
 
-### 4. Open the application
+### 7. Open the System
 
-Useful entry points:
+After startup, open these routes in your browser:
 
-- Public request portal: `http://localhost:8080/blood-request.html`
-- Login page: `http://localhost:8080/admin-login.html`
-- First-run admin setup: `http://localhost:8080/admin-setup.html`
+- Admin login: `http://localhost:8080/admin-login.html`
+- Public blood request form: `http://localhost:8080/blood-request.html`
+- Initial admin setup: `http://localhost:8080/admin-setup.html`
 
-## Testing
+## First-Time Setup
 
-Run tests with:
+For a fresh local environment:
+
+1. Start the application
+2. Open `http://localhost:8080/admin-setup.html`
+3. Create the initial admin account
+4. Log in through `http://localhost:8080/admin-login.html`
+5. Add staff and hospital accounts from the admin dashboard
+
+## Running Tests
+
+Run the test suite with:
 
 ```bash
 mvn test
 ```
 
-Current automated coverage is minimal, but the application successfully boots through the Spring test context and includes CI workflows for package/build verification.
+## Main API Areas
 
-## API Areas
+| Base Path | Purpose |
+| --- | --- |
+| `/api/auth` | Authentication, session lookup, admin bootstrap, verification |
+| `/api/req` | Public blood request submission and request tracking |
+| `/api/hospital` | Hospital dashboard, request history, profile, and availability |
+| `/api/admin` | Blood bank operations, request lifecycle actions, analytics, logs, staff and hospital management |
 
-The backend is organized into four main API groups:
+## Security Notes
 
-- `/api/auth`
-  - Login, session lookup, admin bootstrap, email verification
-- `/api/req`
-  - Public request submission and request tracking
-- `/api/hospital`
-  - Hospital request history, availability lookups, profile management
-- `/api/admin`
-  - Inventory, request lifecycle actions, analytics, hospital/staff management, logs, and exports
+- Session-based authentication is used for authenticated areas
+- Spring Security protects hospital, admin, and staff routes
+- Login and registration endpoints use backend rate limiting
+- Sensitive credentials should remain in `.env` and must not be committed
 
-## Engineering Highlights
+## Operational Notes
 
-These are the parts of the project that are especially valuable from an employer review perspective:
+- Uploaded documents are stored through Cloudinary
+- Email notifications are sent through Brevo
+- OCR features depend on valid OCR configuration
+- Blood bag and request workflows include audit and status tracking
+- The system is designed around real workflow transitions, not just CRUD screens
 
-- Workflow-first design
-  - The application models an operational process, not just data forms
-- Role separation
-  - Different users have dedicated experiences and API scopes
-- Auditability
-  - Status changes and fulfillments are recorded explicitly
-- Operational automation
-  - Scheduled expiration tasks reduce manual maintenance
-- Integration work
-  - Handles file uploads, email notifications, and OCR-assisted input
-- Full ownership across layers
-  - Backend APIs, persistence, security, dashboards, and forms live in one repo
+## Troubleshooting
 
-## Current State and Improvement Opportunities
+### Application does not start
+- Confirm Java 21 is installed
+- Confirm MySQL is running
+- Confirm the database in `.env` exists
+- Confirm `.env` is in the project root
 
-The project is already substantial and functional, but there are a few areas that could be improved further:
+### Database connection fails
+- Verify `MYSQLHOST`, `MYSQLPORT`, `MYSQL_DATABASE`, `MYSQLUSER`, and `MYSQLPASSWORD`
+- Confirm MySQL allows the configured user to access the target database
 
-- Add broader automated test coverage for services and controllers
-- Break large frontend scripts into smaller modules
-- Introduce API documentation such as OpenAPI/Swagger
-- Add screenshots or a short demo walkthrough for portfolio presentation
-- Improve deployment and environment setup documentation
+### Emails are not sending
+- Verify `BREVO_API` and `EMAIL`
+- Confirm the sender email is valid in your Brevo configuration
 
-## Additional Technical Context
+### Uploads are failing
+- Verify Cloudinary credentials
+- Confirm uploaded files stay within the configured size limits
 
-For a deeper handoff-oriented summary of the repository, see:
-
-- [REPO_SUMMARY.md](./REPO_SUMMARY.md)
-
-## Why This Project Matters
-
-BloodPlus demonstrates more than framework familiarity. It shows the ability to take a domain problem, translate it into a secure and auditable software workflow, and deliver a working application across backend, database, integration, and frontend layers.
-
-That combination makes it a strong portfolio piece for roles involving backend engineering, full-stack development, internal tools, or operations-focused product systems.
+### OCR features are unavailable
+- Verify `OCR_SPACE_API_KEY`
+- Confirm outbound network access is available for OCR requests
