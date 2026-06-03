@@ -18,6 +18,8 @@ import java.util.List;
 @Repository
 public interface RequestFulfillmentRepository extends JpaRepository<RequestFulfillment, Long> {
 
+    boolean existsByBloodBag_Id(Long bloodBagId);
+
     // ═══════════════════════════════════════════════════════════════
     // PAGINATION QUERIES (WITH PAGEABLE)
     // ═══════════════════════════════════════════════════════════════

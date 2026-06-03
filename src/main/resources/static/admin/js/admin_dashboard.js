@@ -942,8 +942,9 @@ function renderBagsPage() {
       DISCARDED:    `<span class="bag-status bag-status-discarded">Discarded</span>`,
     };
     const statusBadge = statusBadgeMap[bag.computedStatus] || '';
-
-    let sourceInfo = `<span style="font-size:12px;color:var(--muted)">${sourceLabel(bag)}</span>`;;
+    const bagCodeTextStyle = "font-family:monospace;font-size:15px;font-weight:600;color:var(--charcoal)";
+    const bagPrimaryTextStyle = "font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--charcoal)";
+    const bagMutedTextStyle = "font-family:'DM Sans',sans-serif;font-size:12px;color:var(--muted)";
 
     let actions = `
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px"
@@ -958,6 +959,11 @@ function renderBagsPage() {
       //       onclick="confirmOpenSystem(${bag.id}, '${bag.serialNumber}')">? PRBC</button>`;
       // }
     }
+    if (bag.computedStatus !== 'CROSSMATCHED') {
+      actions += `
+        <button class="btn-danger" style="font-size:11px;padding:5px 10px"
+          onclick="confirmDeleteBag(${bag.id})">Delete</button>`;
+    }
 
     const rowStyle = bag.computedStatus === 'EXPIRING' || bag.openSystem
       ? 'background:rgba(196,30,58,0.02)'
@@ -969,28 +975,32 @@ function renderBagsPage() {
 
     return `
       <tr style="${rowStyle}">
-        <td>
-          <div style="font-family:monospace;font-size:12px;font-weight:600;color:var(--charcoal)">
+        <td style="padding-right:0">
+          <div style="${bagCodeTextStyle}">
+            ${bag.transactionNumber || '-'}
+          </div>
+        </td>
+        <td style="padding-left:0">
+          <div style="${bagCodeTextStyle}">
             ${bag.serialNumber}${openTag}
           </div>
           ${bag.serialNumber
-            ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">S/N: ${bag.serialNumber}</div>`
+            ? `<div style="${bagMutedTextStyle};margin-top:1px">S/N: ${bag.serialNumber}</div>`
             : ''}
         </td>
         <td>
-          <span style="font-family:'Playfair Display',serif;font-size:15px;font-weight:900">
+          <span style="${bagPrimaryTextStyle}">
             ${btLabel}
           </span>
         </td>
-        <td><div style="font-size:12px;font-weight:600">${compLbl}</div></td>
-        <td style="font-weight:600">${bag.volumeMl} mL</td>
-        <td style="font-size:12px;color:var(--muted)">${formatBagDate(bag.collectedAt)}</td>
+        <td><div style="${bagPrimaryTextStyle}">${compLbl}</div></td>
+        <td style="${bagPrimaryTextStyle}">${bag.volumeMl} mL</td>
+        <td style="${bagMutedTextStyle}">${formatBagDate(bag.collectedAt)}</td>
         <td>
           ${expiryPill}
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${formatBagDate(bag.expiresAt)}</div>
+          <div style="${bagMutedTextStyle};margin-top:2px">${formatBagDate(bag.expiresAt)}</div>
         </td>
         <td>${statusBadge}</td>
-        <td>${sourceInfo}</td>
         <td><div style="display:flex;gap:5px;flex-wrap:wrap">${actions}</div></td>
       </tr>`;
   }).join('');
@@ -1170,6 +1180,48 @@ async function confirmDiscard() {
     console.error('Discard error:', err);
     alert('Network error. Please try again.');
   }
+}
+
+function confirmDeleteBag(id) {
+  const bag = BLOOD_BAGS.find(item => item.id === id);
+  if (!bag) {
+    showBloodPlusMessage('Blood Bag Not Found', 'The selected blood bag record could not be loaded.', 'error');
+    return;
+  }
+
+  showSysDeleteConfirmModal(
+    'Blood Bag',
+    bag.serialNumber || `Bag #${id}`,
+    'This blood bag will be permanently removed.',
+    (staffUniqueCode) => deleteBloodBag(id, staffUniqueCode),
+    {
+      requireStaffCode: true,
+      confirmLabel: 'Verify & Delete',
+      pendingLabel: 'Verifying…'
+    }
+  );
+}
+
+async function deleteBloodBag(id, staffUniqueCode) {
+  const res = await fetch(`/api/admin/blood-bank/bags/${id}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ staffUniqueCode })
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if ((payload.message || '').toLowerCase().includes('authorization code')) {
+      setSysDeleteConfirmCodeError(payload.message);
+    }
+    throw new Error(payload.message || 'Failed to delete blood bag.');
+  }
+
+  BLOOD_BAGS = BLOOD_BAGS.filter(bag => bag.id !== id);
+  invalidateBagCache();
+  await loadBloodBank();
+  showSysSuccessModal('Blood Bag Deleted', payload.message || 'Blood bag deleted successfully.');
 }
 
 // -- Add Stock Modal ------------------------------------------------------------
@@ -6460,6 +6512,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     return document.getElementById('req-filter-component')?.value || 'ALL';
   }
 
+  function reqGetRequestCategoryFilter() {
+    return document.getElementById('req-filter-request-category')?.value || 'ALL';
+  }
+
   function reqBuildListQuery(page) {
     const params = new URLSearchParams({
       page: String(Math.max(page, 1)),
@@ -6482,6 +6538,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     if (component !== 'ALL') {
       params.append('component', component);
     }
+    const requestCategory = reqGetRequestCategoryFilter();
+    if (requestCategory !== 'ALL') {
+      params.append('requestCategory', requestCategory);
+    }
 
     return params;
   }
@@ -6499,6 +6559,10 @@ window.exportBloodBagsToExcel = function(mode = 'auto') {
     const component = reqGetComponentFilter();
     if (component !== 'ALL') {
       params.append('component', component);
+    }
+    const requestCategory = reqGetRequestCategoryFilter();
+    if (requestCategory !== 'ALL') {
+      params.append('requestCategory', requestCategory);
     }
     return params;
   }
@@ -8316,6 +8380,7 @@ let staffList = [];   // populated from API
 let staffPage          = 1;
 const STAFF_PER_PAGE   = 10;
 let staffCurrentViewId = null;
+let staffRegenerateCodeId = null;
 
 /* ========================================
    API HELPERS
@@ -8750,7 +8815,7 @@ function validateStaffProfilePhoneField(focusInvalid = false) {
 }
 
 function staffCloseModals(exceptId = null) {
-  ['addStaffModal', 'editStaffModal', 'viewStaffModal', 'deleteStaffModal', 'sysDeleteConfirmModal']
+  ['addStaffModal', 'editStaffModal', 'viewStaffModal', 'deleteStaffModal', 'regenerateStaffCodeModal', 'sysDeleteConfirmModal']
     .forEach(id => {
       if (id !== exceptId) closeModal(id);
     });
@@ -9222,19 +9287,49 @@ async function staffRegenerateCode(id) {
   const s = staffList.find(x => x.id === id);
   if (!s) return;
 
-  const name = `${s.firstName} ${s.lastName}`;
-  if (!confirm(`Generate a new staff authorization code for ${name}? The previous code will no longer be used.`)) {
+  staffRegenerateCodeId = id;
+  staffCloseModals('regenerateStaffCodeModal');
+  document.getElementById('regenerate-staff-name-label').textContent = `${s.firstName} ${s.lastName}`;
+  const btn = document.getElementById('regenerate-staff-confirm-btn');
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = 'Generate New Code';
+  }
+  openModal('regenerateStaffCodeModal');
+}
+
+function closeRegenerateStaffCodeModal() {
+  closeModal('regenerateStaffCodeModal');
+  staffRegenerateCodeId = null;
+}
+
+async function staffConfirmRegenerateCode() {
+  const id = staffRegenerateCodeId;
+  const s = staffList.find(x => x.id === id);
+  if (!id || !s) {
+    closeRegenerateStaffCodeModal();
     return;
+  }
+
+  const btn = document.getElementById('regenerate-staff-confirm-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
   }
 
   try {
     const result = await staffApiFetch(`/${id}/regenerate-code`, { method: 'POST' });
+    closeRegenerateStaffCodeModal();
     await staffLoadAll();
     staffShowToast(
       result.message || 'New staff authorization code generated and emailed successfully.',
       'success'
     );
   } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Generate New Code';
+    }
     staffShowToast(`Code regeneration failed: ${err.message}`, 'danger');
   }
 }
@@ -12596,11 +12691,31 @@ function closeSysSuccessModal() {
 // ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 
 let sysDeleteAction = null;
+let sysDeleteActionOptions = {};
 
-function showSysDeleteConfirmModal(resourceType = 'Item', resourceName = '', details = '', onConfirmCallback) {
+function normalizeStaffAuthorizationCode(value = '') {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 8)
+    .replace(/(.{4})/, '$1-')
+    .replace(/-$/, '');
+}
+
+function setSysDeleteConfirmCodeError(message = '') {
+    const errorEl = document.getElementById('sysDeleteConfirmCodeError');
+    if (!errorEl) return;
+
+    errorEl.textContent = message;
+    errorEl.style.display = message ? 'block' : 'none';
+}
+
+function showSysDeleteConfirmModal(resourceType = 'Item', resourceName = '', details = '', onConfirmCallback, options = {}) {
     const messageEl = document.getElementById('sysDeleteConfirmMessage');
     const detailsEl = document.getElementById('sysDeleteConfirmDetails');
     const btn = document.getElementById('sysDeleteConfirmBtn');
+    const codeWrap = document.getElementById('sysDeleteConfirmCodeWrap');
+    const codeInput = document.getElementById('sysDeleteConfirmCodeInput');
 
     // Set message
     if (messageEl) {
@@ -12614,10 +12729,23 @@ function showSysDeleteConfirmModal(resourceType = 'Item', resourceName = '', det
 
     // Store callback
     sysDeleteAction = onConfirmCallback;
+    sysDeleteActionOptions = options || {};
 
     // Update button text if needed
     if (btn) {
-        btn.textContent = 'Yes, Delete';
+        btn.disabled = false;
+        btn.textContent = sysDeleteActionOptions.confirmLabel || 'Yes, Delete';
+    }
+
+    if (codeWrap && codeInput) {
+        const requireStaffCode = Boolean(sysDeleteActionOptions.requireStaffCode);
+        codeWrap.style.display = requireStaffCode ? 'block' : 'none';
+        codeInput.value = '';
+        codeInput.placeholder = sysDeleteActionOptions.codePlaceholder || 'XXXX-XXXX';
+        setSysDeleteConfirmCodeError('');
+        if (requireStaffCode) {
+            setTimeout(() => codeInput.focus(), 0);
+        }
     }
 
     openModal('sysDeleteConfirmModal');
@@ -12626,23 +12754,53 @@ function showSysDeleteConfirmModal(resourceType = 'Item', resourceName = '', det
 function closeSysDeleteConfirmModal() {
     closeModal('sysDeleteConfirmModal');
     sysDeleteAction = null;
+    sysDeleteActionOptions = {};
+    setSysDeleteConfirmCodeError('');
 }
+
+document.addEventListener('input', (event) => {
+    if (event.target?.id === 'sysDeleteConfirmCodeInput') {
+        event.target.value = normalizeStaffAuthorizationCode(event.target.value);
+        setSysDeleteConfirmCodeError('');
+    }
+});
 
 function sysConfirmDeleteAction() {
     if (sysDeleteAction && typeof sysDeleteAction === 'function') {
         const btn = document.getElementById('sysDeleteConfirmBtn');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Deleting…';
+        const codeInput = document.getElementById('sysDeleteConfirmCodeInput');
+        let codeValue = null;
+
+        if (sysDeleteActionOptions.requireStaffCode) {
+            codeValue = normalizeStaffAuthorizationCode(codeInput ? codeInput.value : '');
+            if (!codeValue) {
+                setSysDeleteConfirmCodeError('Staff authorization code is required.');
+                if (codeInput) codeInput.focus();
+                return;
+            }
+            if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(codeValue)) {
+                setSysDeleteConfirmCodeError('Invalid staff authorization code.');
+                if (codeInput) codeInput.focus();
+                return;
+            }
+            if (codeInput) {
+                codeInput.value = codeValue;
+            }
+            setSysDeleteConfirmCodeError('');
         }
 
-        Promise.resolve(sysDeleteAction()).then(() => {
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = sysDeleteActionOptions.pendingLabel || 'Deleting…';
+        }
+
+        Promise.resolve(sysDeleteAction(codeValue)).then(() => {
             closeSysDeleteConfirmModal();
         }).catch(err => {
             console.error('Delete action error:', err);
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = 'Yes, Delete';
+                btn.textContent = sysDeleteActionOptions.confirmLabel || 'Yes, Delete';
             }
         });
     }

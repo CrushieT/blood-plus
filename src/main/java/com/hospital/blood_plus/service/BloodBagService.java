@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,11 +31,17 @@ public class BloodBagService {
 
     private final BloodBagRepository          bloodBagRepository;
     private final BloodBagDispatchRepository  bloodBagDispatchRepository;
+    private final RequestFulfillmentRepository requestFulfillmentRepository;
+    private final StaffProfileRepository      staffProfileRepository;
 
     public BloodBagService(BloodBagRepository bloodBagRepository,
-                           BloodBagDispatchRepository bloodBagDispatchRepository) {
+                           BloodBagDispatchRepository bloodBagDispatchRepository,
+                           RequestFulfillmentRepository requestFulfillmentRepository,
+                           StaffProfileRepository staffProfileRepository) {
         this.bloodBagRepository         = bloodBagRepository;
         this.bloodBagDispatchRepository = bloodBagDispatchRepository;
+        this.requestFulfillmentRepository = requestFulfillmentRepository;
+        this.staffProfileRepository = staffProfileRepository;
     }
 
     // ── Receive stock from BMC ────────────────────────────────────
@@ -244,6 +251,49 @@ public class BloodBagService {
         bloodBagDispatchRepository.save(dispatch);
 
         return mapToResponse(bag);
+    }
+
+    public void deleteBag(Long bagId, AppUser user, String staffUniqueCode) {
+        verifyStaffAuthorizationCode(user, staffUniqueCode);
+
+        BloodBag bag = bloodBagRepository.findById(bagId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Blood bag not found"));
+
+        if (bag.getStatus() == BagStatus.CROSSMATCHED) {
+            throw new IllegalStateException("Cannot delete a blood bag already reserved for a patient.");
+        }
+        if (bag.getStatus() == BagStatus.DISPENSED || requestFulfillmentRepository.existsByBloodBag_Id(bagId)) {
+            throw new IllegalStateException("Cannot delete a blood bag that is already part of a fulfilled request.");
+        }
+
+        bloodBagRepository.delete(bag);
+    }
+
+    private void verifyStaffAuthorizationCode(AppUser user, String staffUniqueCode) {
+        String normalizedCode = normalizeStaffUniqueCode(staffUniqueCode);
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Staff authorization code is required.");
+        }
+        if (!normalizedCode.matches("^[A-Z0-9]{4}-[A-Z0-9]{4}$")) {
+            throw new IllegalArgumentException("Invalid staff authorization code.");
+        }
+        if (user == null) {
+            throw new IllegalArgumentException("Unable to verify staff authorization code.");
+        }
+
+        StaffProfile staffProfile = staffProfileRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalArgumentException("No staff authorization code is assigned to this account."));
+
+        String expectedCode = normalizeStaffUniqueCode(staffProfile.getUniqueCode());
+        if (!normalizedCode.equals(expectedCode)) {
+            throw new IllegalArgumentException("Invalid staff authorization code.");
+        }
+    }
+
+    private String normalizeStaffUniqueCode(String uniqueCode) {
+        if (uniqueCode == null) return null;
+        String normalized = uniqueCode.trim().toUpperCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
     }
 
     // ── Open system conversion ────────────────────────────────────

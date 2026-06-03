@@ -211,6 +211,7 @@ public class BloodBagRequestService {
             BloodBagRequest.RequestStatus status,
             BloodBag.BloodType bloodType,
             BloodBag.ComponentType componentType,
+            BloodBagRequest.RequestCategory requestCategory,
             String search,
             LocalDateTime dateFrom,
             LocalDateTime dateTo
@@ -229,6 +230,7 @@ public class BloodBagRequestService {
                 status,
                 bloodType,
                 componentType,
+                requestCategory,
                 normalizedSearch,
                 dateFrom,
                 dateTo,
@@ -252,6 +254,7 @@ public class BloodBagRequestService {
             String search,
             BloodBag.BloodType bloodType,
             BloodBag.ComponentType componentType,
+            BloodBagRequest.RequestCategory requestCategory,
             LocalDateTime dateFrom,
             LocalDateTime dateTo
     ) {
@@ -263,7 +266,7 @@ public class BloodBagRequestService {
 
         long allCount = 0L;
         List<BloodBagRequestRepository.StatusCountRow> rows =
-                repository.countForAdminStatusSummary(normalizedSearch, bloodType, componentType, dateFrom, dateTo);
+                repository.countForAdminStatusSummary(normalizedSearch, bloodType, componentType, requestCategory, dateFrom, dateTo);
         for (BloodBagRequestRepository.StatusCountRow row : rows) {
             if (row == null || row.getStatus() == null) continue;
             long count = row.getTotal();
