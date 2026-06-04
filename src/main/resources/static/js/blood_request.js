@@ -9,7 +9,6 @@
 // ══════════════════════════════════════════════════════════════════════
 // SECTION 1: EKG / ECG LOADING SCREEN ANIMATION
 // ══════════════════════════════════════════════════════════════════════
-
 (function initEKGLoader() {
   // Run as soon as script is parsed — no DOMContentLoaded needed for canvas init
   // Canvas draw starts after DOM is ready
