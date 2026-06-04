@@ -470,7 +470,7 @@ public class BloodBagService {
  
         for (BloodBag.BloodType bt : BloodBag.BloodType.values()) {
             int count = countAvailableBagsByBloodType(bt);
-            result.put(formatBloodType(bt), buildAvailabilityMap(count));
+            result.put(formatBloodTypeKey(bt), buildAvailabilityMap(count));
         }
  
         return result;
@@ -487,6 +487,19 @@ public class BloodBagService {
         return (int) bags.stream()
                 .filter(bag -> bag.getExpiresAt().isAfter(now))
                 .count();
+    }
+
+    private String formatBloodTypeKey(BloodBag.BloodType bloodType) {
+        return switch (bloodType) {
+            case O_POS -> "O+";
+            case O_NEG -> "O-";
+            case A_POS -> "A+";
+            case A_NEG -> "A-";
+            case B_POS -> "B+";
+            case B_NEG -> "B-";
+            case AB_POS -> "AB+";
+            case AB_NEG -> "AB-";
+        };
     }
  
     /**

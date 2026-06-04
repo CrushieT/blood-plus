@@ -100,6 +100,26 @@ let bloodBankAvailability = {
   lastUpdated: null
 };
 
+function normalizeBloodTypeAvailabilityKey(key) {
+  return String(key || '')
+    .trim()
+    .replace(/[\u2212\u2013\u2014]/g, '-')
+    .toUpperCase();
+}
+
+function normalizeComponentAvailabilityKey(key) {
+  return String(key || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-');
+}
+
+function normalizeAvailabilityEntries(entries, normalizeKeyFn) {
+  return Object.fromEntries(
+    Object.entries(entries || {}).map(([key, value]) => [normalizeKeyFn(key), value])
+  );
+}
+
 
 // ---------------------------------------------------------------
 // --- UTILITY FUNCTIONS ---
@@ -253,8 +273,14 @@ async function loadBloodBankAvailability() {
 
     const data = await response.json();
     bloodBankAvailability = {
-      bloodTypes: data.bloodTypes || {},
-      components: data.components || {},
+      bloodTypes: normalizeAvailabilityEntries(
+        data.bloodTypes,
+        normalizeBloodTypeAvailabilityKey
+      ),
+      components: normalizeAvailabilityEntries(
+        data.components,
+        normalizeComponentAvailabilityKey
+      ),
       lastUpdated: data.timestamp || new Date().toISOString()
     };
 
@@ -288,7 +314,9 @@ function updateBloodTypeDisplay() {
     const statusEl = document.getElementById(elementId);
     if (!statusEl) continue;
 
-    const availability = bloodBankAvailability.bloodTypes[displayLabel];
+    const availability = bloodBankAvailability.bloodTypes[
+      normalizeBloodTypeAvailabilityKey(displayLabel)
+    ];
     if (!availability) {
       statusEl.textContent = 'Loading...';
       continue;
@@ -334,7 +362,9 @@ function updateComponentDisplay() {
       continue;
     }
  
-    const availability = bloodBankAvailability.components[componentKey];
+    const availability = bloodBankAvailability.components[
+      normalizeComponentAvailabilityKey(componentKey)
+    ];
     
     if (!availability) {
       statusEl.textContent = 'Not available';
