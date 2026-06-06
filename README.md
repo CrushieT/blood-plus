@@ -6,6 +6,12 @@ This project demonstrates backend development skills in **REST API design, authe
 
 ---
 
+## Why This Project Matters
+
+BloodPlus was designed around real blood bank workflows, including request approval, allocation, release, and traceability, making it more than a basic CRUD application.
+
+---
+
 ## Project Highlights
 
 * Built a complete **Spring Boot blood bank operations system** with multiple user roles.
@@ -433,7 +439,11 @@ Verify:
 ## Developer
 
 **Aundray Tafalla**
+
 BS Computer Science
+
 Backend Developer / Lead Developer
+
 GitHub: [github.com/aundray-tafalla](https://github.com/CrushieT)
+
 LinkedIn: [linkedin.com/in/aundray-tafalla](https://linkedin.com/in/aundray-tafalla)
