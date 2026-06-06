@@ -4,8 +4,6 @@ BloodPlus is a full-stack blood bank management system built with **Java, Spring
 
 This project demonstrates backend development skills in **REST API design, authentication and authorization, relational database modeling, workflow management, file upload handling, email notifications, deployment, and production-style system organization**.
 
-> **Privacy Note:** Screenshots in this repository are anonymized or redacted to protect organizational and personal information.
-
 ---
 
 ## Project Highlights
@@ -140,8 +138,6 @@ The system includes operational reporting features such as:
 ---
 
 ## Screenshots
-
-> Replace the image paths below with your actual sanitized screenshot paths.
 
 ### Admin Dashboard
 
