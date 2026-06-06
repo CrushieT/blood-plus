@@ -36,8 +36,6 @@ build/
 env
 ci-full.yml
 target
-# REPO_SUMMARY.md
-# summary.md
 database
 .github/java-upgrade
 fix-guide.md
