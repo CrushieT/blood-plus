@@ -157,7 +157,7 @@ Shows the main operational dashboard with summaries, navigation, and blood bank 
 
 Shows grouped blood stock visibility, inventory summaries, and operational stock monitoring.
 
-![Blood Bank Inventory](docs/img/system_img/Blood%20Bank.png)
+![Blood Bank Inventory](docs/img/system_img/Blood%20Bags.png)
 
 ---
 
