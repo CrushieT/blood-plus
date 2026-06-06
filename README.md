@@ -19,7 +19,7 @@ BloodPlus was designed around real blood bank workflows, including request appro
 * Designed request workflows covering **pending, approval, allocation, ready for release, release, rejection, and cancellation**.
 * Created blood inventory features with **status tracking, filtering, expiry monitoring, and availability summaries**.
 * Integrated **Cloudinary** for document storage and **Brevo** for email notifications.
-* Added **OCR-assisted processing** using OCR.Space and frontend OCR support for faster form and stock intake.
+* Added **OCR-assisted processing** using OCR.Space and OCR-assisted frontend review flow for faster form and stock intake.
 * Deployed and tested the system using **Railway** with MySQL.
 
 ---
@@ -444,6 +444,6 @@ BS Computer Science
 
 Backend Developer / Lead Developer
 
-GitHub: [github.com/aundray-tafalla](https://github.com/CrushieT)
+GitHub: [github.com/CrushieT](https://github.com/CrushieT)
 
 LinkedIn: [linkedin.com/in/aundray-tafalla](https://linkedin.com/in/aundray-tafalla)
