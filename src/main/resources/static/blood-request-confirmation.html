@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNPH Blood Bank - Request Confirmation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0D1B3E;
+      --navy-soft: #122347;
+      --crimson: #C41E3A;
+      --crimson-dark: #8B1228;
+      --crimson-soft: #FFF0F3;
+      --gold: #E5B325;
+      --green: #2E8B57;
+      --green-soft: #E7F7EF;
+      --page: #F5F9FF;
+      --surface: #FFFFFF;
+      --surface-glass: rgba(255, 255, 255, 0.92);
+      --surface-soft: rgba(245, 249, 255, 0.88);
+      --text: #1E293B;
+      --muted: #64748B;
+      --border: rgba(61, 90, 128, 0.18);
+      --border-strong: rgba(61, 90, 128, 0.28);
+      --shadow: 0 24px 60px rgba(4, 13, 33, 0.28);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(196, 30, 58, 0.18), transparent 24%),
+        radial-gradient(circle at 84% 78%, rgba(229, 179, 37, 0.12), transparent 26%),
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(135deg, var(--navy) 0%, #102856 56%, #07142f 100%);
+      background-size: auto, auto, 64px 64px, 64px 64px, auto;
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .shell {
+      width: min(720px, 100%);
+      display: grid;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: rgba(226, 232, 240, 0.72);
+      font-size: 14px;
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0;
+    }
+
+    .brand-icon {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      border-radius: 50% 50% 50% 10px;
+      background: linear-gradient(145deg, #EF476F 0%, var(--crimson) 58%, var(--crimson-dark) 100%);
+      box-shadow: 0 14px 32px rgba(196, 30, 58, 0.38);
+      transform: rotate(-45deg);
+      flex: 0 0 auto;
+    }
+
+    .brand-icon::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      top: 15px;
+      left: 15px;
+      box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.08);
+    }
+
+    .brand-copy {
+      display: grid;
+      gap: 2px;
+    }
+
+    .brand-title {
+      display: block;
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 21px;
+      font-weight: 900;
+      line-height: 1;
+      color: #fff;
+      letter-spacing: 0;
+    }
+
+    .brand-subtitle {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(226, 232, 240, 0.66);
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .brand-context {
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .card {
+      background: var(--surface-glass);
+      border: 1px solid rgba(226, 232, 240, 0.76);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+
+    .hero {
+      position: relative;
+      padding: 30px 32px 24px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.18);
+      background:
+        radial-gradient(circle at 88% 18%, rgba(229, 179, 37, 0.18), transparent 24%),
+        radial-gradient(circle at 12% 20%, rgba(196, 30, 58, 0.25), transparent 30%),
+        linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(135deg, var(--navy) 0%, var(--navy-soft) 68%, #07142f 100%);
+      background-size: auto, auto, 48px 48px, 48px 48px, auto;
+      color: #fff;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -46px;
+      bottom: -54px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: rgba(196, 30, 58, 0.14);
+      pointer-events: none;
+    }
+
+    .pill {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      background: rgba(255, 240, 243, 0.96);
+      color: var(--crimson);
+      border: 1px solid rgba(196, 30, 58, 0.22);
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-family: "Playfair Display", serif;
+      font-size: clamp(28px, 4vw, 38px);
+      line-height: 1.05;
+      color: #fff;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      position: relative;
+      z-index: 1;
+      margin: 12px 0 0;
+      max-width: 56ch;
+      font-size: 15px;
+      line-height: 1.7;
+      color: rgba(226, 232, 240, 0.78);
+    }
+
+    .body {
+      position: relative;
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+      background:
+        radial-gradient(circle at 8% 12%, rgba(196, 30, 58, 0.14), transparent 24%),
+        radial-gradient(circle at 92% 86%, rgba(229, 179, 37, 0.10), transparent 28%),
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(145deg, rgba(13, 27, 62, 0.96), rgba(18, 35, 71, 0.88));
+      background-size: auto, auto, 44px 44px, 44px 44px, auto;
+      overflow: hidden;
+    }
+
+    .body::after {
+      content: "";
+      position: absolute;
+      left: -52px;
+      bottom: -70px;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: rgba(196, 30, 58, 0.12);
+      pointer-events: none;
+    }
+
+    .body > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .status-card {
+      border: 1px solid rgba(226, 232, 240, 0.22);
+      border-radius: 8px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08)),
+        rgba(13, 27, 62, 0.48);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 18px 42px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(14px);
+    }
+
+    .status-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-family: "DM Mono", monospace;
+      font-size: 18px;
+      font-weight: 500;
+      background: rgba(229, 179, 37, 0.16);
+      color: #8A6115;
+      border: 1px solid rgba(229, 179, 37, 0.28);
+      flex-shrink: 0;
+    }
+
+    .status-title {
+      font-size: 21px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: 0;
+    }
+
+    .status-copy {
+      color: rgba(226, 232, 240, 0.76);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .meta {
+      display: grid;
+      gap: 10px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(226, 232, 240, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.10);
+      font-size: 14px;
+    }
+
+    .meta-label {
+      color: rgba(226, 232, 240, 0.66);
+      font-weight: 600;
+    }
+
+    .meta-value {
+      color: #FFFFFF;
+      font-family: "DM Mono", monospace;
+      font-weight: 700;
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .note {
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(196, 30, 58, 0.22);
+      background: rgba(255, 240, 243, 0.86);
+      color: #44546B;
+      font-size: 13px;
+      line-height: 1.7;
+      backdrop-filter: blur(12px);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-top: 4px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      opacity: 0.96;
+    }
+
+    .btn-primary {
+      background: var(--crimson);
+      color: #fff;
+      box-shadow: 0 16px 30px rgba(196, 30, 58, 0.24);
+    }
+
+    .btn-primary:hover {
+      background: var(--crimson-dark);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.10);
+      color: #FFFFFF;
+      border-color: rgba(226, 232, 240, 0.26);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 12px 30px rgba(0, 0, 0, 0.16);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(196, 30, 58, 0.92);
+      border-color: rgba(196, 30, 58, 0.95);
+      box-shadow: 0 16px 34px rgba(196, 30, 58, 0.26);
+    }
+
+    .state-success .pill,
+    .state-success .status-icon {
+      background: var(--green-soft);
+      color: var(--green);
+      border-color: rgba(46, 139, 87, 0.24);
+    }
+
+    .state-error .pill,
+    .state-error .status-icon {
+      background: var(--crimson-soft);
+      color: var(--crimson);
+      border-color: rgba(196, 30, 58, 0.24);
+    }
+
+    .state-success .pill { color: var(--green); }
+    .state-error .pill { color: var(--crimson); }
+
+    .state-success .status-card {
+      border-color: rgba(46, 139, 87, 0.34);
+    }
+
+    .state-error .status-card {
+      border-color: rgba(196, 30, 58, 0.36);
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(196, 30, 58, 0.18);
+      border-top-color: var(--crimson);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 640px) {
+      .brand {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .brand-context {
+        text-align: left;
+      }
+
+      .hero,
+      .body {
+        padding: 22px;
+      }
+
+      .meta-row {
+        flex-direction: column;
+      }
+
+      .meta-value {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="brand">
+      <div class="brand-mark">
+        <div class="brand-icon" aria-hidden="true"></div>
+        <div class="brand-copy">
+          <span class="brand-title">CNPH Blood Bank</span>
+          <span class="brand-subtitle">Camarines Norte Provincial Hospital</span>
+        </div>
+      </div>
+      <span class="brand-context">Secure requester response portal</span>
+    </div>
+
+    <section class="card" id="confirmation-card">
+      <div class="hero">
+        <div class="pill" id="confirmation-pill">
+          <span class="spinner" id="confirmation-spinner" aria-hidden="true"></span>
+          <span id="confirmation-pill-text">Processing response</span>
+        </div>
+        <h1 id="confirmation-heading">Checking your confirmation link</h1>
+        <p id="confirmation-subtext">
+          We are validating your secure confirmation token and recording your response for the blood bank.
+        </p>
+      </div>
+
+      <div class="body">
+        <div class="status-card" id="status-card">
+          <div class="status-head">
+            <div class="status-icon" id="status-icon">...</div>
+            <div>
+              <div class="status-title" id="status-title">Waiting for confirmation</div>
+              <div class="status-copy" id="status-copy">
+                This should only take a moment. Please keep this page open while we process your response.
+              </div>
+            </div>
+          </div>
+
+          <div class="meta">
+            <div class="meta-row">
+              <span class="meta-label">Requested action</span>
+              <span class="meta-value" id="requested-action">Reviewing link</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Security</span>
+              <span class="meta-value">Token-based confirmation</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="note" id="result-note">
+          If this link has expired or was already used, please contact the blood bank so the team can assist you.
+        </div>
+
+        <div class="actions">
+          <a class="btn btn-secondary" href="/blood-request.html">Back to request page</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/blood_request_confirmation.js"></script>
+</body>
+</html>

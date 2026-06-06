@@ -1,16 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BloodPlus — Admin Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link href="css/styles.css" rel="stylesheet" />
+  <title>CNPH Blood Bank - Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="css/admin_dashboard.css" rel="stylesheet" />
+  <script src="assets/xlsx.full.min.js"></script>
 </head>
 <body>
 
   <div class="mobile-header" id="mobileHeader">
-    <div class="mobile-logo"><span>Blood</span>Plus</div>
+    <div class="mobile-logo">CNPH Blood Bank</div>
     <div class="hamburger" id="hamburger" onclick="toggleSidebar()">
       <span></span><span></span><span></span>
     </div>
@@ -20,9 +21,9 @@
   <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
   <aside class="sidebar" id="sidebar">
     <div class="logo-area">
-      <div class="logo"><span>Blood</span>Plus</div>
-      <div class="logo-sub">Blood Donation System</div>
-      <div class="admin-badge">⚙ Admin Panel</div>
+      <div class="logo">CNPH Blood Bank</div>
+      <div class="logo-sub">Camarines Norte Provincial Hospital</div>
+      <div class="admin-badge" id="admin-panel-badge">Admin Panel</div>
     </div>
 
     <nav class="nav-section">
@@ -30,25 +31,38 @@
       <div class="nav-item active" onclick="showPanel('dashboard', this)">
         <span class="nav-icon">🏠</span> Dashboard
       </div>
-
+    
       <div class="nav-label">Management</div>
       <div class="nav-item" onclick="showPanel('bloodbank', this)">
         <span class="nav-icon">🩸</span> Blood Bank
       </div>
-      <div class="nav-item" onclick="showPanel('bloodrequests', this)">
+      <div class="nav-item" id="nav-bloodrequests" onclick="showPanel('bloodrequests', this)">
         <span class="nav-icon">📋</span> Blood Requests
-        <span class="nav-badge">4</span>
+        <span id="blood-request-nav-badge" class="nav-badge nav-badge-requests" hidden>0</span>
       </div>
       <div class="nav-item" onclick="showPanel('hospitals', this)">
         <span class="nav-icon">🏥</span> Hospitals
       </div>
+      <div class="nav-item" onclick="showPanel('staff', this)">
+        <span class="nav-icon">👤</span> Staff
+      </div>
+    
+      <div class="nav-label">Auditing</div>
+      <div class="nav-item" onclick="showPanel('logging', this)">
+        <span class="nav-icon">📊</span> Request Logs
+      </div>
+    
+      <div class="nav-label">Account</div>
+      <div class="nav-item" onclick="showPanel('profile', this)">
+        <span class="nav-icon">👨‍💼</span> My Profile
+      </div>
     </nav>
 
     <div class="user-card">
-      <div class="user-avatar">AD</div>
+      <div class="user-avatar" id="sidebar-user-avatar">AD</div>
       <div class="user-info">
-        <div class="user-name">Admin</div>
-        <div class="user-type">System Administrator</div>
+        <div class="user-name" id="sidebar-user-name">Admin</div>
+        <div class="user-type" id="sidebar-user-role">System Administrator</div>
       </div>
     </div>
 
@@ -68,9 +82,6 @@
         <div>
           <div class="page-title">Admin Dashboard</div>
           <div class="page-sub" id="dash-date">Loading...</div>
-        </div>
-        <div class="topbar-right">
-          <div class="notif-btn">🔔<span class="notif-dot"></span></div>
         </div>
       </div>
 
@@ -133,39 +144,16 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">Recent Activity</div>
-            <span class="card-action">View all</span>
+            <span class="card-action" onclick="showPanel('logging', document.querySelector('.nav-item:nth-child(3)'))">View all</span>
           </div>
           <div class="card-body">
-            <div class="activity-item">
-              <div class="activity-dot dot-red"></div>
-              <div>
-                <div class="activity-desc"><strong>O−</strong> stock marked Critical — 12 units remaining</div>
-                <div class="activity-time">2 hours ago</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-dot dot-gold"></div>
-              <div>
-                <div class="activity-desc"><strong>PGH</strong> requested 10 units of AB−</div>
-                <div class="activity-time">5 hours ago</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-dot dot-green"></div>
-              <div>
-                <div class="activity-desc">Hospital account created for <strong>St. Luke's QC</strong></div>
-                <div class="activity-time">Yesterday</div>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-dot dot-blue"></div>
-              <div>
-                <div class="activity-desc">Blood request from <strong>Cardinal Santos</strong> approved</div>
-                <div class="activity-time">Yesterday</div>
-              </div>
+            <div id="dash-recent-activities">
+              <!-- Dynamically populated by JavaScript -->
             </div>
           </div>
         </div>
+        
+        
 
         <!-- Blood Bank Quick View -->
         <div class="card">
@@ -211,13 +199,15 @@
       <div class="topbar">
         <div>
           <div class="page-title">Blood Bank</div>
-          <div class="page-sub">Inventory, bag tracking and donation analytics</div>
+          <div class="page-sub">Inventory, bag tracking and Request analytics</div>
         </div>
+        
         <div class="topbar-right">
           <button class="btn-primary" onclick="openAddBloodModal()">＋ Add Stock</button>
         </div>
+        
       </div>
-
+      
       <!-- Tab Bar -->
       <div class="bb-tabbar">
         <button class="bb-tab active" onclick="switchBBTab('inventory', this)">🩸 Inventory</button>
@@ -263,6 +253,25 @@
 
       <!-- TAB 2 — BLOOD BAGS -->
       <div id="bb-tab-bags" style="display:none">
+        <div class="bb-tab-actions">
+          <div class="bb-tab-actions-title">Blood Bag Reports</div>
+          <div class="bb-export-controls">
+            <div class="bb-export-field">
+              <label for="bags-print-from-date">From Date</label>
+              <input type="date" id="bags-print-from-date" class="req-select" onchange="renderBagsTable()">
+            </div>
+            <div class="bb-export-field">
+              <label for="bags-print-to-date">To Date</label>
+              <input type="date" id="bags-print-to-date" class="req-select" onchange="renderBagsTable()">
+            </div>
+            <div class="bb-export-buttons">
+              <button class="btn-secondary" type="button" onclick="printBloodBags('current')">Print Current Results</button>
+              <button class="btn-ghost" type="button" onclick="printBloodBags('range')">Print Date Range</button>
+              <button class="btn-primary" type="button" onclick="exportBloodBagsToExcel()">Export Blood Bags</button>
+            </div>
+          </div>
+        </div>
+
         <div class="bb-bags-stats">
           <div class="bb-bags-stat">
             <div class="bb-bags-stat-val green" id="bags-available-count">0</div>
@@ -338,10 +347,12 @@
                 <option value="DISCARDED">Discarded</option>
               </select>
               <select id="bags-sort" onchange="renderBagsTable()" class="bb-select">
-                <option value="expiry_asc">Expiry ↑ (soonest first)</option>
-                <option value="expiry_desc">Expiry ↓</option>
                 <option value="collected_desc">Newest collected</option>
                 <option value="collected_asc">Oldest collected</option>
+                <option value="expiry_asc">Expiry ↑ (soonest first)</option>
+                <option value="expiry_desc">Expiry ↓ (latest first)</option>
+                <option value="registered_desc" selected>Newest registered</option>
+                <option value="registered_asc">Oldest registered</option>
               </select>
             </div>
           </div>
@@ -349,14 +360,14 @@
           <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
             <table class="data-table" style="min-width:900px">
               <thead><tr>
-                <th>Bag ID</th>
+                <th>Transaction Number</th>
+                <th>Serial Number</th>
                 <th>Blood Type</th>
                 <th>Component</th>
                 <th>Volume</th>
                 <th>Collected</th>
                 <th>Expires</th>
                 <th>Status</th>
-                <th>Source / Info</th>
                 <th>Actions</th>
               </tr></thead>
               <tbody id="bags-tbody"></tbody>
@@ -380,78 +391,176 @@
         </div>
       </div>
 
-      <!-- TAB 3 — ANALYTICS -->
+      <!-- TAB 3 - ANALYTICS -->
       <div id="bb-tab-analytics" style="display:none">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-header"><div class="card-title">Stock by Blood Type</div></div>
-            <div class="card-body">
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">O−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:30%"></div></div><div class="analytic-val">18</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">O+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:80%;background:var(--green)"></div></div><div class="analytic-val">48</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">A+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:65%;background:var(--green)"></div></div><div class="analytic-val">39</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">A−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:20%;background:var(--amber)"></div></div><div class="analytic-val">12</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">B+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:55%;background:var(--green)"></div></div><div class="analytic-val">33</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">B−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:15%;background:var(--amber)"></div></div><div class="analytic-val">9</div></div>
-              <div class="analytic-row"><div class="analytic-label" style="width:48px">AB+</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:18%;background:var(--muted)"></div></div><div class="analytic-val">11</div></div>
-              <div class="analytic-row" style="margin-bottom:0"><div class="analytic-label" style="width:48px">AB−</div><div class="analytic-bar-wrap"><div class="analytic-bar" style="width:10%"></div></div><div class="analytic-val">6</div></div>
+        <div class="bb-tab-actions bb-analytics-actions">
+          <div>
+            <div class="bb-tab-actions-title">Analytics Reports</div>
+            <div class="an-actions-sub">Blood bank performance and request activity overview</div>
+          </div>
+          <div class="bb-export-buttons">
+            <label for="analytics-export-from-date" style="font-size:12px;color:var(--muted)">From</label>
+            <input type="date" id="analytics-export-from-date" class="req-select" onchange="window.AnalyticsDashboard && window.AnalyticsDashboard.onDateRangeChanged()">
+            <label for="analytics-export-to-date" style="font-size:12px;color:var(--muted)">To</label>
+            <input type="date" id="analytics-export-to-date" class="req-select" onchange="window.AnalyticsDashboard && window.AnalyticsDashboard.onDateRangeChanged()">
+            <button class="btn-ghost an-export-btn" type="button" onclick="printAnalyticsWithRange()">Export Analytics</button>
+          </div>
+        </div>
+
+        <div id="analytics-empty-state" class="bb-empty" style="display:none">
+          No analytics data available.
+        </div>
+
+        <div id="analytics-content" class="an-dashboard">
+          <div id="analytics-metric-cards" class="an-metric-grid">
+            <div class="an-summary-card" data-status-card="pending">
+              <div class="an-summary-label">Pending</div>
+              <div class="an-summary-value" data-metric="request-pending">-</div>
+            </div>
+            <div class="an-summary-card" data-status-card="approved">
+              <div class="an-summary-label">Approved</div>
+              <div class="an-summary-value" data-metric="request-approved">-</div>
+            </div>
+            <div class="an-summary-card" data-status-card="allocated">
+              <div class="an-summary-label">Allocated</div>
+              <div class="an-summary-value" data-metric="request-allocated">-</div>
+            </div>
+            <div class="an-summary-card" data-status-card="released">
+              <div class="an-summary-label">Released</div>
+              <div class="an-summary-value" data-metric="request-released">-</div>
+            </div>
+            <div class="an-summary-card" data-status-card="rejected">
+              <div class="an-summary-label">Rejected</div>
+              <div class="an-summary-value" data-metric="request-rejected">-</div>
+            </div>
+            <div class="an-summary-card" data-status-card="cancelled">
+              <div class="an-summary-label">Cancelled</div>
+              <div class="an-summary-value" data-metric="request-cancelled">-</div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-header"><div class="card-title">Requests Fulfilled</div></div>
-            <div class="card-body">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div style="background:var(--green-light);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--green)">34</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Approved</div>
+          <div class="an-layout">
+            <div class="an-card an-span-4">
+              <div class="an-card-head">
+                <h4>Fulfillment Performance</h4>
+                <span class="an-sub">Released requests</span>
+              </div>
+              <div class="an-progress-main" data-metric="fulfillment-rate">-</div>
+              <div class="an-progress-track">
+                <div class="an-progress-fill" data-metric-bar="fulfillment-rate"></div>
+              </div>
+              <div class="an-kpi-grid">
+                <div class="an-kpi-cell">
+                  <div class="an-kpi-label">Total Released</div>
+                  <div class="an-kpi-value" data-metric="total-released">-</div>
                 </div>
-                <div style="background:var(--soft-red);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--crimson)">6</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Rejected</div>
+                <div class="an-kpi-cell">
+                  <div class="an-kpi-label">Avg Days to Release</div>
+                  <div class="an-kpi-value" data-metric="avg-fulfillment-days">-</div>
                 </div>
-                <div style="background:var(--amber-light);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--amber)">4</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Pending</div>
+              </div>
+            </div>
+
+            <div class="an-card an-span-8">
+              <div class="an-card-head">
+                <h4>Request Status Chart</h4>
+                <span class="an-sub">Current request status counts</span>
+              </div>
+              <div id="analytics-status-chart" class="an-bar-chart an-status-chart" aria-label="Request status chart"></div>
+              <p class="an-chart-note">Shows current request count per status.</p>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Urgency Breakdown</h4>
+                <span class="an-sub">Critical, high, medium, and low requests</span>
+              </div>
+              <div class="an-donut-wrap an-donut-wrap-urgency">
+                <canvas id="analyticsUrgencyChart" class="an-chart-canvas an-chart-compact" aria-label="Urgency breakdown chart"></canvas>
+                <div id="analytics-urgency-legend" class="an-donut-legend"></div>
+              </div>
+              <p class="an-chart-note">Shows how urgent current requests are.</p>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Request Category Breakdown</h4>
+                <span class="an-sub">Inpatient vs outpatient requests</span>
+              </div>
+              <div id="analytics-category-chart" class="an-bar-chart an-horizontal-chart an-category-compare" aria-label="Request category chart"></div>
+              <p class="an-chart-note">Shows inpatient vs outpatient request distribution.</p>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Blood Component Breakdown</h4>
+                <span class="an-sub">Request composition by blood product</span>
+              </div>
+              <div id="analytics-component-chart" class="an-bar-chart an-component-chart" aria-label="Blood component chart"></div>
+              <p class="an-chart-note">Shows requested blood products by component.</p>
+
+              <div class="an-hidden-metrics">
+                <span data-metric="component-whole-blood">-</span>
+                <span data-metric="component-whole-blood-pct">-</span>
+                <span data-metric="component-prbc">-</span>
+                <span data-metric="component-prbc-pct">-</span>
+                <span data-metric="component-leukoreduced-prbc">-</span>
+                <span data-metric="component-leukoreduced-prbc-pct">-</span>
+                <span data-metric="component-aliquoted-prbc">-</span>
+                <span data-metric="component-aliquoted-prbc-pct">-</span>
+                <span data-metric="component-ffp">-</span>
+                <span data-metric="component-ffp-pct">-</span>
+                <span data-metric="component-platelet-concentrate">-</span>
+                <span data-metric="component-platelet-concentrate-pct">-</span>
+                <span data-metric="component-cryoprecipitate">-</span>
+                <span data-metric="component-cryoprecipitate-pct">-</span>
+                <span data-metric="component-cryosupernatant">-</span>
+                <span data-metric="component-cryosupernatant-pct">-</span>
+                <span data-metric="component-red-cells">-</span>
+                <span data-metric="component-red-cells-pct">-</span>
+                <span data-metric="component-plasma">-</span>
+                <span data-metric="component-plasma-pct">-</span>
+                <span data-metric="component-platelets">-</span>
+                <span data-metric="component-platelets-pct">-</span>
+              </div>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Alerts and Dispatch</h4>
+                <span class="an-sub">Actionable inventory movement</span>
+              </div>
+              <div class="an-split-grid">
+                <div class="an-mini-list">
+                  <div class="an-mini-row"><span>Expiring Soon (7d)</span><strong data-metric="alert-expiring-soon">-</strong></div>
+                  <div class="an-mini-row"><span>Expired</span><strong data-metric="alert-expired">-</strong></div>
+                  <div class="an-mini-row"><span>Quality Issues</span><strong data-metric="alert-quality-issues">-</strong></div>
                 </div>
-                <div style="background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center">
-                  <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--charcoal)">44</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px">Total</div>
+                <div class="an-mini-list">
+                  <div class="an-mini-row"><span>Used</span><strong data-metric="dispatch-used">-</strong></div>
+                  <div class="an-mini-row"><span>Discarded</span><strong data-metric="dispatch-discarded">-</strong></div>
+                  <div class="an-mini-row"><span>Transferred</span><strong data-metric="dispatch-transferred">-</strong></div>
                 </div>
+              </div>
+              <div class="an-subsection">
+                <div class="an-subhead">Requester Type</div>
+                <div id="analytics-requester-list" class="an-mini-list an-tight"></div>
+              </div>
+            </div>
+
+            <div class="an-card an-span-6">
+              <div class="an-card-head">
+                <h4>Top Requesting Hospitals</h4>
+                <span class="an-sub">Fulfilled versus total requests</span>
+              </div>
+              <div id="hospital-list" class="an-list">
+                <div class="an-row an-empty-row">Loading hospital analytics...</div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">Bag Wastage Overview</div>
-            <span style="font-size:12px;color:var(--muted)">Expired + discarded bags this month</span>
-          </div>
-          <div class="card-body">
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-              <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--crimson)">O−</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--charcoal)">3</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
-              </div>
-              <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--charcoal)">A−</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--charcoal)">2</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
-              </div>
-              <div style="background:var(--cream);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--crimson)">AB−</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--charcoal)">1</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
-              </div>
-              <div style="background:var(--soft-red);border-radius:10px;padding:14px;text-align:center">
-                <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--crimson)">Total</div>
-                <div style="font-size:18px;font-weight:700;margin:4px 0;color:var(--crimson)">6</div>
-                <div style="font-size:11px;color:var(--muted)">bags wasted</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div id="analytics-chart-tooltip" class="analytics-chart-tooltip" style="display:none"></div>
       </div>
     </div>
     <!-- END panel-bloodbank -->
@@ -467,97 +576,861 @@
           <div class="page-sub">Review, approve, and release blood bags to requesters</div>
         </div>
       </div>
-
       <div class="req-filter-bar">
         <div class="req-search-wrap">
           <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
           <input class="req-search-input" id="req-search" type="text"
             placeholder="Search hospital, patient, blood type…"
-            oninput="reqRender()">
+            oninput="reqHandleSearchInput()">
         </div>
-        <select class="req-select" id="req-filter-urgency" onchange="reqRender()">
-          <option value="ALL">All Urgency</option>
-          <option value="CRITICAL">🚨 Critical</option>
-          <option value="HIGH">🔴 High</option>
-          <option value="MEDIUM">🟡 Medium</option>
-          <option value="LOW">🟢 Low</option>
+        <select class="req-select" id="req-filter-request-category" onchange="reqHandleServerFiltersChange()">
+          <option value="ALL">All Request Groups</option>
+          <option value="INPATIENT">INHOUSE</option>
+          <option value="OUTPATIENT">OPD</option>
         </select>
-        <select class="req-select" id="req-sort" onchange="reqRender()">
+        <select class="req-select" id="req-filter-urgency" onchange="reqApplyClientFilters()">
+          <option value="ALL">All Urgency</option>
+          <option value="HIGH"> High</option>
+          <option value="MEDIUM"> Medium</option> 
+          <option value="LOW"> Low</option>
+        </select>
+        <select class="req-select" id="req-filter-blood-type" onchange="reqHandleServerFiltersChange()">
+          <option value="ALL">All Blood Types</option>
+          <option value="A_POS">A Pos</option>
+          <option value="A_NEG">A Neg</option>
+          <option value="B_POS">B Pos</option>
+          <option value="B_NEG">B Neg</option>
+          <option value="AB_POS">AB Pos</option>
+          <option value="AB_NEG">AB Neg</option>
+          <option value="O_POS">O Pos</option>
+          <option value="O_NEG">O Neg</option>
+        </select>
+        <select class="req-select" id="req-filter-component" onchange="reqHandleServerFiltersChange()">
+          <option value="ALL">All Components</option>
+          <option value="WHOLE_BLOOD">Whole Blood</option>
+          <option value="PRBC">PRBC</option>
+          <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
+          <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
+          <option value="PLATELET_CONCENTRATE">Platelet</option>
+          <option value="FRESH_FROZEN_PLASMA">FFP</option>
+          <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
+          <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+        </select>
+        <select class="req-select" id="req-sort" onchange="reqApplyClientFilters()">
           <option value="date_desc">Newest first</option>
           <option value="date_asc">Oldest first</option>
-          <option value="urgency">By urgency</option>
           <option value="units_desc">Most units</option>
         </select>
       </div>
 
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="req-filters">
-        <button class="req-filter-chip active" onclick="reqFilterBy('ALL',this)">All <span class="chip-cnt" id="req-cnt-all">0</span></button>
-        <button class="req-filter-chip" onclick="reqFilterBy('PENDING',this)">Pending <span class="chip-cnt" id="req-cnt-pending">0</span></button>
-        <button class="req-filter-chip" onclick="reqFilterBy('APPROVED',this)">Approved</button>
-        <button class="req-filter-chip" onclick="reqFilterBy('ALLOCATED',this)">Allocated</button>
-        <button class="req-filter-chip" onclick="reqFilterBy('READY_FOR_RELEASE',this)">Ready for Release</button>
-        <button class="req-filter-chip" onclick="reqFilterBy('RELEASED',this)">Released</button>
-        <button class="req-filter-chip" onclick="reqFilterBy('REJECTED',this)">Rejected</button>
+        <button class="req-filter-chip" onclick="reqFilterBy('ALL',this)">All <span class="chip-cnt" id="req-cnt-all">0</span></button>
+        <button class="req-filter-chip active" onclick="reqFilterBy('PENDING',this)">Pending <span class="chip-cnt" id="req-cnt-pending">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('NEEDS_CONFIRMATION',this)">Waiting for confirmation <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('APPROVED',this)">Approved <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('ALLOCATED',this)">Allocated <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('READY_FOR_RELEASE',this)">Ready for Release <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('RELEASED',this)">Released <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('REJECTED',this)">Rejected <span class="chip-cnt">0</span></button>
+        <button class="req-filter-chip" onclick="reqFilterBy('CANCELLED',this)">Cancelled <span class="chip-cnt">0</span></button>
       </div>
 
       <div class="req-results-info" id="req-results-info"></div>
       <div style="display:flex;flex-direction:column;gap:8px" id="req-list"></div>
+      <div id="req-footer" style="display:flex;align-items:center;justify-content:space-between;
+          padding:14px 2px 0 2px;font-size:13px;color:var(--muted)">
+        <span id="req-showing"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" id="req-prev" onclick="reqPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+          <span id="req-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+          <button class="btn-ghost" id="req-next" onclick="reqNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+        </div>
+      </div>
+
+      </div>
+
+    <!-- ── 1. STATUS CONFIRMATION MODAL ─────────────────────── -->
+    <div class="req-modal-overlay" id="req-confirm-modal">
+      <div class="req-modal req-confirm-modal-inner">
+
+        <div class="req-modal-header">
+          <div class="req-modal-icon req-modal-icon-confirm">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 12l2 2 4-4"/>
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+          </div>
+          <div>
+            <div class="req-modal-title" id="req-confirm-title">Confirm Action</div>
+            <div class="req-modal-sub" id="req-confirm-meta"></div>
+          </div>
+          <button class="req-modal-close" onclick="reqCloseConfirm()">✕</button>
+        </div>
+
+        <div class="req-confirm-body" id="req-confirm-body"></div>
+
+        <div class="req-modal-footer">
+          <button class="req-btn req-btn-ghost" onclick="reqCloseConfirm()">Cancel</button>
+          <button class="req-btn" id="req-confirm-proceed" onclick="reqProceedConfirm()">Proceed</button>
+        </div>
+      </div>
     </div>
 
+    <!-- ── 2. BLOOD BAG PICKER MODAL ─────────────────────────── -->
+    <div class="req-modal-overlay" id="req-bag-picker-modal">
+      <div class="req-modal req-bag-picker-modal-inner">
+
+        <div class="req-modal-header">
+          <div class="req-modal-icon req-modal-icon-bag">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2C8 2 5 6 5 10c0 5.25 7 12 7 12s7-6.75 7-12c0-4-3-8-7-8z"/>
+            </svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="req-modal-title">Select Blood Bags</div>
+            <div class="req-modal-sub" id="req-bag-picker-title"></div>
+          </div>
+          <button class="req-modal-close" onclick="reqCloseBagPicker()">✕</button>
+        </div>
+
+        <!-- bag list injected here -->
+        <div id="req-bag-picker-inner" style="max-height:420px;overflow-y:auto;margin:0 -4px;padding:0 4px"></div>
+
+        <div class="req-modal-footer">
+          <button class="req-btn req-btn-ghost" onclick="reqCloseBagPicker()">Cancel</button>
+          <button class="req-btn req-btn-approve" id="req-bag-picker-confirm"
+                  onclick="reqConfirmBagSelection()" disabled>
+            Approve & Assign Bags
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="req-remarks-modal">
+      <div class="modal req-remarks-modal-card">
+        <div class="modal-header req-remarks-modal-header">
+          <div class="req-remarks-heading">
+            <div class="req-remarks-kicker">Requester Confirmation Workflow</div>
+            <div class="modal-title">Approve With Remarks</div>
+            <div class="req-remarks-subtitle" id="req-remarks-subtitle"></div>
+          </div>
+          <button class="req-modal-close" onclick="reqCloseApproveWithRemarks()">&times;</button>
+        </div>
+
+        <div class="modal-body req-remarks-modal-body">
+          <div class="req-remarks-banner">
+            <div class="req-remarks-banner-icon">!</div>
+            <div>
+              <div class="req-remarks-banner-title">Send a secure confirmation email</div>
+              <div class="req-remarks-banner-copy">
+                The requester receives a 24-hour confirmation link. Allocation stays locked until the updated terms are accepted.
+              </div>
+            </div>
+          </div>
+
+          <div class="req-remarks-summary-grid">
+            <div class="req-remarks-summary-card">
+              <div class="req-remarks-summary-label">Requester Email</div>
+              <div class="req-remarks-summary-value" id="req-remarks-email"></div>
+              <div class="req-remarks-summary-note">Confirmation destination</div>
+            </div>
+            <div class="req-remarks-summary-card req-remarks-summary-card-accent">
+              <div class="req-remarks-summary-label">Requested Units</div>
+              <div class="req-remarks-summary-value" id="req-remarks-requested-units"></div>
+              <div class="req-remarks-summary-note">Use remarks to explain any partial offer</div>
+            </div>
+          </div>
+
+          <div class="req-remarks-feedback" id="req-remarks-feedback" hidden></div>
+
+          <div class="form-row">
+            <div class="form-group-m">
+              <label for="req-approved-units">Approved Units</label>
+              <input id="req-approved-units" class="req-remarks-input" type="number" min="1" step="1" inputmode="numeric">
+              <div class="req-remarks-field-note">Must be greater than 0 and no more than the requested units.</div>
+            </div>
+          </div>
+
+          <div class="form-row full">
+            <div class="form-group-m">
+              <label for="req-approval-remarks">Approval Remarks</label>
+              <textarea id="req-approval-remarks" class="req-remarks-textarea" placeholder="Explain the available units, what changed, and any instructions the requester should review."></textarea>
+              <div class="req-remarks-field-note">This message is included in the confirmation email the requester receives.</div>
+            </div>
+          </div>
+
+          <div class="req-remarks-footnote">
+            After the email is sent, the request moves to <strong>Waiting for requester confirmation</strong> until the requester responds.
+          </div>
+        </div>
+
+        <div class="req-remarks-modal-footer">
+          <button class="btn-secondary" type="button" onclick="reqCloseApproveWithRemarks()">Cancel</button>
+          <button class="btn-primary req-remarks-submit" type="button" id="req-remarks-submit-btn" onclick="reqSubmitApproveWithRemarks()">Send Confirmation Email</button>
+        </div>
+      </div>
+    </div>
+    
 
     <!-- ══════════════════════════════════
-        PANEL: HOSPITALS
+        PANEL: HOSPITALS PANEL
     ══════════════════════════════════ -->
-    <div class="panel" id="panel-hospitals">
-      <div class="topbar">
-        <div>
-          <div class="page-title">Hospitals</div>
-          <div class="page-sub">Create and manage hospital accounts</div>
+  <div class="panel" id="panel-hospitals">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Hospitals</div>
+        <div class="page-sub">Create and manage hospital accounts</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-primary" onclick="openModal('addHospitalModal')">＋ Create Hospital Account</button>
+      </div>
+    </div>
+  
+    <!-- Summary Strip -->
+    <div class="bb-summary-strip">
+      <div class="bb-strip-item" style="background:var(--green-light)">
+        <div class="bb-strip-val" style="color:var(--green)" id="hosp-active-count">0</div>
+        <div class="bb-strip-label">Active Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--soft-red)">
+        <div class="bb-strip-val" style="color:var(--crimson)" id="hosp-inactive-count">0</div>
+        <div class="bb-strip-label">Inactive Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:#E8F0FF">
+        <div class="bb-strip-val" style="color:var(--blue)" id="hosp-total-count">0</div>
+        <div class="bb-strip-label">Total Hospitals</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--amber-light)">
+        <div class="bb-strip-val" style="color:var(--amber)" id="hosp-requests-count">0</div>
+        <div class="bb-strip-label">Total Requests</div>
+      </div>
+    </div>
+  
+    <!-- Filter Bar -->
+    <div class="req-filter-bar" style="margin-bottom:10px">
+      <div class="req-search-wrap">
+        <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+        <input class="req-search-input" id="hosp-search" type="text"
+          placeholder="Search hospital name, city, email…"
+          oninput="hospRender()">
+      </div>
+      <select class="req-select" id="hosp-filter-status" onchange="hospRender()">
+        <option value="ALL">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <select class="req-select" id="hosp-sort" onchange="hospRender()">
+        <option value="name_asc">Name A–Z</option>
+        <option value="name_desc">Name Z–A</option>
+        <option value="requests_desc">Most Requests</option>
+      </select>
+    </div>
+  
+    <!-- Hospitals Table Card -->
+    <div class="card">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px">
+        <div class="card-title">Registered Hospitals</div>
+        <span style="font-size:12px;color:var(--muted)" id="hosp-results-info"></span>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="data-table">
+          <thead><tr>
+            <th>Hospital</th>
+            <th>Location</th>
+            <th>Contact Email</th>
+            <th>Phone</th>
+            <th>Requests</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="hosp-tbody"></tbody>
+        </table>
+        <div id="hosp-empty" class="bb-empty" style="display:none">
+          <div style="font-size:32px;margin-bottom:10px;opacity:0.4">🏥</div>
+          No hospitals match the current filters.
         </div>
-        <div class="topbar-right">
-          <button class="btn-primary" onclick="openModal('addHospitalModal')">＋ Create Hospital Account</button>
+      </div>
+      <!-- Pagination Footer -->
+      <div id="hosp-footer" style="display:flex;align-items:center;justify-content:space-between;
+          padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+        <span id="hosp-showing"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" id="hosp-prev" onclick="hospPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+          <span id="hosp-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+          <button class="btn-ghost" id="hosp-next" onclick="hospNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
         </div>
+      </div>
+    </div>
+  </div>
+ 
+
+
+    <!-- ═══════════STAFF PANEL ═══════════ -->
+  <div class="panel" id="panel-staff">
+  
+    <div class="topbar">
+      <div>
+        <div class="page-title">Staff Management</div>
+        <div class="page-sub">Manage Blood Bank dashboard users and staff authorization codes</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-primary" onclick="openAddStaffModal()">＋ Add Staff</button>
+      </div>
+    </div>
+  
+    <!-- Summary Strip -->
+    <div class="bb-summary-strip">
+      <div class="bb-strip-item" style="background:var(--green-light)">
+        <div class="bb-strip-val" style="color:var(--green)" id="staff-active-count">0</div>
+        <div class="bb-strip-label">Dashboard Access</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--soft-red)">
+        <div class="bb-strip-val" style="color:var(--crimson)" id="staff-inactive-count">0</div>
+        <div class="bb-strip-label">Request Code Only</div>
+      </div>
+      <div class="bb-strip-item" style="background:#E8F0FF">
+        <div class="bb-strip-val" style="color:var(--blue)" id="staff-total-count">0</div>
+        <div class="bb-strip-label">Total Staff</div>
+      </div>
+    </div>
+  
+    <!-- Filter Bar -->
+    <div class="req-filter-bar" style="margin-bottom:10px">
+      <div class="req-search-wrap">
+        <span style="font-size:13px;color:#CCC;flex-shrink:0">🔍</span>
+        <input class="req-search-input" id="staff-search" type="text"
+          placeholder="Search name, ID, department, position…"
+          oninput="staffRender()">
+      </div>
+      <select class="req-select" id="staff-filter-dept" onchange="staffRender()">
+        <option value="ALL">All Departments/ Wards</option>
+      </select>
+      <select class="req-select" id="staff-filter-status" onchange="staffRender()">
+        <option value="ALL">All Access</option>
+        <option value="dashboard">Dashboard Access</option>
+        <option value="code-only">Request Code Only</option>
+      </select>
+      <select class="req-select" id="staff-sort" onchange="staffRender()">
+        <option value="name_asc">Name A–Z</option>
+        <option value="name_desc">Name Z–A</option>
+        <option value="hire_desc">Newest Created</option>
+        <option value="hire_asc">Oldest Created</option>
+        <option value="dept">By department</option>
+      </select>
+    </div>
+  
+    <!-- Staff Table Card -->
+    <div class="card">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px">
+        <div class="card-title">Staff Directory</div>
+        <span style="font-size:12px;color:var(--muted)" id="staff-results-info"></span>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="data-table" style="min-width:980px">
+          <thead><tr>
+            <th>Staff</th>
+            <th>Staff ID</th>
+            <th>Department/ Ward</th>
+            <th>Position</th>
+            <th>Phone</th>
+            <th>Access</th>
+            <th>Code</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="staff-tbody"></tbody>
+        </table>
+        <div id="staff-empty" class="bb-empty" style="display:none">
+          <div style="font-size:32px;margin-bottom:10px;opacity:0.4">👤</div>
+          No staff members match the current filters.
+        </div>
+      </div>
+      <!-- Pagination Footer -->
+      <div id="staff-footer" style="display:flex;align-items:center;justify-content:space-between;
+          padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+        <span id="staff-showing"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" id="staff-prev" onclick="staffPrevPage()" style="padding:5px 12px;font-size:12px">← Prev</button>
+          <span id="staff-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+          <button class="btn-ghost" id="staff-next" onclick="staffNextPage()" style="padding:5px 12px;font-size:12px">Next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- END panel-staff -->
+   
+  <!-- ═══════════LOGGING PANEL ═══════════ -->
+    <div class="panel" id="panel-logging">
+
+    <div class="topbar">
+      <div>
+        <div class="page-title">Request Logs</div>
+        <div class="page-sub">View status changes and served/unserved request history</div>
+      </div>
+    </div>
+
+    <div class="bb-summary-strip">
+      <div class="bb-strip-item" style="background:var(--green-light)">
+        <div class="bb-strip-val" style="color:var(--green)" id="logging-served-units-count">0</div>
+        <div class="bb-strip-label">Total Served Units</div>
+      </div>
+      <div class="bb-strip-item" style="background:#E8F0FF">
+        <div class="bb-strip-val" style="color:var(--blue)" id="logging-status-changes-count">0</div>
+        <div class="bb-strip-label">Status Changes</div>
+      </div>
+      <div class="bb-strip-item" style="background:var(--amber-light)">
+        <div class="bb-strip-val" style="color:var(--amber)" id="logging-pending-requests-count">0</div>
+        <div class="bb-strip-label">Pending Requests</div>
+      </div>
+      <div class="bb-strip-item" style="background:#F0E8FF">
+        <div class="bb-strip-val" style="color:#8B5CF6" id="logging-released-count">0</div>
+        <div class="bb-strip-label">Released</div>
+      </div>
+    </div>
+
+    <div class="logging-tabs" style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
+      <button class="logging-tab-btn active" onclick="switchLoggingTab('status-logs', this)">
+        Status Logs
+      </button>
+      <button class="logging-tab-btn" onclick="switchLoggingTab('served', this)">
+        Served
+      </button>
+    </div>
+
+    <div id="logging-status-logs-tab" class="logging-tab-content" style="display:block">
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-header">
+          <div class="card-title">Export Status Logs</div>
+        </div>
+        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">Start Date:</label>
+          <input class="req-select" type="date" id="logging-status-date-from" onchange="loggingStatusRender(true)"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">End Date:</label>
+          <input class="req-select" type="date" id="logging-status-date-to" onchange="loggingStatusRender(true)"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+
+          <button class="btn-ghost" type="button" onclick="setStatusRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
+          <button class="btn-ghost" type="button" onclick="setStatusRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
+          <button class="btn-ghost" type="button" onclick="setStatusRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
+          <button class="btn-ghost" type="button" onclick="setStatusRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
+
+          <button class="btn-primary" type="button" onclick="exportStatusLogsExcel()">Export Status Logs</button>
+        </div>
+      </div>
+
+      <div class="req-filter-bar" style="margin-bottom:10px">
+        <div class="req-search-wrap">
+          <span style="font-size:13px;color:#CCC;flex-shrink:0">Search</span>
+          <input class="req-search-input" id="logging-status-search" type="text"
+            placeholder="Search request ID or serial no."
+            oninput="loggingStatusRender(true)">
+        </div>
+        <select class="req-select" id="logging-status-filter-status" onchange="loggingStatusRender(true)">
+          <option value="ALL">All Status Changes</option>
+          <option value="PENDING">PENDING</option>
+          <option value="APPROVED">APPROVED</option>
+          <option value="NEEDS_CONFIRMATION">NEEDS_CONFIRMATION</option>
+          <option value="ALLOCATED">ALLOCATED</option>
+          <option value="READY_FOR_RELEASE">READY_FOR_RELEASE</option>
+          <option value="RELEASED">RELEASED</option>
+          <option value="REJECTED">REJECTED</option>
+          <option value="CANCELLED">CANCELLED</option>
+        </select>
+        <select class="req-select" id="logging-status-sort" onchange="loggingStatusRender(true)">
+          <option value="date_desc">Newest First</option>
+          <option value="date_asc">Oldest First</option>
+          <option value="request_id">By Serial No.</option>
+        </select>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">Registered Hospitals</div>
+          <div class="card-title">Status Change History</div>
+          <span style="font-size:12px;color:var(--muted)" id="logging-status-results-info"></span>
         </div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table">
+        <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <table class="data-table" style="min-width:980px">
             <thead><tr>
-              <th>Hospital</th><th>Location</th><th>Contact</th><th>Requests</th><th>Status</th><th>Actions</th>
+              <th>Serial no.</th>
+              <th>Old Status</th>
+              <th>New Status</th>
+              <th>Changed By</th>
+              <th>Changed At</th>
+              <th>Notes</th>
+              <th>Actions</th>
             </tr></thead>
-            <tbody>
-              <tr>
-                <td><strong>Philippine General Hospital</strong></td>
-                <td style="font-size:12px;color:var(--muted)">Taft Ave, Manila</td>
-                <td style="font-size:12px;color:var(--muted)">pgh@doh.gov.ph</td>
-                <td style="font-weight:700">18</td>
-                <td><span class="tag tag-active">Active</span></td>
-                <td><div style="display:flex;gap:6px"><button class="btn-ghost" style="font-size:12px" onclick="openModal('editHospitalModal')">Edit</button><button class="btn-danger">Delete</button></div></td>
-              </tr>
-              <tr>
-                <td><strong>St. Luke's Medical Center</strong></td>
-                <td style="font-size:12px;color:var(--muted)">E. Rodriguez Blvd, QC</td>
-                <td style="font-size:12px;color:var(--muted)">bloodbank@stlukes.com</td>
-                <td style="font-weight:700">11</td>
-                <td><span class="tag tag-active">Active</span></td>
-                <td><div style="display:flex;gap:6px"><button class="btn-ghost" style="font-size:12px" onclick="openModal('editHospitalModal')">Edit</button><button class="btn-danger">Delete</button></div></td>
-              </tr>
-              <tr>
-                <td><strong>Cardinal Santos Medical Center</strong></td>
-                <td style="font-size:12px;color:var(--muted)">Wilson St, San Juan</td>
-                <td style="font-size:12px;color:var(--muted)">csmc@blood.ph</td>
-                <td style="font-weight:700">7</td>
-                <td><span class="tag tag-inactive">Inactive</span></td>
-                <td><div style="display:flex;gap:6px"><button class="btn-ghost" style="font-size:12px" onclick="openModal('editHospitalModal')">Edit</button><button class="btn-danger">Delete</button></div></td>
-              </tr>
-            </tbody>
+            <tbody id="logging-status-tbody"></tbody>
           </table>
+          <div id="logging-status-empty" class="bb-empty" style="display:none">
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">Logs</div>
+            No status changes match the current filters.
+          </div>
+        </div>
+        <div id="logging-status-footer" style="display:flex;align-items:center;justify-content:space-between;
+            padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+          <span id="logging-status-showing"></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-ghost" type="button" id="logging-status-prev" onclick="loggingStatusPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
+            <span id="logging-status-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+            <button class="btn-ghost" type="button" id="logging-status-next" onclick="loggingStatusNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
+          </div>
         </div>
       </div>
     </div>
+
+    <div id="logging-served-tab" class="logging-tab-content" style="display:none">
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-header">
+          <div class="card-title">Export Range and Report Controls</div>
+        </div>
+        <div class="card-body" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">Start Date:</label>
+          <input class="req-select" type="date" id="logging-served-date-from" onchange="loggingServedRender(true)"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+          <label style="font-size:12px;color:var(--muted);font-weight:700">End Date:</label>
+          <input class="req-select" type="date" id="logging-served-date-to" onchange="loggingServedRender(true)"
+                 style="padding:8px 12px;border:1px solid var(--border)">
+
+          <button class="btn-ghost" type="button" onclick="setServedRange('thisMonth')" style="padding:6px 10px;font-size:12px">This Month</button>
+          <button class="btn-ghost" type="button" onclick="setServedRange('lastMonth')" style="padding:6px 10px;font-size:12px">Last Month</button>
+          <button class="btn-ghost" type="button" onclick="setServedRange('last7Days')" style="padding:6px 10px;font-size:12px">Last 7 Days</button>
+          <button class="btn-ghost" type="button" onclick="setServedRange('thisYear')" style="padding:6px 10px;font-size:12px">This Year</button>
+
+          <button class="btn-primary" type="button" onclick="exportDetailedServedLogs()">Export Detailed Served Logs</button>
+        </div>
+      </div>
+
+      <div class="req-filter-bar" style="margin-bottom:10px">
+        <div class="req-search-wrap">
+          <span style="font-size:13px;color:#CCC;flex-shrink:0">Search</span>
+          <input class="req-search-input" id="logging-served-search" type="text"
+            placeholder="Search serial no., patient, hospital, ward, blood"
+            oninput="loggingServedRender(true)">
+        </div>
+        <select class="req-select" id="logging-served-sort" onchange="loggingServedRender(true)">
+          <option value="date_desc">Newest First</option>
+          <option value="date_asc">Oldest First</option>
+          <option value="request_id">By Serial No.</option>
+        </select>
+        <select class="req-select" id="logging-served-request-group" onchange="loggingServedRender(true)">
+          <option value="ALL">All</option>
+          <option value="INHOUSE">INHOUSE only</option>
+          <option value="OPD">OPD only</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Served Request Logs</div>
+          <span style="font-size:12px;color:var(--muted)" id="logging-served-results-info"></span>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <table class="data-table" style="min-width:1500px">
+            <thead><tr>
+              <th>Serial No.</th>
+              <th>Patient</th>
+              <th>Request Category</th>
+              <th>Hospital / Ward</th>
+              <th>Blood Type</th>
+              <th>Component</th>
+              <th>Requested Units</th>
+              <th>Served Units</th>
+              <th>Unserved Units</th>
+              <th>Result</th>
+              <th>Last Served At</th>
+              <th>Action</th>
+            </tr></thead>
+            <tbody id="logging-served-tbody"></tbody>
+          </table>
+          <div id="logging-served-empty" class="bb-empty" style="display:none">
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.4">Served</div>
+            No served request logs match the current filters.
+          </div>
+        </div>
+        <div id="logging-served-footer" style="display:flex;align-items:center;justify-content:space-between;
+            padding:14px 24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+          <span id="logging-served-showing"></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-ghost" type="button" id="logging-served-prev" onclick="loggingServedPrevPage()" style="padding:5px 12px;font-size:12px">Prev</button>
+            <span id="logging-served-page-label" style="padding:5px 12px;font-weight:700;color:var(--charcoal)"></span>
+            <button class="btn-ghost" type="button" id="logging-served-next" onclick="loggingServedNextPage()" style="padding:5px 12px;font-size:12px">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!-- END panel-logging -->
+
+  <!-- ═════════════════════════════════════════════════════════════
+      PANEL: ADMIN PROFILE (Account Settings)
+  ═════════════════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-profile">
+    <div class="topbar">
+      <div>
+        <div class="page-title">My Profile</div>
+        <div class="page-sub">Manage your account settings and profile information</div>
+      </div>
+    </div>
+
+    <!-- ROLE-AWARE PROFILE CONTAINER -->
+    <div id="admin-profile-container" class="profile-container" style="display:none">
+      <!-- Tab Navigation -->
+      <div class="profile-tabs">
+        <button class="profile-tab-btn active" onclick="switchProfileTab('overview', this)">
+          👤 Overview
+        </button>
+        <button class="profile-tab-btn" onclick="switchProfileTab('security', this)">
+          🔒 Security
+        </button>
+      </div>
+
+      <!-- TAB 1: OVERVIEW (ADMIN) -->
+      <div id="profile-tab-overview" class="profile-tab-content">
+        <div class="profile-grid">
+          <!-- Left Column: Avatar & Status -->
+          <div class="profile-card">
+            <div class="profile-avatar-section">
+              <div class="profile-avatar-display" id="profile-avatar-display">AD</div>
+              <div style="flex:1">
+                <div class="profile-name" id="profile-name-display">Administrator</div>
+                <div class="profile-role" id="profile-role-display">System Administrator</div>
+                <div class="profile-status active-status" id="profile-status-display">● Active</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+              <div class="profile-info-row">
+                <span class="profile-info-label">Account Type</span>
+                <span class="profile-info-value">Administrator</span>
+              </div>
+              <div class="profile-info-row">
+                <span class="profile-info-label">Member Since</span>
+                <span class="profile-info-value" id="profile-member-since">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Edit Form -->
+          <div class="profile-card">
+            <div class="profile-card-title">Account Information</div>
+            <div id="profile-edit-error" class="profile-error" style="display:none"></div>
+            <div id="profile-edit-success" class="profile-success" style="display:none"></div>
+            
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Email Address <span style="color:var(--crimson)">*</span></label>
+                <input type="email" id="profile-email" placeholder="admin@bloodplus.ph" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Username <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="profile-username" placeholder="Administrator" required>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:18px">
+              <button class="btn-primary" onclick="submitAdminProfileUpdate()">Save Changes</button>
+              <button class="btn-ghost" onclick="resetAdminProfileForm()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: SECURITY (ADMIN) -->
+      <div id="profile-tab-security" class="profile-tab-content" style="display:none">
+        <div class="profile-card" style="max-width:540px">
+          <div class="profile-card-title">Change Password</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:18px">
+            Update your password to keep your account secure. Use a strong, unique password.
+          </p>
+
+          <div id="security-error" class="profile-error" style="display:none"></div>
+          <div id="security-success" class="profile-success" style="display:none"></div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>Current Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="current-password" placeholder="Enter current password" required>
+              <span onclick="togglePasswordVisibility('current-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="new-password" placeholder="Enter new password" oninput="checkPasswordStrength()" required>
+              <span onclick="togglePasswordVisibility('new-password')" class="password-toggle">👁</span>
+            </div>
+            <div id="password-strength" class="password-strength-meter"></div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:18px">
+            <label>Confirm New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="confirm-password" placeholder="Confirm new password" required>
+              <span onclick="togglePasswordVisibility('confirm-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" onclick="submitPasswordChange()">Update Password</button>
+            <button class="btn-ghost" onclick="resetPasswordForm()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF PROFILE CONTAINER -->
+    <div id="staff-profile-container" class="profile-container" style="display:none">
+      <!-- Tab Navigation -->
+      <div class="profile-tabs">
+        <button class="profile-tab-btn active" onclick="switchStaffProfileTab('overview', this)">
+          👤 Overview
+        </button>
+        <button class="profile-tab-btn" onclick="switchStaffProfileTab('security', this)">
+          🔒 Security
+        </button>
+      </div>
+
+      <!-- TAB 1: OVERVIEW (STAFF) -->
+      <div id="staff-profile-tab-overview" class="profile-tab-content">
+        <div class="profile-grid">
+          <!-- Left Column: Avatar & Status -->
+          <div class="profile-card">
+            <div class="profile-avatar-section">
+              <div class="profile-avatar-display" id="staff-profile-avatar-display">ST</div>
+              <div style="flex:1">
+                <div class="profile-name" id="staff-profile-name-display">Staff Member</div>
+                <div class="profile-role" id="staff-profile-role-display">Position</div>
+                <div class="profile-status active-status" id="staff-profile-status-display">● Active</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
+              <div class="profile-info-row">
+                <span class="profile-info-label">Staff ID</span>
+                <span class="profile-info-value" id="staff-profile-staffid">-</span>
+              </div>
+              <div class="profile-info-row">
+                <span class="profile-info-label">Department</span>
+                <span class="profile-info-value" id="staff-profile-department">-</span>
+              </div>
+              <div class="profile-info-row">
+                <span class="profile-info-label">Created</span>
+                <span class="profile-info-value" id="staff-profile-hiredate">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Edit Form -->
+          <div class="profile-card">
+            <div class="profile-card-title">Personal Information</div>
+            <div id="staff-profile-edit-error" class="profile-error" style="display:none"></div>
+            <div id="staff-profile-edit-success" class="profile-success" style="display:none"></div>
+            
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>First Name <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="staff-profile-firstname" placeholder="First Name" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-firstname-error"></div>
+              </div>
+              <div class="form-group-m">
+                <label>Last Name <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="staff-profile-lastname" placeholder="Last Name" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-lastname-error"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Email <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <input type="email" id="staff-profile-email" placeholder="email@example.com" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Username <span style="color:var(--crimson)">*</span></label>
+                <input type="text" id="staff-profile-username" placeholder="Username" maxlength="25" autocomplete="off" required>
+                <div class="form-inline-error" id="staff-profile-username-error"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Phone Number</label>
+                <input type="tel" id="staff-profile-phone" placeholder="+639123456789" value="+63" maxlength="13" inputmode="numeric" autocomplete="off" pattern="\+63\d{10}" title="Phone number must start with +63 followed by 10 digits.">
+                <div class="form-inline-error" id="staff-profile-phone-error"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group-m">
+                <label>Department/ Ward <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <input type="text" id="staff-profile-department-input" placeholder="Department" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
+              </div>
+              <div class="form-group-m">
+                <label>Position <span style="color:var(--muted);font-weight:400">(read-only)</span></label>
+                <input type="text" id="staff-profile-position-input" placeholder="Position" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:18px">
+              <button class="btn-primary" onclick="submitStaffProfileUpdate()">Save Changes</button>
+              <button class="btn-ghost" onclick="resetStaffProfileForm()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: SECURITY (STAFF) -->
+      <div id="staff-profile-tab-security" class="profile-tab-content" style="display:none">
+        <div class="profile-card" style="max-width:540px">
+          <div class="profile-card-title">Change Password</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:18px">
+            Update your password to keep your account secure. Use a strong, unique password.
+          </p>
+
+          <div id="staff-security-error" class="profile-error" style="display:none"></div>
+          <div id="staff-security-success" class="profile-success" style="display:none"></div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>Current Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="staff-current-password" placeholder="Enter current password" required>
+              <span onclick="togglePasswordVisibility('staff-current-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:14px">
+            <label>New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="staff-new-password" placeholder="Enter new password" oninput="checkStaffPasswordStrength()" required>
+              <span onclick="togglePasswordVisibility('staff-new-password')" class="password-toggle">👁</span>
+            </div>
+            <div id="staff-password-strength" class="password-strength-meter"></div>
+          </div>
+
+          <div class="form-group-m" style="margin-bottom:18px">
+            <label>Confirm New Password <span style="color:var(--crimson)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="staff-confirm-password" placeholder="Confirm new password" required>
+              <span onclick="togglePasswordVisibility('staff-confirm-password')" class="password-toggle">👁</span>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" onclick="submitStaffPasswordChange()">Update Password</button>
+            <button class="btn-ghost" onclick="resetStaffPasswordForm()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- END panel-profile -->
 
   </main>
 
@@ -702,28 +1575,50 @@
 
   <!-- Add Blood Stock Modal -->
   <div class="modal-overlay" id="addBloodModal">
-    <div class="modal" style="max-width:520px">
+    <div class="modal" style="max-width:1400px">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Receive Blood Stock</div>
+          <div class="modal-title">Receive Blood Stock Batch</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">From Blood Mediation Center (BMC)</div>
         </div>
         <button class="modal-close" onclick="closeModal('addBloodModal')">✕</button>
       </div>
+
       <div class="modal-body">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">BMC Receipt Info</div>
+
         <div class="form-row">
           <div class="form-group-m">
             <label>Transaction #</label>
-            <input type="text" id="add-transaction-number" placeholder="e.g. TXN-2025-001">
-          </div>
-          <div class="form-group-m">
-            <label>Serial # <span style="color:var(--crimson)">*</span></label>
-            <input type="text" id="add-serial-number" placeholder="e.g. SN-00123" required>
+            <input
+              type="text"
+              id="add-transaction-number"
+              placeholder="e.g. 261498"
+              maxlength="10"
+              inputmode="numeric"
+              oninput="enforceTransactionNumberFormat(this)">
           </div>
         </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Blood Info</div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Batch Defaults</div>
+
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+          Use these values to fill repeated rows faster. Every row can still be edited individually.
+        </div>
+
         <div class="form-row">
+          <div class="form-group-m">
+            <label>Serial # <span style="color:var(--crimson)">*</span></label>
+            <input
+              type="text"
+              id="add-serial-number"
+              placeholder="e.g. V457679"
+              maxlength="10"
+              oninput="enforceSerialNumberFormat(this);validateSerialNumberField(this)"
+              required>
+            <div class="form-inline-error" id="add-serial-number-error"></div>
+          </div>
+
           <div class="form-group-m">
             <label>ABO Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-blood-type" required>
@@ -734,55 +1629,137 @@
               <option value="O">O</option>
             </select>
           </div>
+
           <div class="form-group-m">
             <label>Rh Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-rh-type" required>
-              <option value="POSITIVE">Positive (+)</option>
-              <option value="NEGATIVE">Negative (−)</option>
+              <option value="POSITIVE">POS</option>
+              <option value="NEGATIVE">NEG</option>
             </select>
           </div>
         </div>
+
         <div class="form-row">
           <div class="form-group-m">
             <label>Component Type <span style="color:var(--crimson)">*</span></label>
             <select id="add-component-type" onchange="updateAddExpiry()" required>
               <option value="">Select...</option>
-              <option value="WHOLE_BLOOD">Whole Blood</option>
+              <option value="WHOLE_BLOOD">WHOLE BLOOD</option>
               <option value="PRBC">PRBC</option>
-              <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
-              <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
-              <option value="PLATELET_CONCENTRATE">Platelet Concentrate</option>
-              <option value="FRESH_FROZEN_PLASMA">Fresh Frozen Plasma</option>
-              <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
-              <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+              <option value="LEUKOREDUCED_PRBC">LEUKOREDUCED PRBC</option>
+              <option value="ALIQUOTED_PRBC">ALIQUOTED PRBC</option>
+              <option value="PLATELET_CONCENTRATE">PLATELET CONCENTRATE</option>
+              <option value="FRESH_FROZEN_PLASMA">FRESH FROZEN PLASMA</option>
+              <option value="CRYOPRECIPITATE">CRYOPRECIPITATE</option>
+              <option value="CRYOSUPERNATANT">CRYOSUPERNATANT</option>
             </select>
           </div>
+
           <div class="form-group-m">
             <label>Volume (mL) <span style="color:var(--crimson)">*</span></label>
-            <input type="number" id="add-volume-ml" placeholder="e.g. 450" min="1" required>
+            <input
+              type="text"
+              id="add-volume-ml"
+              placeholder="e.g. 450"
+              maxlength="4"
+              inputmode="numeric"
+              oninput="enforceVolumeFormat(this);validateVolumeField(this)"
+              required>
+            <div class="form-inline-error" id="add-volume-ml-error"></div>
           </div>
-        </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Dates</div>
-        <div class="form-row">
+
           <div class="form-group-m">
             <label>Extraction Date <span style="color:var(--crimson)">*</span></label>
-            <input type="date" id="add-collected-at" onchange="updateAddExpiry()" required>
+            <input type="date" id="add-collected-at" placeholder="MM/DD/YYYY" onchange="updateAddExpiry()" required>
           </div>
+
           <div class="form-group-m">
             <label>Expiration Date <span style="color:var(--crimson)">*</span>
               <span id="add-expiry-hint" style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px"></span>
             </label>
-            <input type="date" id="add-expires-at" required>
+            <input type="date" id="add-expires-at" placeholder="MM/DD/YYYY" required>
           </div>
         </div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Remarks</div>
+
         <div class="form-group-m" style="margin-bottom:16px">
-          <label>Condition / Notes</label>
-          <input type="text" id="add-remarks" placeholder="e.g. Platelet - Poor, Hemolyzed">
+          <label>Remarks</label>
+          <input
+            type="text"
+            id="add-remarks"
+            placeholder="e.g. Hemolyzed"
+            maxlength="50"
+            oninput="enforceRemarksLimit(this);validateRemarksField(this)">
+          <div class="form-inline-error" id="add-remarks-error"></div>
         </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn-secondary" type="button" onclick="applyAddStockDefaultsToEmptyRows()">Apply To Empty Rows</button>
+          <button class="btn-ghost" type="button" onclick="applyAddStockDefaultsToAllRows()">Apply To All Rows</button>
+          <button class="btn-secondary" type="button" onclick="generateAddStockRows(10)">Generate 10 Rows</button>
+          <button class="btn-ghost" type="button" onclick="addStockRow()">+ Add Row</button>
+          <button class="btn-warning" type="button" onclick="clearEmptyAddStockRows()">Clear Empty Rows</button>
+        </div>
+
+        <div class="bb-scan-section">
+          <div class="bb-scan-header">
+            <h4>Import Blood Tracer Form</h4>
+            <p>Scan or upload a blood tracer form to auto-fill stock rows.</p>
+            <p style="margin-top:6px">
+              For best results, crop the image to the blood bag rows only. Keep the first five columns visible: Blood Group, Component, Serial No., Extraction Date, Expiry Date.
+            </p>
+            <p style="margin-top:6px">Image limit: 5MB per scan.</p>
+          </div>
+
+          <div class="bb-scan-actions">
+            <button type="button" class="btn-ghost" id="scan-tracer-camera-btn">Capture Image</button>
+
+            <label for="scan-tracer-upload" class="btn-secondary bb-upload-btn">
+              Upload Image
+            </label>
+
+            <input type="file" id="scan-tracer-upload" accept="image/*" hidden>
+            <input type="file" id="scan-tracer-camera" accept="image/*" capture="environment" hidden>
+          </div>
+
+          <div id="scan-tracer-preview" class="bb-scan-preview"></div>
+          <div id="scan-tracer-status" class="bb-scan-status">No tracer form imported yet.</div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Blood Bags / Units</div>
+
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:12px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1150px; table-layout:fixed">
+            <thead style="background:var(--cream)">
+              <tr>
+                <th style="padding:6px;text-align:left;width:36px">#</th>
+                <th style="padding:6px;text-align:left;width:100px">Blood Group</th>
+                <th style="padding:6px;text-align:left;width:140px">Component</th>
+                <th style="padding:6px;text-align:left;width:130px">Unit Serial No.</th>
+                <th style="padding:6px;text-align:left;width:120px">Extraction Date</th>
+                <th style="padding:6px;text-align:left;width:120px">Expiry Date</th>
+                <th style="padding:6px;text-align:left;width:80px">Volume</th>
+                <th style="padding:6px;text-align:left;width:120px">Remarks</th>
+                <th style="padding:6px;text-align:left;width:120px">Action</th>
+              </tr>
+            </thead>
+            <tbody id="add-stock-rows">
+              <!-- Generated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="font-size:12px;color:var(--muted)">
+            Empty rows are ignored. Partially filled rows must be completed.
+          </div>
+          <div style="font-size:13px;font-weight:700;color:var(--charcoal)">
+            Valid bags to add: <span id="add-stock-valid-count">0</span>
+          </div>
+        </div>
+
         <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn-primary" style="flex:1;justify-content:center" onclick="submitAddBloodStock()">
-            Receive Stock
+          <button class="btn-primary" id="add-stock-submit-btn" style="flex:1;justify-content:center" onclick="submitAddBloodStock()">
+            Review / Receive Batch
           </button>
           <button class="btn-ghost" onclick="closeModal('addBloodModal')">Cancel</button>
         </div>
@@ -790,7 +1767,90 @@
     </div>
   </div>
 
-  <!-- Create Hospital Modal -->
+
+  <!-- Tracer OCR Review Modal -->
+  <div class="modal-overlay" id="tracerOcrReviewModal">
+    <div class="modal" style="max-width:980px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Review Scanned Blood Bags</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Confirm detected rows before generating intake entries.</div>
+        </div>
+        <button class="modal-close" onclick="closeTracerOcrReviewModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="tracer-ocr-review-summary" class="tracer-ocr-review-summary"></div>
+        <div class="form-row full" style="margin-bottom:10px">
+          <div class="form-group-m">
+            <label>Transaction Number <span style="color:var(--crimson)">*</span></label>
+            <input
+              type="text"
+              id="tracer-ocr-transaction-number"
+              placeholder="Enter transaction number"
+              maxlength="10"
+              inputmode="numeric"
+              oninput="enforceTransactionNumberFormat(this)">
+            <small style="color:var(--muted)">Auto-detected from tracer form when available.</small>
+          </div>
+        </div>
+        <div id="tracer-ocr-duplicate-error" class="tracer-ocr-duplicate-error" style="display:none"></div>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;">
+          <table class="tracer-ocr-review-table">
+            <thead>
+              <tr>
+                <th style="width:56px">#</th>
+                <th style="width:56px">Import</th>
+                <th>Blood Group</th>
+                <th>Component</th>
+                <th>Serial Number</th>
+                <th>Extraction Date</th>
+                <th>Expiry Date</th>
+                <th style="width:170px">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tracer-ocr-review-rows"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+          Rows with missing critical fields are unchecked by default. You can still include them, then manually correct values before final stock submission.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button type="button" class="btn-secondary" onclick="printTracerScannedData()">Print Scanned Data</button>
+          <button type="button" class="btn-ghost" onclick="closeTracerOcrReviewModal()">Cancel</button>
+          <button type="button" class="btn-primary" id="tracer-ocr-import-btn" onclick="confirmTracerOcrImport()">Import Selected Rows</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- BloodPlus Message / Confirm Modal -->
+  <div class="modal-overlay" id="bloodPlusActionModal">
+    <div class="modal bp-modal" style="max-width:430px">
+      <div class="modal-header">
+        <div class="bp-modal-header-content">
+          <div id="bp-modal-icon" class="bp-modal-icon bp-type-info">i</div>
+          <div>
+            <div class="modal-title" id="bp-modal-title">Notice</div>
+            <div class="bp-modal-type" id="bp-modal-type">Info</div>
+          </div>
+        </div>
+        <button class="modal-close" onclick="hideBloodPlusModal()">x</button>
+      </div>
+      <div class="modal-body">
+        <div id="bp-modal-message" class="bp-modal-message">Message details.</div>
+        <div class="bp-modal-actions">
+          <button class="btn-ghost" id="bp-modal-cancel" onclick="hideBloodPlusModal()">Cancel</button>
+          <button class="btn-primary" id="bp-modal-confirm" onclick="runBloodPlusConfirm()">Confirm</button>
+          <button class="btn-primary" id="bp-modal-ok" onclick="hideBloodPlusModal()">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- HOSPITALS MODAL -->
+  <!-- ═══════════ CREATE HOSPITAL MODAL ═══════════ -->
   <div class="modal-overlay" id="addHospitalModal">
     <div class="modal">
       <div class="modal-header">
@@ -799,28 +1859,67 @@
       </div>
       <div class="modal-body">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" placeholder="e.g. Philippine General Hospital"></div>
+          <div class="form-group-m">
+            <label>Hospital Name</label>
+            <input type="text" id="hosp-add-name" placeholder="e.g. Philippine General Hospital" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-name-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email (Login)</label><input type="email" placeholder="hospital@email.com"></div>
-          <div class="form-group-m"><label>Contact Number</label><input type="tel" placeholder="+63 2 XXXX XXXX"></div>
+          <div class="form-group-m">
+            <label>City</label>
+            <input type="text" id="hosp-add-city" placeholder="e.g. Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-city-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Province</label>
+            <input type="text" id="hosp-add-province" placeholder="e.g. Metro Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-province-error"></div>
+          </div>
         </div>
         <div class="form-row full">
-          <div class="form-group-m"><label>Address</label><input type="text" placeholder="Full address"></div>
+          <div class="form-group-m">
+            <label>Address</label>
+            <input type="text" id="hosp-add-address" placeholder="Full street address" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-address-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Temporary Password</label><input type="password" placeholder="Set initial password"></div>
-          <div class="form-group-m"><label>Status</label><select><option>Active</option><option>Inactive</option></select></div>
+          <div class="form-group-m">
+            <label>Email (Login)</label>
+            <input type="email" id="hosp-add-email" placeholder="hospital@email.com" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-email-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="hosp-add-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-phone-error"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Contact Person Name</label>
+            <input type="text" id="hosp-add-contact-name" placeholder="Dr. Juan dela Cruz" maxlength="40" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-contact-name-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Contact Person Phone</label>
+            <input type="tel" id="hosp-add-contact-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-add-contact-phone-error"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m"><label>Status</label><select id="hosp-add-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn-primary" style="flex:1;justify-content:center">Create Account</button>
+          <button class="btn-primary" style="flex:1;justify-content:center" onclick="hospCreate()">Create Account</button>
           <button class="btn-secondary" onclick="closeModal('addHospitalModal')">Cancel</button>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Edit Hospital Modal -->
+  
+  <!-- ═══════════ EDIT HOSPITAL MODAL ═══════════ -->
   <div class="modal-overlay" id="editHospitalModal">
     <div class="modal">
       <div class="modal-header">
@@ -828,22 +1927,154 @@
         <button class="modal-close" onclick="closeModal('editHospitalModal')">✕</button>
       </div>
       <div class="modal-body">
+        <input type="hidden" id="hosp-edit-idx">
         <div class="form-row full">
-          <div class="form-group-m"><label>Hospital Name</label><input type="text" value="Philippine General Hospital"></div>
+          <div class="form-group-m">
+            <label>Hospital Name</label>
+            <input type="text" id="hosp-edit-name" placeholder="e.g. Philippine General Hospital" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-name-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Email</label><input type="email" value="pgh@doh.gov.ph"></div>
-          <div class="form-group-m"><label>Contact</label><input type="tel" value="+63 2 5548 8888"></div>
+          <div class="form-group-m">
+            <label>City</label>
+            <input type="text" id="hosp-edit-city" placeholder="e.g. Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-city-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Province</label>
+            <input type="text" id="hosp-edit-province" placeholder="e.g. Metro Manila" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-province-error"></div>
+          </div>
+        </div>
+        <div class="form-row full">
+          <div class="form-group-m">
+            <label>Address</label>
+            <input type="text" id="hosp-edit-address" placeholder="Full street address" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-address-error"></div>
+          </div>
         </div>
         <div class="form-row">
-          <div class="form-group-m"><label>Reset Password</label><input type="password" placeholder="Leave blank to keep current"></div>
-          <div class="form-group-m"><label>Status</label><select><option selected>Active</option><option>Inactive</option></select></div>
+          <div class="form-group-m">
+            <label>Email</label>
+            <input type="email" id="hosp-edit-email" placeholder="hospital@email.com" maxlength="50" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-email-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="hosp-edit-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-phone-error"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Contact Person Name</label>
+            <input type="text" id="hosp-edit-contact-name" placeholder="Dr. Juan dela Cruz" maxlength="40" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-contact-name-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Contact Person Phone</label>
+            <input type="tel" id="hosp-edit-contact-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+            <div class="form-inline-error" id="hosp-edit-contact-phone-error"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m"><label>Reset Password</label><input type="password" id="hosp-edit-pass" placeholder="Leave blank to keep current"></div>
+          <div class="form-group-m"><label>Status</label><select id="hosp-edit-status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
         </div>
         <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn-primary" style="flex:1;justify-content:center">Save Changes</button>
-          <button class="btn-danger">Delete Hospital</button>
+          <button class="btn-primary" style="flex:1;justify-content:center" onclick="hospSaveEdit()">Save Changes</button>
+          <button class="btn-danger" onclick="hospDelete()">Delete Hospital</button>
           <button class="btn-secondary" onclick="closeModal('editHospitalModal')">Cancel</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ VIEW HOSPITAL MODAL ═══════════ -->
+  <div class="modal-overlay" id="viewHospitalModal">
+    <div class="modal hospital-view-modal" style="max-width:1100px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Hospital Details</div>
+          <div id="hospital-view-title-name" style="font-size:13px;color:var(--charcoal);font-weight:600;margin-top:2px"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Operational overview and request analytics</div>
+        </div>
+        <button class="modal-close" onclick="closeHospitalViewModal()">✕</button>
+      </div>
+      <div class="modal-body hospital-view-body">
+
+        <div class="hospital-view-grid hospital-view-grid-3">
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Hospital Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-info"></div>
+          </section>
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Contact Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-contact"></div>
+          </section>
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Account Information</div>
+            <div class="hospital-view-card-body" id="hospital-view-account"></div>
+          </section>
+        </div>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head">Request Analytics</div>
+          <div class="hospital-view-card-body" id="hospital-view-analytics"></div>
+        </section>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head-row">
+            <span>Recent Blood Requests</span>
+            <button class="btn-ghost" style="font-size:12px;padding:5px 10px" onclick="hospitalViewOpenAllRequests()">View All Requests</button>
+          </div>
+          <div class="hospital-view-card-body hospital-view-table-wrap">
+            <table class="hospital-view-table">
+              <thead>
+                <tr>
+                  <th>Reference No</th>
+                  <th>Patient</th>
+                  <th>Blood Type</th>
+                  <th>Component</th>
+                  <th>Units</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="hospital-view-recent-body">
+                <tr><td colspan="7" class="hospital-view-table-empty">Loading hospital details...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="hospital-view-grid hospital-view-grid-2">
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Active Requests</div>
+            <div class="hospital-view-card-body" id="hospital-view-active"></div>
+          </section>
+
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Most Requested Components</div>
+            <div class="hospital-view-card-body" id="hospital-view-components"></div>
+          </section>
+
+          <section class="hospital-view-card">
+            <div class="hospital-view-card-head">Recent Activity</div>
+            <div class="hospital-view-card-body" id="hospital-view-activity"></div>
+          </section>
+        </div>
+
+        <section class="hospital-view-card">
+          <div class="hospital-view-card-head">Quick Actions</div>
+          <div class="hospital-view-card-body">
+            <div class="hospital-view-actions">
+              <button class="btn-secondary" type="button" onclick="hospitalViewOpenAllRequests()">View All Requests</button>
+              <button class="btn-primary" type="button" onclick="hospitalViewOpenEdit()">Edit Hospital</button>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -853,44 +2084,596 @@
     <div class="modal" style="max-width:480px">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Reject Request</div>
+          <div class="modal-title" id="req-reject-title">Reject Request</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px" id="req-reject-subtitle"></div>
         </div>
         <button class="modal-close" onclick="reqCloseReject()">✕</button>
       </div>
       <div class="modal-body">
-        <div style="background:var(--amber-light);border:1px solid rgba(179,92,0,0.2);border-radius:9px;
+        <div id="req-reject-helper" style="background:var(--amber-light);border:1px solid rgba(179,92,0,0.2);border-radius:9px;
             padding:11px 14px;font-size:13px;color:var(--amber);margin-bottom:14px;display:flex;gap:8px">
           <span>⚠</span><span>This will notify the requester. Provide a clear, specific reason.</span>
         </div>
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px">Reason for Rejection</label>
+        <label id="req-reject-label" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px">Reason for Rejection</label>
         <textarea id="req-reject-reason" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;
             font-family:'DM Sans',sans-serif;font-size:13px;color:var(--charcoal);background:var(--cream);
             resize:vertical;min-height:90px;outline:none;box-sizing:border-box"
           placeholder="e.g. Incompatible blood type on cross-match, insufficient documentation..."></textarea>
         <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
           <button class="btn-ghost" onclick="reqCloseReject()">Cancel</button>
-          <button class="req-btn req-btn-reject" onclick="reqConfirmReject()">Confirm Reject</button>
+          <button class="req-btn req-btn-reject" id="req-reject-confirm" onclick="reqConfirmReject()">Confirm Reject</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Doc Preview Modal -->
-  <div class="req-reject-overlay" id="req-doc-modal">
-    <div class="modal" style="max-width:560px">
+  <!-- Blood requests detail modal -->
+  <div id="req-details-modal" class="req-details-modal">
+    <div class="req-details-modal-backdrop"></div>
+    <div class="req-details-modal-content">
+      <div class="req-details-modal-header">
+        <h2 id="req-details-title" class="req-details-title">Blood Request Details</h2>
+        <button class="req-details-close" onclick="window.closeReqDetailsModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="req-details-modal-body" id="req-details-body"></div>
+    </div>
+  </div>
+
+  
+ 
+  
+  <!-- ═══════════════════════════════════════════
+      MODALS — Staff Management
+  ═══════════════════════════════════════════ -->
+  
+  <!-- Add Staff Modal -->
+  <div class="modal-overlay" id="addStaffModal">
+    <div class="modal" style="max-width:540px">
       <div class="modal-header">
-        <div class="modal-title">Blood Request Form</div>
-        <button class="modal-close" onclick="document.getElementById('req-doc-modal').classList.remove('open')">✕</button>
+        <div>
+          <div class="modal-title">Add Staff Member</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Creates dashboard access for Blood Bank staff or a code-only staff profile for other departments</div>
+        </div>
+        <button class="modal-close" onclick="closeModal('addStaffModal')">✕</button>
       </div>
       <div class="modal-body">
-        <div id="req-doc-frame" style="width:100%;border-radius:10px;border:1.5px solid var(--border);
-            background:var(--cream);min-height:300px;display:flex;align-items:center;
-            justify-content:center;overflow:hidden"></div>
-        <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center" id="req-doc-label"></div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Staff Info</div>
+        <div class="form-row">
+          <div class="form-group-m" style="flex:1">
+            <label>Email (Login) <span style="color:var(--crimson)">*</span></label>
+            <input type="email" id="add-staff-email" placeholder="staff@bloodplus.ph" maxlength="50" autocomplete="off">
+          </div>
+        </div>
+        <div id="add-staff-access-note" style="display:flex;align-items:center;gap:8px;background:var(--blue-light,#E8F0FF);
+            border:1px solid rgba(59,130,246,0.2);border-radius:9px;padding:10px 14px;
+            font-size:12px;color:var(--blue);margin-top:4px">
+          <span style="font-size:15px;flex-shrink:0">ℹ️</span>
+          Blood Bank staff receive dashboard credentials and a staff authorization code.
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Personal Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>First Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="add-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-first-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Last Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="add-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-last-error"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="add-staff-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+          </div>
+          
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Role Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Position</label>
+            <input type="text" id="add-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="add-staff-position-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Department/ Ward <span style="color:var(--crimson)">*</span></label>
+            <select id="add-staff-dept-choice" onchange="staffToggleDepartmentInput()">
+              <option value="Blood Bank">Blood Bank</option>
+              <option value="Others">Others</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row full" id="add-staff-custom-dept-wrap" style="display:none">
+          <div class="form-group-m" style="flex:1">
+            <label>Ward <span style="color:var(--crimson)">*</span></label>
+            <select id="add-staff-custom-dept" autocomplete="off">
+              <option value="">Select Ward...</option>
+              <option value="Emergency Room (ER)">Emergency Room (ER)</option>
+              <option value="ICU">ICU</option>
+              <option value="Operating Room (OR)">Operating Room (OR)</option>
+              <option value="Medical Ward">Medical Ward</option>
+              <option value="Surgical Ward">Surgical Ward</option>
+              <option value="Pediatric Ward">Pediatric Ward</option>
+              <option value="Maternity Ward">Maternity Ward</option>
+              <option value="NICU">NICU</option>
+              <option value="Dialysis Unit">Dialysis Unit</option>
+              <option value="Oncology Ward">Oncology Ward</option>
+              <option value="OPD">OPD</option>
+            </select>
+            <div class="form-inline-error" id="add-staff-custom-dept-error"></div>
+          </div>
+        </div>
+
+        <div id="add-staff-error" style="display:none;background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
+            border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
+
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn-primary" id="add-staff-submit-btn" style="flex:1;justify-content:center" onclick="submitAddStaff()">Add Staff</button>
+          <button class="btn-ghost" onclick="closeModal('addStaffModal')">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
+  
+  <!-- Edit Staff Modal -->
+  <div class="modal-overlay" id="editStaffModal">
+    <div class="modal" style="max-width:540px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Edit Staff Member</div>
+          <div id="edit-staff-subtitle" style="font-size:12px;color:var(--muted);margin-top:2px;font-family:monospace"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal('editStaffModal')">✕</button>
+      </div>
+      <div class="modal-body">
+  
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Personal Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>First Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="edit-staff-first" placeholder="Juan" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-first-error"></div>
+          </div>
+          <div class="form-group-m">
+            <label>Last Name <span style="color:var(--crimson)">*</span></label>
+            <input type="text" id="edit-staff-last" placeholder="Dela Cruz" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-last-error"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Phone Number</label>
+            <input type="tel" id="edit-staff-phone" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="off">
+          </div>
+        </div>
+  
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Role Info</div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Staff ID</label>
+            <input type="text" id="edit-staff-id" maxlength="20" autocomplete="off" readonly style="background:var(--cream);cursor:not-allowed;color:var(--muted)">
+          </div>
+          <div class="form-group-m">
+            <label>Department/ Ward</label>
+            <select id="edit-staff-dept"></select>
+            <div class="form-inline-error" id="edit-staff-dept-error"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group-m">
+            <label>Position</label>
+            <input type="text" id="edit-staff-position" placeholder="e.g. Medical Technologist" maxlength="25" autocomplete="off">
+            <div class="form-inline-error" id="edit-staff-position-error"></div>
+          </div>
+          <div class="form-group-m" id="edit-staff-status-wrap">
+            <label>Status</label>
+            <select id="edit-staff-status">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+  
+        <div id="edit-staff-password-title" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 10px">Reset Password</div>
+        <div class="form-row" id="edit-staff-password-row">
+          <div class="form-group-m" style="flex:1">
+            <label>New Password <span style="color:var(--muted);font-weight:400">(leave blank to keep current)</span></label>
+            <div style="position:relative">
+              <input type="password" id="edit-staff-password" placeholder="Enter new password"
+                style="padding-right:38px;width:100%;box-sizing:border-box">
+              <span onclick="staffTogglePass('edit-staff-password', this)"
+                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                  cursor:pointer;font-size:14px;color:var(--muted);user-select:none">👁</span>
+            </div>
+          </div>
+        </div>
+  
+        <input type="hidden" id="edit-staff-target-id">
+  
+        <div id="edit-staff-error" style="display:none;background:var(--soft-red);border:1px solid rgba(196,30,58,0.2);
+            border-radius:9px;padding:10px 14px;font-size:13px;color:var(--crimson);margin-top:12px"></div>
+  
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn-primary" id="edit-staff-submit-btn" style="flex:1;justify-content:center" onclick="submitEditStaff()">Save Changes</button>
+          <button class="btn-ghost" onclick="closeModal('editStaffModal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- View Staff Profile Modal -->
+  <div class="modal-overlay" id="viewStaffModal">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Staff Profile</div>
+          <div id="view-staff-id-label" style="font-size:12px;color:var(--muted);margin-top:2px;font-family:monospace"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal('viewStaffModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Avatar + name -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+          <div id="view-staff-avatar" style="width:52px;height:52px;border-radius:50%;
+              background:var(--soft-red);display:flex;align-items:center;justify-content:center;
+              font-family:'Playfair Display',serif;font-size:18px;font-weight:900;
+              color:var(--crimson);flex-shrink:0"></div>
+          <div>
+            <div id="view-staff-name" style="font-size:17px;font-weight:700;font-family:'Playfair Display',serif"></div>
+            <div id="view-staff-position-label" style="font-size:13px;color:var(--muted);margin-top:2px"></div>
+            <div id="view-staff-status-badge" style="margin-top:6px"></div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Staff ID</div>
+            <div id="view-staff-staffid" style="font-size:13px;font-weight:600;font-family:monospace"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Department</div>
+            <div id="view-staff-dept" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Phone</div>
+            <div id="view-staff-phone" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Email</div>
+            <div id="view-staff-email" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Access</div>
+            <div id="view-staff-access" style="font-size:13px;font-weight:600"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Code</div>
+            <div id="view-staff-code" style="font-size:13px;font-weight:600;font-family:monospace"></div>
+          </div>
+          <div style="background:var(--cream);border-radius:9px;padding:12px;grid-column:1/-1">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">Account Created</div>
+            <div id="view-staff-created" style="font-size:13px;font-weight:600"></div>
+          </div>
+        </div>
+  
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:1;justify-content:center"
+            onclick="staffOpenEditFromView()">Edit</button>
+          <button class="btn-danger" onclick="staffOpenDeleteConfirm()">Delete</button>
+          <button class="btn-ghost" onclick="closeModal('viewStaffModal')">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Delete Staff Confirm Modal -->
+  <div class="modal-overlay" id="deleteStaffModal">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-body" style="padding:32px;text-align:center">
+        <div style="font-size:36px;margin-bottom:14px">🗑</div>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px">Delete Staff Member?</div>
+        <div id="delete-staff-name-label" style="font-size:14px;color:var(--muted);margin-bottom:6px"></div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">
+          This will permanently remove the account and all associated data. This cannot be undone.
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeModal('deleteStaffModal')">Cancel</button>
+          <button class="btn-danger" style="flex:1;justify-content:center" onclick="staffConfirmDelete()">Yes, Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regenerate Staff Code Confirm Modal -->
+  <div class="modal-overlay" id="regenerateStaffCodeModal">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-body" style="padding:32px;text-align:center">
+        <div style="font-size:36px;margin-bottom:14px">🔐</div>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:8px">Regenerate Authorization Code?</div>
+        <div id="regenerate-staff-name-label" style="font-size:14px;color:var(--muted);margin-bottom:6px"></div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6">
+          A new staff authorization code will be generated and the previous code will no longer be valid.
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeRegenerateStaffCodeModal()">Cancel</button>
+          <button class="btn-primary" style="flex:1;justify-content:center" id="regenerate-staff-confirm-btn" onclick="staffConfirmRegenerateCode()">Generate New Code</button>
+        </div>
+      </div>
+    </div>
+  </div>
+ 
+  <!-- Doc Preview Modal -->
+  <div class="req-reject-overlay" id="req-doc-modal">
+    <div class="modal req-doc-modal-dialog">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Blood Request Form</div>
+          <div class="req-doc-subtitle">Zoom for better readability</div>
+        </div>
+        <button class="modal-close" onclick="reqCloseDocModal()">✕</button>
+      </div>
+      <div class="modal-body req-doc-modal-body">
+        <div class="req-doc-toolbar">
+          <div class="req-doc-zoom-controls">
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-out" onclick="reqDocZoomOut()">-</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-reset" onclick="reqDocZoomReset()">Reset</button>
+            <button type="button" class="req-doc-zoom-btn" id="req-doc-zoom-in" onclick="reqDocZoomIn()">+</button>
+            <span class="req-doc-zoom-value" id="req-doc-zoom-value">100%</span>
+          </div>
+          <a id="req-doc-open-link" class="req-doc-open-link" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+        </div>
+        <div id="req-doc-frame" class="req-doc-frame"></div>
+        <div class="req-doc-label" id="req-doc-label"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- LOGGING PANEL — STATUS LOG DETAIL MODAL -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+
+  <div id="logging-status-modal" class="logging-modal" style="display: none;">
+    <div class="logging-modal-backdrop" onclick="closeLoggingStatusModal()"></div>
+    <div class="logging-modal-container">
+      <div class="logging-modal-header">
+        <h3 class="logging-modal-title">Status Change Details</h3>
+        <button class="logging-modal-close" onclick="closeLoggingStatusModal()">✕</button>
+      </div>
+      <div class="logging-modal-body">
+        
+        <div class="logging-field-group">
+          <label class="logging-field-label">Reference No.</label>
+          <div id="logging-status-modal-request-id" class="logging-field-value">#N/A</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Reference Number</label>
+          <div id="logging-status-modal-ref-num" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-row">
+          <div class="logging-field-group">
+            <label class="logging-field-label">Old Status</label>
+            <div id="logging-status-modal-old-status" class="logging-field-value">—</div>
+          </div>
+          <div class="logging-field-group">
+            <label class="logging-field-label">New Status</label>
+            <div id="logging-status-modal-new-status" class="logging-field-value">—</div>
+          </div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Changed By</label>
+          <div id="logging-status-modal-changed-by" class="logging-field-value">System</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Changed At</label>
+          <div id="logging-status-modal-changed-at" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Notes</label>
+          <div id="logging-status-modal-notes" class="logging-field-notes">—</div>
+        </div>
+
+      </div>
+      <div class="logging-modal-footer">
+        <button class="logging-btn-ghost" onclick="closeLoggingStatusModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- LOGGING PANEL — SERVED DETAIL MODAL -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+
+    <div id="logging-served-modal" class="logging-modal" style="display: none;">
+    <div class="logging-modal-backdrop" onclick="closeLoggingServedModal()"></div>
+    <div class="logging-modal-container">
+      <div class="logging-modal-header">
+        <h3 class="logging-modal-title" id="logging-served-modal-title">Served Details</h3>
+        <button class="logging-modal-close" onclick="closeLoggingServedModal()">X</button>
+      </div>
+      <div class="logging-modal-body">
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Reference No.</label>
+          <div id="logging-served-modal-request-id" class="logging-field-value">N/A</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Patient</label>
+          <div id="logging-served-modal-patient" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Blood</label>
+          <div id="logging-served-modal-blood" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-row">
+          <div class="logging-field-group">
+            <label class="logging-field-label">Requested</label>
+            <div id="logging-served-modal-requested" class="logging-field-value">0 unit(s)</div>
+          </div>
+        </div>
+
+        <div class="logging-field-row">
+          <div class="logging-field-group">
+            <label class="logging-field-label">Served</label>
+            <div id="logging-served-modal-served" class="logging-field-value">0 unit(s)</div>
+          </div>
+          <div class="logging-field-group">
+            <label class="logging-field-label">Unserved</label>
+            <div id="logging-served-modal-unserved-count" class="logging-field-value">0 unit(s)</div>
+          </div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Result</label>
+          <div id="logging-served-modal-result" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-row">
+          <div class="logging-field-group">
+            <label class="logging-field-label">Request Category</label>
+            <div id="logging-served-modal-requester-type" class="logging-field-value">—</div>
+          </div>
+          <div class="logging-field-group">
+            <label class="logging-field-label">Hospital / Ward</label>
+            <div id="logging-served-modal-hospital-ward" class="logging-field-value">—</div>
+          </div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Last Served At</label>
+          <div id="logging-served-modal-last-served" class="logging-field-value">—</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Served Blood Bags</label>
+          <div id="logging-served-modal-bags" class="logging-field-notes">No served blood bags recorded.</div>
+        </div>
+
+        <div class="logging-field-group">
+          <label class="logging-field-label">Unserved Units</label>
+          <div id="logging-served-modal-unserved-reason" class="logging-field-notes">None</div>
+        </div>
+
+      </div>
+      <div class="logging-modal-footer">
+        <button class="logging-btn-ghost" onclick="closeLoggingServedModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+<!-- ═══════════════════════════════════════════
+        REUSABLE SUCCESS MODAL
+        Used for: Create, Edit, Delete actions across the system
+    ═══════════════════════════════════════════ -->
+    
+    <div class="modal-overlay" id="sysSuccessModal">
+      <div class="modal" style="max-width:400px">
+        <div class="modal-body" style="padding:32px;text-align:center">
+          <div id="sysSuccessIcon" style="font-size:48px;margin-bottom:16px;animation:successPulse 0.6s ease">✓</div>
+          <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:8px" id="sysSuccessTitle">
+            Success!
+          </div>
+          <div id="sysSuccessMessage" style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6">
+            Operation completed successfully.
+          </div>
+          <button class="btn-primary" style="width:100%;justify-content:center" onclick="closeSysSuccessModal()">
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  
+    <!-- ═══════════════════════════════════════════
+        REUSABLE DELETE CONFIRMATION MODAL
+        Used for: Deleting any resource (Hospital, Staff, Requests, etc.)
+    ═══════════════════════════════════════════ -->
+    
+    <div class="modal-overlay" id="sysDeleteConfirmModal">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-body" style="padding:32px;text-align:center">
+          <div style="font-size:48px;margin-bottom:16px">🗑</div>
+          <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin-bottom:8px">
+            Delete Permanently?
+          </div>
+          <div id="sysDeleteConfirmMessage" style="font-size:14px;color:var(--muted);margin-bottom:8px;line-height:1.6">
+            Are you sure you want to delete this item?
+          </div>
+          <div id="sysDeleteConfirmDetails" style="font-size:13px;background:var(--cream);border-radius:8px;padding:10px;margin-bottom:24px;font-weight:600;word-break:break-word">
+            Item details here
+          </div>
+          <div id="sysDeleteConfirmCodeWrap" style="display:none;text-align:left;margin-bottom:16px">
+            <label for="sysDeleteConfirmCodeInput" style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">
+              Staff Authorization Code
+            </label>
+            <input
+              id="sysDeleteConfirmCodeInput"
+              type="text"
+              maxlength="9"
+              placeholder="XXXX-XXXX"
+              autocomplete="off"
+              style="width:100%;padding:12px 14px;border:1px solid rgba(15,23,42,0.12);border-radius:12px;font-size:14px;letter-spacing:0.08em;text-transform:uppercase;box-sizing:border-box"
+            />
+            <div id="sysDeleteConfirmCodeError" style="display:none;font-size:12px;color:#c41e3a;margin-top:6px"></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:24px">
+            This action cannot be undone.
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn-secondary" style="flex:1;justify-content:center" onclick="closeSysDeleteConfirmModal()">
+              Cancel
+            </button>
+            <button class="btn-danger" style="flex:1;justify-content:center" id="sysDeleteConfirmBtn" onclick="sysConfirmDeleteAction()">
+              Yes, Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+ 
+  <!-- CSS for success animation -->
+  <style>
+    @keyframes successPulse {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+      50% {
+        transform: scale(1.1);
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+ 
+    @keyframes successCheckmark {
+      0% {
+        stroke-dashoffset: 50;
+      }
+      100% {
+        stroke-dashoffset: 0;
+      }
+    }
+  </style>
+ 
 
   <!-- Logout Confirm -->
   <div class="modal-overlay" id="logoutModal">
@@ -937,6 +2720,9 @@
     if (window.innerWidth > 768) closeSidebar();
   });
   </script>
-  <script src="js/script.js"></script>
+  <!-- <script src="js/auto-refresh-optimization.js"></script> -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
+  <script src="js/admin_dashboard.js?v=20260521c"></script>
 </body>
 </html>
+

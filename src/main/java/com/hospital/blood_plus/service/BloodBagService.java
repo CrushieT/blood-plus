@@ -3,7 +3,9 @@ package com.hospital.blood_plus.service;
 import com.hospital.blood_plus.dto.request.BloodBankIntakeRequest;
 import com.hospital.blood_plus.dto.request.DiscardBagRequest;
 import com.hospital.blood_plus.dto.response.AdminDashboardResponse;
+import com.hospital.blood_plus.dto.response.BloodBagAvailableDTO;
 import com.hospital.blood_plus.dto.response.BloodBagResponse;
+import com.hospital.blood_plus.dto.response.PaginatedResponse;
 import com.hospital.blood_plus.model.*;
 import com.hospital.blood_plus.model.BloodBag.BagSource;
 import com.hospital.blood_plus.model.BloodBag.BagStatus;
@@ -11,12 +13,17 @@ import com.hospital.blood_plus.model.BloodBag.ComponentType;
 import com.hospital.blood_plus.model.BloodBag.RhType;
 import com.hospital.blood_plus.model.BloodBag.BloodType;
 import com.hospital.blood_plus.repository.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,11 +31,17 @@ public class BloodBagService {
 
     private final BloodBagRepository          bloodBagRepository;
     private final BloodBagDispatchRepository  bloodBagDispatchRepository;
+    private final RequestFulfillmentRepository requestFulfillmentRepository;
+    private final StaffProfileRepository      staffProfileRepository;
 
     public BloodBagService(BloodBagRepository bloodBagRepository,
-                           BloodBagDispatchRepository bloodBagDispatchRepository) {
+                           BloodBagDispatchRepository bloodBagDispatchRepository,
+                           RequestFulfillmentRepository requestFulfillmentRepository,
+                           StaffProfileRepository staffProfileRepository) {
         this.bloodBagRepository         = bloodBagRepository;
         this.bloodBagDispatchRepository = bloodBagDispatchRepository;
+        this.requestFulfillmentRepository = requestFulfillmentRepository;
+        this.staffProfileRepository = staffProfileRepository;
     }
 
     // ── Receive stock from BMC ────────────────────────────────────
@@ -72,6 +85,97 @@ public class BloodBagService {
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    public PaginatedResponse<BloodBagResponse> getBagsPage(
+            int page,
+            int size,
+            BagStatus status,
+            boolean expiringOnly,
+            BloodType bloodType,
+            ComponentType componentType,
+            String sort,
+            String search
+    ) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        String normalizedSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
+        String normalizedSort = sort == null ? "" : sort.trim().toLowerCase(Locale.ROOT);
+        boolean useDefaultAllStatusOrdering = !expiringOnly && status == null && (normalizedSort.isEmpty() || "expiry_asc".equals(normalizedSort));
+
+        Page<BloodBag> bagsPage;
+        if (expiringOnly) {
+            Pageable pageable = PageRequest.of(
+                    safePage - 1,
+                    safeSize,
+                    resolveBagSort(sort)
+            );
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime soon = now.plusDays(10);
+            bagsPage = bloodBagRepository.findExpiringForAdmin(
+                    bloodType,
+                    componentType,
+                    normalizedSearch,
+                    now,
+                    soon,
+                    pageable
+            );
+        } else if (useDefaultAllStatusOrdering) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime soon = now.plusDays(10);
+            Pageable pageable = PageRequest.of(safePage - 1, safeSize);
+            bagsPage = bloodBagRepository.findForAdminDefaultOrdering(
+                    status,
+                    bloodType,
+                    componentType,
+                    normalizedSearch,
+                    now,
+                    soon,
+                    pageable
+            );
+        } else {
+            Pageable pageable = PageRequest.of(
+                    safePage - 1,
+                    safeSize,
+                    resolveBagSort(sort)
+            );
+            bagsPage = bloodBagRepository.findForAdmin(
+                    status,
+                    bloodType,
+                    componentType,
+                    normalizedSearch,
+                    pageable
+            );
+        }
+        List<BloodBagResponse> rows = bagsPage.getContent()
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        int totalPages = Math.max(bagsPage.getTotalPages(), 1);
+        return new PaginatedResponse<>(
+                rows,
+                bagsPage.getNumber() + 1,
+                totalPages,
+                bagsPage.getTotalElements(),
+                bagsPage.getSize()
+        );
+    }
+
+    private Sort resolveBagSort(String sort) {
+        if (sort == null) {
+            return Sort.by(Sort.Direction.DESC, "collectedAt");
+        }
+
+        return switch (sort.trim().toLowerCase(Locale.ROOT)) {
+            case "expiry_asc" -> Sort.by(Sort.Direction.ASC, "expiresAt");
+            case "expiry_desc" -> Sort.by(Sort.Direction.DESC, "expiresAt");
+            case "registered_asc" -> Sort.by(Sort.Direction.ASC, "createdAt");
+            case "registered_desc" -> Sort.by(Sort.Direction.DESC, "createdAt");
+            case "collected_asc" -> Sort.by(Sort.Direction.ASC, "collectedAt");
+            case "collected_desc" -> Sort.by(Sort.Direction.DESC, "collectedAt");
+            default -> Sort.by(Sort.Direction.DESC, "collectedAt");
+        };
     }
 
     // ── Inventory summary ─────────────────────────────────────────
@@ -149,6 +253,49 @@ public class BloodBagService {
         return mapToResponse(bag);
     }
 
+    public void deleteBag(Long bagId, AppUser user, String staffUniqueCode) {
+        verifyStaffAuthorizationCode(user, staffUniqueCode);
+
+        BloodBag bag = bloodBagRepository.findById(bagId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Blood bag not found"));
+
+        if (bag.getStatus() == BagStatus.CROSSMATCHED) {
+            throw new IllegalStateException("Cannot delete a blood bag already reserved for a patient.");
+        }
+        if (bag.getStatus() == BagStatus.DISPENSED || requestFulfillmentRepository.existsByBloodBag_Id(bagId)) {
+            throw new IllegalStateException("Cannot delete a blood bag that is already part of a fulfilled request.");
+        }
+
+        bloodBagRepository.delete(bag);
+    }
+
+    private void verifyStaffAuthorizationCode(AppUser user, String staffUniqueCode) {
+        String normalizedCode = normalizeStaffUniqueCode(staffUniqueCode);
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Staff authorization code is required.");
+        }
+        if (!normalizedCode.matches("^[A-Z0-9]{4}-[A-Z0-9]{4}$")) {
+            throw new IllegalArgumentException("Invalid staff authorization code.");
+        }
+        if (user == null) {
+            throw new IllegalArgumentException("Unable to verify staff authorization code.");
+        }
+
+        StaffProfile staffProfile = staffProfileRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalArgumentException("No staff authorization code is assigned to this account."));
+
+        String expectedCode = normalizeStaffUniqueCode(staffProfile.getUniqueCode());
+        if (!normalizedCode.equals(expectedCode)) {
+            throw new IllegalArgumentException("Invalid staff authorization code.");
+        }
+    }
+
+    private String normalizeStaffUniqueCode(String uniqueCode) {
+        if (uniqueCode == null) return null;
+        String normalized = uniqueCode.trim().toUpperCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     // ── Open system conversion ────────────────────────────────────
 
     public BloodBagResponse convertToOpenSystem(Long bagId) {
@@ -202,7 +349,76 @@ public class BloodBagService {
         return res;
     }
 
+    public List<BloodBagAvailableDTO> getAvailableBags(
+            BloodType requestedType,
+            BloodBag.ComponentType requestedComponent) {
+ 
+        // Fetch all compatible donor types for this recipient
+        List<BloodType> compatibleTypes = COMPATIBLE_DONORS.getOrDefault(
+                requestedType, List.of(requestedType));
+ 
+        // Query all AVAILABLE bags across all compatible types
+        List<BloodBag> pool = bloodBagRepository
+                .findByBloodTypeInAndStatus(compatibleTypes, BloodBag.BagStatus.AVAILABLE);
+ 
+        LocalDateTime now = LocalDateTime.now();
+ 
+        List<BloodBag> compatible = new ArrayList<>();
+        List<BloodBag> others     = new ArrayList<>();
+ 
+        for (BloodBag bag : pool) {
+            // Skip expired
+            if (bag.getExpiresAt() != null && bag.getExpiresAt().isBefore(now)) continue;
+ 
+            boolean componentMatch = requestedComponent == null
+                    || bag.getComponentType() == requestedComponent;
+ 
+            // Exact type + component = fully compatible
+            // Wrong component but right type family = shown as "other"
+            if (componentMatch) compatible.add(bag);
+            else                others.add(bag);
+        }
+ 
+        // Sort both groups soonest-to-expire first (FIFO — use oldest stock first)
+        Comparator<BloodBag> byExpiry = Comparator.comparing(
+                b -> b.getExpiresAt() != null ? b.getExpiresAt() : LocalDateTime.MAX);
+        compatible.sort(byExpiry);
+        others.sort(byExpiry);
+ 
+        List<BloodBagAvailableDTO> result = new ArrayList<>();
+        boolean firstCompatible = true;
+ 
+        for (BloodBag bag : compatible) {
+            // Exact blood type match = fully compatible
+            // Compatible-but-not-exact (e.g. O_NEG for A_POS) = compatible=true but recommended only if no exact match
+            boolean isExactType = bag.getBloodType() == requestedType;
+            result.add(BloodBagAvailableDTO.from(bag, true, firstCompatible && isExactType
+                    ? true   // exact type gets recommended first
+                    : firstCompatible)); // fallback: first available gets recommended
+            firstCompatible = false;
+        }
+        for (BloodBag bag : others) {
+            result.add(BloodBagAvailableDTO.from(bag, false, false));
+        }
+ 
+        return result;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────
+
+    private static final Map<BloodType, List<BloodType>> COMPATIBLE_DONORS;
+    static {
+        COMPATIBLE_DONORS = new EnumMap<>(BloodType.class);
+        COMPATIBLE_DONORS.put(BloodType.A_POS,  List.of(BloodType.A_POS, BloodType.A_NEG, BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.A_NEG,  List.of(BloodType.A_NEG, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.B_POS,  List.of(BloodType.B_POS, BloodType.B_NEG, BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.B_NEG,  List.of(BloodType.B_NEG, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.AB_POS, List.of(BloodType.A_POS, BloodType.A_NEG, BloodType.B_POS, BloodType.B_NEG,
+                                                         BloodType.AB_POS, BloodType.AB_NEG, BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.AB_NEG, List.of(BloodType.A_NEG, BloodType.B_NEG, BloodType.AB_NEG, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.O_POS,  List.of(BloodType.O_POS, BloodType.O_NEG));
+        COMPATIBLE_DONORS.put(BloodType.O_NEG,  List.of(BloodType.O_NEG));
+    }
 
     private BloodBagResponse mapToResponse(BloodBag bag) {
         BloodBagResponse res = new BloodBagResponse();
@@ -215,6 +431,7 @@ public class BloodBagService {
         res.setVolumeMl(bag.getVolumeMl());
         res.setRemarks(bag.getRemarks());
         res.setCollectedAt(bag.getCollectedAt());
+        res.setCreatedAt(bag.getCreatedAt());
         res.setExpiresAt(bag.getExpiresAt());
         res.setStatus(bag.getStatus());
         res.setSource(bag.getSource());
@@ -237,5 +454,303 @@ public class BloodBagService {
         return res;
     }
 
+
+    ////// HOSPITAL ACCOUNT ///////////
+    // ──────────────────────────────────────────────────────────────
+    // Blood Type Availability
+    // ──────────────────────────────────────────────────────────────
+ 
+    /**
+     * Get availability status for all blood types
+     * Returns: Map<BloodType, AvailabilityStatus>
+     * Status: AVAILABLE, LOW_STOCK, NOT_AVAILABLE
+     */
+    public Map<String, Map<String, Object>> getAllBloodTypeAvailability() {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+ 
+        for (BloodBag.BloodType bt : BloodBag.BloodType.values()) {
+            int count = countAvailableBagsByBloodType(bt);
+            result.put(formatBloodTypeKey(bt), buildAvailabilityMap(count));
+        }
+ 
+        return result;
+    }
+ 
+    /**
+     * Count available blood bags by blood type (not expired, not used)
+     */
+    private int countAvailableBagsByBloodType(BloodBag.BloodType bloodType) {
+        LocalDateTime now = LocalDateTime.now();
+        List<BloodBag> bags = bloodBagRepository.findByBloodTypeAndStatus(
+                bloodType, BloodBag.BagStatus.AVAILABLE);
+        
+        return (int) bags.stream()
+                .filter(bag -> bag.getExpiresAt().isAfter(now))
+                .count();
+    }
+
+    private String formatBloodTypeKey(BloodBag.BloodType bloodType) {
+        return switch (bloodType) {
+            case O_POS -> "O+";
+            case O_NEG -> "O-";
+            case A_POS -> "A+";
+            case A_NEG -> "A-";
+            case B_POS -> "B+";
+            case B_NEG -> "B-";
+            case AB_POS -> "AB+";
+            case AB_NEG -> "AB-";
+        };
+    }
+ 
+    /**
+     * Get single blood type availability
+     */
+    public Map<String, Object> getBloodTypeAvailability(String bloodTypeStr) {
+        try {
+            BloodBag.BloodType bloodType = BloodBag.BloodType.valueOf(bloodTypeStr);
+            int count = countAvailableBagsByBloodType(bloodType);
+            return buildAvailabilityMap(count);
+        } catch (IllegalArgumentException e) {
+            return Map.of("status", "INVALID", "count", 0);
+        }
+    }
+ 
+    /**
+     * Map count to status threshold
+     * CRITICAL: 0 bags
+     * LOW_STOCK: 1-5 bags
+     * AVAILABLE: 6+ bags
+     */
+    private Map<String, Object> buildAvailabilityMap(int count) {
+        String status;
+        String label;
+        String color;
+ 
+        if (count == 0) {
+            status = "NOT_AVAILABLE";
+            label = "Not Available";
+            color = "not-available";
+        } else if (count >= 1 && count <= 5) {
+            status = "LOW_STOCK";
+            label = "Low Stock";
+            color = "low-stock";
+        } else {
+            status = "AVAILABLE";
+            label = "Available";
+            color = "available";
+        }
+ 
+        return Map.of(
+                "status", status,
+                "label", label,
+                "color", color,
+                "count", count,
+                "threshold", Map.of(
+                        "low", 5,
+                        "critical", 0
+                )
+        );
+    }
+ 
+    // ──────────────────────────────────────────────────────────────
+    // Blood Component Availability
+    // ──────────────────────────────────────────────────────────────
+ 
+    /**
+     * Get availability for all blood components
+     */
+    public Map<String, Map<String, Object>> getAllComponentAvailability() {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+ 
+        BloodBag.ComponentType[] components = {
+                BloodBag.ComponentType.WHOLE_BLOOD,
+                BloodBag.ComponentType.PRBC,
+                BloodBag.ComponentType.LEUKOREDUCED_PRBC,
+                BloodBag.ComponentType.ALIQUOTED_PRBC,
+                BloodBag.ComponentType.PLATELET_CONCENTRATE,
+                BloodBag.ComponentType.FRESH_FROZEN_PLASMA,
+                BloodBag.ComponentType.CRYOPRECIPITATE,
+                BloodBag.ComponentType.CRYOSUPERNATANT
+        };
+ 
+        for (BloodBag.ComponentType comp : components) {
+            int count = countAvailableBagsByComponent(comp);
+            result.put(formatComponentType(comp), buildComponentAvailabilityMap(comp, count));
+        }
+ 
+        return result;
+    }
+ 
+    /**
+     * Count available bags by component type
+     */
+    private int countAvailableBagsByComponent(BloodBag.ComponentType componentType) {
+        LocalDateTime now = LocalDateTime.now();
+        List<BloodBag> bags = bloodBagRepository.findByComponentTypeAndStatus(
+                componentType, BloodBag.BagStatus.AVAILABLE);
+        
+        return (int) bags.stream()
+                .filter(bag -> bag.getExpiresAt().isAfter(now))
+                .count();
+    }
+ 
+    /**
+     * Get single component availability
+     */
+    public Map<String, Object> getComponentAvailability(String componentStr) {
+        try {
+            BloodBag.ComponentType componentType = BloodBag.ComponentType.valueOf(componentStr);
+            int count = countAvailableBagsByComponent(componentType);
+            return buildComponentAvailabilityMap(componentType, count);
+        } catch (IllegalArgumentException e) {
+            return Map.of("status", "INVALID", "count", 0);
+        }
+    }
+
+    public BloodBag getBagById(Long bagId) {
+        return bloodBagRepository.findById(bagId)
+                .orElseThrow(() -> new RuntimeException("Blood bag not found with ID: " + bagId));
+    }
+    
+ 
+    /**
+     * Build component-specific availability map
+     * Platelets: LOW threshold at 3 bags (short shelf life of 5 days)
+     * Other components: LOW threshold at 5 bags
+     */
+    private Map<String, Object> buildComponentAvailabilityMap(
+            BloodBag.ComponentType componentType, int count) {
+ 
+        int lowThreshold = componentType == BloodBag.ComponentType.PLATELET_CONCENTRATE ? 3 : 5;
+ 
+        String status;
+        String label;
+        String color;
+ 
+        if (count == 0) {
+            status = "NOT_AVAILABLE";
+            label = "Not Available";
+            color = "not-available";
+        } else if (count >= 1 && count <= lowThreshold) {
+            status = "LOW_STOCK";
+            label = "Low Stock";
+            color = "low-stock";
+        } else {
+            status = "AVAILABLE";
+            label = "Available";
+            color = "available";
+        }
+ 
+        return Map.of(
+                "status", status,
+                "label", label,
+                "color", color,
+                "count", count,
+                "displayName", formatComponentDisplay(componentType),
+                "abbreviation", formatComponentAbbr(componentType),
+                "threshold", Map.of(
+                        "low", lowThreshold,
+                        "critical", 0
+                ),
+                "shelfLife", getComponentShelfLife(componentType)
+        );
+    }
+ 
+    // ──────────────────────────────────────────────────────────────
+    // Blood Bank Summary
+    // ──────────────────────────────────────────────────────────────
+ 
+    /**
+     * Get comprehensive blood bank status for dashboard
+     */
+    public Map<String, Object> getBloodBankStatus() {
+        Map<String, Object> status = new LinkedHashMap<>();
+ 
+        status.put("timestamp", LocalDateTime.now());
+        status.put("lastUpdated", "Just now");
+        
+        Map<String, Map<String, Object>> bloodTypes = getAllBloodTypeAvailability();
+        status.put("bloodTypes", bloodTypes);
+        
+        Map<String, Map<String, Object>> components = getAllComponentAvailability();
+        status.put("components", components);
+ 
+        // Summary counts
+        int totalAvailable = bloodTypes.values().stream()
+                .mapToInt(m -> (Integer) m.get("count"))
+                .sum();
+ 
+        int lowStockCount = (int) bloodTypes.values().stream()
+                .filter(m -> "LOW_STOCK".equals(m.get("status")))
+                .count();
+ 
+        int notAvailableCount = (int) bloodTypes.values().stream()
+                .filter(m -> "NOT_AVAILABLE".equals(m.get("status")))
+                .count();
+ 
+        status.put("summary", Map.of(
+                "totalBagsAvailable", totalAvailable,
+                "bloodTypesWithLowStock", lowStockCount,
+                "bloodTypesNotAvailable", notAvailableCount,
+                "totalBloodTypes", bloodTypes.size()
+        ));
+ 
+        return status;
+    }
+ 
+    // ──────────────────────────────────────────────────────────────
+    // Formatting Utilities
+    // ──────────────────────────────────────────────────────────────
+ 
+    private String formatBloodType(BloodBag.BloodType bloodType) {
+        return switch (bloodType) {
+            case O_POS -> "O+";
+            case O_NEG -> "O−";
+            case A_POS -> "A+";
+            case A_NEG -> "A−";
+            case B_POS -> "B+";
+            case B_NEG -> "B−";
+            case AB_POS -> "AB+";
+            case AB_NEG -> "AB−";
+        };
+    }
+ 
+    private String formatComponentType(BloodBag.ComponentType componentType) {
+        return componentType.toString().toLowerCase().replace("_", "-");
+    }
+ 
+    private String formatComponentDisplay(BloodBag.ComponentType componentType) {
+        return switch (componentType) {
+            case WHOLE_BLOOD -> "Whole Blood";
+            case PRBC -> "Packed RBC";
+            case LEUKOREDUCED_PRBC -> "Leukoreduced PRBC";
+            case ALIQUOTED_PRBC -> "Aliquoted PRBC";
+            case PLATELET_CONCENTRATE -> "Platelet Concentrate";
+            case FRESH_FROZEN_PLASMA -> "Fresh Frozen Plasma";
+            case CRYOPRECIPITATE -> "Cryoprecipitate";
+            case CRYOSUPERNATANT -> "Cryosupernatant";
+        };
+    }
+ 
+    private String formatComponentAbbr(BloodBag.ComponentType componentType) {
+        return switch (componentType) {
+            case WHOLE_BLOOD -> "WB";
+            case PRBC -> "PRBC";
+            case LEUKOREDUCED_PRBC -> "LR-PRBC";
+            case ALIQUOTED_PRBC -> "ALQ-PRBC";
+            case PLATELET_CONCENTRATE -> "PC";
+            case FRESH_FROZEN_PLASMA -> "FFP";
+            case CRYOPRECIPITATE -> "CRYO";
+            case CRYOSUPERNATANT -> "CRYO-SN";
+        };
+    }
+ 
+    private String getComponentShelfLife(BloodBag.ComponentType componentType) {
+        return switch (componentType) {
+            case WHOLE_BLOOD, PRBC, LEUKOREDUCED_PRBC, ALIQUOTED_PRBC -> "42 days";
+            case PLATELET_CONCENTRATE -> "5 days";
+            case FRESH_FROZEN_PLASMA, CRYOPRECIPITATE, CRYOSUPERNATANT -> "1 year";
+        };
+    }
 
 }

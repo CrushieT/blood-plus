@@ -1,0 +1,1501 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CNPH Blood Bank - Request Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="js/AuthGuard.js"></script>
+  <link href="css/blood_request.css" rel="stylesheet" />
+</head>
+<body>
+
+<!-- EKG LOADING SCREEN -->
+<div id="ekg-loader">
+  <div class="ekg-corner tl"></div>
+  <div class="ekg-corner tr"></div>
+  <div class="ekg-corner bl"></div>
+  <div class="ekg-corner br"></div>
+
+  <div class="ekg-particles" id="ekg-particles"></div>
+
+  <div class="ekg-logo-wrap">
+    <div class="ekg-logo-drop"><span>&#9679;</span></div>
+    <div class="ekg-logo-text">
+      <div class="ekg-logo-name">CNPH Blood Bank</div>
+      <div class="ekg-logo-sub">Camarines Norte Provincial Hospital</div>
+    </div>
+  </div>
+
+  <div class="ekg-canvas-wrap">
+    <canvas id="ekg-canvas"></canvas>
+    <div class="ekg-glow-bar"></div>
+    <div class="ekg-scanline"></div>
+  </div>
+
+  <div class="ekg-status">Blood Dispensing System <span>&#9679;</span> Loading</div>
+
+  <div class="ekg-progress-track">
+    <div class="ekg-progress-fill"></div>
+  </div>
+</div>
+
+<!-- Emergency strip -->
+<div class="emergency-strip">
+  ALERT: For life-threatening emergencies, go directly to the Blood Bank window or call the ward nurse immediately.
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="drop drop-1"></div>
+  <div class="drop drop-2"></div>
+  <div class="drop drop-3"></div>
+  <div class="drop drop-4"></div>
+
+  <nav>
+    <div class="logo">
+      <div class="logo-drop"><span>&#9679;</span></div>
+      <div>
+        <div class="logo-text">CNPH Blood Bank</div>
+        <div class="logo-sub">Camarines Norte Provincial Hospital</div>
+      </div>
+    </div>
+
+    <!-- Nav right: shows login button OR hospital session chip -->
+    <div style="display:flex;align-items:center;gap:12px">
+      <!-- Shown when NOT logged in -->
+      <a href="hospital-login.html"
+         id="nav-login-btn"
+         style="display:flex;align-items:center;gap:7px;
+                background:rgba(255,255,255,0.10);border:1.5px solid rgba(255,255,255,0.18);
+                border-radius:10px;padding:8px 15px;text-decoration:none;
+                font-size:13px;font-weight:600;color:white;transition:background 0.2s"
+         onmouseover="this.style.background='rgba(196,30,58,0.35)'"
+         onmouseout="this.style.background='rgba(255,255,255,0.10)'">
+        Hospital Login
+      </a>
+
+      <!-- Shown when logged in as hospital - hidden by default -->
+      <div id="nav-hospital-chip"
+           style="display:none;align-items:center;gap:10px;
+                  background:rgba(196,30,58,0.18);border:1.5px solid rgba(196,30,58,0.35);
+                  border-radius:10px;padding:7px 14px">
+        <div style="width:28px;height:28px;background:rgba(196,30,58,0.5);border-radius:7px;
+                    display:flex;align-items:center;justify-content:center;font-size:14px">H</div>
+        <div>
+          <div id="nav-hospital-name" style="font-size:12px;font-weight:700;color:white;line-height:1.2"></div>
+          <div id="nav-hospital-staff" style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px"></div>
+        </div>
+        <button onclick="logoutHospital()"
+                style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+                       border-radius:7px;padding:4px 9px;font-size:11px;font-weight:600;
+                       color:rgba(255,255,255,0.55);cursor:pointer;font-family:'DM Sans',sans-serif;
+                       transition:all 0.15s"
+                onmouseover="this.style.color='white';this.style.borderColor='rgba(255,255,255,0.4)'"
+                onmouseout="this.style.color='rgba(255,255,255,0.55)';this.style.borderColor='rgba(255,255,255,0.15)'">
+          Sign out
+        </button>
+      </div>
+
+      <div class="nav-badge">Blood Request Portal</div>
+    </div>
+  </nav>
+
+  <div class="hero-content">
+    <div class="hero-eyebrow">
+      <div class="pulse-dot"></div>
+      Blood Dispensing System
+    </div>
+    <h1 class="hero-title">
+      Safe Blood<br>
+      <em>For All</em>
+    </h1>
+    <p class="hero-sub">
+      Request blood for your patient quickly and securely. Submit your details, upload the required documents, and track your request in real time.
+    </p>
+    <div class="hero-actions">
+      <button class="btn-request" onclick="scrollToForm('request')">
+        Request Blood Now
+      </button>
+      <button class="btn-track" onclick="scrollToForm('track')">
+        Track My Request
+      </button>
+    </div>
+  </div>
+
+</div>
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- STANDALONE FORM SCANNER (OUTSIDE MAIN FORM) -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+ 
+<div class="scanner-container" id="scanner-container">
+  <div class="scanner-header">
+    <div class="scanner-title-section">
+      <div class="scanner-icon">&#128203;</div>
+      <div>
+        <div class="scanner-title">Quick Scan</div>
+        <div class="scanner-subtitle">Scan your blood request form to auto-fill</div>
+      </div>
+    </div>
+    <button class="scanner-collapse-btn" id="scanner-collapse-btn" 
+      onclick="toggleScannerPanel()" 
+      title="Collapse scanner">
+      &#8593;
+    </button>
+  </div>
+ 
+  <div class="scanner-content" id="scanner-content">
+    
+    <!-- Scanner zone -->
+    <div class="scanner-upload-zone" id="scanner-upload-zone">
+      <input type="file" id="scan-input" accept=".pdf,image/*" style="display:none" 
+        onchange="handleScan(this.files[0])" />
+      
+      <div id="scan-placeholder" class="scan-state">
+        <div class="scan-placeholder-icon">&#128196;</div>
+        <div class="scan-placeholder-text">
+          <div class="scan-placeholder-title">Click to scan form</div>
+          <div class="scan-placeholder-subtitle">PDF, JPG, or PNG - Max 5MB</div>
+        </div>
+      </div>
+      
+      <div id="scan-preview" class="scan-state" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;width:100%">
+          <div class="scan-success-icon">&#10003;</div>
+          <div style="flex:1;min-width:0">
+            <div id="scan-file-name" class="scan-filename"></div>
+            <div id="scan-status" class="scan-status">Processing...</div>
+          </div>
+          <button type="button" onclick="event.stopPropagation();clearScan()" 
+            class="scan-clear-btn">&times;</button>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- Scanner results -->
+    <div id="scanner-results-box" class="scanner-results-box" style="display:none">
+      <div class="results-header">
+        <span class="results-icon">&#10003;</span>
+        <span class="results-title">Form detected</span>
+      </div>
+      
+      <div class="results-fields" id="scanner-fields-found"></div>
+      
+      <button class="btn-apply-scan" onclick="applyScanResults()" id="btn-apply-scan">
+        ✓ Fill Form With This Data
+      </button>
+      
+      <div class="results-note">
+        You can edit any field after it's filled in the form below.
+      </div>
+    </div>
+ 
+    <!-- Error/Status messages -->
+    <div id="scanner-error" class="scanner-error" style="display:none"></div>
+ 
+  </div>
+</div>
+
+<!-- MAIN FORM SECTION -->
+<div class="main-section" id="form-section">
+  <div class="tab-container">
+
+    <!-- Tab Header -->
+    <div class="tab-header">
+      <button class="tab-btn active" id="tab-request-btn" onclick="switchTab('request')">
+        <div class="tab-icon">+</div>
+        Request Blood
+      </button>
+      <button class="tab-btn" id="tab-track-btn" onclick="switchTab('track')">
+        <div class="tab-icon">@</div>
+        Track My Request
+      </button>
+    </div>
+
+    <div class="tab-panel active" id="tab-request">
+  
+    <!-- Success screen -->
+    <div class="success-screen" id="success-screen">
+      <div class="success-icon-wrap">OK</div>
+      <div class="success-title">Request Submitted</div>
+      <div class="success-sub">
+        Your blood request is now under review by our Blood Bank staff.
+        Please save your reference number — you'll need it to track your request.
+      </div>
+      <div class="ref-display">
+        <div>
+          <div class="ref-label">Reference No.</div>
+          <div class="ref-number" id="success-ref">BR-2026-00000</div>
+        </div>
+        <button class="btn-copy" onclick="copyRef()">Copy</button>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        Keep this reference number for tracking and follow-up updates.
+        <span id="success-email" style="display:none"></span>
+      </div>
+      <button class="btn-new-request" onclick="resetForm()">Submit Another Request</button>
+    </div>
+  
+   <!-- Form body -->
+    <div class="form-body" id="request-form-body">
+      <div id="scan-fill-quick-action" class="scan-fill-quick-action" style="display:none">
+        <div class="scan-fill-quick-text">Scanned details are ready to populate this request form.</div>
+        <button type="button" class="btn-scan-populate" id="btn-scan-populate" onclick="applyScanResults()">
+          Populate Request Form
+        </button>
+      </div>
+
+      <!-- STEPPER -->
+      <div class="stepper" id="stepper">
+        <div class="step-item">
+          <div class="step-col">
+            <div class="step-circle active" id="sc1">1</div>
+            <div class="step-label active" id="sl1">Patient</div>
+          </div>
+          <div class="step-line" id="line1"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-col">
+            <div class="step-circle" id="sc2">2</div>
+            <div class="step-label" id="sl2">Blood Details</div>
+          </div>
+          <div class="step-line" id="line2"></div>
+        </div>
+        <div class="step-item">
+          <div class="step-col">
+            <div class="step-circle" id="sc3">3</div>
+            <div class="step-label" id="sl3">Documents</div>
+          </div>
+          <div class="step-line" id="line3"></div>
+        </div>
+        <div class="step-item" style="flex:0;">
+          <div class="step-col">
+            <div class="step-circle" id="sc4">4</div>
+            <div class="step-label" id="sl4">Review</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared error banner -->
+      <div class="form-error" id="form-error">
+        <span>!</span><span id="form-error-msg"></span>
+      </div>
+
+      <!-- PAGE 1 — Patient Info -->
+      <div class="req-page active" id="page-1">
+
+        <!-- Hospital session banner (hidden when anonymous) -->
+        <div id="hospital-session-banner"
+            style="display:none;align-items:center;gap:14px;
+                    background:linear-gradient(135deg,rgba(196,30,58,0.10),rgba(196,30,58,0.04));
+                    border:1.5px solid rgba(196,30,58,0.25);border-radius:14px;
+                    padding:16px 18px;margin-bottom:20px">
+          <div style="width:40px;height:40px;background:rgba(196,30,58,0.15);border-radius:10px;
+                      display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">H</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--charcoal)" id="banner-hospital-name"></div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">
+              Submitting as <strong id="banner-staff-name"></strong> - Hospital account
+            </div>
+          </div>
+          <div style="font-size:11px;background:rgba(196,30,58,0.12);color:#C41E3A;
+                      border-radius:7px;padding:4px 10px;font-weight:700;letter-spacing:0.04em;
+                      white-space:nowrap">
+            HOSPITAL
+          </div>
+        </div>
+
+        <!-- Anonymous info notice -->
+        <div class="form-intro" id="anon-intro">
+          <span class="form-intro-icon">i</span>
+          <span>
+            A <strong>Doctor's Note or Blood Request Form</strong> from the requesting physician is required.
+            A Commitment Referral from your municipality must be submitted before the patient is discharged.
+            <br><br>
+            Are you from a hospital?
+            <a href="hospital-login.html"
+              style="color:#C41E3A;font-weight:700;text-decoration:none">
+              Log in to your hospital account
+            </a>
+          </span>
+        </div>
+
+        <!-- Patient Information -->
+        <div class="form-section-title">Patient Information</div>
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label class="form-label">First Name <span>*</span></label>
+            <input class="form-input" id="f-patientName" placeholder="e.g. Juan" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Middle Name</label>
+            <input class="form-input" id="f-patientMiddle" placeholder="e.g. Santos" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Last Name <span>*</span></label>
+            <input class="form-input" id="f-patientLast" placeholder="e.g. Dela Cruz" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Suffix</label>
+            <input class="form-input" id="f-patientSuffix" placeholder="e.g. Jr., Sr." maxlength="10" />
+            <div class="form-inline-error" id="f-patientSuffix-error"></div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date of Birth <span>*</span></label>
+            <input class="form-input" id="f-birthdate" type="date" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Sex <span>*</span></label>
+            <select class="form-select" id="f-sex">
+              <option value="">Select...</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Purok</label>
+            <input class="form-input" id="f-purok" placeholder="e.g. Purok 3" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Barangay</label>
+            <input class="form-input" id="f-barangay" placeholder="e.g. San Roque" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Municipality</label>
+            <input class="form-input" id="f-municipality" placeholder="e.g. Daet" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Province</label>
+            <input class="form-input" id="f-province" placeholder="e.g. Camarines Norte" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Requesting Physician <span>*</span></label>
+            <input class="form-input" id="f-physician" placeholder="e.g. Dr. Reyes" maxlength="25" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Room No.</label>
+            <input class="form-input" id="f-room" placeholder="e.g. 101, A-5" maxlength="25" />
+          </div>
+        </div>
+
+        <!-- Patient Type (Auto-calculated) -->
+        <div class="form-section-title">Patient Type</div>
+        <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:12px;padding:14px 16px;margin-bottom:16px">
+          <div style="font-size:13px;color:var(--charcoal);font-weight:600">
+            <span id="patient-type-display">Enter date of birth to determine patient type</span>
+          </div>
+        </div>
+
+        <!-- Request Category -->
+        <div class="form-section-title">Request Category</div>
+        <div class="radio-group">
+          <div class="radio-option">
+            <input type="radio" name="category" id="cat-inpatient" value="INPATIENT" checked>
+            <label class="radio-label" for="cat-inpatient">INHOUSE</label>
+          </div>
+        </div>
+
+        <div class="nav-row">
+          <button class="btn-submit" style="flex:1" onclick="goTo(2)">Next: Blood Details</button>
+        </div>
+      </div><!-- /page-1 -->
+
+      <!-- PAGE 2 — Blood Details & Indications -->
+      <div class="req-page" id="page-2">
+
+        <div class="form-section-title">Blood Request Details</div>
+        <div class="form-grid cols-3">
+          <div class="form-field">
+            <label class="form-label">Blood Type Needed <span>*</span></label>
+            <select class="form-select" id="f-bloodType">
+              <option value="">Select...</option>
+              <option value="O_NEG">O-</option>
+              <option value="O_POS">O+</option>
+              <option value="A_POS">A+</option>
+              <option value="A_NEG">A-</option>
+              <option value="B_POS">B+</option>
+              <option value="B_NEG">B-</option>
+              <option value="AB_POS">AB+</option>
+              <option value="AB_NEG">AB-</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Component <span>*</span></label>
+              <select class="form-select" id="f-component">
+                <option value="">Select...</option>
+                <option value="WHOLE_BLOOD">Whole Blood</option>
+                <option value="PRBC">Packed RBC</option>
+                <option value="LEUKOREDUCED_PRBC">Leukoreduced PRBC</option>
+                <option value="ALIQUOTED_PRBC">Aliquoted PRBC</option>
+                <option value="PLATELET_CONCENTRATE">Platelet Concentrate</option>
+                <option value="FRESH_FROZEN_PLASMA">Fresh Frozen Plasma (FFP)</option>
+                <option value="CRYOPRECIPITATE">Cryoprecipitate</option>
+                <option value="CRYOSUPERNATANT">Cryosupernatant</option>
+              </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">No. of Units <span>*</span></label>
+            <input class="form-input" id="f-units" type="number" min="1" max="99" inputmode="numeric" placeholder="e.g. 2" />
+          </div>
+        </div>
+
+        <div class="form-field" id="platelet-count-field" style="display:none;margin-top:14px">
+          <label class="form-label">Platelet Count</label>
+          <input class="form-input" id="f-plateletCount" type="number" min="0" placeholder="e.g. 50000" />
+        </div>
+
+        <!-- CLINICAL INFORMATION -->
+        <div class="form-section-title">Clinical Information</div>
+        <div class="form-grid cols-2">
+          <div class="form-field" style="grid-column: span 2">
+            <label class="form-label">Clinical Impression / Diagnosis</label>
+            <textarea class="form-textarea" id="f-diagnosis" placeholder="e.g. Acute bleeding, Hemophilia A, etc."></textarea>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Hemoglobin Level (g/L)</label>
+            <input
+              class="form-input"
+              id="f-hemoglobin"
+              type="text"
+              maxlength="3"
+              inputmode="numeric"
+              placeholder="e.g. 85"
+            />
+            <div class="form-inline-error" id="f-hemoglobin-error"></div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Hematocrit (%)</label>
+            <input
+              class="form-input"
+              id="f-hematocrit"
+              type="text"
+              maxlength="5"
+              inputmode="decimal"
+              placeholder="e.g. .25"
+            />
+            <div class="form-inline-error" id="f-hematocrit-error"></div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Request Type <span>*</span></label>
+            <div class="radio-group">
+              <div class="radio-option">
+                <input type="radio" name="requestType" id="rt-stat" value="STAT">
+                <label class="radio-label" for="rt-stat">STAT</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" name="requestType" id="rt-routine" value="ROUTINE" checked>
+                <label class="radio-label" for="rt-routine">Routine</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- URGENCY LEVEL (dependent on Request Type) -->
+        <div class="form-field" style="margin-top:14px">
+          <label class="form-label">Urgency Level <span>*</span></label>
+          <div id="urgency-display" style="display:none;background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:12px;padding:12px 14px;font-size:13px;color:var(--charcoal);font-weight:600">
+            <span id="urgency-stat-badge" style="background:rgba(196,30,58,0.15);color:#C41E3A;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700">AUTO: HIGH (24hrs)</span>
+          </div>
+          <div id="urgency-group" class="urgency-group" style="display:none">
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-low" value="LOW">
+              <label class="urgency-label" for="urg-low">Low<br><span style="font-weight:400;font-size:10px">Scheduled / Within a week</span></label>
+            </div>
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-med" value="MEDIUM" checked>
+              <label class="urgency-label" for="urg-med">Medium<br><span style="font-weight:400;font-size:10px">2-3 days</span></label>
+            </div>
+            <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-high" value="HIGH">
+              <label class="urgency-label" for="urg-high">High<br><span style="font-weight:400;font-size:10px">24hrs</span></label>
+            </div>
+            <!-- <div class="urgency-opt">
+              <input type="radio" name="urgency" id="urg-crit" value="CRITICAL">
+              <label class="urgency-label" for="urg-crit">Critical<br><span style="font-weight:400;font-size:10px">Immediately</span></label>
+            </div> -->
+          </div>
+        </div>
+        
+        <!-- TRANSFUSION HISTORY -->
+        <div class="form-section-title">Transfusion History</div>
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label class="form-label">Previous Transfusion?</label>
+            <div class="radio-group">
+              <div class="radio-option">
+                <input type="radio" name="prevTransfusion" id="pt-no" value="NO" checked onchange="togglePrevTransFields()">
+                <label class="radio-label" for="pt-no">No</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" name="prevTransfusion" id="pt-yes" value="YES" onchange="togglePrevTransFields()">
+                <label class="radio-label" for="pt-yes">Yes</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="prevTransFields" style="display:none">
+          <div class="form-grid cols-2">
+            <div class="form-field">
+              <label class="form-label">When?</label>
+              <input class="form-input" id="f-prevTransDate" type="date" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Number of units transfused</label>
+              <input class="form-input" id="f-prevUnits" type="number" placeholder="e.g. 2" />
+            </div>
+          </div>
+        </div>
+
+        <!-- REACTION HISTORY -->
+        <div class="form-section-title">Previous Reaction History</div>
+        <div class="form-grid cols-2">
+          <div class="form-field">
+            <label class="form-label">Previous Reaction?</label>
+            <div class="radio-group">
+              <div class="radio-option">
+                <input type="radio" name="prevReaction" id="pr-no" value="NO" checked onchange="toggleReactionFields()">
+                <label class="radio-label" for="pr-no">No</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" name="prevReaction" id="pr-yes" value="YES" onchange="toggleReactionFields()">
+                <label class="radio-label" for="pr-yes">Yes</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="reactionFields" style="display:none">
+          <div class="form-grid cols-2">
+            <div class="form-field">
+              <label class="form-label">When?</label>
+              <input class="form-input" id="f-reactionDate" type="date" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Reaction details</label>
+              <textarea class="form-textarea" id="f-reactionDetails" placeholder="Describe the reaction..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- INDICATION CHECKLIST -->
+        <div class="form-section-title">Indication for Transfusion <span>*</span></div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+          Select the indication(s) that apply. Multiple selections are allowed.
+        </p>
+
+        <div id="indication-container" style="display:none">
+          <!-- ADULT: WHOLE BLOOD INDICATIONS -->
+          <div class="indication-group" id="group-WHOLE_BLOOD" style="display:none">
+            <div class="indication-header">Whole Blood - Approximate Volume: 500mL (More than 1 day old)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-WB-1" value="WB-1" class="indication-checkbox" data-component="WHOLE_BLOOD">
+              <label for="ind-WB-1">
+                <strong>WB-1:</strong> Active bleeding with at least one of the following:
+              </label>
+            </div>
+            <div class="indication-sub-group" id="sub-WB-1" style="display:none">
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-WB-1a" value="WB-1a" class="indication-checkbox sub" data-parent="WB-1" data-component="WHOLE_BLOOD">
+                <label for="ind-WB-1a">a. Loss of over 15% of blood volume</label>
+              </div>
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-WB-1b" value="WB-1b" class="indication-checkbox sub" data-parent="WB-1" data-component="WHOLE_BLOOD">
+                <label for="ind-WB-1b">b. Hemoglobin less than 90 g/L</label>
+                <input type="number" class="form-input inline-input" placeholder="Present level (g/L)" data-ref="WB-1b" style="margin-left:12px;width:140px">
+              </div>
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-WB-1c" value="WB-1c" class="indication-checkbox sub" data-parent="WB-1" data-component="WHOLE_BLOOD">
+                <label for="ind-WB-1c">c. Blood Pressure decrease >20% and <90 mmHg systolic</label>
+              </div>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-WB-2" value="WB-2" class="indication-checkbox" data-component="WHOLE_BLOOD">
+              <label for="ind-WB-2">
+                <strong>WB-2:</strong> Others (specify)
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="WB-2" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- ADULT: PACKED RED BLOOD CELLS INDICATIONS -->
+          <div class="indication-group" id="group-PRBC" style="display:none">
+            <div class="indication-header">Packed Red Blood Cells (PRBC)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-R-1" value="R-1" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-R-1">
+                <strong>R-1:</strong> Hemoglobin less than 80 g/L or Hematocrit of less than 0.24 (if not due to treatable cause)
+              </label>
+            </div>
+ 
+            <div class="indication-item">
+              <input type="checkbox" id="ind-R-2" value="R-2" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-R-2">
+                <strong>R-2:</strong> Patient for operation/general anesthesia with one of the following:
+              </label>
+            </div>
+            <div class="indication-sub-group" id="sub-R-2" style="display:none">
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-R-2a" value="R-2a" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC">
+                <label for="ind-R-2a">a. Preop Hb <80 g/L or HCT <0.24 (24%) or <0.30 (30%)</label>
+              </div>
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-R-2b" value="R-2b" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC">
+                <label for="ind-R-2b">b. Major operation with high bleeding probability, Hb <100 g/L or HCT <0.30 (30%)</label>
+              </div>
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-R-2c" value="R-2c" class="indication-checkbox sub" data-parent="R-2" data-component="PRBC">
+                <label for="ind-R-2c">c. Signs of hemodynamic instability or inadequate O2 carrying capacity (symptomatic anemia)</label>
+              </div>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-R-3" value="R-3" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-R-3">
+                <strong>R-3:</strong> Symptomatic anemia regardless of Hb level (dyspnea, syncope, postural hypotension, tachycardia, chest pain, TIA)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-R-4" value="R-4" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-R-4">
+                <strong>R-4:</strong> Hb <80 g/L or HCT <0.24 (24%) with concomitant hemorrhage, COPD, coronary artery disease, hemoglobinopathy, or sepsis
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-R-5" value="R-5" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-R-5">
+                <strong>R-5:</strong> Others (specify) - Will trigger review
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="R-5" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- ADULT: WHOLE RED BLOOD CELLS INDICATIONS -->
+          <div class="indication-group" id="group-WRBC" style="display:none">
+            <div class="indication-header">Whole Red Blood Cells (WRBC)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-W-1" value="W-1" class="indication-checkbox" data-component="WRBC">
+              <label for="ind-W-1">
+                <strong>W-1:</strong> History of previous allergic reaction or anaphylactic reactions in immunocompromised patients
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-W-2" value="W-2" class="indication-checkbox" data-component="WRBC">
+              <label for="ind-W-2">
+                <strong>W-2:</strong> Transfusion of group "O" blood during emergencies when specific blood not immediately available
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-W-3" value="W-3" class="indication-checkbox" data-component="WRBC">
+              <label for="ind-W-3">
+                <strong>W-3:</strong> Paroxysmal Nocturnal Hemoglobinuria (PCH)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-W-4" value="W-4" class="indication-checkbox" data-component="WRBC">
+              <label for="ind-W-4">
+                <strong>W-4:</strong> Others (specify) - Will trigger review
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="W-4" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- COMPONENTS WITH SPECIFY-ONLY INDICATIONS -->
+          <div class="indication-group" id="group-LEUKOREDUCED_PRBC" style="display:none">
+            <div class="indication-header">Leukoreduced PRBC</div>
+            <div class="form-field">
+              <label class="form-label">Please Specify <span>*</span></label>
+              <textarea
+                class="form-textarea component-indication-specify"
+                id="f-indicationSpecify-LEUKOREDUCED_PRBC"
+                data-component="LEUKOREDUCED_PRBC"
+                placeholder="Specify the indication for leukoreduced PRBC..."></textarea>
+            </div>
+          </div>
+
+          <div class="indication-group" id="group-ALIQUOTED_PRBC" style="display:none">
+            <div class="indication-header">Aliquoted PRBC</div>
+            <div class="form-field">
+              <label class="form-label">Please Specify <span>*</span></label>
+              <textarea
+                class="form-textarea component-indication-specify"
+                id="f-indicationSpecify-ALIQUOTED_PRBC"
+                data-component="ALIQUOTED_PRBC"
+                placeholder="Specify the indication for aliquoted PRBC..."></textarea>
+            </div>
+          </div>
+
+          <div class="indication-group" id="group-CRYOSUPERNATANT" style="display:none">
+            <div class="indication-header">Cryosupernatant</div>
+            <div class="form-field">
+              <label class="form-label">Please Specify <span>*</span></label>
+              <textarea
+                class="form-textarea component-indication-specify"
+                id="f-indicationSpecify-CRYOSUPERNATANT"
+                data-component="CRYOSUPERNATANT"
+                placeholder="Specify the indication for cryosupernatant..."></textarea>
+            </div>
+          </div>
+
+          <!-- ADULT: PLATELET CONCENTRATE INDICATIONS -->
+          <div class="indication-group" id="group-PLATELET_CONCENTRATE" style="display:none">
+            <div class="indication-header">Platelet Concentrate</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-P-1" value="P-1" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-P-1">
+                <strong>P-1:</strong> Prophylactic administration with count <20,000 and not due to TTP, ITP, or HUS
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-P-2" value="P-2" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-P-2">
+                <strong>P-2:</strong> Active bleeding with platelet count <50,000
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-P-3" value="P-3" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-P-3">
+                <strong>P-3:</strong> Platelet count <50,000 and patient to undergo invasive procedure within 8 hours
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-P-4" value="P-4" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-P-4">
+                <strong>P-4:</strong> Platelet count <100,000 and patient to undergo surgery with critical areas (eyes, brain, etc.)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-P-5" value="P-5" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-P-5">
+                <strong>P-5:</strong> Massive transfusion with diffuse microvascular bleeding with no time to obtain platelet count
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-P-6" value="P-6" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-P-6">
+                <strong>P-6:</strong> Others (specify) - Will trigger review
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="P-6" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- ADULT: CRYOPRECIPITATE INDICATIONS -->
+          <div class="indication-group" id="group-CRYOPRECIPITATE" style="display:none">
+            <div class="indication-header">Cryoprecipitate</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-C-1" value="C-1" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-C-1">
+                <strong>C-1:</strong> Significant Hypofibrinogenemia (less than 100 mg/dL)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-C-2" value="C-2" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-C-2">
+                <strong>C-2:</strong> Hemophilia A
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-C-3" value="C-3" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-C-3">
+                <strong>C-3:</strong> Von Willebrand's Disease or Uremic Bleeding with prolonged Bleeding Time
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-C-4" value="C-4" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-C-4">
+                <strong>C-4:</strong> Others (specify) - Will trigger review
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="C-4" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- ADULT: FRESH FROZEN PLASMA INDICATIONS -->
+          <div class="indication-group" id="group-FRESH_FROZEN_PLASMA" style="display:none">
+            <div class="indication-header">Fresh Frozen Plasma (FFP)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-F-1" value="F-1" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-F-1">
+                <strong>F-1:</strong> PT or PTT >1.5x normal range within 8 hours of transfusion (PT >17 sec / PTT >47 sec)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-F-2" value="F-2" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-F-2">
+                <strong>F-2:</strong> Specific factor deficiencies not treatable with cryoprecipitate
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-F-3" value="F-3" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-F-3">
+                <strong>F-3:</strong> Reversal of Coumadin anticoagulation in bleeding patients not transferrable with Vitamin K
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-F-4" value="F-4" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-F-4">
+                <strong>F-4:</strong> Treatment of Thrombotic Thrombocytopenic Purpura (TTP)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-F-5" value="F-5" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-F-5">
+                <strong>F-5:</strong> Clinical Coagulopathy associated with:
+              </label>
+            </div>
+            <div class="indication-sub-group" id="sub-F-5" style="display:none">
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-F-5a" value="F-5a" class="indication-checkbox sub" data-parent="F-5" data-component="FRESH_FROZEN_PLASMA">
+                <label for="ind-F-5a">a. Massive Transfusion (>20 units of blood in 24 hours)</label>
+              </div>
+              <div class="indication-sub-item">
+                <input type="checkbox" id="ind-F-5b" value="F-5b" class="indication-checkbox sub" data-parent="F-5" data-component="FRESH_FROZEN_PLASMA">
+                <label for="ind-F-5b">b. Late pregnancy termination or Abruptio Placentae</label>
+              </div>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-F-6" value="F-6" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-F-6">
+                <strong>F-6:</strong> Others (specify) - Will trigger review
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="F-6" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- PEDIATRIC: WHOLE BLOOD - EXCHANGE TRANSFUSION -->
+          <div class="indication-group" id="group-WHOLE_BLOOD-PEDIA" style="display:none">
+            <div class="indication-header">Whole Blood - Exchange Transfusion (More than 1 day old)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PW-1" value="PW-1" class="indication-checkbox" data-component="WHOLE_BLOOD">
+              <label for="ind-PW-1">
+                <strong>PW-1:</strong> Infant with indirect bilirubin of 20 mg/dL in first week of life
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PW-2" value="PW-2" class="indication-checkbox" data-component="WHOLE_BLOOD">
+              <label for="ind-PW-2">
+                <strong>PW-2:</strong> Hyperbilirubinemia in infant with prematurity and/or other concomitant illness including one or more of: prenatal asphyxia, acidosis, prolonged hypoxemia, hypothermia, sepsis, hemolysis
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PW-3" value="PW-3" class="indication-checkbox" data-component="WHOLE_BLOOD">
+              <label for="ind-PW-3">
+                <strong>PW-3:</strong> Others (specify)
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="PW-3" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- PEDIATRIC: PACKED RED BLOOD CELLS -->
+          <div class="indication-group" id="group-PRBC-PEDIA" style="display:none">
+            <div class="indication-header">Packed Red Blood Cells (PRBC)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-1" value="PR-1" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-1">
+                <strong>PR-1:</strong> Signs and symptoms of anemia (e.g., pallor, etc.)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-2" value="PR-2" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-2">
+                <strong>PR-2:</strong> Hypovolemia from acute blood loss with signs of shock or anticipated blood loss >10%
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-3" value="PR-3" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-3">
+                <strong>PR-3:</strong> Candidates for major surgery with HCT <0.30 (30%) or Nocturnal <0.35 (35%)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-4" value="PR-4" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-4">
+                <strong>PR-4:</strong> Hypertransfusion for chronic hemolytic anemia (Thalassemia)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-5" value="PR-5" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-5">
+                <strong>PR-5:</strong> Hemoglobin >=130 g/L (HCT >=0.40) and in assisted ventilation
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-6" value="PR-6" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-6">
+                <strong>PR-6:</strong> Anemia with Hb <80 g/L or HCT <0.25 (25%)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-7" value="PR-7" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-7">
+                <strong>PR-7:</strong> Blood volume reduction of 10 mL/kg with HCT <0.45 (45%) in newborn <4 months of age
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-8" value="PR-8" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-8">
+                <strong>PR-8:</strong> Pulmonary disease or congenital heart disease with HCT 0.40-0.45 (40%-45%)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PR-9" value="PR-9" class="indication-checkbox" data-component="PRBC">
+              <label for="ind-PR-9">
+                <strong>PR-9:</strong> Others (specify)
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="PR-9" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- PEDIATRIC: WHOLE RED BLOOD CELLS -->
+          <div class="indication-group" id="group-WRBC-PEDIA" style="display:none">
+            <div class="indication-header">Whole Red Blood Cells (WRBC)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PWR" value="PWR" class="indication-checkbox" data-component="WRBC">
+              <label for="ind-PWR">
+                <strong>PWR:</strong> Others (specify)
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="PWR" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- PEDIATRIC: PLATELET CONCENTRATE -->
+          <div class="indication-group" id="group-PLATELET_CONCENTRATE-PEDIA" style="display:none">
+            <div class="indication-header">Platelet Concentrate</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PP-1" value="PP-1" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-PP-1">
+                <strong>PP-1:</strong> Active bleeding and thrombocytopenia <50,000/L or at risk for intracranial hemorrhage
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PP-2" value="PP-2" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-PP-2">
+                <strong>PP-2:</strong> Active bleeding and qualitative defect
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PP-3" value="PP-3" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-PP-3">
+                <strong>PP-3:</strong> Prophylaxis for severe thrombocytopenia <20,000/L or associated qualitative defect
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PP-4" value="PP-4" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-PP-4">
+                <strong>PP-4:</strong> Scheduled invasive procedure and thrombocytopenia <70,000/L or associated qualitative defect
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PP-5" value="PP-5" class="indication-checkbox" data-component="PLATELET_CONCENTRATE">
+              <label for="ind-PP-5">
+                <strong>PP-5:</strong> Others (specify)
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="PP-5" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- PEDIATRIC: FRESH FROZEN PLASMA -->
+          <div class="indication-group" id="group-FRESH_FROZEN_PLASMA-PEDIA" style="display:none">
+            <div class="indication-header">Fresh Frozen Plasma (FFP)</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PF-1" value="PF-1" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-PF-1">
+                <strong>PF-1:</strong> Significant multiple coagulation factor deficiency or acquired factor deficiency (e.g., dengue shock syndrome)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PF-2" value="PF-2" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-PF-2">
+                <strong>PF-2:</strong> Significant congenital factor deficiency
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PF-3" value="PF-3" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-PF-3">
+                <strong>PF-3:</strong> Anti-Thrombin III Deficiency
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PF-4" value="PF-4" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-PF-4">
+                <strong>PF-4:</strong> Bleeding in exchange transfusion or massive transfusion (>1 blood volume)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PF-5" value="PF-5" class="indication-checkbox" data-component="FRESH_FROZEN_PLASMA">
+              <label for="ind-PF-5">
+                <strong>PF-5:</strong> Others (specify)
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="PF-5" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- PEDIATRIC: CRYOPRECIPITATE -->
+          <div class="indication-group" id="group-CRYOPRECIPITATE-PEDIA" style="display:none">
+            <div class="indication-header">Cryoprecipitate</div>
+            
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PC-1" value="PC-1" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-PC-1">
+                <strong>PC-1:</strong> Factor VIII Deficiency (Hemophilia A)
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PC-2" value="PC-2" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-PC-2">
+                <strong>PC-2:</strong> Von Willebrand's Disease
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PC-3" value="PC-3" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-PC-3">
+                <strong>PC-3:</strong> Disseminated Intravascular Coagulation
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PC-4" value="PC-4" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-PC-4">
+                <strong>PC-4:</strong> Uremia with active bleeding or scheduled invasive procedure
+              </label>
+            </div>
+
+            <div class="indication-item">
+              <input type="checkbox" id="ind-PC-5" value="PC-5" class="indication-checkbox" data-component="CRYOPRECIPITATE">
+              <label for="ind-PC-5">
+                <strong>PC-5:</strong> Others (specify)
+              </label>
+              <input type="text" class="form-input inline-input" placeholder="Please specify..." data-ref="PC-5" style="margin-left:12px;flex:1;max-width:300px">
+            </div>
+          </div>
+
+          <!-- OTHER COMPONENT -->
+          <div class="indication-group" id="group-OTHER" style="display:none">
+            <div class="indication-header">Other Blood Component</div>
+            <div class="form-grid cols-2">
+              <div class="form-field">
+                <label class="form-label">Component Name <span>*</span></label>
+                <input type="text" class="form-input" id="f-otherComponentName" placeholder="e.g. Albumin, Immunoglobulin...">
+              </div>
+              <div class="form-field">
+                <label class="form-label">Indication(s) <span>*</span></label>
+                <input type="text" class="form-input" id="f-otherComponentIndication" placeholder="Specify indication...">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        
+
+        <div class="form-field" style="margin-top:14px">
+          <label class="form-label">Required By Date</label>
+          <input class="form-input" type="date" id="f-requiredBy" />
+        </div>
+
+        <div class="nav-row">
+          <button class="btn-back" onclick="goTo(1)">Back</button>
+          <button class="btn-submit" onclick="goTo(3)">Next: Documents</button>
+        </div>
+      </div><!-- /page-2 -->
+
+      <!-- PAGE 3 — Documents & Contact -->
+      <div class="req-page" id="page-3">
+
+        <div class="form-section-title">Documents</div>
+        <!--
+        <div style="background:var(--charcoal);border-radius:14px;padding:20px 22px;margin-bottom:16px">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
+            <div style="font-size:22px;flex-shrink:0">D</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:white;margin-bottom:4px">Don't have a Doctor's Note yet?</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.6">
+                Download the official CNPH Blood Request Form, have it filled out and signed by the requesting physician, then upload it here.
+                If you are from another hospital, use your hospital's own format instead.
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="form-download-buttons">
+            [Forms will be shown/hidden based on patient age]
+          </div>
+        </div>
+        -->
+
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()"
+          ondragover="event.preventDefault();this.classList.add('has-file')"
+          ondragleave="this.classList.remove('has-file')"
+          ondrop="handleDrop(event)">
+          <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this.files[0])">
+          <div id="upload-placeholder">
+            <div style="font-size:32px;opacity:0.3;margin-bottom:8px">F</div>
+            <div style="font-size:14px;font-weight:600;color:var(--charcoal);margin-bottom:4px">Click to upload Doctor's Note</div>
+            <div style="font-size:12px;color:var(--muted)">PDF, JPG or PNG - Max 10MB</div>
+          </div>
+          <div id="upload-preview" style="display:none;text-align:left">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:40px;height:40px;background:#E8F7EE;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#2E7D4F">OK</div>
+              <div style="flex:1;min-width:0">
+                <div id="file-name" style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--charcoal)"></div>
+                <div id="file-size" style="font-size:11px;color:var(--muted);margin-top:1px"></div>
+              </div>
+              <button type="button" onclick="event.stopPropagation();clearFile()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;padding:4px">x</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional notes -->
+        <div class="form-field" style="margin-top:14px">
+          <label class="form-label">Additional Notes</label>
+          <textarea class="form-textarea" id="f-notes" placeholder="e.g. Hospital name if from another facility, specific condition, or other relevant details..."></textarea>
+        </div>
+
+        <!-- ANONYMOUS contact fields -->
+        <div id="contact-anonymous">
+          <div class="form-section-title">Contact Information</div>
+          <div class="form-grid cols-2">
+            <div class="form-field">
+              <label class="form-label">Relative Full Name <span>*</span></label>
+              <input class="form-input" id="f-requesterName" placeholder="Relative / Watcher" maxlength="50" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Relationship to Patient <span>*</span></label>
+              <select class="form-select" id="f-relationship">
+                <option value="">Select...</option>
+                <option value="Spouse">Spouse</option>
+                <option value="Parent">Parent</option>
+                <option value="Child">Child</option>
+                <option value="Sibling">Sibling</option>
+                <option value="Relative">Other Relative</option>
+                <option value="Watcher">Watcher / Guardian</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Contact Number <span>*</span></label>
+              <input class="form-input" id="f-contact" placeholder="+639123456789" maxlength="13" inputmode="numeric" autocomplete="tel" />
+              <div class="form-inline-error" id="f-contact-error"></div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Staff Authorization Code <span>*</span></label>
+              <input class="form-input" id="f-staffUniqueCode" placeholder="XXXX-XXXX" maxlength="9" autocomplete="off" oninput="handleStaffCodeInput()" />
+              <div class="form-helper-text">Enter the authorization code provided by hospital staff.</div>
+              <div class="form-inline-error" id="f-staffUniqueCode-error"></div>
+            </div>
+          </div>
+          <input id="f-email" type="hidden" />
+        </div>
+
+        <!-- HOSPITAL contact summary (read-only, populated from session) -->
+        <div id="contact-hospital" style="display:none">
+          <div class="form-section-title">Submitting Hospital</div>
+          <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:14px;padding:18px 20px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:44px;height:44px;background:rgba(196,30,58,0.10);border-radius:11px;
+                          display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">H</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;color:var(--charcoal)" id="ch-hospital-name">—</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">
+                  Staff: <strong id="ch-staff-name">—</strong>
+                  &nbsp;·&nbsp;
+                  <span id="ch-staff-email">—</span>
+                </div>
+              </div>
+              <div style="font-size:10px;background:rgba(196,30,58,0.10);color:#C41E3A;
+                          border-radius:6px;padding:3px 9px;font-weight:700;letter-spacing:0.05em">
+                HOSPITAL
+              </div>
+            </div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #E4E4E7;
+                        font-size:12px;color:var(--muted);line-height:1.6">
+              This request will be linked to your hospital account. The confirmation will be sent to your registered email.
+              <a href="#" onclick="logoutHospital();return false"
+                style="color:#C41E3A;font-weight:600;text-decoration:none;margin-left:4px">
+                Switch account
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-row">
+          <button class="btn-back" onclick="goTo(2)">Back</button>
+          <button class="btn-submit" onclick="goTo(4)">Review & Submit</button>
+        </div>
+      </div><!-- /page-3 -->
+
+      <!-- PAGE 4 — Review & Submit -->
+      <div class="req-page" id="page-4">
+
+        <div class="form-section-title">Review Your Request</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Please check all details before submitting.</p>
+
+        <div class="review-block" id="review-patient"></div>
+        <div class="review-block" id="review-blood"></div>
+        <div class="review-block" id="review-clinical"></div>
+        <div class="review-block" id="review-indications"></div>
+        <div class="review-block" id="review-contact"></div>
+        <div class="review-block" id="review-doc"></div>
+
+        <!-- ACKNOWLEDGMENT CHECKBOX -->
+        <div style="background:#F8F8F8;border:1.5px solid #E4E4E7;border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px">
+          <input type="checkbox" id="ack-confirm" style="margin-top:3px;width:18px;height:18px;cursor:pointer;flex-shrink:0">
+          <label for="ack-confirm" style="font-size:13px;line-height:1.6;color:var(--charcoal);cursor:pointer;flex:1">
+            I acknowledge that all information provided above is accurate and complete to the best of my knowledge. I understand that any false or misleading information may result in the rejection or cancellation of this blood request.
+          </label>
+        </div>
+
+
+        <button class="btn-submit" id="submit-btn" onclick="submitRequest()">
+          Submit Blood Request
+        </button>
+
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6">
+          By submitting, you confirm that all information provided is accurate.<br>
+          Your reference number will be shown after submission.
+        </div>
+
+        <div class="nav-row" style="margin-top:12px">
+          <button class="btn-back" onclick="goTo(3)">Edit Documents</button>
+        </div>
+      </div><!-- /page-4 -->
+    </div>
+    </div><!-- /request-form-body -->
+      
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- TRACK PANEL                                    -->
+    <!-- ══════════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-track">
+      <div class="tracker-body">
+
+        <div style="margin-bottom:24px">
+          <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:6px">Track Your Request</div>
+          <div style="font-size:13px;color:var(--muted)">Enter the reference number shown after submission.</div>
+        </div>
+
+        <div class="tracker-search">
+          <div class="tracker-input-wrap">
+            <span class="input-prefix">IP/OP-</span>
+            <input class="tracker-input" id="track-input" placeholder="2026-00123" maxlength="20"
+              onkeydown="if(event.key==='Enter') trackRequest()" />
+          </div>
+          <button class="btn-search" onclick="trackRequest()">Track</button>
+        </div>
+
+        <div id="track-result" class="track-result"></div>
+
+        <div id="track-default" class="track-empty">
+          <div class="track-empty-icon">BR</div>
+          <div class="track-empty-title">Enter your reference number</div>
+          <div style="font-size:13px;color:var(--muted);max-width:300px;margin:6px auto 0;line-height:1.6">
+            Your reference number was sent to your email when you submitted the request. It looks like <strong>BR-2026-00123</strong>.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /tab-container -->
+</div><!-- /main-section -->
+
+<!-- HOW IT WORKS -->
+<div class="how-section">
+  <div class="how-inner">
+    <div class="section-eyebrow">Process</div>
+    <div class="section-title">How It Works</div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">Submit Request</div>
+        <div class="step-desc">Fill out the form with patient details, blood type needed, and upload the doctor's note.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">Admin Review</div>
+        <div class="step-desc">Our Blood Bank staff reviews your request, verifies stock availability, and processes compatibility testing.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div> 
+        <div class="step-title">Get Notified</div>
+        <div class="step-desc">You'll receive an email notification when your request is approved, ready, or if there are any updates.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-title">Pick Up Blood</div>
+        <div class="step-desc">Proceed to the Blood Bank window with a transport box. Blood must be used within 30 minutes of release.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-text">Copyright 2026 CNPH Blood Bank - Camarines Norte Provincial Hospital</div>
+  <div class="footer-text">Open 24/7 - Blood Bank Window - Ground Floor</div>
+</footer>
+
+<div class="bp-modal-overlay" id="bloodplus-modal-overlay" aria-hidden="true">
+  <div class="bp-modal" role="dialog" aria-modal="true" aria-labelledby="bloodplus-modal-title" aria-describedby="bloodplus-modal-message">
+    <button type="button" class="bp-modal-close" onclick="closeBloodPlusModal()" aria-label="Close">x</button>
+    <div class="bp-modal-icon bp-modal-info" id="bloodplus-modal-icon">i</div>
+    <div class="bp-modal-title" id="bloodplus-modal-title">Notice</div>
+    <div class="bp-modal-message" id="bloodplus-modal-message">Message</div>
+    <div class="bp-modal-actions">
+      <button type="button" class="bp-modal-ok" onclick="closeBloodPlusModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function initEkgLoader() {
+    const loader = document.getElementById('ekg-loader');
+    const canvas = document.getElementById('ekg-canvas');
+    const particles = document.getElementById('ekg-particles');
+    if (!loader || !canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    function resizeCanvas() {
+      const wrap = canvas.parentElement;
+      if (!wrap) return;
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const cssW = Math.max(280, Math.floor(wrap.clientWidth || 700));
+      const cssH = Math.max(80, Math.floor(wrap.clientHeight || 100));
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      canvas.style.width = cssW + 'px';
+      canvas.style.height = cssH + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function makeParticles() {
+      if (!particles || particles.children.length > 0) return;
+      const total = 18;
+      for (let i = 0; i < total; i++) {
+        const p = document.createElement('span');
+        p.className = 'ekg-particle';
+        const size = Math.random() * 4 + 2;
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+        p.style.left = (Math.random() * 100).toFixed(2) + '%';
+        p.style.bottom = (Math.random() * 20).toFixed(2) + '%';
+        p.style.setProperty('--dur', (2.2 + Math.random() * 2.8).toFixed(2) + 's');
+        p.style.setProperty('--del', (Math.random() * 1.2).toFixed(2) + 's');
+        particles.appendChild(p);
+      }
+    }
+
+    function drawFrame(t) {
+      const w = canvas.clientWidth || 700;
+      const h = canvas.clientHeight || 100;
+      ctx.clearRect(0, 0, w, h);
+
+      // baseline
+      ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.62);
+      ctx.lineTo(w, h * 0.62);
+      ctx.stroke();
+
+      // ekg trace
+      const progress = Math.min(1, (t % 2200) / 2200);
+      const xMax = w * progress;
+      const yBase = h * 0.62;
+      const amp = h * 0.17;
+
+      ctx.strokeStyle = '#1f5fbf';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(0, yBase);
+      for (let x = 0; x <= xMax; x += 2) {
+        const pulseCenter = ((x / w) * 6) % 1;
+        let y = yBase;
+        if (pulseCenter > 0.45 && pulseCenter < 0.55) {
+          const p = (pulseCenter - 0.45) / 0.10;
+          y = yBase - amp * Math.sin(Math.PI * p);
+        } else {
+          y = yBase + Math.sin((x + t * 0.06) * 0.045) * 1.3;
+        }
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      requestAnimationFrame(drawFrame);
+    }
+
+    function hideLoader() {
+      loader.classList.add('fade-out');
+      window.setTimeout(() => {
+        loader.style.display = 'none';
+      }, 850);
+    }
+
+    resizeCanvas();
+    makeParticles();
+    requestAnimationFrame(drawFrame);
+    window.addEventListener('resize', resizeCanvas);
+
+    const minVisibleMs = 2200;
+    const start = Date.now();
+    const finish = () => {
+      const elapsed = Date.now() - start;
+      window.setTimeout(hideLoader, Math.max(0, minVisibleMs - elapsed));
+    };
+    if (document.readyState === 'complete') finish();
+    else window.addEventListener('load', finish, { once: true });
+  })();
+</script>
+
+<script src="js/blood_request.js"></script>
+</body>
+</html>
+

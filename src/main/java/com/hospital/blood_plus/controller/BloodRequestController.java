@@ -1,16 +1,18 @@
 package com.hospital.blood_plus.controller;
 
 import com.hospital.blood_plus.dto.request.BloodBagRequestDTO;
-import com.hospital.blood_plus.model.AppUser;
+import com.hospital.blood_plus.dto.request.EmailConfirmationRequest;
+import com.hospital.blood_plus.dto.response.BloodRequestOcrResponseDTO;
 import com.hospital.blood_plus.model.BloodBagRequest;
 import com.hospital.blood_plus.service.BloodBagRequestService;
+import com.hospital.blood_plus.service.BloodRequestOcrService;
+
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpStatus;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -18,9 +20,13 @@ import java.util.Map;
 public class BloodRequestController {
 
     private final BloodBagRequestService bloodBagRequestService;
+    private final BloodRequestOcrService bloodRequestOcrService;
 
-    public BloodRequestController(BloodBagRequestService bloodBagRequestService) {
+
+    public BloodRequestController(BloodBagRequestService bloodBagRequestService, BloodRequestOcrService bloodRequestOcrService) { {
         this.bloodBagRequestService = bloodBagRequestService;
+        this.bloodRequestOcrService = bloodRequestOcrService;
+        }
     }
     // ── PUBLIC: Submit anonymous blood request ─────────────────
     // Accepts multipart/form-data: "data" (JSON) + "doctorsNote" (file)
@@ -30,18 +36,29 @@ public class BloodRequestController {
             @RequestPart("data") BloodBagRequestDTO dto,
             @RequestPart(value = "doctorsNote", required = false) MultipartFile doctorsNote) {
         try {
+            // Validate and save the request (service handles mapping and file upload)
             BloodBagRequest saved = bloodBagRequestService.submitAnonymousRequest(dto, doctorsNote);
-
+ 
+            // Build response
             Map<String, Object> response = new HashMap<>();
             response.put("referenceNumber", saved.getReferenceNumber());
             response.put("status", saved.getStatus());
-            response.put("message", "Request submitted successfully. A confirmation will be sent to " + saved.getRequesterEmail());
-
+            response.put("requestedAt", saved.getRequestedAt());
+            response.put("contactEmail", saved.getRequesterEmail());
+            response.put(
+                "message",
+                saved.getRequesterEmail() != null && !saved.getRequesterEmail().isBlank()
+                    ? "Request submitted successfully. A confirmation will be sent to " + saved.getRequesterEmail()
+                    : "Request submitted successfully."
+            );
+ 
             return ResponseEntity.ok(response);
-
+ 
         } catch (IllegalArgumentException e) {
+            // Validation errors
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
+            // Server errors
             e.printStackTrace();
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Failed to submit request. Please try again."));
@@ -54,144 +71,86 @@ public class BloodRequestController {
     public ResponseEntity<?> trackRequest(@PathVariable String refNum) {
         try {
             BloodBagRequest req = bloodBagRequestService.getByReferenceNumber(refNum);
-            // return ResponseEntity.ok(buildTrackResponse(req));
             return ResponseEntity.ok(buildTrackResponse(req));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ── ADMIN: Get all requests ────────────────────────────────
-
-    @GetMapping("/admin/blood-requests")
-    public ResponseEntity<List<BloodBagRequest>> getAllRequests(
-            @RequestParam(required = false) BloodBagRequest.RequestStatus status) {
-        if (status != null) {
-            return ResponseEntity.ok(bloodBagRequestService.getByStatus(status));
-        }
-        return ResponseEntity.ok(bloodBagRequestService.getAllRequests());
-    }
-
-    // ── ADMIN: Approve ─────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/approve")
-    public ResponseEntity<?> approveRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
+    @PostMapping("/blood-requests/confirm-remarks")
+    public ResponseEntity<?> confirmApprovalRemarks(@RequestBody EmailConfirmationRequest dto) {
         try {
-            BloodBagRequest req = bloodBagRequestService.approveRequest(id, currentUser);
+            BloodBagRequest request = bloodBagRequestService.confirmApprovalRemarksByToken(dto);
+            boolean accepted = Boolean.TRUE.equals(dto.getAccepted());
+
             return ResponseEntity.ok(Map.of(
-                    "message", "Request approved.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
+                "message",
+                accepted
+                    ? "Thank you. You accepted the updated blood request terms. The blood bank may now proceed."
+                    : "You rejected the updated blood request terms. The request has been marked as rejected.",
+                "status", request.getStatus(),
+                "referenceNumber", request.getReferenceNumber()
             ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Failed to process the confirmation request. Please contact the blood bank."
+            ));
         }
     }
 
-    // ── ADMIN: Allocate ────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/allocate")
-    public ResponseEntity<?> allocateRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
+    @PostMapping("/req/blood-requests/ocr")
+    public ResponseEntity<?> scanBloodRequestForm(@RequestParam("file") MultipartFile file) {
         try {
-            BloodBagRequest req = bloodBagRequestService.allocateRequest(id, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request marked as allocated.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            BloodRequestOcrResponseDTO result = bloodRequestOcrService.scanRequestForm(file);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", ex.getMessage()));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
+                    Map.of("error", "Unable to scan the form. Please try a clearer image or fill the form manually.")
+            );
         }
     }
 
-    // ── ADMIN: Mark Ready for Release ──────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/ready")
-    public ResponseEntity<?> markReadyRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.markReadyRequest(id, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request marked as ready for release.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
 
-    // ── ADMIN: Release ─────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/release")
-    public ResponseEntity<?> releaseRequest(
-            @PathVariable Long id,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.releaseRequest(id, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request marked as released.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ── ADMIN: Reject ──────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/reject")
-    public ResponseEntity<?> rejectRequest(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal AppUser currentUser) {
-        try {
-            String reason = body.getOrDefault("rejectionReason", "").trim();
-            if (reason.isBlank())
-                return ResponseEntity.badRequest().body(Map.of("error", "Rejection reason is required."));
-
-            BloodBagRequest req = bloodBagRequestService.rejectRequest(id, reason, currentUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request rejected.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // ── ADMIN: Cancel ──────────────────────────────────────────
-    @PutMapping("/admin/blood-requests/{id}/cancel")
-    public ResponseEntity<?> cancelRequest(@PathVariable Long id) {
-        try {
-            BloodBagRequest req = bloodBagRequestService.cancelRequest(id);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Request cancelled.",
-                    "referenceNumber", req.getReferenceNumber(),
-                    "status", req.getStatus()
-            ));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
     private Map<String, Object> buildTrackResponse(BloodBagRequest req) {
         Map<String, Object> res = new HashMap<>();
 
+        res.put("referenceNumber", req.getReferenceNumber());
         res.put("refNum", req.getReferenceNumber());
         res.put("patientName", req.getPatientName());
         res.put("bloodType", req.getBloodType());
         res.put("bloodComponent", req.getBloodComponent());
         res.put("numberOfUnits", req.getNumberOfUnits());
+        res.put("approvedUnits", req.getApprovedUnits());
+        res.put("plateletCount", req.getPlateletCount());
         res.put("urgencyLevel", req.getUrgencyLevel());
         res.put("status", req.getStatus());
         res.put("submittedAt", req.getRequestedAt());
+        res.put("requestedAt", req.getRequestedAt());
         res.put("reviewedAt", req.getReviewedAt());
+        res.put("requestingPhysician", req.getRequestingPhysician());
         res.put("physician", req.getRequestingPhysician());
+        res.put("patientPurok", req.getPatientPurok());
+        res.put("patientBarangay", req.getPatientBarangay());
+        res.put("patientMunicipality", req.getPatientMunicipality());
+        res.put("patientProvince", req.getPatientProvince());
         res.put("requestCategory", req.getRequestCategory());
+        res.put("notes", req.getNotes());
+        res.put("approvalRemarks", req.getApprovalRemarks());
+        res.put("alternativeComponentSuggestion", req.getAlternativeComponentSuggestion());
+        res.put("patientAcceptedRemarks", req.getPatientAcceptedRemarks());
+        res.put("patientRespondedAt", req.getPatientRespondedAt());
+        res.put("confirmationEmailSentAt", req.getConfirmationEmailSentAt());
         res.put("rejectionReason", req.getRejectionReason());
 
         return res;
     }
+    
+ 
 }

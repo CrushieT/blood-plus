@@ -19,6 +19,7 @@ public class BloodBagResponse {
     private Integer volumeMl;
     private String remarks;
     private LocalDateTime collectedAt;
+    private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
     private BagStatus status;
     private BagSource source;
@@ -56,6 +57,9 @@ public class BloodBagResponse {
 
     public LocalDateTime getCollectedAt() { return collectedAt; }
     public void setCollectedAt(LocalDateTime collectedAt) { this.collectedAt = collectedAt; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }

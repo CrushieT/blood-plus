@@ -27,7 +27,7 @@ public class AppUser {
     private Role role;
 
     public enum Role {    
-        HOSPITAL, ADMIN
+        HOSPITAL, ADMIN, STAFF
     }
 
     @Column(length = 4)

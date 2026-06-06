@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blood Releasing and Blood Tracer Form</title>
+
+  <style>
+    @page {
+      size: 13in 8.5in;
+      margin: 0.25in;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #e7e7e7;
+      color: #000;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      padding: 10px;
+    }
+
+    .print-controls {
+      width: 12.5in;
+      margin: 0 auto 8px auto;
+      text-align: right;
+    }
+
+    .print-controls button {
+      border: 1px solid #000;
+      background: #fff;
+      padding: 7px 13px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 1000;
+      padding: 16px;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #d8d8d8;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.20);
+    }
+
+    .modal-body {
+      padding: 28px;
+      text-align: center;
+    }
+
+    .modal-icon {
+      font-size: 42px;
+      margin-bottom: 14px;
+      line-height: 1;
+    }
+
+    .modal-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .modal-message {
+      font-size: 14px;
+      color: #4a4a4a;
+      margin-bottom: 10px;
+      line-height: 1.55;
+    }
+
+    .modal-details {
+      font-size: 13px;
+      background: #f7f2ea;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 18px;
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .modal-note {
+      font-size: 12px;
+      color: #6a6a6a;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .modal-actions button {
+      flex: 1;
+      justify-content: center;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      background: #f3f3f3;
+      border-color: #d5d5d5 !important;
+      color: #222;
+    }
+
+    .btn-reset {
+      background: #b42318;
+      color: #fff;
+    }
+
+    .modal-actions button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .sheet {
+      width: 12.5in;
+      height: 8in;
+      margin: 0 auto;
+      background: #fff;
+      padding: 0.03in 0.15in 0.05in 0.15in;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* HEADER IMAGE - centered and proportional like the Page 1 reference */
+    .header {
+      height: 1.55in;
+      position: relative;
+      text-align: center;
+      overflow: visible;
+    }
+
+    .header-banner {
+      width: 7.65in;
+      height: auto;
+      max-height: 1.48in;
+      display: block;
+      object-fit: contain;
+      margin: 0 auto;
+    }
+
+    .form-title {
+      font-size: 17px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-align: center;
+      line-height: 1;
+      margin-top: 0.08in;
+    }
+
+    /* TOP DETAILS */
+    .top-section {
+      display: grid;
+      grid-template-columns: 4.00in 3.35in 4.55in;
+      column-gap: 0.10in;
+      align-items: start;
+      height: 1.50in;
+      margin-top: 0.20in;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: flex-end;
+      height: 0.19in;
+      line-height: 1;
+      font-size: 11px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .field-label {
+      flex: 0 0 auto;
+      padding-right: 0.055in;
+    }
+
+    .line {
+      display: inline-block;
+      border-bottom: 1px solid #000;
+      min-height: 0.15in;
+      line-height: 0.15in;
+      text-align: center;
+      font-size: 10.5px;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .line.flex {
+      flex: 1 1 auto;
+    }
+
+    .line.w-temp {
+      width: 1.12in;
+    }
+
+    .line.w-transaction {
+      width: 1.18in;
+    }
+
+    .line span[data-field] {
+      font-weight: bold;
+    }
+
+    @media screen {
+      [data-field][contenteditable="true"] {
+        outline: 1px dashed transparent;
+        border-radius: 4px;
+        padding: 1px 3px;
+        transition: outline-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+        cursor: text;
+      }
+
+      [data-field][contenteditable="true"]:hover,
+      [data-field][contenteditable="true"]:focus {
+        outline-color: #0b7a36;
+        background: #eefaf1;
+        box-shadow: 0 0 0 2px rgba(11, 122, 54, 0.18);
+      }
+
+      .line.editing-line {
+        background: #f3fff6;
+        border-bottom-color: #0b7a36;
+        box-shadow: inset 0 -2px 0 rgba(11, 122, 54, 0.35);
+      }
+
+      .form-table td.editing-cell {
+        background: #f3fff6;
+        box-shadow: inset 0 0 0 2px rgba(11, 122, 54, 0.35);
+      }
+    }
+
+    .transport-helper {
+      font-size: 7.5px;
+      font-style: italic;
+      text-align: center;
+      line-height: 1;
+      margin-top: 0.01in;
+      margin-bottom: 0.025in;
+    }
+
+    .receiving-note {
+      font-size: 13px;
+      color: #c00000;
+      font-weight: bold;
+      text-align: left;
+      margin-top: 0.09in;
+      margin-bottom: 0.03in;
+      letter-spacing: 0.4px;
+    }
+
+    .right-top .field-row {
+      height: 0.21in;
+    }
+
+    .qa-box {
+      margin-top: 0.24in;
+      padding-left: 0.20in;
+      font-size: 10.5px;
+      line-height: 1;
+    }
+
+    .qa-title {
+      text-align: center;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 0.06in;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+
+    .qa-row {
+      display: flex;
+      align-items: flex-end;
+      height: 0.18in;
+      white-space: nowrap;
+    }
+
+    .qa-label {
+      flex: 0 0 auto;
+      padding-right: 0.07in;
+      font-weight: normal;
+    }
+
+    .signature-note {
+      text-align: right;
+      font-size: 8px;
+      font-style: italic;
+      padding-right: 0.13in;
+      margin-top: 0.015in;
+    }
+
+    /* CHECKLIST */
+    .check-section {
+      display: grid;
+      grid-template-columns: 3.25in 4.35in;
+      column-gap: 0.25in;
+      margin-top: 0.07in;
+      margin-bottom: 0.025in;
+      font-size: 10.5px;
+      line-height: 1.12;
+    }
+
+    .check-title {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 0.01in;
+    }
+
+    .check-item {
+      white-space: nowrap;
+      padding-left: 0.38in;
+      margin-bottom: 0.01in;
+    }
+
+    .check-toggle {
+      border: none;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      color: inherit;
+      font: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.04in;
+      cursor: pointer;
+      line-height: 1.12;
+    }
+
+    .check-box {
+      display: inline-block;
+      width: 0.28in;
+      text-align: center;
+      font-weight: bold;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    /* CHECKED */
+    .check-toggle[data-checked="true"] .check-box::before {
+      content: "( ✓ )";
+      color: #000;
+    }
+
+    /* UNCHECKED */
+    .check-toggle[data-checked="false"] .check-box::before {
+      content: "(   )";
+      color: #000;
+    }
+
+    /* MAIN TABLE */
+    .form-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-top: 0;
+    }
+
+    .form-table th,
+    .form-table td {
+      border: 1px solid #000;
+      text-align: center;
+      vertical-align: middle;
+      padding: 1px 2px;
+      line-height: 1;
+      font-size: 8.5px;
+      font-weight: normal;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .form-table th {
+      font-weight: bold;
+    }
+
+    .form-table .row-number-head,
+    .form-table .row-number {
+      border-left: none !important;
+      border-top: none !important;
+      border-bottom: none !important;
+      width: 0.22in;
+      text-align: right;
+      padding-right: 0.035in;
+      font-size: 8.5px;
+      font-weight: normal;
+    }
+
+    .form-table .group-head {
+      height: 0.27in;
+      font-size: 10px;
+      font-weight: bold;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .form-table .group-sub {
+      display: block;
+      font-size: 8px;
+      font-weight: normal;
+      margin-top: 1px;
+    }
+
+    .form-table .main-head {
+      height: 0.30in;
+      font-size: 9px;
+      line-height: 1.05;
+    }
+
+    .form-table .small-note {
+      display: block;
+      font-size: 7px;
+      font-weight: normal;
+      line-height: 1;
+      margin-top: 1px;
+    }
+
+    .form-table .transfusion-head {
+      height: 0.15in;
+      font-size: 9px;
+    }
+
+    .form-table tbody td {
+      height: 0.145in;
+      font-size: 8px;
+      line-height: 1;
+    }
+
+    /* FOOTER */
+    .footer {
+      margin-top: 0.08in;
+      font-size: 10.5px;
+      line-height: 1.12;
+    }
+
+    .footer strong {
+      font-weight: bold;
+    }
+
+    .footer em {
+      font-style: italic;
+      font-weight: bold;
+    }
+
+    .footer-note {
+      margin-top: 0.02in;
+    }
+
+    .bottom-footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: end;
+      margin-top: 0.16in;
+      font-size: 10px;
+    }
+
+    .form-code {
+      text-align: left;
+      font-weight: bold;
+    }
+
+    .revision {
+      text-align: center;
+    }
+
+    .pathologist-area {
+      text-align: right;
+      line-height: 1.1;
+    }
+
+    .pathologist-name {
+      font-weight: bold;
+    }
+
+    .pathologist-title {
+      font-size: 9.5px;
+    }
+
+    .effectivity {
+      font-size: 9px;
+      margin-top: 0.11in;
+    }
+
+    @media print {
+      html,
+      body {
+        width: 13in;
+        height: 8.5in;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+      }
+
+      .print-controls {
+        display: none !important;
+      }
+
+      .modal-overlay {
+        display: none !important;
+      }
+
+      .sheet {
+        width: 12.5in;
+        height: 8in;
+        margin: 0;
+        padding: 0.03in 0.15in 0.05in 0.15in;
+        overflow: hidden;
+      }
+
+      .check-toggle {
+        cursor: default;
+      }
+
+      * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="print-controls">
+    <button type="button" onclick="resetToDefaultAndSave()">Reset</button>
+    <button type="button" onclick="saveForm()">Save</button>
+    <button type="button" onclick="printForm()">Save &amp; Print</button>
+    <span id="save-status" style="margin-left:12px;font-size:12px;"></span>
+  </div>
+
+  <div class="modal-overlay" id="sysResetConfirmModal">
+    <div class="modal">
+      <div class="modal-body">
+        <div class="modal-icon">!</div>
+        <div class="modal-title">Reset to Default?</div>
+        <div class="modal-message" id="sysResetConfirmMessage">
+          Are you sure you want to reset this tracer to default values?
+        </div>
+        <div class="modal-details" id="sysResetConfirmDetails">
+          Blood request default data will overwrite the saved tracer snapshot.
+        </div>
+        <div class="modal-note">This action can be saved immediately.</div>
+        <div class="modal-actions">
+          <button class="btn-secondary" type="button" onclick="closeSysResetConfirmModal()">
+            Cancel
+          </button>
+          <button class="btn-reset" id="sysResetConfirmBtn" type="button" onclick="sysConfirmResetAction()">
+            Yes, Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main class="sheet">
+    <header class="header">
+      <img src="blood-bank-header.png" class="header-banner" alt="Blood Bank Header" />
+      <div class="form-title">BLOOD RELEASING AND BLOOD TRACER FORM</div>
+    </header>
+
+    <section class="top-section">
+      <div class="left-fields">
+        <div class="field-row">
+          <span class="field-label">Blood Service Facility:</span>
+          <span class="line flex"><span data-field="bloodServiceFacility"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Prepared By:</span>
+          <span class="line flex"><span data-field="preparedBy"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Released By:</span>
+          <span class="line flex"><span data-field="releasedBy"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Date Released:</span>
+          <span class="line flex"><span data-field="dateReleased"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Time Released:</span>
+          <span class="line flex"><span data-field="timeReleased"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Temperature Prior Transport:</span>
+          <span class="line flex"><span data-field="temperaturePriorTransport"></span></span>
+        </div>
+      </div>
+
+      <div class="middle-fields">
+        <div class="field-row">
+          <span class="field-label">Transported by:</span>
+          <span class="line flex"><span data-field="transportedBy"></span></span>
+        </div>
+
+        <div class="transport-helper">(Full name of Nurse/ Medtech/ Aide)</div>
+
+        <div class="receiving-note">To be filled by Receiving BSF/Laboratory:</div>
+
+        <div class="field-row">
+          <span class="field-label">Blood received:</span>
+          <span class="line flex"><span data-field="bloodReceivedBy"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Date Received:</span>
+          <span class="line flex"><span data-field="dateReceived"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Time Received:</span>
+          <span class="line flex"><span data-field="timeReceived"></span></span>
+        </div>
+
+        <div class="field-row">
+          <span class="field-label">Temp upon receipt:</span>
+          <span class="line flex"><span data-field="tempUponReceipt"></span></span>
+        </div>
+      </div>
+
+      <div class="right-top">
+        <div class="field-row">
+          <span class="field-label">Transport Box Temp.:</span>
+          <span class="line w-temp"><span data-field="transportBoxTemp"></span></span>
+                  </div>
+
+        <div class="field-row">
+          <span class="field-label">Transaction Number:</span>
+          <span class="line w-transaction"><span data-field="transactionNumber"></span></span>
+        </div>
+
+        <div class="qa-box">
+          <div class="qa-title">BLOOD UNITS PASSED QUALITY ASSURANCE CHECK</div>
+
+          <div class="qa-row">
+            <span class="qa-label">CNPH Total Quality Manager:</span>
+            <span class="line flex"><span data-field="qualityManager"></span></span>
+          </div>
+
+          <div class="qa-row">
+            <span class="qa-label">Receiving BSF QA Officer:</span>
+            <span class="line flex"><span data-field="receivingOfficer"></span></span>
+          </div>
+
+          <div class="signature-note">Printed Name &amp; Signature</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="check-section">
+      <div class="check-title">Checked and Found Negative for:</div>
+
+      <div>
+        <div class="check-item">(✓) Sign of Hemolysis</div>
+        <div class="check-item">(✓) Blood Clots</div>
+        <div class="check-item">(✓) Leakage on the bag</div>
+        <div class="check-item">(✓) Sign of bacterial contamination</div>
+        <div class="check-item">(✓) Greenish discoloration</div>
+      </div>
+
+      <div>
+        <div class="check-item">(✓) Indirect contact of coolant to bag</div>
+        <div class="check-item">(✓) Plasma not in frozen state</div>
+        <div class="check-item">(✓) Coolants sufficient in amount and in frozen state</div>
+      </div>
+    </section>
+
+    <table class="form-table">
+      <colgroup>
+        <col style="width: 0.22in;" />
+        <col style="width: 0.62in;" />
+        <col style="width: 0.92in;" />
+        <col style="width: 1.25in;" />
+        <col style="width: 0.82in;" />
+        <col style="width: 0.82in;" />
+        <col style="width: 1.70in;" />
+        <col style="width: 1.75in;" />
+        <col style="width: 0.35in;" />
+        <col style="width: 0.35in;" />
+        <col style="width: 0.44in;" />
+        <col style="width: 0.44in;" />
+        <col style="width: 0.47in;" />
+        <col style="width: 0.47in;" />
+        <col style="width: 0.43in;" />
+        <col style="width: 0.40in;" />
+        <col style="width: 0.75in;" />
+      </colgroup>
+
+      <thead>
+        <tr>
+          <th class="row-number-head"></th>
+          <th colspan="5" class="group-head">
+            BLOOD RELEASE FORM
+            <span class="group-sub">(To be filled-up by CNPH)</span>
+          </th>
+          <th colspan="11" class="group-head">
+            BLOOD TRACER FORM
+            <span class="group-sub">(To be filled-up by Requesting Hospital)</span>
+          </th>
+        </tr>
+
+        <tr>
+          <th class="row-number-head"></th>
+          <th class="main-head" rowspan="2">ABO/ RH</th>
+          <th class="main-head" rowspan="2">Component<br />Released</th>
+          <th class="main-head" rowspan="2">Serial Number</th>
+          <th class="main-head" rowspan="2">Extraction<br />Date</th>
+          <th class="main-head" rowspan="2">Expiration<br />Date</th>
+          <th class="main-head" rowspan="2">
+            Patient's Name
+            <span class="small-note">(Last First Middle)</span>
+          </th>
+          <th class="main-head" rowspan="2">
+            Address
+            <span class="small-note">(Purok/ Brgy/ Municipality/<br />Province)</span>
+          </th>
+          <th class="main-head" rowspan="2">Age</th>
+          <th class="main-head" rowspan="2">Sex</th>
+          <th class="main-head" rowspan="2">Ward</th>
+          <th class="main-head" rowspan="2">Rm. #</th>
+          <th class="transfusion-head" colspan="4">TRANSFUSION</th>
+          <th class="main-head" rowspan="2">Remarks</th>
+        </tr>
+
+        <tr>
+          <th class="row-number-head"></th>
+          <th>Ind.<br />Code</th>
+          <th>Date</th>
+          <th>Comp</th>
+          <th>Rxn</th>
+        </tr>
+      </thead>
+
+      <tbody id="bloodRows"></tbody>
+    </table>
+
+    <footer class="footer">
+      <div>
+        <strong>RESULTS OF TESTS DONE:</strong>
+        <strong>Non-reactive to HBsAg, Syphilis, HCV &amp; HIV. No Malarial Parasite Seen.</strong>
+      </div>
+
+      <div>
+        <em>(Serological Screening Tests Done at Bicol Medical Center - Bicol Transfusion Science Centre)</em>
+      </div>
+
+      <div class="footer-note">
+        <strong>NOTE:</strong>
+        Please contact CNPH Blood Bank immediately for any discrepancy or concern regarding the blood products released at
+        <strong>cnphbloodbank@gmail.com</strong>.
+      </div>
+
+      <div>
+        Should a transfusion reaction occur, please attach copy of Transfusion Reaction Work-up &amp; Investigation by HBTC.
+      </div>
+
+      <div class="bottom-footer">
+        <div class="form-code">BBF24-019</div>
+        <div class="revision">Rev. No. 1</div>
+        <div class="pathologist-area">
+          <div class="pathologist-name"><span data-field="pathologist"></span></div>
+          <div class="pathologist-title">Pathologist</div>
+          <div class="effectivity">Effectivity Date: April 23, 2025</div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const formData = {
+      bloodServiceFacility: "",
+      preparedBy: "MARY ANN C. MEJIA, RMT",
+      releasedBy: "MARY ANN C. MEJIA, RMT",
+      dateReleased: "",
+      timeReleased: "1:40PM",
+      temperaturePriorTransport: "(+)4°C",
+
+      transportedBy: "✓",
+      bloodReceivedBy: "",
+      dateReceived: "",
+      timeReceived: "",
+      tempUponReceipt: "",
+
+      transportBoxTemp: "✓",
+      transactionNumber: "",
+
+      qualityManager: "Mary Ann C. Mejia, RMT",
+      receivingOfficer: "",
+      pathologist: "MONINA CACAWA-MONTENEGRO, MD",
+
+      rows: [
+        {
+          aboRh: "A+",
+          componentReleased: "PRBC",
+          serialNumber: "123456",
+          extractionDate: "2026-05-13",
+          expirationDate: "2026-06-13",
+          patientName: "Juan Dela Cruz",
+          address: "Daet, Camarines Norte",
+          age: "25",
+          sex: "M",
+          ward: "ER",
+          rmNo: "101",
+          indicationCode: "",
+          transfusionDate: "2026-05-13",
+          comp: "PRBC",
+          rxn: "None",
+          remarks: "Released"
+        }
+      ]
+    };
+
+    const TABLE_COLUMNS = [
+      "aboRh",
+      "componentReleased",
+      "serialNumber",
+      "extractionDate",
+      "expirationDate",
+      "patientName",
+      "address",
+      "age",
+      "sex",
+      "ward",
+      "rmNo",
+      "indicationCode",
+      "transfusionDate",
+      "comp",
+      "rxn",
+      "remarks"
+    ];
+    const CHECKLIST_DEFINITION = [
+      [
+        { field: "checkSignHemolysis", label: "Sign of Hemolysis" },
+        { field: "checkBloodClots", label: "Blood Clots" },
+        { field: "checkLeakageOnBag", label: "Leakage on the bag" },
+        { field: "checkBacterialContamination", label: "Sign of bacterial contamination" },
+        { field: "checkGreenishDiscoloration", label: "Greenish discoloration" }
+      ],
+      [
+        { field: "checkIndirectCoolantContact", label: "Indirect contact of coolant to bag" },
+        { field: "checkPlasmaNotFrozen", label: "Plasma not in frozen state" },
+        { field: "checkCoolantsSufficientFrozen", label: "Coolants sufficient in amount and in frozen state" }
+      ]
+    ];
+    const CHECKLIST_FIELDS = CHECKLIST_DEFINITION.flat().map(function (item) {
+      return item.field;
+    });
+
+    const ROW_COUNT = 10;
+    let currentReferenceNumber = "";
+    let currentRequestId = null;
+    let defaultFormData = null;
+    let isSaving = false;
+    let sysResetAction = null;
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.add("show");
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.remove("show");
+    }
+
+    function setSaveStatus(message, isError) {
+      const el = document.getElementById("save-status");
+      if (!el) return;
+      el.textContent = message || "";
+      el.style.color = isError ? "#b00020" : "#1f7a3f";
+    }
+
+    function toText(value) {
+      if (value === null || value === undefined) return "";
+      return String(value);
+    }
+
+    function formatDateValue(value) {
+      if (!value) return "";
+      const dt = new Date(value);
+      if (Number.isNaN(dt.getTime())) return toText(value);
+      return dt.toLocaleDateString("en-CA");
+    }
+
+    function formatTimeValue(value) {
+      if (!value) return "";
+      const dt = new Date(value);
+      if (Number.isNaN(dt.getTime())) return toText(value);
+      return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    }
+
+    function normalizeChecklistValue(value, fallback = true) {
+      if (value === null || value === undefined || value === "") return fallback;
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        return !["false", "0", "no", "off"].includes(normalized);
+      }
+      return Boolean(value);
+    }
+
+    function renderChecklistColumn(items) {
+      return items.map(function (item) {
+        return `
+          <div class="check-item">
+            <button type="button" class="check-toggle" data-check-field="${item.field}" data-checked="false" aria-pressed="false">
+              <span class="check-box"></span><span>${item.label}</span>
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderChecklistButtons() {
+      const columns = document.querySelectorAll(".check-section > div");
+      if (!columns || columns.length < 3) return;
+      columns[1].innerHTML = renderChecklistColumn(CHECKLIST_DEFINITION[0]);
+      columns[2].innerHTML = renderChecklistColumn(CHECKLIST_DEFINITION[1]);
+    }
+
+    function setChecklistValue(fieldName, checked) {
+      const button = document.querySelector(`.check-toggle[data-check-field="${fieldName}"]`);
+      if (!button) return;
+      const normalized = Boolean(checked);
+      button.setAttribute("data-checked", normalized ? "true" : "false");
+      button.setAttribute("aria-pressed", normalized ? "true" : "false");
+    }
+
+    function getChecklistValue(fieldName, fallback = true) {
+      const button = document.querySelector(`.check-toggle[data-check-field="${fieldName}"]`);
+      if (!button) return fallback;
+      return button.getAttribute("data-checked") !== "false";
+    }
+
+    function bindChecklistToggles() {
+      document.querySelectorAll(".check-toggle[data-check-field]").forEach(function (button) {
+        if (button.dataset.bound === "true") return;
+        button.dataset.bound = "true";
+        button.addEventListener("click", function () {
+          const isChecked = button.getAttribute("data-checked") !== "false";
+          setChecklistValue(button.getAttribute("data-check-field"), !isChecked);
+        });
+      });
+    }
+
+    function decodePayload() {
+      const encoded = new URLSearchParams(window.location.search).get("data");
+      if (!encoded) return {};
+      const normalized = encoded.replace(/ /g, "+");
+
+      try {
+        const binary = atob(decodeURIComponent(normalized));
+        const bytes = Uint8Array.from(binary, function (ch) {
+          return ch.charCodeAt(0);
+        });
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch (err) {
+        try {
+          return JSON.parse(atob(normalized));
+        } catch (fallbackErr) {
+          console.warn("Unable to decode blood tracer payload.", fallbackErr);
+          return {};
+        }
+      }
+    }
+
+    function normalizeRows(rows) {
+      const source = Array.isArray(rows) ? rows : [];
+      const normalizedRows = [];
+
+      for (let i = 0; i < ROW_COUNT; i++) {
+        const src = source[i] || {};
+        const normalized = {};
+        TABLE_COLUMNS.forEach(function (column) {
+          normalized[column] = column === "indicationCode" ? "" : toText(src?.[column]);
+        });
+        normalizedRows.push(normalized);
+      }
+
+      return normalizedRows;
+    }
+
+    function resolveFormData() {
+      const payload = decodePayload();
+
+      const merged = {
+        bloodServiceFacility: "CNPH BSF",
+        preparedBy: "MARY ANN C. MEJIA, RMT",
+        releasedBy: "",
+        dateReleased: "",
+        timeReleased: "",
+        temperaturePriorTransport: "",
+        transportedBy: "",
+        bloodReceivedBy: "",
+        dateReceived: "",
+        timeReceived: "",
+        tempUponReceipt: "",
+        transportBoxTemp: "",
+        transactionNumber: "",
+        qualityManager: "Mary Ann C. Mejia, RMT",
+        receivingOfficer: "",
+        pathologist: "MONINA CACAWA-MONTENEGRO, MD",
+        checkSignHemolysis: true,
+        checkBloodClots: true,
+        checkLeakageOnBag: true,
+        checkBacterialContamination: true,
+        checkGreenishDiscoloration: true,
+        checkIndirectCoolantContact: true,
+        checkPlasmaNotFrozen: true,
+        checkCoolantsSufficientFrozen: true,
+        rows: [],
+        ...payload
+      };
+
+      merged.bloodServiceFacility = toText(merged.bloodServiceFacility);
+      merged.preparedBy = toText(merged.preparedBy);
+      merged.qualityManager = toText(merged.qualityManager);
+      merged.pathologist = toText(merged.pathologist);
+      merged.releasedBy = toText(merged.releasedBy || merged.preparedBy);
+      merged.transactionNumber = toText(merged.transactionNumber);
+
+      if (!merged.dateReleased) {
+        merged.dateReleased = formatDateValue(payload.releasedAt);
+      } else {
+        merged.dateReleased = formatDateValue(merged.dateReleased);
+      }
+
+      if (!merged.timeReleased) {
+        merged.timeReleased = formatTimeValue(payload.releasedAt);
+      } else {
+        merged.timeReleased = formatTimeValue(merged.timeReleased);
+      }
+
+      merged.temperaturePriorTransport = toText(payload.temperaturePriorTransport);
+      merged.transportedBy = toText(payload.transportedBy);
+      merged.bloodReceivedBy = toText(payload.bloodReceivedBy);
+      merged.dateReceived = toText(payload.dateReceived);
+      merged.timeReceived = toText(payload.timeReceived);
+      merged.tempUponReceipt = toText(payload.tempUponReceipt);
+      merged.transportBoxTemp = toText(payload.transportBoxTemp);
+      merged.receivingOfficer = toText(payload.receivingOfficer);
+      CHECKLIST_FIELDS.forEach(function (fieldName) {
+        merged[fieldName] = normalizeChecklistValue(merged[fieldName], true);
+      });
+      merged.rows = normalizeRows(payload.rows);
+
+      return merged;
+    }
+
+    function mergeFormData(baseData, savedData) {
+      const merged = {
+        ...baseData,
+        ...savedData
+      };
+
+      merged.rows = normalizeRows(baseData.rows);
+      const savedRows = normalizeRows(savedData?.rows);
+      for (let i = 0; i < ROW_COUNT; i++) {
+        merged.rows[i] = {
+          ...merged.rows[i],
+          ...savedRows[i]
+        };
+      }
+
+      return merged;
+    }
+
+    function enableEditing() {
+      document.querySelectorAll("[data-field]").forEach(function (element) {
+        element.setAttribute("contenteditable", "true");
+      });
+      bindEditingVisuals();
+    }
+
+    function bindEditingVisuals() {
+      document.querySelectorAll('[data-field][contenteditable="true"]').forEach(function (el) {
+        if (el.dataset.editVisualBound === "true") return;
+        el.dataset.editVisualBound = "true";
+
+        el.addEventListener("focus", function () {
+          const line = el.closest(".line");
+          const cell = el.closest("td");
+          if (line) line.classList.add("editing-line");
+          if (cell) cell.classList.add("editing-cell");
+        });
+
+        el.addEventListener("blur", function () {
+          const line = el.closest(".line");
+          const cell = el.closest("td");
+          if (line) line.classList.remove("editing-line");
+          if (cell) cell.classList.remove("editing-cell");
+        });
+      });
+    }
+
+    function extractFormDataFromDom() {
+      const data = {
+        bloodServiceFacility: "",
+        preparedBy: "",
+        releasedBy: "",
+        dateReleased: "",
+        timeReleased: "",
+        temperaturePriorTransport: "",
+        transportedBy: "",
+        bloodReceivedBy: "",
+        dateReceived: "",
+        timeReceived: "",
+        tempUponReceipt: "",
+        transportBoxTemp: "",
+        transactionNumber: "",
+        qualityManager: "",
+        receivingOfficer: "",
+        pathologist: "",
+        checkSignHemolysis: true,
+        checkBloodClots: true,
+        checkLeakageOnBag: true,
+        checkBacterialContamination: true,
+        checkGreenishDiscoloration: true,
+        checkIndirectCoolantContact: true,
+        checkPlasmaNotFrozen: true,
+        checkCoolantsSufficientFrozen: true,
+        rows: Array.from({ length: ROW_COUNT }, function () {
+          const row = {};
+          TABLE_COLUMNS.forEach(function (column) {
+            row[column] = "";
+          });
+          return row;
+        })
+      };
+
+      document.querySelectorAll("[data-field]").forEach(function (element) {
+        const fieldName = element.getAttribute("data-field");
+        const value = toText(element.textContent).trim();
+
+        if (fieldName.startsWith("rows.")) {
+          const match = /^rows\.(\d+)\.(.+)$/.exec(fieldName);
+          if (!match) return;
+          const rowIndex = Number(match[1]);
+          const column = match[2];
+          if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= ROW_COUNT) return;
+          data.rows[rowIndex][column] = value;
+          return;
+        }
+
+        data[fieldName] = value;
+      });
+
+      CHECKLIST_FIELDS.forEach(function (fieldName) {
+        data[fieldName] = getChecklistValue(fieldName, true);
+      });
+
+      return {
+        ...data,
+        rows: data.rows.map(function (row, rowIndex) {
+          return {
+            rowIndex,
+            ...row
+          };
+        })
+      };
+    }
+
+    async function fetchSavedTracer(requestId) {
+      const res = await fetch(`/api/admin/blood-requests/${requestId}/tracer`, {
+        method: "GET",
+        credentials: "include",
+        headers: { Accept: "application/json" }
+      });
+
+      if (res.status === 404) return null;
+
+      if (!res.ok) {
+        const err = await res.json().catch(function () {
+          return {};
+        });
+        throw new Error(err.error || `Failed to load tracer (${res.status})`);
+      }
+
+      return res.json();
+    }
+
+    async function saveForm() {
+      if (isSaving) return false;
+      if (!currentRequestId) {
+        setSaveStatus("Missing request ID. Unable to save tracer.", true);
+        return false;
+      }
+
+      isSaving = true;
+      setSaveStatus("Saving...", false);
+
+      try {
+        const payload = extractFormDataFromDom();
+        const res = await fetch(`/api/admin/blood-requests/${currentRequestId}/tracer`, {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(function () {
+            return {};
+          });
+          throw new Error(err.error || `Failed to save tracer (${res.status})`);
+        }
+
+        setSaveStatus("Saved successfully.", false);
+        return true;
+      } catch (err) {
+        setSaveStatus(err.message || "Failed to save tracer.", true);
+        return false;
+      } finally {
+        isSaving = false;
+      }
+    }
+    function formatBloodType(value) {
+      const map = {
+        "A+": "A Pos",
+        "A-": "A Neg",
+        "B+": "B Pos",
+        "B-": "B Neg",
+        "AB+": "AB Pos",
+        "AB-": "AB Neg",
+        "O+": "O Pos",
+        "O-": "O Neg"
+      };
+
+      return map[value] || value || "";
+    }
+
+    function populateForm(data) {
+      document.querySelectorAll("[data-field]").forEach(function (element) {
+        const fieldName = element.getAttribute("data-field");
+
+        if (!fieldName.startsWith("rows.")) {
+          element.textContent = toText(data[fieldName]);
+        }
+      });
+      CHECKLIST_FIELDS.forEach(function (fieldName) {
+        setChecklistValue(fieldName, normalizeChecklistValue(data[fieldName], true));
+      });
+
+      const tbody = document.getElementById("bloodRows");
+      tbody.innerHTML = "";
+
+      const rows = normalizeRows(data.rows);
+
+      for (let rowIndex = 0; rowIndex < ROW_COUNT; rowIndex++) {
+        const rowData = rows[rowIndex] || {};
+        const tr = document.createElement("tr");
+
+        const numberCell = document.createElement("td");
+        numberCell.className = "row-number";
+        numberCell.textContent = rowIndex + 1;
+        tr.appendChild(numberCell);
+
+        TABLE_COLUMNS.forEach(function (column) {
+          const td = document.createElement("td");
+          const span = document.createElement("span");
+
+          span.setAttribute("data-field", "rows." + rowIndex + "." + column);
+          let value = toText(rowData[column]);
+
+          if (column === "aboRh") {
+            value = formatBloodType(value);
+          }
+
+          span.textContent = value;
+
+          td.appendChild(span);
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function printForm() {
+      await saveForm();
+      window.print();
+    }
+
+    function deepClone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function showSysResetConfirmModal(resourceType = "tracer", resourceName = "", details = "", onConfirmCallback) {
+      const messageEl = document.getElementById("sysResetConfirmMessage");
+      const detailsEl = document.getElementById("sysResetConfirmDetails");
+      const btn = document.getElementById("sysResetConfirmBtn");
+
+      if (messageEl) {
+        messageEl.textContent = `Are you sure you want to reset this ${resourceType} to default values?`;
+      }
+      if (detailsEl) {
+        detailsEl.textContent = resourceName || details || "Default values will overwrite the saved snapshot.";
+      }
+
+      sysResetAction = onConfirmCallback;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Yes, Reset";
+      }
+
+      openModal("sysResetConfirmModal");
+    }
+
+    function closeSysResetConfirmModal() {
+      closeModal("sysResetConfirmModal");
+      sysResetAction = null;
+      const btn = document.getElementById("sysResetConfirmBtn");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Yes, Reset";
+      }
+    }
+
+    function sysConfirmResetAction() {
+      if (!sysResetAction || typeof sysResetAction !== "function") return;
+
+      const btn = document.getElementById("sysResetConfirmBtn");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Resetting...";
+      }
+
+      Promise.resolve(sysResetAction()).then(function () {
+        closeSysResetConfirmModal();
+      }).catch(function (err) {
+        console.error("Reset action error:", err);
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Yes, Reset";
+        }
+      });
+    }
+
+    async function resetToDefaultAndSave() {
+      if (isSaving) return;
+      if (!defaultFormData) {
+        setSaveStatus("No default data available to reset.", true);
+        return;
+      }
+
+      showSysResetConfirmModal(
+        "tracer form",
+        currentReferenceNumber ? `#${currentReferenceNumber}` : "",
+        "Blood request default data will overwrite the saved tracer snapshot.",
+        async function () {
+          populateForm(deepClone(defaultFormData));
+          enableEditing();
+          const saved = await saveForm();
+          if (saved) {
+            setSaveStatus("Reset to default and saved.", false);
+          }
+        }
+      );
+    }
+
+    document.addEventListener("DOMContentLoaded", async function () {
+      renderChecklistButtons();
+      bindChecklistToggles();
+
+      const payload = decodePayload();
+      
+      currentRequestId = payload.requestId ?? payload.bloodRequestId ?? null;
+      currentReferenceNumber =
+        payload.referenceNumber ||
+        payload.requestReferenceNumber ||
+        payload.bloodRequestReference ||
+        payload.transactionNumber ||
+        "";
+      try {
+        defaultFormData = resolveFormData();
+        let formData = deepClone(defaultFormData);
+        if (currentRequestId) {
+          const savedTracer = await fetchSavedTracer(currentRequestId);
+          if (savedTracer) {
+            formData = mergeFormData(formData, savedTracer);
+          }
+        }
+        populateForm(formData);
+      } catch (err) {
+        console.warn("Unable to load saved tracer data.", err);
+        defaultFormData = resolveFormData();
+        populateForm(deepClone(defaultFormData));
+      }
+
+      enableEditing();
+      bindChecklistToggles();
+
+      const resetModal = document.getElementById("sysResetConfirmModal");
+      if (resetModal) {
+        resetModal.addEventListener("click", function (event) {
+          if (event.target === resetModal) {
+            closeSysResetConfirmModal();
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+

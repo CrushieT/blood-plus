@@ -38,7 +38,21 @@ public class BloodBag {
         A_POS, A_NEG,
         B_POS, B_NEG,
         AB_POS, AB_NEG,
-        O_POS, O_NEG
+        O_POS, O_NEG;
+
+        public String getDisplayName() {
+            switch (this) {
+                case A_POS: return "A Positive";
+                case A_NEG: return "A Negative";
+                case B_POS: return "B Positive";
+                case B_NEG: return "B Negative";
+                case AB_POS: return "AB Positive";
+                case AB_NEG: return "AB Negative";
+                case O_POS: return "O Positive";
+                case O_NEG: return "O Negative";
+                default: return this.name();
+            }
+        }
     }
 
     @Id

@@ -1,9 +1,10 @@
 (async function guard() {
     try {
         const path        = window.location.pathname;
-        const isSetupPage = path.includes("admin_setup");
-        const isPublicPage = path === "/admin_login.html" ||
-                             path === "/";
+        const isSetupPage = path === "/admin-setup.html";
+        const isPublicPage = path === "/hospital-login.html" ||
+                             path === "/" ||
+                             path === "/blood-request.html";
 
         // ── System status check first ────────────────────────────────────────
         const statusRes  = await fetch("/api/auth/system-status");
@@ -11,13 +12,13 @@
 
         // Not initialized → redirect to setup (unless already on setup page)
         if (!statusData.initialized && !isSetupPage) {
-            window.location.href = "/admin_setup.html";
+            window.location.href = "/admin-setup.html";
             return;
         }
 
         // Already initialized but visiting setup page → redirect to login
         if (statusData.initialized && isSetupPage) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
@@ -31,45 +32,51 @@
         const response = await fetch("/api/auth/me", { credentials: "include" });
 
         // ── Public page ──────────────────────────────────────────────────────
+                // 🟢 PUBLIC PAGE → NEVER REDIRECT
         if (isPublicPage) {
             document.body.style.visibility = "visible";
-            if (!response.ok) return;
 
-            const data = await response.json();
-            if (!data.role) return;
-
-            if (data.role === "DONOR") {
-                window.location.href = data.hasProfile
-                    ? "/donor/donor_dashboard.html"
-                    : "/donor/donor_registration.html";
-            } else if (data.role === "HOSPITAL") {
-                window.location.href = "/hospital/hospital.html";
-            } else if (data.role === "ADMIN") {
-                window.location.href = "/admin/ADMIN.html";
+            // Optional: redirect if already logged in
+            if (response.ok) {
+                const data = await response.json();
+                if (data.role === "HOSPITAL") {
+                    window.location.href = "/hospital/hospital-dashboard.html";
+                } else if (data.role === "ADMIN" || data.role === "STAFF") {
+                    window.location.href = "/admin/admin_dashboard.html";
+                }
             }
-            return;
+
+            return; // 🚨 IMPORTANT: STOP HERE
         }
 
         // ── Protected pages ──────────────────────────────────────────────────
         if (response.status === 401 || response.status === 403 || response.status === 500) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
         const data = await response.json();
 
         if (!data.role) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
             return;
         }
 
               if (path.startsWith("/hospital/") && data.role !== "HOSPITAL") {
-            window.location.href = "/blood_request.html";
+            if (data.role === "ADMIN" || data.role === "STAFF") {
+                window.location.href = "/admin/admin_dashboard.html";
+            } else {
+                window.location.href = "/blood-request.html";
+            }
             return;
         }
 
-        if (path.startsWith("/admin/") && data.role !== "ADMIN") {
-            window.location.href = "/blood_request.html";
+        if (path.startsWith("/admin/") && data.role !== "ADMIN" && data.role !== "STAFF") {
+            if (data.role === "HOSPITAL") {
+                window.location.href = "/hospital/hospital-dashboard.html";
+            } else {
+                window.location.href = "/blood-request.html";
+            }
             return;
         }
 
@@ -81,9 +88,9 @@
 
     } catch (error) {
         const path = window.location.pathname;
-        const isPublicPage = path === "/blood_request.html" || path === "/";
+        const isPublicPage = path === "/blood-request.html" || path === "/";
         if (!isPublicPage) {
-            window.location.href = "/blood_request.html";
+            window.location.href = "/blood-request.html";
         } else {
             document.body.style.visibility = "visible";
         }

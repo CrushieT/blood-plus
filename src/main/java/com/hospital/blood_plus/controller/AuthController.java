@@ -2,7 +2,6 @@ package com.hospital.blood_plus.controller;
 
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,8 +12,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,7 +21,6 @@ import com.hospital.blood_plus.dto.request.RegisterRequest;
 import com.hospital.blood_plus.dto.request.VerifyEmailRequest;
 import com.hospital.blood_plus.model.AppUser;
 import com.hospital.blood_plus.repository.UserRepository;
-import com.hospital.blood_plus.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -57,9 +55,6 @@ public class AuthController {
                 new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
             );
 
-            com.hospital.blood_plus.model.AppUser dbUser = userRepository.findByEmail(user.getEmail())
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
             // ✅ Store authentication in session
             SecurityContext context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(auth);
@@ -72,54 +67,55 @@ public class AuthController {
                     .anyMatch(r -> r.getAuthority().equals("ROLE_HOSPITAL"));
             boolean isAdmin = auth.getAuthorities().stream()
                     .anyMatch(r -> r.getAuthority().equals("ROLE_ADMIN"));
+            boolean isStaff = auth.getAuthorities().stream()
+                    .anyMatch(r -> r.getAuthority().equals("ROLE_STAFF"));
 
             if (isHospital) {
                 return ResponseEntity.ok("LOGIN_SUCCESS_HOSPITAL");
             } else if (isAdmin) {
                 return ResponseEntity.ok("LOGIN_SUCCESS_ADMIN");
-            } else {
+            } else if (isStaff) {
+                return ResponseEntity.ok("LOGIN_SUCCESS_STAFF");
+            }else {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("LOGIN_FAILED_NO_ROLE");
             }
 
+        } catch (DisabledException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("LOGIN_INACTIVE");
         } catch (AuthenticationException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("LOGIN_FAILED");
         }
     }
 
 
-    // @GetMapping("/me")
-    // public ResponseEntity<?> getCurrentUser() {
-    //     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
-    //     if (auth == null || !auth.isAuthenticated() ||
-    //         auth.getPrincipal().equals("anonymousUser")) {
-    //         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-    //                 .body(Map.of("error", "UNAUTHORIZED"));
-    //     }
-
-    //     // ✅ Wrap in try-catch — user might not exist in DB anymore
-    //     try {
-    //         AppUser dbUser = userRepository.findByEmail(auth.getName())
-    //                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-    //         Map<String, Object> response = new HashMap<>();
-    //         response.put("email", dbUser.getEmail());
-    //         response.put("role", dbUser.getRole().name());
-
-    //         if (dbUser.getRole() == AppUser.Role.DONOR) {
-    //             boolean hasProfile = donorProfileRepository.existsByUser(dbUser);
-    //             response.put("hasProfile", hasProfile);
-    //         }
-
-    //         return ResponseEntity.ok(response);
-
-    //     } catch (UsernameNotFoundException e) {
-    //         //  User deleted from DB — force logout
-    //         SecurityContextHolder.clearContext();
-    //         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-    //                 .body(Map.of("error", "USER_NOT_FOUND"));
-    //     }
-    // }
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(HttpServletRequest request) {
+        try {
+            // Get the authentication from the session
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            
+            if (auth == null || !auth.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Not authenticated"));
+            }
+            
+            // Get the principal (username/email)
+            String email = auth.getName();
+            
+            // Fetch the user from database
+            AppUser user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            return ResponseEntity.ok(Map.of(
+                "id",    user.getId(),
+                "email", user.getEmail(),
+                "role",  user.getRole().toString()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Not authenticated"));
+        }
+    }
   
 
 
